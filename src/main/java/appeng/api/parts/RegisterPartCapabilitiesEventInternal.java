@@ -1,13 +1,13 @@
 package appeng.api.parts;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraftforge.common.capabilities.Capability;
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-
 import javax.annotation.Nullable;
+
 public final class RegisterPartCapabilitiesEventInternal {
     private static final ObjectOpenHashSet<Class<? extends TileEntity>> HOST_TYPES = new ObjectOpenHashSet<>();
     private static final Object2ObjectOpenHashMap<Capability<?>, RegisterPartCapabilitiesEvent.PartCapabilityRegistration<?>> REGISTRATIONS = new Object2ObjectOpenHashMap<>();

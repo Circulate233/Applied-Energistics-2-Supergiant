@@ -26,10 +26,10 @@ import appeng.client.gui.widgets.CommonButtons;
 import appeng.client.gui.widgets.ServerSettingToggleButton;
 import appeng.client.gui.widgets.SettingToggleButton;
 import appeng.container.implementations.ContainerSpatialAnchor;
+import appeng.core.localization.GuiText;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
 
 public class GuiSpatialAnchor extends AEBaseGui<ContainerSpatialAnchor> {
 
@@ -47,16 +47,15 @@ public class GuiSpatialAnchor extends AEBaseGui<ContainerSpatialAnchor> {
         super.updateBeforeRender();
         this.overlayToggle.set(this.container.overlayMode);
         if (this.container.getGuiTitle() == null) {
-            setTextContent("dialog_title", new TextComponentTranslation("gui.ae2.SpatialAnchor"));
+            setTextContent("dialog_title", GuiText.SpatialAnchor.text());
         }
-        setTextContent("used_power", new TextComponentTranslation("gui.ae2.SpatialAnchorUsedPower",
+        setTextContent("used_power", GuiText.SpatialAnchorUsedPower.text(
             Platform.formatPowerLong(this.container.powerConsumption * 100, true)));
-        setTextContent("loaded_chunks",
-            new TextComponentTranslation("gui.ae2.SpatialAnchorLoadedChunks", this.container.loadedChunks));
-        setTextContent("statistics_title", new TextComponentTranslation("gui.ae2.SpatialAnchorStatistics"));
-        setTextContent("statistics_loaded", new TextComponentTranslation("gui.ae2.SpatialAnchorAllLoaded",
+        setTextContent("loaded_chunks", GuiText.SpatialAnchorLoadedChunks.text(this.container.loadedChunks));
+        setTextContent("statistics_title", GuiText.SpatialAnchorStatistics.text());
+        setTextContent("statistics_loaded", GuiText.SpatialAnchorAllLoaded.text(
             this.container.allLoadedChunks, this.container.allLoadedWorlds));
-        setTextContent("statistics_total",
-            new TextComponentTranslation("gui.ae2.SpatialAnchorAll", this.container.allChunks, this.container.allWorlds));
+        setTextContent("statistics_total", GuiText.SpatialAnchorAll.text(
+            this.container.allChunks, this.container.allWorlds));
     }
 }

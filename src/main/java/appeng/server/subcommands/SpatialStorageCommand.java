@@ -2,12 +2,15 @@ package appeng.server.subcommands;
 
 import appeng.api.features.IPlayerRegistry;
 import appeng.core.definitions.AEItems;
+import appeng.core.localization.PlayerMessages;
 import appeng.items.storage.SpatialStorageCellItem;
 import appeng.server.ISubCommand;
 import appeng.spatial.SpatialStorageDimensionIds;
 import appeng.spatial.SpatialStoragePlot;
 import appeng.spatial.SpatialStoragePlotManager;
 import appeng.spatial.TransitionInfo;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
@@ -15,12 +18,10 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.Teleporter;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 
 import java.util.Comparator;
 
@@ -51,13 +52,13 @@ public class SpatialStorageCommand implements ISubCommand {
         if (sender.getCommandSenderEntity() instanceof EntityPlayerMP player) {
             return player;
         }
-        throw new CommandException("This command requires a player.");
+        throw new CommandException("commands.ae2.spatial.requires_player");
     }
 
     private static SpatialStoragePlot getPlot(int plotId) throws CommandException {
         SpatialStoragePlot plot = SpatialStoragePlotManager.INSTANCE.getPlot(plotId);
         if (plot == null) {
-            throw new CommandException("No plot found with id " + plotId);
+            throw new CommandException("commands.ae2.spatial.plot_not_found", plotId);
         }
         return plot;
     }
@@ -65,7 +66,7 @@ public class SpatialStorageCommand implements ISubCommand {
     private static SpatialStoragePlot getCurrentPlot(ICommandSender sender) throws CommandException {
         BlockPos playerPos = sender.getPosition();
         if (playerPos == null || sender.getEntityWorld().provider.getDimension() != SpatialStorageDimensionIds.getDimensionId()) {
-            throw new CommandException("Not in the spatial storage dimension.");
+            throw new CommandException("commands.ae2.spatial.not_in_dimension");
         }
 
         for (SpatialStoragePlot plot : SpatialStoragePlotManager.INSTANCE.getPlots()) {
@@ -77,14 +78,14 @@ public class SpatialStorageCommand implements ISubCommand {
             }
         }
 
-        throw new CommandException("No spatial storage plot at the current position.");
+        throw new CommandException("commands.ae2.spatial.no_plot_at_position");
     }
 
     private static int parsePlotId(String input) throws CommandException {
         try {
             return Integer.parseInt(input);
         } catch (NumberFormatException e) {
-            throw new CommandException("Invalid plot id: " + input);
+            throw new CommandException("commands.ae2.spatial.invalid_plot_id", input);
         }
     }
 
@@ -92,26 +93,26 @@ public class SpatialStorageCommand implements ISubCommand {
         return pos.getX() + "," + pos.getY() + "," + pos.getZ();
     }
 
-    private static String describeOwner(MinecraftServer server, int ownerId) {
+    private static ITextComponent describeOwner(MinecraftServer server, int ownerId) {
         if (ownerId == -1) {
-            return "unknown";
+            return PlayerMessages.Unknown.text();
         }
 
         EntityPlayerMP connectedPlayer = IPlayerRegistry.getConnected(server, ownerId);
         if (connectedPlayer != null) {
-            return connectedPlayer.getGameProfile().getName() + " (online)";
+            return PlayerMessages.PlayerConnected.text(connectedPlayer.getGameProfile().getName());
         }
 
         java.util.UUID profileId = IPlayerRegistry.getMapping(server).getProfileId(ownerId);
         if (profileId != null) {
             com.mojang.authlib.GameProfile cachedProfile = server.getPlayerProfileCache().getProfileByUUID(profileId);
             if (cachedProfile != null) {
-                return cachedProfile.getName() + " (offline)";
+                return PlayerMessages.PlayerDisconnected.text(cachedProfile.getName());
             }
-            return profileId.toString();
+            return PlayerMessages.UnknownAE2Player.text(profileId.toString());
         }
 
-        return Integer.toString(ownerId);
+        return PlayerMessages.UnknownAE2Player.text(ownerId);
     }
 
     private static java.time.Instant getLastTransitionTimestamp(SpatialStoragePlot plot) {
@@ -129,7 +130,7 @@ public class SpatialStorageCommand implements ISubCommand {
         try {
             SpatialStoragePlotManager.INSTANCE.getLevel();
         } catch (IllegalStateException e) {
-            sender.sendMessage(new TextComponentString("Spatial storage level is unavailable: " + e.getMessage()));
+            sender.sendMessage(PlayerMessages.SpatialStorageLevelUnavailable.text(e.getMessage()));
             return;
         }
 
@@ -178,31 +179,31 @@ public class SpatialStorageCommand implements ISubCommand {
     private void listPlots(MinecraftServer server, ICommandSender sender) {
         ObjectList<SpatialStoragePlot> plots = new ObjectArrayList<>(SpatialStoragePlotManager.INSTANCE.getPlots());
         if (plots.isEmpty()) {
-            sender.sendMessage(new TextComponentString("No spatial storage plots exist."));
+            sender.sendMessage(PlayerMessages.NoSpatialIOPlots.text());
             return;
         }
 
         plots.sort(Comparator.comparing(SpatialStorageCommand::getLastTransitionTimestamp).reversed());
         for (int i = 0; i < Math.min(5, plots.size()); i++) {
             SpatialStoragePlot plot = plots.get(i);
-            sender.sendMessage(new TextComponentString(
-                "Plot #" + plot.getId() + " size=" + format(plot.getSize()) + " origin=" + format(plot.getOrigin())));
+            sender.sendMessage(PlayerMessages.SpatialPlotSummary.text(
+                plot.getId(), format(plot.getSize()), format(plot.getOrigin())));
         }
     }
 
     private void showPlotInfo(ICommandSender sender, SpatialStoragePlot plot) {
-        sender.sendMessage(new TextComponentString("Plot #" + plot.getId()));
-        sender.sendMessage(new TextComponentString("Owner: " + describeOwner(sender.getServer(), plot.getOwner())));
-        sender.sendMessage(new TextComponentString("Size: " + format(plot.getSize())));
-        sender.sendMessage(new TextComponentString("Origin: " + format(plot.getOrigin())));
-        sender.sendMessage(new TextComponentString("Region: " + plot.getRegionFilename()));
+        sender.sendMessage(PlayerMessages.SpatialPlotId.text(plot.getId()));
+        sender.sendMessage(PlayerMessages.SpatialPlotOwner.text(describeOwner(sender.getServer(), plot.getOwner())));
+        sender.sendMessage(PlayerMessages.SpatialPlotSize.text(format(plot.getSize())));
+        sender.sendMessage(PlayerMessages.SpatialPlotOrigin.text(format(plot.getOrigin())));
+        sender.sendMessage(PlayerMessages.SpatialPlotRegion.text(plot.getRegionFilename()));
 
         TransitionInfo transition = plot.getLastTransition();
         if (transition != null) {
-            sender.sendMessage(new TextComponentString("Last source: " + transition.worldId()));
-            sender.sendMessage(new TextComponentString("Last min: " + format(transition.min())));
-            sender.sendMessage(new TextComponentString("Last max: " + format(transition.max())));
-            sender.sendMessage(new TextComponentString("Last time: " + transition.timestamp()));
+            sender.sendMessage(PlayerMessages.SpatialPlotLastSource.text(transition.worldId()));
+            sender.sendMessage(PlayerMessages.SpatialPlotLastMin.text(format(transition.min())));
+            sender.sendMessage(PlayerMessages.SpatialPlotLastMax.text(format(transition.max())));
+            sender.sendMessage(PlayerMessages.SpatialPlotLastTime.text(transition.timestamp()));
         }
     }
 
@@ -217,7 +218,7 @@ public class SpatialStorageCommand implements ISubCommand {
         EntityPlayerMP player = getPlayer(sender);
         TransitionInfo transition = plot.getLastTransition();
         if (transition == null) {
-            throw new CommandException("No previous transition recorded.");
+            throw new CommandException("commands.ae2.spatial.no_previous_transition");
         }
 
         int dimensionId = transition.dimensionId();
@@ -238,7 +239,7 @@ public class SpatialStorageCommand implements ISubCommand {
         }
 
         if (!(cell.getItem() instanceof SpatialStorageCellItem spatialCellItem)) {
-            throw new CommandException("Not a spatial storage cell.");
+            throw new CommandException("commands.ae2.spatial.not_spatial_cell");
         }
 
         spatialCellItem.setStoredDimension(cell, plot.getId(), plot.getSize());

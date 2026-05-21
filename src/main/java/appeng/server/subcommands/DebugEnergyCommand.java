@@ -2,6 +2,7 @@ package appeng.server.subcommands;
 
 import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.core.localization.PlayerMessages;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
 import appeng.me.service.EnergyService;
@@ -10,7 +11,6 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 public class DebugEnergyCommand implements ISubCommand {
     @Override
@@ -21,8 +21,8 @@ public class DebugEnergyCommand implements ISubCommand {
     @Override
     public void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException {
         if (args.length == 1) {
-            sender.sendMessage(new TextComponentString("Current debug energy mode: "
-                + (AEConfig.instance().isDebugEnergyEnabled() ? "on" : "off")));
+            sender.sendMessage(PlayerMessages.DebugEnergyCurrent.text(
+                AEConfig.instance().isDebugEnergyEnabled() ? "on" : "off"));
             return;
         }
 
@@ -49,7 +49,6 @@ public class DebugEnergyCommand implements ISubCommand {
             gridCount++;
         }
 
-        sender.sendMessage(new TextComponentString("Debug energy mode set to "
-            + (enabled ? "on" : "off") + " and refreshed " + gridCount + " grids."));
+        sender.sendMessage(PlayerMessages.DebugEnergySet.text(enabled ? "on" : "off", gridCount));
     }
 }

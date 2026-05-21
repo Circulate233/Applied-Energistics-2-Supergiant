@@ -18,9 +18,9 @@
 package appeng.block.storage;
 
 import appeng.block.AEBaseTileBlock;
+import appeng.core.localization.GuiText;
 import appeng.tile.storage.TileSkyStoneTank;
 import net.minecraft.block.material.Material;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.BlockRenderLayer;
@@ -68,7 +68,7 @@ public class SkyStoneTankBlock extends AEBaseTileBlock<TileSkyStoneTank> {
     public void addInformation(ItemStack stack, World world, List<String> tooltip,
                                net.minecraft.client.util.ITooltipFlag advanced) {
         super.addInformation(stack, world, tooltip, advanced);
-        tooltip.add(I18n.format("gui.ae2.TankBucketCapacity", TileSkyStoneTank.BUCKET_CAPACITY));
+        tooltip.add(GuiText.TankBucketCapacity.getLocal(TileSkyStoneTank.BUCKET_CAPACITY));
     }
 }
 

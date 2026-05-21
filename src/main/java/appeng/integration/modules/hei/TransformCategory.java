@@ -2,13 +2,13 @@ package appeng.integration.modules.hei;
 
 import appeng.core.AppEng;
 import appeng.core.definitions.AEBlocks;
+import appeng.core.localization.HeiText;
 import mezz.jei.api.IGuiHelper;
 import mezz.jei.api.gui.IDrawable;
 import mezz.jei.api.gui.IGuiItemStackGroup;
 import mezz.jei.api.gui.IRecipeLayout;
 import mezz.jei.api.recipe.IRecipeCategory;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fluids.Fluid;
@@ -20,9 +20,6 @@ import java.util.List;
 @ParametersAreNonnullByDefault
 class TransformCategory implements IRecipeCategory<TransformRecipeWrapper> {
     static final String UID = "ae2.transform";
-    private static final String KEY_CATEGORY = "ae2.rei_jei_integration.transform_category";
-    private static final String KEY_EXPLOSION = "ae2.rei_jei_integration.explosion";
-    private static final String KEY_SUBMERGE_IN = "ae2.rei_jei_integration.submerge_in";
     private static final int WIDTH = 144;
     private static final int HEIGHT = 72;
 
@@ -48,7 +45,7 @@ class TransformCategory implements IRecipeCategory<TransformRecipeWrapper> {
 
     @Override
     public String getTitle() {
-        return I18n.format(KEY_CATEGORY);
+        return HeiText.TransformCategory.getLocal();
     }
 
     @Override
@@ -91,8 +88,9 @@ class TransformCategory implements IRecipeCategory<TransformRecipeWrapper> {
             }
         }
 
-        String circumstanceText =
-            I18n.format(recipeWrapper.getCircumstance().isExplosion() ? KEY_EXPLOSION : KEY_SUBMERGE_IN);
+        String circumstanceText = recipeWrapper.getCircumstance().isExplosion()
+            ? HeiText.Explosion.getLocal()
+            : HeiText.SubmergeIn.getLocal();
         int textWidth = minecraft().fontRenderer.getStringWidth(circumstanceText);
         recipeWrapper.setTitleDrawData((WIDTH - textWidth) / 2, circumstanceText);
         recipeWrapper.setFluidDrawData(0, 0);

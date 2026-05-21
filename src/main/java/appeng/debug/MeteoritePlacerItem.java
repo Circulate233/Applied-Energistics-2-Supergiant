@@ -18,6 +18,7 @@
 
 package appeng.debug;
 
+import appeng.core.localization.PlayerMessages;
 import appeng.items.AEBaseItem;
 import appeng.util.InteractionUtil;
 import appeng.worldgen.meteorite.CraterType;
@@ -82,7 +83,7 @@ public class MeteoritePlacerItem extends AEBaseItem {
             pureCrater);
 
         if (spawned == null) {
-            player.sendMessage(new TextComponentString("Un-suitable Location."));
+            player.sendMessage(PlayerMessages.MeteoriteUnsuitableLocation.text());
             return EnumActionResult.FAIL;
         }
 
@@ -92,8 +93,7 @@ public class MeteoritePlacerItem extends AEBaseItem {
 
         MeteoritePlacer.place(world, spawned, boundingBox, world.rand);
         syncVisibleChunksToPlayer((WorldServer) world, (EntityPlayerMP) player, spawned.pos());
-        player.sendMessage(new TextComponentString(
-            "Spawned at y=" + spawned.pos().getY() + " range=" + range));
+        player.sendMessage(PlayerMessages.MeteoriteSpawned.text(spawned.pos().getY(), range));
         return EnumActionResult.SUCCESS;
     }
 

@@ -22,6 +22,7 @@ import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import appeng.api.storage.cells.CellState;
 import appeng.block.AEBaseTileBlock;
+import appeng.core.localization.PlayerMessages;
 import appeng.tile.storage.TileMEChest;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.properties.IProperty;
@@ -33,7 +34,6 @@ import net.minecraft.util.BlockRenderLayer;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraftforge.common.property.ExtendedBlockState;
@@ -115,7 +115,7 @@ public class MEChestBlock extends AEBaseTileBlock<TileMEChest> {
             if (!world.isRemote) {
                 if (facing == tile.getOrientation().getSide(RelativeSide.TOP)) {
                     if (!tile.openGui(player)) {
-                        player.sendStatusMessage(new TextComponentString("Cannot read storage cell"), true);
+                        player.sendStatusMessage(PlayerMessages.ChestCannotReadStorageCell.text(), true);
                     }
                 } else {
                     tile.openCellInventoryGui(player);

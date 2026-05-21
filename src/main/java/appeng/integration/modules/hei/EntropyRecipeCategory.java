@@ -1,6 +1,7 @@
 package appeng.integration.modules.hei;
 
 import appeng.core.AppEng;
+import appeng.core.localization.HeiText;
 import mezz.jei.api.IGuiHelper;
 import mezz.jei.api.gui.IDrawable;
 import mezz.jei.api.gui.IGuiFluidStackGroup;
@@ -19,9 +20,6 @@ import java.util.List;
 @ParametersAreNonnullByDefault
 class EntropyRecipeCategory implements IRecipeCategory<EntropyRecipeWrapper> {
     static final String UID = "ae2.entropy";
-
-    private static final String KEY_CONSUMED = "ae2.rei_jei_integration.consumed";
-    private static final String KEY_FLOWING = "ae2.rei_jei_integration.flowing_fluid_name";
 
     private final IDrawable background;
     private final IDrawable slotDrawable;
@@ -94,7 +92,7 @@ class EntropyRecipeCategory implements IRecipeCategory<EntropyRecipeWrapper> {
                 return;
             }
             if (!input && recipeWrapper.isOutputConsumed() && slotIndex == 100) {
-                tooltip.add(I18n.format(KEY_CONSUMED));
+                tooltip.add(HeiText.Consumed.getLocal());
             }
         });
         fluidStacks.addTooltipCallback((slotIndex, input, ingredient, tooltip) -> {
@@ -104,11 +102,11 @@ class EntropyRecipeCategory implements IRecipeCategory<EntropyRecipeWrapper> {
             if ((input && slotIndex == 0 && recipeWrapper.isInputFlowing())
                 || (!input && slotIndex == 1 && recipeWrapper.isOutputFlowing())) {
                 if (!tooltip.isEmpty()) {
-                    tooltip.set(0, I18n.format(KEY_FLOWING, tooltip.getFirst()));
+                    tooltip.set(0, HeiText.FlowingFluidName.getLocal(tooltip.getFirst()));
                 }
             }
             if (!input && recipeWrapper.isOutputConsumed() && slotIndex == 1) {
-                tooltip.add(I18n.format(KEY_CONSUMED));
+                tooltip.add(HeiText.Consumed.getLocal());
             }
         });
     }

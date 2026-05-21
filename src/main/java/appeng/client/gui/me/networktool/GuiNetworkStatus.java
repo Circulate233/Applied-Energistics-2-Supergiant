@@ -40,7 +40,6 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import org.jetbrains.annotations.Nullable;
 
@@ -67,7 +66,7 @@ public class GuiNetworkStatus<T extends AEBaseContainer & INetworkStatusContaine
         super(container, playerInventory, style);
         this.scrollbar = widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         this.addToLeftToolbar(CommonButtons.togglePowerUnit());
-        this.exportGridButton = widgets.addButton("export_grid", new TextComponentString("Export Grid"), container::exportGrid);
+        this.exportGridButton = widgets.addButton("export_grid", GuiText.ExportGrid.text(), container::exportGrid);
     }
 
     @Override

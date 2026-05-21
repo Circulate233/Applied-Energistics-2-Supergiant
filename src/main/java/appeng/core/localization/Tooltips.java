@@ -17,7 +17,17 @@ public enum Tooltips implements LocalizationEnum {
 
     Empty,
     Stored,
-    Capacity;
+    Capacity,
+    SubstitutionsOn,
+    SubstitutionsDescEnabled,
+    SubstitutionsOff,
+    SubstitutionsDescDisabled,
+    FluidSubstitutions,
+    FluidSubstitutionsDescEnabled,
+    FluidSubstitutionsDescDisabled,
+    MatterBalls,
+    Singularity,
+    QuantumKey;
 
     public static final TextFormatting RED = TextFormatting.RED;
     public static final TextFormatting GREEN = TextFormatting.GREEN;

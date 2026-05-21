@@ -42,6 +42,7 @@ import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.gson.stream.JsonWriter;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import net.minecraft.crash.CrashReportCategory;
 import net.minecraft.nbt.NBTBase;
@@ -64,7 +65,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     private static final Logger LOG = LoggerFactory.getLogger(GridNode.class);

@@ -21,9 +21,9 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.style.GuiStyle;
 import appeng.container.implementations.ContainerQNB;
 import appeng.core.definitions.AEItems;
+import appeng.core.localization.GuiText;
 import appeng.tile.qnb.TileQuantumBridge;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -51,7 +51,7 @@ public class GuiQNB extends AEBaseGui<ContainerQNB> {
 
             if (AEItems.QUANTUM_ENTANGLED_SINGULARITY.is(stack) && !isValidEntangledSingularity(stack)) {
                 List<String> tooltip = new ObjectArrayList<>(this.getItemToolTip(stack));
-                tooltip.add(TextFormatting.RED + I18n.format("gui.ae2.InvalidSingularity"));
+                tooltip.add(TextFormatting.RED + GuiText.InvalidSingularity.getLocal());
                 this.drawTooltipLines(mouseX, mouseY, tooltip);
                 return;
             }

@@ -45,6 +45,7 @@ import appeng.client.render.crafting.AssemblerAnimationStatus;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
+import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.clientbound.AssemblerAnimationPacket;
@@ -63,7 +64,6 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraftforge.common.capabilities.Capability;
 
 import javax.annotation.Nullable;
@@ -127,7 +127,7 @@ public class TileMolecularAssembler extends AENetworkedInvTile
             tooltip = Collections.emptyList();
         } else {
             tooltip = new ObjectArrayList<>(1);
-            tooltip.add(Tooltips.of(new TextComponentTranslation("gui.ae2.CompatibleUpgrade",
+            tooltip.add(Tooltips.of(GuiText.CompatibleUpgrade.text(
                 Tooltips.of(TextComponents.of(AEItems.SPEED_CARD.stack())),
                 Tooltips.ofUnformattedNumber(accelerationCards))));
         }

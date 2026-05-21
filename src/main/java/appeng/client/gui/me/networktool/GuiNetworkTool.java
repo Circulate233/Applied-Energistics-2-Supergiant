@@ -21,9 +21,9 @@ package appeng.client.gui.me.networktool;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.style.GuiStyle;
 import appeng.container.implementations.ContainerNetworkTool;
+import appeng.core.localization.GuiText;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
 import org.jetbrains.annotations.Nullable;
 
 public class GuiNetworkTool extends AEBaseGui<ContainerNetworkTool> {
@@ -40,7 +40,7 @@ public class GuiNetworkTool extends AEBaseGui<ContainerNetworkTool> {
     protected void updateBeforeRender() {
         super.updateBeforeRender();
         if (container.getGuiTitle() == null) {
-            setTextContent(TEXT_ID_DIALOG_TITLE, title != null ? title : new TextComponentString("Network Tool"));
+            setTextContent(TEXT_ID_DIALOG_TITLE, title != null ? title : GuiText.NetworkTool.text());
         }
     }
 }

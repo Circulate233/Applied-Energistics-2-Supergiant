@@ -10,7 +10,9 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import appeng.core.localization.GuiText;
 import appeng.tile.crafting.IMolecularAssemblerSupportedPattern;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.init.Items;
 import net.minecraft.inventory.Container;
@@ -24,11 +26,9 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.world.World;
 import net.minecraftforge.common.crafting.IShapedRecipe;
 import net.minecraftforge.fml.common.registry.ForgeRegistries;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
@@ -129,15 +129,15 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
             }
 
             if (encoded.getBoolean("canSubstitute")) {
-                tooltip.addProperty(new TextComponentTranslation("ae2.guitext.pattern_tooltip_substitutions"));
+                tooltip.addProperty(GuiText.PatternTooltipSubstitutions.text());
             }
 
             if (encoded.getBoolean("canSubstituteFluids")) {
-                tooltip.addProperty(new TextComponentTranslation("ae2.guitext.pattern_tooltip_fluid_substitutions"));
+                tooltip.addProperty(GuiText.PatternTooltipFluidSubstitutions.text());
             }
 
             if (flags.isAdvanced() && encoded.hasKey("recipeId", 8)) {
-                tooltip.addProperty(new TextComponentString("Recipe"),
+                tooltip.addProperty(GuiText.Recipe.text(),
                     new TextComponentString(encoded.getString("recipeId")));
             }
         }
@@ -457,15 +457,15 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         tooltip.addInputsAndOutputs(this);
 
         if (canSubstitute) {
-            tooltip.addProperty(new TextComponentTranslation("ae2.guitext.pattern_tooltip_substitutions"));
+            tooltip.addProperty(GuiText.PatternTooltipSubstitutions.text());
         }
 
         if (canSubstituteFluids) {
-            tooltip.addProperty(new TextComponentTranslation("ae2.guitext.pattern_tooltip_fluid_substitutions"));
+            tooltip.addProperty(GuiText.PatternTooltipFluidSubstitutions.text());
         }
 
         if (flags.isAdvanced() && recipe.getRegistryName() != null) {
-            tooltip.addProperty(new TextComponentString("Recipe"),
+            tooltip.addProperty(GuiText.Recipe.text(),
                 new TextComponentString(recipe.getRegistryName().toString()));
         }
 

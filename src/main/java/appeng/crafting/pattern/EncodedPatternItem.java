@@ -10,6 +10,7 @@ import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.core.DebugCreativeTab;
 import appeng.core.definitions.AEItems;
+import appeng.core.localization.GuiText;
 import appeng.items.AEBaseItem;
 import appeng.items.misc.MissingContentItem;
 import net.minecraft.client.util.ITooltipFlag;
@@ -25,7 +26,6 @@ import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
@@ -141,7 +141,7 @@ public class EncodedPatternItem<T extends IPatternDetails> extends AEBaseItem {
                 "decoder returned null");
             tooltip = details.getTooltip(level, flags);
         } catch (Exception e) {
-            lines.add(new TextComponentTranslation("ae2.guitext.invalid_pattern").getUnformattedText());
+            lines.add(GuiText.InvalidPattern.getLocal());
             tooltip = invalidPatternTooltip == null ? null : invalidPatternTooltip.getTooltip(stack, level, e, flags);
         }
 
@@ -153,7 +153,7 @@ public class EncodedPatternItem<T extends IPatternDetails> extends AEBaseItem {
             lines.add(formatLine(tooltip.getOutputMethod(), getTooltipEntryLine(output)).getUnformattedText());
         }
 
-        var withText = new TextComponentTranslation("ae2.guitext.with");
+        var withText = GuiText.With.text();
         for (var input : tooltip.getInputs()) {
             lines.add(formatLine(withText, getTooltipEntryLine(input)).getUnformattedText());
         }

@@ -2,11 +2,11 @@ package appeng.server.subcommands;
 
 import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.core.localization.PlayerMessages;
 import appeng.server.ISubCommand;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.MinecraftForge;
@@ -47,10 +47,10 @@ public class ChunkLogger implements ISubCommand {
 
         if (this.enabled) {
             MinecraftForge.EVENT_BUS.register(this);
-            sender.sendMessage(new TextComponentString("AE2 chunk logger enabled."));
+            sender.sendMessage(PlayerMessages.ChunkLoggerEnabled.text());
         } else {
             MinecraftForge.EVENT_BUS.unregister(this);
-            sender.sendMessage(new TextComponentString("AE2 chunk logger disabled."));
+            sender.sendMessage(PlayerMessages.ChunkLoggerDisabled.text());
         }
     }
 

@@ -2,6 +2,7 @@ package appeng.server.subcommands;
 
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
+import appeng.core.localization.PlayerMessages;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.clientbound.ExportedGridContent;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
@@ -31,7 +32,6 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
@@ -71,7 +71,7 @@ public class GridsCommand implements ISubCommand {
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e) {
-            throw new CommandException("Invalid grid serial: " + value);
+            throw new CommandException("commands.ae2.grids.invalid_serial", value);
         }
     }
 
@@ -81,7 +81,7 @@ public class GridsCommand implements ISubCommand {
                 return grid;
             }
         }
-        throw new CommandException("No grid found with serial " + serialNumber);
+        throw new CommandException("commands.ae2.grids.not_found", serialNumber);
     }
 
     private static Collection<Grid> collectReachableGrids(Grid startGrid) {
@@ -157,7 +157,7 @@ public class GridsCommand implements ISubCommand {
         try (OutputStream output = Files.newOutputStream(Paths.get("grids.zip"))) {
             exportGrids(grids, output);
         } catch (IOException e) {
-            throw new CommandException("Failed to export grid data: " + e.getMessage());
+            throw new CommandException("commands.ae2.grids.export_failed", e.getMessage());
         }
     }
 
@@ -206,7 +206,7 @@ public class GridsCommand implements ISubCommand {
                 }
             }
         } catch (IOException | ReflectiveOperationException e) {
-            throw new CommandException("Failed to export grid data: " + e.getMessage());
+            throw new CommandException("commands.ae2.grids.export_failed", e.getMessage());
         }
     }
 
@@ -280,13 +280,13 @@ public class GridsCommand implements ISubCommand {
             throw new CommandException("commands.ae2.grids.no_grids_found");
         }
 
-        sender.sendMessage(new TextComponentString("Exporting " + grids.size() + " grid(s)."));
+        sender.sendMessage(PlayerMessages.GridsExporting.text(grids.size()));
         exportGrids(player, serialNumber, grids);
 
         if (player != null) {
-            sender.sendMessage(new TextComponentString("Exported " + grids.size() + " grid(s)."));
+            sender.sendMessage(PlayerMessages.GridsExported.text(grids.size()));
         } else {
-            sender.sendMessage(new TextComponentString("Exported " + grids.size() + " grid(s) to grids.zip."));
+            sender.sendMessage(PlayerMessages.GridsExportedZip.text(grids.size()));
         }
     }
 

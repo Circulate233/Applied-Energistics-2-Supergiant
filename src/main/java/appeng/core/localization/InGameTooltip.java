@@ -52,7 +52,8 @@ public enum InGameTooltip implements LocalizationEnum {
     CraftingLockedByLackOfRedstoneSignal,
     CraftingLockedUntilPulse,
     CraftingLockedUntilResult,
-    ErrorControllerConflict;
+    ErrorControllerConflict,
+    supported_by;
 
     @Override
     public String getTranslationKey() {

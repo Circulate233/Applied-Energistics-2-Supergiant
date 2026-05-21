@@ -1,13 +1,12 @@
 package appeng.server.subcommands;
 
+import appeng.core.localization.PlayerMessages;
 import appeng.me.service.TickManagerService;
 import appeng.server.ISubCommand;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
-
 public class TickMonitoring implements ISubCommand {
     @Override
     public String getHelp(MinecraftServer srv) {
@@ -28,7 +27,8 @@ public class TickMonitoring implements ISubCommand {
             throw new WrongUsageException("commands.ae2.tickmonitor");
         }
 
-        sender.sendMessage(new TextComponentString("AE2 tick monitoring "
-            + (TickManagerService.MONITORING_ENABLED ? "enabled." : "disabled.")));
+        sender.sendMessage((TickManagerService.MONITORING_ENABLED
+            ? PlayerMessages.TickMonitoringEnabled
+            : PlayerMessages.TickMonitoringDisabled).text());
     }
 }

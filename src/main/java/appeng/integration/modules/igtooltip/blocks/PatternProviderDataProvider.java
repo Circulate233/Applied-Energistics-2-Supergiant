@@ -7,6 +7,7 @@ import appeng.api.integrations.igtooltip.providers.BodyProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
+import appeng.core.localization.GuiText;
 import appeng.core.localization.InGameTooltip;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import net.minecraft.entity.player.EntityPlayer;
@@ -35,8 +36,8 @@ public final class PatternProviderDataProvider
             ITextComponent stackName;
             ITextComponent stackAmount;
             if (genericStack == null) {
-                stackName = new TextComponentString("ERROR");
-                stackAmount = new TextComponentString("ERROR");
+                stackName = GuiText.Error.text();
+                stackAmount = GuiText.Error.text();
             } else {
                 stackName = AEKeyRendering.getDisplayName(genericStack.what());
                 stackAmount = new TextComponentString(

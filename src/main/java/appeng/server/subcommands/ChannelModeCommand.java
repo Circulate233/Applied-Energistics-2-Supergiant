@@ -3,6 +3,7 @@ package appeng.server.subcommands;
 import appeng.api.networking.pathing.ChannelMode;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.core.localization.PlayerMessages;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
 import appeng.server.ISubCommand;
@@ -10,7 +11,6 @@ import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.text.TextComponentString;
 
 import java.util.Locale;
 
@@ -32,8 +32,7 @@ public class ChannelModeCommand implements ISubCommand {
     public void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException {
         if (args.length == 1) {
             ChannelMode mode = AEConfig.instance().getChannelMode();
-            sender.sendMessage(new TextComponentString("Current channel mode: "
-                + mode.name().toLowerCase(Locale.ROOT)));
+            sender.sendMessage(PlayerMessages.ChannelModeCurrent.text(mode.name().toLowerCase(Locale.ROOT)));
             return;
         }
 
@@ -52,7 +51,6 @@ public class ChannelModeCommand implements ISubCommand {
             gridCount++;
         }
 
-        sender.sendMessage(new TextComponentString("Channel mode set to "
-            + mode.name().toLowerCase(Locale.ROOT) + " and repathed " + gridCount + " grids."));
+        sender.sendMessage(PlayerMessages.ChannelModeSet.text(mode.name().toLowerCase(Locale.ROOT), gridCount));
     }
 }

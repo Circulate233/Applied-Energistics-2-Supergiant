@@ -1,11 +1,11 @@
 package appeng.server.services.compass;
 
+import appeng.core.localization.PlayerMessages;
 import appeng.server.ISubCommand;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.entity.Entity;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 
@@ -19,7 +19,7 @@ public class TestCompassCommand implements ISubCommand {
     public void call(MinecraftServer srv, String[] args, ICommandSender sender) {
         World world = sender.getEntityWorld();
         if (!(world instanceof WorldServer)) {
-            sender.sendMessage(new TextComponentString("This command requires a server world."));
+            sender.sendMessage(PlayerMessages.CommandRequiresServerWorld.text());
             return;
         }
 
@@ -35,8 +35,7 @@ public class TestCompassCommand implements ISubCommand {
             boolean hasSkyStone = compassRegion.hasCompassTarget(chunkPos.x, chunkPos.z, i);
             int yMin = i << 4;
             int yMax = yMin + 15;
-            sender.sendMessage(new TextComponentString("Section " + i + " [" + yMin + "-" + yMax + "]: "
-                + hasSkyStone));
+            sender.sendMessage(PlayerMessages.CompassTestSection.text(i, yMin, yMax, hasSkyStone));
         }
     }
 }

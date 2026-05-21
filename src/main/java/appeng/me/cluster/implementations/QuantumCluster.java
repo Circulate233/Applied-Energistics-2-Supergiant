@@ -28,6 +28,7 @@ import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.MBCalculator;
 import appeng.me.service.helpers.ConnectionWrapper;
 import appeng.tile.qnb.TileQuantumBridge;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
@@ -36,7 +37,6 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Iterator;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 public class QuantumCluster implements IAECluster, IActionHost {
 

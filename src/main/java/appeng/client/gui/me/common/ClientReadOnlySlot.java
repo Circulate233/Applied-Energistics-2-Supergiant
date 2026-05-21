@@ -1,12 +1,14 @@
 package appeng.client.gui.me.common;
 
+import appeng.core.localization.GeneralText;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 
 public class ClientReadOnlySlot extends Slot {
-    private static final InventoryBasic EMPTY_INVENTORY = new InventoryBasic("ae2.client_read_only", false, 0);
+    private static final InventoryBasic EMPTY_INVENTORY = new InventoryBasic(
+        GeneralText.ClientReadOnly.getTranslationKey(), false, 0);
 
     public ClientReadOnlySlot(int xPosition, int yPosition) {
         super(EMPTY_INVENTORY, 0, xPosition, yPosition);

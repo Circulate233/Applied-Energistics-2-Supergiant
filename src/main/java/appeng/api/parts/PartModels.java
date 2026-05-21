@@ -18,10 +18,9 @@
 
 package appeng.api.parts;
 
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
 import net.minecraft.util.ResourceLocation;
-
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
 import java.util.Arrays;
 import java.util.Collection;

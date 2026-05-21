@@ -25,6 +25,7 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.pathing.ControllerState;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
+import appeng.core.localization.PlayerMessages;
 import appeng.hooks.ticking.TickHandler;
 import appeng.items.AEBaseItem;
 import appeng.me.Grid;
@@ -49,6 +50,7 @@ import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
@@ -62,7 +64,7 @@ public class DebugCardItem extends AEBaseItem {
         this.setMaxStackSize(1);
     }
 
-    private static TextComponentString style(TextComponentString component, TextFormatting... formattings) {
+    private static ITextComponent style(ITextComponent component, TextFormatting... formattings) {
         Style style = new Style();
         for (var formatting : formattings) {
             if (formatting.isColor()) {
@@ -97,16 +99,16 @@ public class DebugCardItem extends AEBaseItem {
             }
 
             divider(player);
-            outputMessage(player, "Grids", TextFormatting.BOLD);
-            this.outputSecondaryMessage(player, "Grids", Integer.toString(grids));
+            outputMessage(player, PlayerMessages.DebugCardGrids.text(), TextFormatting.BOLD);
+            this.outputSecondaryMessage(player, PlayerMessages.DebugCardGrids.text(), Integer.toString(grids));
             if (stats.count() > 0) {
-                this.outputSecondaryMessage(player, "Total Nodes", "" + (long) stats.sum());
-                this.outputSecondaryMessage(player, "Mean Nodes", "" + (long) stats.mean());
-                this.outputSecondaryMessage(player, "Max Nodes", "" + (long) stats.max());
+                this.outputSecondaryMessage(player, PlayerMessages.DebugCardTotalNodes.text(), "" + (long) stats.sum());
+                this.outputSecondaryMessage(player, PlayerMessages.DebugCardMeanNodes.text(), "" + (long) stats.mean());
+                this.outputSecondaryMessage(player, PlayerMessages.DebugCardMaxNodes.text(), "" + (long) stats.max());
             }
             divider(player);
-            outputMessage(player, "Ticking", TextFormatting.BOLD);
-            this.outputSecondaryMessage(player, "Current Tick: ",
+            outputMessage(player, PlayerMessages.DebugCardTicking.text(), TextFormatting.BOLD);
+            this.outputSecondaryMessage(player, PlayerMessages.DebugCardCurrentTick.text(),
                 Long.toString(TickHandler.instance().getCurrentTick()));
             for (var line : TickHandler.instance().getBlockEntityReport()) {
                 player.sendMessage(line);
@@ -134,19 +136,20 @@ public class DebugCardItem extends AEBaseItem {
             if (node == null) {
                 if (gh instanceof IGridConnectedTile gridConnectedTile) {
                     node = (GridNode) gridConnectedTile.getMainNode().getNode();
-                    this.outputMessage(player, "Main node of IGridConnectedTile");
+                    this.outputMessage(player, PlayerMessages.DebugCardMainNodeOfGridConnectedTile.text());
                 }
             }
             if (node != null) {
-                this.outputMessage(player, "-- Grid Details");
+                this.outputMessage(player, PlayerMessages.DebugCardGridDetails.text());
                 final Grid g = node.getInternalGrid();
                 final IGridNode center = g.getPivot();
-                this.outputPrimaryMessage(player, "Grid Powered",
+                this.outputPrimaryMessage(player, PlayerMessages.DebugCardGridPowered.text(),
                     String.valueOf(g.getEnergyService().isNetworkPowered()));
-                this.outputPrimaryMessage(player, "Grid Booted",
+                this.outputPrimaryMessage(player, PlayerMessages.DebugCardGridBooted.text(),
                     String.valueOf(!g.getPathingService().isNetworkBooting()));
-                this.outputPrimaryMessage(player, "Nodes in grid", String.valueOf(Iterables.size(g.getNodes())));
-                this.outputSecondaryMessage(player, "Grid Pivot Node", String.valueOf(center));
+                this.outputPrimaryMessage(player, PlayerMessages.DebugCardNodesInGrid.text(),
+                    String.valueOf(Iterables.size(g.getNodes())));
+                this.outputSecondaryMessage(player, PlayerMessages.DebugCardGridPivotNode.text(), String.valueOf(center));
 
                 var tmc = (TickManagerService) g.getTickManager();
                 for (var c : g.getMachineClasses()) {
@@ -172,11 +175,11 @@ public class DebugCardItem extends AEBaseItem {
                     this.outputSecondaryMessage(player, c.getSimpleName(), message);
                 }
 
-                this.outputMessage(player, "-- Node Details");
+                this.outputMessage(player, PlayerMessages.DebugCardNodeDetails.text());
 
-                this.outputPrimaryMessage(player, "This Node", String.valueOf(node));
-                this.outputPrimaryMessage(player, "This Node Active", String.valueOf(node.isActive()));
-                this.outputSecondaryMessage(player, "Node exposed on side", side.getName());
+                this.outputPrimaryMessage(player, PlayerMessages.DebugCardThisNode.text(), String.valueOf(node));
+                this.outputPrimaryMessage(player, PlayerMessages.DebugCardThisNodeActive.text(), String.valueOf(node.isActive()));
+                this.outputSecondaryMessage(player, PlayerMessages.DebugCardNodeExposedOnSide.text(), side.getName());
 
                 var pg = g.getPathingService();
                 if (pg.getControllerState() == ControllerState.CONTROLLER_ONLINE) {
@@ -209,32 +212,33 @@ public class DebugCardItem extends AEBaseItem {
                         }
                     }
 
-                    this.outputSecondaryMessage(player, "Cable Distance", Integer.toString(length));
+                    this.outputSecondaryMessage(player, PlayerMessages.DebugCardCableDistance.text(), Integer.toString(length));
                 }
 
                 if (center.getOwner() instanceof P2PTunnelPart<?> tunnelPart) {
-                    this.outputSecondaryMessage(player, "Freq", Integer.toString(tunnelPart.getFrequency()));
+                    this.outputSecondaryMessage(player, PlayerMessages.DebugCardFrequency.text(), Integer.toString(tunnelPart.getFrequency()));
                 }
             } else {
-                this.outputMessage(player, "No Node Available.");
+                this.outputMessage(player, PlayerMessages.DebugCardNoNodeAvailable.text());
             }
         } else {
-            this.outputMessage(player, "Not Networked Block");
+            this.outputMessage(player, PlayerMessages.DebugCardNotNetworkedBlock.text());
         }
 
         TileEntity te = world.getTileEntity(pos);
         if (te instanceof IPartHost partHost) {
-            this.outputMessage(player, "-- CableBus Details");
-            outputSecondaryMessage(player, "In World", Boolean.toString(partHost.isInWorld()));
-            outputSecondaryMessage(player, "Has Redstone", Boolean.toString(partHost.hasRedstone()));
+            this.outputMessage(player, PlayerMessages.DebugCardCableBusDetails.text());
+            outputSecondaryMessage(player, PlayerMessages.DebugCardInWorld.text(), Boolean.toString(partHost.isInWorld()));
+            outputSecondaryMessage(player, PlayerMessages.DebugCardHasRedstone.text(), Boolean.toString(partHost.hasRedstone()));
             final IPart center = partHost.getPart(null);
             partHost.markForUpdate();
             if (center != null) {
                 final GridNode n = (GridNode) center.getGridNode();
                 if (n != null) {
-                    this.outputSecondaryMessage(player, "Node Channels", Integer.toString(n.getUsedChannels()));
+                    this.outputSecondaryMessage(player, PlayerMessages.DebugCardNodeChannels.text(),
+                        Integer.toString(n.getUsedChannels()));
                     for (var entry : n.getInWorldConnections().entrySet()) {
-                        this.outputSecondaryMessage(player, "Channels " + entry.getKey().getName(),
+                        this.outputSecondaryMessage(player, PlayerMessages.DebugCardChannels.text(entry.getKey().getName()),
                             Integer.toString(entry.getValue().getUsedChannels()));
                     }
                 }
@@ -246,29 +250,30 @@ public class DebugCardItem extends AEBaseItem {
                         style(new TextComponentString(v.name().substring(0, 1)),
                             cablePart.isConnected(v) ? TextFormatting.GREEN : TextFormatting.DARK_GRAY));
                 }
-                player.sendMessage(style(new TextComponentString("Connected Sides: "), TextFormatting.GRAY)
+                player.sendMessage(style(PlayerMessages.DebugConnectedSides.text(), TextFormatting.GRAY)
                     .appendSibling(msg));
             }
         }
 
         if (te instanceof IAEPowerStorage ps) {
-            this.outputMessage(player, "-- EnergyStorage Details");
-            this.outputSecondaryMessage(player, "Energy", ps.getAECurrentPower() + " / " + ps.getAEMaxPower());
+            this.outputMessage(player, PlayerMessages.DebugCardEnergyStorageDetails.text());
+            this.outputSecondaryMessage(player, PlayerMessages.DebugCardEnergy.text(),
+                ps.getAECurrentPower() + " / " + ps.getAEMaxPower());
 
             if (gh != null) {
                 final IGridNode node = gh.getGridNode(side);
                 if (node != null) {
                     final IEnergyService eg = node.getGrid().getEnergyService();
-                    this.outputSecondaryMessage(player, "GridEnergy",
+                    this.outputSecondaryMessage(player, PlayerMessages.DebugCardGridEnergy.text(),
                         eg.getStoredPower() + " : " + eg.getEnergyDemand(Double.MAX_VALUE));
                 }
             }
         }
 
         if (te instanceof AEBaseTile be) {
-            this.outputMessage(player, "-- Delayed Init Details");
-            outputSecondaryMessage(player, "QueuedForReady", "" + be.getQueuedForReady());
-            outputSecondaryMessage(player, "ReadyInvoked", "" + be.getReadyInvoked());
+            this.outputMessage(player, PlayerMessages.DebugCardDelayedInitDetails.text());
+            outputSecondaryMessage(player, PlayerMessages.DebugCardQueuedForReady.text(), "" + be.getQueuedForReady());
+            outputSecondaryMessage(player, PlayerMessages.DebugCardReadyInvoked.text(), "" + be.getReadyInvoked());
         }
 
         return EnumActionResult.SUCCESS;
@@ -279,26 +284,42 @@ public class DebugCardItem extends AEBaseItem {
             TextFormatting.DARK_PURPLE);
     }
 
+    private void outputMessage(Entity player, ITextComponent text, TextFormatting... chatFormattings) {
+        player.sendMessage(style(text, chatFormattings));
+    }
+
     private void outputMessage(Entity player, String string, TextFormatting... chatFormattings) {
-        player.sendMessage(style(new TextComponentString(string), chatFormattings));
+        this.outputMessage(player, new TextComponentString(string), chatFormattings);
+    }
+
+    private void outputMessage(Entity player, ITextComponent text) {
+        player.sendMessage(text);
     }
 
     private void outputMessage(Entity player, String string) {
-        player.sendMessage(new TextComponentString(string));
+        this.outputMessage(player, new TextComponentString(string));
     }
 
-    private void outputPrimaryMessage(Entity player, String label, String value) {
+    private void outputPrimaryMessage(Entity player, ITextComponent label, String value) {
         this.outputLabeledMessage(player, label, value, TextFormatting.BOLD, TextFormatting.LIGHT_PURPLE);
     }
 
-    private void outputSecondaryMessage(Entity player, String label, String value) {
+    private void outputPrimaryMessage(Entity player, String label, String value) {
+        this.outputPrimaryMessage(player, new TextComponentString(label), value);
+    }
+
+    private void outputSecondaryMessage(Entity player, ITextComponent label, String value) {
         this.outputLabeledMessage(player, label, value, TextFormatting.GRAY);
     }
 
-    private void outputLabeledMessage(Entity player, String label, String value,
+    private void outputSecondaryMessage(Entity player, String label, String value) {
+        this.outputSecondaryMessage(player, new TextComponentString(label), value);
+    }
+
+    private void outputLabeledMessage(Entity player, ITextComponent label, String value,
                                       TextFormatting... chatFormattings) {
         player.sendMessage(new TextComponentString("")
-            .appendSibling(style(new TextComponentString(label + ": "), chatFormattings))
+            .appendSibling(style(label.createCopy().appendText(": "), chatFormattings))
             .appendText(value));
     }
 }

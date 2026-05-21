@@ -21,13 +21,13 @@ package appeng.items.storage;
 import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.ISpatialStorageCell;
 import appeng.core.AELog;
+import appeng.core.localization.GuiText;
 import appeng.items.AEBaseItem;
 import appeng.spatial.SpatialStorageHelper;
 import appeng.spatial.SpatialStoragePlot;
 import appeng.spatial.SpatialStoragePlotManager;
 import appeng.spatial.TransitionInfo;
 import appeng.util.Platform;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -42,12 +42,6 @@ import java.util.List;
 import java.util.Locale;
 
 public class SpatialStorageCellItem extends AEBaseItem implements ISpatialStorageCell {
-
-    private static final String KEY_UNFORMATTED = "gui.ae2.SpatialCellEmpty";
-    private static final String KEY_CAPACITY = "gui.ae2.SpatialCapacity";
-    private static final String KEY_SERIAL = "gui.ae2.SpatialSerialNumber";
-    private static final String KEY_STORED_SIZE = "gui.ae2.SpatialStoredSize";
-
     private final int maxRegion;
 
     public SpatialStorageCellItem(int spatialScale) {
@@ -61,15 +55,15 @@ public class SpatialStorageCellItem extends AEBaseItem implements ISpatialStorag
 
         SpatialPlotInfo plotInfo = getPlotInfo(stack);
         if (plotInfo == null) {
-            lines.add(TextFormatting.ITALIC + I18n.format(KEY_UNFORMATTED));
-            lines.add(I18n.format(KEY_CAPACITY, this.maxRegion, this.maxRegion, this.maxRegion));
+            lines.add(TextFormatting.ITALIC + GuiText.SpatialCellEmpty.getLocal());
+            lines.add(GuiText.SpatialCapacity.getLocal(this.maxRegion, this.maxRegion, this.maxRegion));
             return;
         }
 
         String serialNumber = String.format(Locale.ROOT, "SP-%04d", plotInfo.id());
         BlockPos size = plotInfo.size();
-        lines.add(I18n.format(KEY_SERIAL, serialNumber));
-        lines.add(I18n.format(KEY_STORED_SIZE, size.getX(), size.getY(), size.getZ()));
+        lines.add(GuiText.SpatialSerialNumber.getLocal(serialNumber));
+        lines.add(GuiText.SpatialStoredSize.getLocal(size.getX(), size.getY(), size.getZ()));
     }
 
     @Override

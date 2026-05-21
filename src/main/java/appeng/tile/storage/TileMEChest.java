@@ -26,8 +26,8 @@ import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
 import appeng.api.implementations.blockentities.IColorableBlockEntity;
-import appeng.api.implementations.blockentities.IViewCellStorage;
 import appeng.api.implementations.blockentities.IMEChest;
+import appeng.api.implementations.blockentities.IViewCellStorage;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridNodeListener;
@@ -53,6 +53,8 @@ import appeng.container.GuiIds;
 import appeng.container.ISubGui;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.gui.GuiOpener;
+import appeng.core.localization.GuiText;
+import appeng.core.localization.PlayerMessages;
 import appeng.helpers.IPriorityHost;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.DelegatingMEInventory;
@@ -68,7 +70,6 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidStack;
@@ -196,10 +197,10 @@ public class TileMEChest extends AENetworkedPoweredTile
     public ILinkStatus getLinkStatus() {
         updateHandler();
         if (this.cellHandler == null) {
-            return ILinkStatus.ofDisconnected(new TextComponentString("Cannot read storage cell"));
+            return ILinkStatus.ofDisconnected(PlayerMessages.ChestCannotReadStorageCell.text());
         }
         if (!isPowered()) {
-            return ILinkStatus.ofDisconnected(new TextComponentString("Out of power"));
+            return ILinkStatus.ofDisconnected(GuiText.OutOfPower.text());
         }
         return ILinkStatus.ofConnected();
     }

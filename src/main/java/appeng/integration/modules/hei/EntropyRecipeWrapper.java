@@ -1,13 +1,15 @@
 package appeng.integration.modules.hei;
 
+import appeng.core.localization.HeiText;
 import appeng.items.tools.powered.EntropyManipulatorItem;
 import appeng.recipes.entropy.EntropyRecipe;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
 import mezz.jei.api.ingredients.IIngredients;
 import mezz.jei.api.ingredients.VanillaTypes;
 import mezz.jei.api.recipe.IRecipeWrapper;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.init.Blocks;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
@@ -19,16 +21,8 @@ import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.List;
 
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectLists;
-
 @ParametersAreNonnullByDefault
 class EntropyRecipeWrapper implements IRecipeWrapper {
-    private static final String KEY_HEAT = "ae2.rei_jei_integration.entropy_manipulator_heat";
-    private static final String KEY_COOL = "ae2.rei_jei_integration.entropy_manipulator_cool";
-    private static final String KEY_RIGHT_CLICK = "ae2.rei_jei_integration.right_click";
-    private static final String KEY_SHIFT_RIGHT_CLICK = "ae2.rei_jei_integration.shift_right_click";
-
     private final EntropyRecipe recipe;
     @Nullable
     private final ItemStack inputItem;
@@ -122,12 +116,12 @@ class EntropyRecipeWrapper implements IRecipeWrapper {
     @Override
     public void drawInfo(Minecraft minecraft, int recipeWidth, int recipeHeight, int mouseX, int mouseY) {
         String modeText = switch (this.recipe.mode()) {
-            case HEAT -> I18n.format(KEY_HEAT, EntropyManipulatorItem.ENERGY_PER_USE);
-            case COOL -> I18n.format(KEY_COOL, EntropyManipulatorItem.ENERGY_PER_USE);
+            case HEAT -> HeiText.EntropyManipulatorHeat.getLocal(EntropyManipulatorItem.ENERGY_PER_USE);
+            case COOL -> HeiText.EntropyManipulatorCool.getLocal(EntropyManipulatorItem.ENERGY_PER_USE);
         };
         String interactionText = switch (this.recipe.mode()) {
-            case HEAT -> I18n.format(KEY_RIGHT_CLICK);
-            case COOL -> I18n.format(KEY_SHIFT_RIGHT_CLICK);
+            case HEAT -> HeiText.RightClick.getLocal();
+            case COOL -> HeiText.ShiftRightClick.getLocal();
         };
 
         int modeWidth = minecraft.fontRenderer.getStringWidth(modeText);

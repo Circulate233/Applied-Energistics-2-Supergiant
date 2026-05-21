@@ -1,16 +1,19 @@
 package appeng.core.network.clientbound;
 
 import appeng.core.AELog;
+import appeng.core.localization.PlayerMessages;
 import appeng.core.network.ClientboundPacket;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ServerData;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.event.ClickEvent;
 
+import javax.annotation.Nullable;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.OpenOption;
@@ -19,7 +22,6 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import javax.annotation.Nullable;
 
 public class ExportedGridContent extends ClientboundPacket {
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmm");
@@ -102,8 +104,8 @@ public class ExportedGridContent extends ClientboundPacket {
         return sanitized;
     }
 
-    private static TextComponentString error(String message) {
-        var component = new TextComponentString(message);
+    private static ITextComponent error(ITextComponent message) {
+        var component = message.createCopy();
         component.getStyle().setColor(TextFormatting.RED);
         return component;
     }
@@ -145,7 +147,7 @@ public class ExportedGridContent extends ClientboundPacket {
                 export.options);
         } catch (IOException e) {
             failExport(minecraft, export.state, e, "Failed to write exported grid data",
-                "Failed to write exported grid data to " + export.state.tempPath);
+                PlayerMessages.GridExportWriteFailed.text(export.state.tempPath));
             return;
         }
 
@@ -154,12 +156,12 @@ public class ExportedGridContent extends ClientboundPacket {
                 Files.move(export.state.tempPath, export.state.finalPath, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 failExport(minecraft, export.state, e, "Failed to finish exported grid data",
-                    "Failed to finish exported grid data at " + export.state.finalPath);
+                    PlayerMessages.GridExportFinishFailed.text(export.state.finalPath));
                 return;
             }
 
             EXPORTS.remove(this.serialNumber);
-            var message = new TextComponentString("Saved grid data for grid #" + this.serialNumber + " to ");
+            var message = PlayerMessages.GridDataSaved.text(this.serialNumber);
             var path = new TextComponentString(export.state.finalPath.toString());
             path.getStyle()
                 .setUnderlined(true)
@@ -187,12 +189,12 @@ public class ExportedGridContent extends ClientboundPacket {
 
         EXPORTS.remove(this.serialNumber);
         AELog.error("Received exported grid chunk without active export state for grid #%d", this.serialNumber);
-        minecraft.player.sendMessage(error("Received incomplete exported grid data for grid #" + this.serialNumber));
+        minecraft.player.sendMessage(error(PlayerMessages.GridExportIncomplete.text(this.serialNumber)));
         return null;
     }
 
     private void failExport(Minecraft minecraft, ExportState state, IOException exception, String logMessage,
-                            String playerMessage) {
+                            ITextComponent playerMessage) {
         EXPORTS.remove(this.serialNumber);
         deleteTempFile(state);
         AELog.error(exception, logMessage);

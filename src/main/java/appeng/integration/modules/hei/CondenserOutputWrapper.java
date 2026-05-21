@@ -1,6 +1,7 @@
 package appeng.integration.modules.hei;
 
 import appeng.api.config.CondenserOutput;
+import appeng.core.localization.Tooltips;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import mezz.jei.api.gui.IDrawable;
@@ -8,7 +9,6 @@ import mezz.jei.api.ingredients.IIngredients;
 import mezz.jei.api.ingredients.VanillaTypes;
 import mezz.jei.api.recipe.IRecipeWrapper;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.client.config.HoverChecker;
 
@@ -50,15 +50,15 @@ class CondenserOutputWrapper implements IRecipeWrapper {
             return Collections.emptyList();
         }
 
-        String key;
+        Tooltips key;
         switch (this.condenserOutput) {
-            case MATTER_BALLS -> key = "gui.tooltips.ae2.MatterBalls";
-            case SINGULARITY -> key = "gui.tooltips.ae2.Singularity";
+            case MATTER_BALLS -> key = Tooltips.MatterBalls;
+            case SINGULARITY -> key = Tooltips.Singularity;
             default -> {
                 return Collections.emptyList();
             }
         }
 
-        return Splitter.on("\n").splitToList(I18n.format(key, this.condenserOutput.requiredPower));
+        return Splitter.on("\n").splitToList(key.getLocal(this.condenserOutput.requiredPower));
     }
 }

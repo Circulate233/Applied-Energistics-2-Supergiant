@@ -26,11 +26,10 @@ import appeng.api.networking.spatial.ISpatialService;
 import appeng.core.AEConfig;
 import appeng.me.cluster.implementations.SpatialPylonCluster;
 import appeng.tile.spatial.TileSpatialPylon;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.BlockPos.MutableBlockPos;
 import net.minecraft.world.World;
-
-import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 
 public class SpatialPylonService implements ISpatialService, IGridServiceProvider {
     static {

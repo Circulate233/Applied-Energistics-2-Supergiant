@@ -1,6 +1,7 @@
 package appeng.integration.modules.hei;
 
 import appeng.core.AppEng;
+import appeng.core.localization.HeiText;
 import appeng.tile.misc.TileCharger;
 import appeng.tile.misc.TileCrank;
 import mezz.jei.api.IGuiHelper;
@@ -18,7 +19,6 @@ import javax.annotation.ParametersAreNonnullByDefault;
 @ParametersAreNonnullByDefault
 class ChargerRecipeCategory implements IRecipeCategory<ChargerRecipeWrapper> {
     static final String UID = "ae2.charger";
-    private static final String KEY_REQUIRED_POWER = "ae2.rei_jei_integration.charger_required_power";
     private static final int WIDTH = 130;
     private static final int HEIGHT = 50;
     private static final int POWER_TEXT_X = 20;
@@ -61,7 +61,7 @@ class ChargerRecipeCategory implements IRecipeCategory<ChargerRecipeWrapper> {
         this.arrow.draw(minecraft, 50, 8);
         int turns = (TileCharger.POWER_MAXIMUM_AMOUNT + TileCrank.POWER_PER_CRANK_TURN - 1)
             / TileCrank.POWER_PER_CRANK_TURN;
-        String text = I18n.format(KEY_REQUIRED_POWER, turns, TileCharger.POWER_MAXIMUM_AMOUNT);
+        String text = HeiText.ChargerRequiredPower.getLocal(turns, TileCharger.POWER_MAXIMUM_AMOUNT);
         minecraft.fontRenderer.drawString(minecraft.fontRenderer.trimStringToWidth(text, POWER_TEXT_MAX_WIDTH),
             POWER_TEXT_X, POWER_TEXT_Y, 0x7E7E7E);
     }

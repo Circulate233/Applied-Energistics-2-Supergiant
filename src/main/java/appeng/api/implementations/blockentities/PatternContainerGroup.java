@@ -3,20 +3,20 @@ package appeng.api.implementations.blockentities;
 import appeng.api.parts.IPartHost;
 import appeng.api.stacks.AEItemKey;
 import appeng.client.component.TextComponents;
+import appeng.core.localization.GuiText;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.world.IWorldNameable;
 import net.minecraft.world.World;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
 import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.IItemHandler;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -29,7 +29,7 @@ public record PatternContainerGroup(
     List<ITextComponent> tooltip) {
 
     private static final PatternContainerGroup NOTHING = new PatternContainerGroup(null,
-        new TextComponentTranslation("ae2.guitext.nothing"), Collections.emptyList());
+        GuiText.Nothing.text(), Collections.emptyList());
 
     public static PatternContainerGroup nothing() {
         return NOTHING;

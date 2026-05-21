@@ -43,6 +43,7 @@ import appeng.container.me.crafting.CraftingCPURecord;
 import appeng.container.me.crafting.CraftingPlanSummary;
 import appeng.core.AELog;
 import appeng.core.gui.locator.GuiHostLocator;
+import appeng.core.localization.PlayerMessages;
 import appeng.core.network.clientbound.CraftConfirmPlanPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
 import appeng.crafting.execution.CraftingSubmitResult;
@@ -53,7 +54,6 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -190,7 +190,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                 this.plan = CraftingPlanSummary.fromJob(this.getGrid(), this.getActionSrc(), this.result);
                 sendPacketToClient(new CraftConfirmPlanPacket(this.plan));
             } catch (Throwable e) {
-                this.getPlayerInventory().player.sendMessage(new TextComponentString("Error: " + e));
+                this.getPlayerInventory().player.sendMessage(PlayerMessages.CraftingJobError.text(e.toString()));
                 AELog.warn("Failed to start crafting job.", e);
                 this.setValidContainer(false);
                 this.result = null;

@@ -22,10 +22,10 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.widgets.CommonButtons;
 import appeng.container.implementations.ContainerSpatialIOPort;
+import appeng.core.localization.GuiText;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
 
 public class GuiSpatialIOPort extends AEBaseGui<ContainerSpatialIOPort> {
 
@@ -39,22 +39,21 @@ public class GuiSpatialIOPort extends AEBaseGui<ContainerSpatialIOPort> {
     protected void updateBeforeRender() {
         super.updateBeforeRender();
         if (this.container.getGuiTitle() == null) {
-            setTextContent("dialog_title", new TextComponentTranslation("gui.ae2.SpatialIOPort"));
+            setTextContent("dialog_title", GuiText.SpatialIOPort.text());
         }
-        setTextContent("stored_power",
-            new TextComponentTranslation("gui.ae2.StoredPower", Platform.formatPowerLong(this.container.currentPower, false)));
-        setTextContent("max_power",
-            new TextComponentTranslation("gui.ae2.MaxPower", Platform.formatPowerLong(this.container.maxPower, false)));
-        setTextContent("required_power", new TextComponentTranslation("gui.ae2.RequiredPower",
+        setTextContent("stored_power", GuiText.StoredPower.text(
+            Platform.formatPowerLong(this.container.currentPower, false)));
+        setTextContent("max_power", GuiText.MaxPower.text(
+            Platform.formatPowerLong(this.container.maxPower, false)));
+        setTextContent("required_power", GuiText.RequiredPower.text(
             Platform.formatPowerLong(this.container.requiredPower, false)));
-        setTextContent("efficiency",
-            new TextComponentTranslation("gui.ae2.Efficiency", (float) this.container.efficiency / 100));
+        setTextContent("efficiency", GuiText.Efficiency.text((float) this.container.efficiency / 100));
 
         if (this.container.xSize != 0 && this.container.ySize != 0 && this.container.zSize != 0) {
-            setTextContent("scs_size", new TextComponentTranslation("gui.ae2.SCSSize", this.container.xSize,
+            setTextContent("scs_size", GuiText.SCSSize.text(this.container.xSize,
                 this.container.ySize, this.container.zSize));
         } else {
-            setTextContent("scs_size", new TextComponentTranslation("gui.ae2.SCSInvalid"));
+            setTextContent("scs_size", GuiText.SCSInvalid.text());
         }
     }
 }

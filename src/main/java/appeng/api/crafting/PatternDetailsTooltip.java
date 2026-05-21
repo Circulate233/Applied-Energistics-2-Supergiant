@@ -2,19 +2,19 @@ package appeng.api.crafting;
 
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.core.localization.GuiText;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
 
 public class PatternDetailsTooltip {
-    public static final ITextComponent OUTPUT_TEXT_CRAFTS = new TextComponentTranslation("ae2.guitext.crafts");
+    public static final ITextComponent OUTPUT_TEXT_CRAFTS = GuiText.Crafts.text();
 
-    public static final ITextComponent OUTPUT_TEXT_PRODUCES = new TextComponentTranslation("ae2.guitext.produces");
+    public static final ITextComponent OUTPUT_TEXT_PRODUCES = GuiText.Produces.text();
     private final ObjectList<Property> additionalProperties = new ObjectArrayList<>();
     private final ObjectList<GenericStack> inputs = new ObjectArrayList<>();
     private final ObjectList<GenericStack> outputs = new ObjectArrayList<>();

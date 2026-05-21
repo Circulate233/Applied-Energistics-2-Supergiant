@@ -23,8 +23,9 @@ import appeng.api.parts.SelectedPart;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.Upgrades;
+import appeng.core.localization.InGameTooltip;
+import appeng.core.localization.PlayerMessages;
 import appeng.items.AEBaseItem;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -34,7 +35,6 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -42,14 +42,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.util.List;
 
 public class UpgradeCardItem extends AEBaseItem {
-    private static final String SUPPORTED_BY = "ae2.tooltip.supported_by";
-    private static final String MAX_UPGRADES_INSTALLED = "ae2.message.max_upgrades_installed";
-    private static final String UNSUPPORTED_UPGRADE = "ae2.message.unsupported_upgrade";
-    private static final String MAX_UPGRADES_OF_TYPE_INSTALLED = "ae2.message.max_upgrades_of_type_installed";
-
-    public UpgradeCardItem() {
-        super();
-    }
 
     @SideOnly(Side.CLIENT)
     @Override
@@ -58,7 +50,7 @@ public class UpgradeCardItem extends AEBaseItem {
 
         var supportedBy = Upgrades.getTooltipLinesForCard(this);
         if (!supportedBy.isEmpty()) {
-            lines.add(I18n.format(SUPPORTED_BY));
+            lines.add(InGameTooltip.supported_by.getLocal());
             for (var line : supportedBy) {
                 lines.add(line.getFormattedText());
             }
@@ -93,17 +85,17 @@ public class UpgradeCardItem extends AEBaseItem {
                 }
 
                 if (isFull) {
-                    player.sendStatusMessage(new TextComponentTranslation(MAX_UPGRADES_INSTALLED), true);
+                    player.sendStatusMessage(PlayerMessages.MaxUpgradesInstalled.text(), true);
                     return EnumActionResult.FAIL;
                 }
 
                 int maxInstalled = upgrades.getMaxInstalled(heldStack.getItem());
                 int installed = upgrades.getInstalledUpgrades(heldStack.getItem());
                 if (maxInstalled <= 0) {
-                    player.sendStatusMessage(new TextComponentTranslation(UNSUPPORTED_UPGRADE), true);
+                    player.sendStatusMessage(PlayerMessages.UnsupportedUpgrade.text(), true);
                     return EnumActionResult.FAIL;
                 } else if (installed >= maxInstalled) {
-                    player.sendStatusMessage(new TextComponentTranslation(MAX_UPGRADES_OF_TYPE_INSTALLED), true);
+                    player.sendStatusMessage(PlayerMessages.MaxUpgradesOfTypeInstalled.text(), true);
                     return EnumActionResult.FAIL;
                 }
 

@@ -18,8 +18,8 @@
 
 package appeng.parts.automation;
 
+import appeng.core.localization.GuiText;
 import appeng.items.parts.PartItem;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.enchantment.Enchantment;
@@ -34,10 +34,6 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.util.List;
 
 public class AnnihilationPlanePartItem extends PartItem<AnnihilationPlanePart> {
-
-    private static final String CAN_BE_ENCHANTED = "ae2.guitext.can_be_enchanted";
-    private static final String INCREASED_ENERGY_USE_FROM_ENCHANTS = "ae2.guitext.increased_energy_use_from_enchants";
-
     public AnnihilationPlanePartItem() {
         super(AnnihilationPlanePart.class, AnnihilationPlanePart::new);
     }
@@ -71,9 +67,9 @@ public class AnnihilationPlanePartItem extends PartItem<AnnihilationPlanePart> {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
         if (EnchantmentHelper.getEnchantments(stack).isEmpty()) {
-            lines.add(I18n.format(CAN_BE_ENCHANTED));
+            lines.add(GuiText.CanBeEnchanted.getLocal());
         } else {
-            lines.add(I18n.format(INCREASED_ENERGY_USE_FROM_ENCHANTS));
+            lines.add(GuiText.IncreasedEnergyUseFromEnchants.getLocal());
         }
     }
 

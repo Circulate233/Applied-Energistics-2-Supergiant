@@ -2,8 +2,8 @@ package appeng.api.upgrades;
 
 import appeng.items.materials.EnergyCardItem;
 import appeng.items.materials.UpgradeCardItem;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;

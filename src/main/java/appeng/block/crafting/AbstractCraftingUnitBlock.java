@@ -23,6 +23,7 @@ import appeng.client.render.crafting.CraftingCubeState;
 import appeng.container.GuiIds;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.gui.GuiOpener;
+import appeng.core.localization.PlayerMessages;
 import appeng.recipes.game.CraftingUnitTransformRecipe;
 import appeng.tile.crafting.TileCraftingUnit;
 import appeng.util.InteractionUtil;
@@ -41,7 +42,6 @@ import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraftforge.common.property.ExtendedBlockState;
@@ -207,7 +207,7 @@ public abstract class AbstractCraftingUnitBlock<T extends TileCraftingUnit> exte
         T tile = this.getTileEntity(world, pos);
         if (tile != null && tile.getCluster() != null && tile.getCluster().isBusy()) {
             if (!world.isRemote) {
-                player.sendStatusMessage(new TextComponentString("Crafting CPU is busy"), true);
+                player.sendStatusMessage(PlayerMessages.CraftingCpuBusy.text(), true);
             }
             return true;
         }
@@ -240,7 +240,7 @@ public abstract class AbstractCraftingUnitBlock<T extends TileCraftingUnit> exte
 
         T tile = this.getTileEntity(world, pos);
         if (tile != null && tile.getCluster() != null && tile.getCluster().isBusy()) {
-            player.sendStatusMessage(new TextComponentString("Crafting CPU is busy"), true);
+            player.sendStatusMessage(PlayerMessages.CraftingCpuBusy.text(), true);
             return EnumActionResult.SUCCESS;
         }
 

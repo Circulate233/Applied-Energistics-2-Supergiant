@@ -21,9 +21,9 @@ package appeng.me.pathfinding;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridVisitor;
 import appeng.api.networking.pathing.ControllerState;
+import appeng.tile.networking.TileController;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
-import appeng.tile.networking.TileController;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 

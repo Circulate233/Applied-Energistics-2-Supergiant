@@ -19,6 +19,7 @@
 package appeng.debug;
 
 import appeng.core.AppEng;
+import appeng.core.localization.PlayerMessages;
 import appeng.tile.AEBaseTile;
 import appeng.tile.ServerTickingTile;
 import appeng.util.InteractionUtil;
@@ -28,7 +29,6 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 
 public class TileCubeGenerator extends AEBaseTile implements ServerTickingTile {
 
@@ -44,7 +44,7 @@ public class TileCubeGenerator extends AEBaseTile implements ServerTickingTile {
 
             if (this.countdown % 20 == 0) {
                 AppEng.instance().getPlayers().forEach(p -> p.sendMessage(
-                    new TextComponentString("Spawning in... " + this.countdown / 20)));
+                    PlayerMessages.CubeGeneratorSpawningIn.text(this.countdown / 20)));
             }
 
             if (this.countdown <= 0) {
@@ -100,7 +100,7 @@ public class TileCubeGenerator extends AEBaseTile implements ServerTickingTile {
                 this.size = 64;
             }
 
-            player.sendMessage(new TextComponentString("Size: " + this.size));
+            player.sendMessage(PlayerMessages.CubeGeneratorSize.text(this.size));
         } else {
             this.countdown = 20 * 10;
             this.itemStack = hand.copy();

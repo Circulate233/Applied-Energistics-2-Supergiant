@@ -8,11 +8,22 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 public interface LocalizationEnum {
 
+    Object[] emptyArgs = new Object[0];
+
     String getTranslationKey();
+
+    @SideOnly(Side.CLIENT)
+    default String getLocal() {
+        return I18n.format(getTranslationKey(), emptyArgs);
+    }
 
     @SideOnly(Side.CLIENT)
     default String getLocal(Object... args) {
         return I18n.format(getTranslationKey(), args);
+    }
+
+    default ITextComponent text() {
+        return new TextComponentTranslation(this.getTranslationKey(), emptyArgs);
     }
 
     default ITextComponent text(Object... args) {

@@ -88,10 +88,10 @@ public class PatternProviderLockReason implements ICompositeWidget {
                 GenericStack unlockStack = container.getUnlockStack();
                 ITextComponent stackName = unlockStack != null
                     ? AEKeyRendering.getDisplayName(unlockStack.what())
-                    : new TextComponentString("ERROR");
+                    : GuiText.Error.text();
                 ITextComponent stackAmount = unlockStack != null
                     ? new TextComponentString(unlockStack.what().formatAmount(unlockStack.amount(), AmountFormat.FULL))
-                    : new TextComponentString("ERROR");
+                    : GuiText.Error.text();
                 return new Tooltip(InGameTooltip.CraftingLockedUntilResult.text(stackName, stackAmount));
             case NONE:
             default:

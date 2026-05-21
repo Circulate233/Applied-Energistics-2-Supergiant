@@ -1,7 +1,8 @@
 package appeng.integration.modules.hei;
 
-import appeng.core.AppEng;
 import appeng.client.gui.Icon;
+import appeng.core.AppEng;
+import appeng.core.localization.GuiText;
 import mezz.jei.api.IGuiHelper;
 import mezz.jei.api.gui.IDrawable;
 import mezz.jei.api.gui.IDrawableAnimated;
@@ -12,7 +13,6 @@ import mezz.jei.api.ingredients.IIngredients;
 import mezz.jei.api.recipe.IRecipeCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.resources.I18n;
 import net.minecraft.util.ResourceLocation;
 
 import javax.annotation.ParametersAreNonnullByDefault;
@@ -45,7 +45,7 @@ class CondenserCategory implements IRecipeCategory<CondenserOutputWrapper> {
 
     @Override
     public String getTitle() {
-        return I18n.format("gui.ae2.Condenser");
+        return GuiText.Condenser.getLocal();
     }
 
     @Override

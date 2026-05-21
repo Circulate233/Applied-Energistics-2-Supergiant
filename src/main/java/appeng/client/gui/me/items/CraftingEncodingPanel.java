@@ -9,10 +9,11 @@ import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.ToggleButton;
 import appeng.container.SlotSemantics;
+import appeng.core.localization.GuiText;
+import appeng.core.localization.Tooltips;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.inventory.Slot;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentTranslation;
 
 import java.util.List;
 
@@ -35,11 +36,11 @@ public class CraftingEncodingPanel extends EncodingModePanel {
         this.substitutionsBtn.setHalfSize(true);
         this.substitutionsBtn.setDisableBackground(true);
         this.substitutionsBtn.setTooltipOn(List.of(
-            new TextComponentTranslation("gui.tooltips.ae2.SubstitutionsOn"),
-            new TextComponentTranslation("gui.tooltips.ae2.SubstitutionsDescEnabled")));
+            Tooltips.SubstitutionsOn.text(),
+            Tooltips.SubstitutionsDescEnabled.text()));
         this.substitutionsBtn.setTooltipOff(List.of(
-            new TextComponentTranslation("gui.tooltips.ae2.SubstitutionsOff"),
-            new TextComponentTranslation("gui.tooltips.ae2.SubstitutionsDescDisabled")));
+            Tooltips.SubstitutionsOff.text(),
+            Tooltips.SubstitutionsDescDisabled.text()));
         widgets.add("craftingSubstitutions", this.substitutionsBtn);
 
         this.fluidSubstitutionsBtn = new ToggleButton(Icon.S_FLUID_SUBSTITUTION_ENABLED,
@@ -47,11 +48,11 @@ public class CraftingEncodingPanel extends EncodingModePanel {
         this.fluidSubstitutionsBtn.setHalfSize(true);
         this.fluidSubstitutionsBtn.setDisableBackground(true);
         this.fluidSubstitutionsBtn.setTooltipOn(List.of(
-            new TextComponentTranslation("gui.tooltips.ae2.FluidSubstitutions"),
-            new TextComponentTranslation("gui.tooltips.ae2.FluidSubstitutionsDescEnabled")));
+            Tooltips.FluidSubstitutions.text(),
+            Tooltips.FluidSubstitutionsDescEnabled.text()));
         this.fluidSubstitutionsBtn.setTooltipOff(List.of(
-            new TextComponentTranslation("gui.tooltips.ae2.FluidSubstitutions"),
-            new TextComponentTranslation("gui.tooltips.ae2.FluidSubstitutionsDescDisabled")));
+            Tooltips.FluidSubstitutions.text(),
+            Tooltips.FluidSubstitutionsDescDisabled.text()));
         widgets.add("craftingFluidSubstitutions", this.fluidSubstitutionsBtn);
     }
 
@@ -62,7 +63,7 @@ public class CraftingEncodingPanel extends EncodingModePanel {
 
     @Override
     public ITextComponent getTabTooltip() {
-        return new TextComponentTranslation("gui.ae2.CraftingPattern");
+        return GuiText.CraftingPattern.text();
     }
 
     @Override

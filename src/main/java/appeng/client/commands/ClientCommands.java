@@ -1,15 +1,15 @@
 package appeng.client.commands;
 
 import appeng.core.AEConfig;
+import appeng.core.localization.PlayerMessages;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.client.ClientCommandHandler;
-import it.unimi.dsi.fastutil.objects.ObjectLists;
 
 import java.util.Collections;
 import java.util.List;
@@ -56,7 +56,7 @@ public final class ClientCommands {
             if ("highlight_gui_areas".equals(action) && AEConfig.instance().isDebugToolsEnabled()) {
                 boolean enabled = !AEConfig.instance().isShowDebugGuiOverlays();
                 AEConfig.instance().setShowDebugGuiOverlays(enabled);
-                sender.sendMessage(new TextComponentString("GUI Overlays: " + enabled));
+                sender.sendMessage((enabled ? PlayerMessages.GuiOverlaysEnabled : PlayerMessages.GuiOverlaysDisabled).text());
                 return;
             }
 
