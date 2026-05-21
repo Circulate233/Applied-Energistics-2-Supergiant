@@ -18,33 +18,48 @@
 
 package appeng.items.tools.powered.powersink;
 
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.energy.IEnergyStorage;
-
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerUnit;
 import appeng.api.implementations.items.IAEItemPowerStorage;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.ICapabilityProvider;
+import net.minecraftforge.energy.CapabilityEnergy;
+import net.minecraftforge.energy.IEnergyStorage;
+import org.jspecify.annotations.NonNull;
 
-/**
- * The capability provider to expose chargable items to other mods.
- */
-public class PoweredItemCapabilities implements IEnergyStorage {
+import javax.annotation.Nullable;
+
+class PoweredItemCapabilities implements ICapabilityProvider, IEnergyStorage {
 
     private final ItemStack is;
-
     private final IAEItemPowerStorage item;
 
-    public PoweredItemCapabilities(ItemStack is, IAEItemPowerStorage item) {
+    PoweredItemCapabilities(ItemStack is, IAEItemPowerStorage item) {
         this.is = is;
         this.item = item;
+    }
+
+    @Override
+    public boolean hasCapability(@NonNull Capability<?> capability, @Nullable EnumFacing facing) {
+        return capability == CapabilityEnergy.ENERGY;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public <T> T getCapability(@NonNull Capability<T> capability, @Nullable EnumFacing facing) {
+        if (capability == CapabilityEnergy.ENERGY) {
+            return (T) this;
+        }
+        return null;
     }
 
     @Override
     public int receiveEnergy(int maxReceive, boolean simulate) {
         final double convertedOffer = PowerUnit.FE.convertTo(PowerUnit.AE, maxReceive);
         final double overflow = this.item.injectAEPower(this.is, convertedOffer,
-                simulate ? Actionable.SIMULATE : Actionable.MODULATE);
-
+            simulate ? Actionable.SIMULATE : Actionable.MODULATE);
         return maxReceive - (int) PowerUnit.AE.convertTo(PowerUnit.FE, overflow);
     }
 
@@ -72,5 +87,4 @@ public class PoweredItemCapabilities implements IEnergyStorage {
     public boolean canReceive() {
         return true;
     }
-
 }

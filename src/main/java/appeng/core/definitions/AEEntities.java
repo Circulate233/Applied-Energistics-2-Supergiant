@@ -1,6 +1,6 @@
 /*
  * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,53 +18,39 @@
 
 package appeng.core.definitions;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Consumer;
-
-import net.minecraft.SharedConstants;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.EntityType.Builder;
-import net.minecraft.world.entity.EntityType.EntityFactory;
-import net.minecraft.world.entity.MobCategory;
-import net.neoforged.neoforge.registries.DeferredHolder;
-import net.neoforged.neoforge.registries.DeferredRegister;
-
 import appeng.core.AppEng;
+import appeng.core.AppEngBase;
+import appeng.entity.EntityChargedQuartz;
+import appeng.entity.EntitySingularity;
 import appeng.entity.TinyTNTPrimedEntity;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.common.registry.EntityRegistry;
 
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+
+import java.util.Map;
+
+@SuppressWarnings("deprecation")
 public final class AEEntities {
 
-    public static final DeferredRegister<EntityType<?>> DR = DeferredRegister.create(Registries.ENTITY_TYPE,
-            AppEng.MOD_ID);
+    public static final Map<String, String> ENTITY_ENGLISH_NAMES = new Object2ObjectOpenHashMap<>();
 
-    public static final Map<String, String> ENTITY_ENGLISH_NAMES = new HashMap<>();
-
-    public static final DeferredHolder<EntityType<?>, EntityType<TinyTNTPrimedEntity>> TINY_TNT_PRIMED = create(
-            "tiny_tnt_primed",
-            "Tiny TNT Primed",
-            TinyTNTPrimedEntity::new,
-            MobCategory.MISC,
-            builder -> builder.setTrackingRange(16).setUpdateInterval(4).setShouldReceiveVelocityUpdates(true));
-
-    private static <T extends Entity> DeferredHolder<EntityType<?>, EntityType<T>> create(String id,
-            String englishName,
-            EntityFactory<T> entityFactory,
-            MobCategory classification,
-            Consumer<Builder<T>> customizer) {
-        ENTITY_ENGLISH_NAMES.put(id, englishName);
-        return DR.register(id, () -> {
-            Builder<T> builder = Builder.of(entityFactory, classification);
-            customizer.accept(builder);
-            // Temporarily disable the data fixer check to avoid the annoying "no data fixer registered for ae2:xxx".
-            boolean prev = SharedConstants.CHECK_DATA_FIXER_SCHEMA;
-            SharedConstants.CHECK_DATA_FIXER_SCHEMA = false;
-            EntityType<T> result = builder.build(id);
-            SharedConstants.CHECK_DATA_FIXER_SCHEMA = prev;
-            return result;
-        });
+    private AEEntities() {
     }
 
+    public static void init() {
+        register();
+    }
+
+    private static void register() {
+        ENTITY_ENGLISH_NAMES.put("tiny_tnt_primed", "Tiny TNT Primed");
+        EntityRegistry.registerModEntity(new ResourceLocation(AppEng.MOD_ID, "tiny_tnt_primed"), TinyTNTPrimedEntity.class, "tiny_tnt_primed", 0,
+            AppEngBase.INSTANCE, 16, 4, true);
+        ENTITY_ENGLISH_NAMES.put("charged_quartz", "Charged Quartz");
+        EntityRegistry.registerModEntity(new ResourceLocation(AppEng.MOD_ID, "charged_quartz"),
+            EntityChargedQuartz.class, "Charged Quartz", 1, AppEngBase.INSTANCE, 16, 4, true);
+        ENTITY_ENGLISH_NAMES.put("singularity", "Singularity");
+        EntityRegistry.registerModEntity(new ResourceLocation(AppEng.MOD_ID, "singularity"),
+            EntitySingularity.class, "Singularity", 2, AppEngBase.INSTANCE, 16, 4, true);
+    }
 }

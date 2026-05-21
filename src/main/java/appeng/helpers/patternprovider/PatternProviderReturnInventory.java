@@ -18,31 +18,25 @@
 
 package appeng.helpers.patternprovider;
 
-import java.util.List;
-import java.util.function.Consumer;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.MEStorage;
 import appeng.helpers.externalstorage.GenericStackInv;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
+import java.util.List;
+import java.util.function.Consumer;
 
 public class PatternProviderReturnInventory extends GenericStackInv {
-    public static int NUMBER_OF_SLOTS = 9;
+    public static final int NUMBER_OF_SLOTS = 9;
 
-    /**
-     * Used to prevent injection through the handlers when we are pushing items out in the network. Otherwise, a storage
-     * bus on the pattern provider could potentially void items.
-     */
-    private boolean injectingIntoNetwork = false;
+    private boolean injectingIntoNetwork;
 
     public PatternProviderReturnInventory(Runnable listener) {
         super(listener, NUMBER_OF_SLOTS);
-
         useRegisteredCapacities();
     }
 
@@ -56,41 +50,45 @@ public class PatternProviderReturnInventory extends GenericStackInv {
         return !injectingIntoNetwork;
     }
 
-    /**
-     * Return true if something could be injected into the network.
-     */
     public boolean injectIntoNetwork(MEStorage storage, IActionSource src, Consumer<GenericStack> insertionCallback) {
-        var didSomething = false;
-        injectingIntoNetwork = true;
+        boolean didSomething = false;
+        boolean changed = false;
+        this.injectingIntoNetwork = true;
 
         try {
-            for (int i = 0; i < stacks.length; ++i) {
-                GenericStack stack = stacks[i];
-                if (stack != null) {
-                    long sizeBefore = stack.amount();
-                    var inserted = storage.insert(stack.what(), stack.amount(), Actionable.MODULATE, src);
-                    if (inserted >= stack.amount()) {
-                        stacks[i] = null;
-                    } else {
-                        stacks[i] = new GenericStack(stack.what(), stack.amount() - inserted);
-                    }
+            for (int i = 0; i < this.stacks.length; ++i) {
+                GenericStack stack = this.stacks[i];
+                if (stack == null) {
+                    continue;
+                }
 
-                    inserted = Math.max(0, sizeBefore - GenericStack.getStackSizeOrZero(stacks[i]));
-                    if (inserted > 0) {
-                        didSomething = true;
-                        insertionCallback.accept(new GenericStack(stack.what(), inserted));
-                    }
+                long sizeBefore = stack.amount();
+                long inserted = storage.insert(stack.what(), stack.amount(), Actionable.MODULATE, src);
+                if (inserted >= stack.amount()) {
+                    this.stacks[i] = null;
+                } else {
+                    this.stacks[i] = new GenericStack(stack.what(), stack.amount() - inserted);
+                }
+
+                inserted = Math.max(0, sizeBefore - GenericStack.getStackSizeOrZero(this.stacks[i]));
+                if (inserted > 0) {
+                    didSomething = true;
+                    changed = true;
+                    insertionCallback.accept(new GenericStack(stack.what(), inserted));
                 }
             }
         } finally {
-            injectingIntoNetwork = false;
+            this.injectingIntoNetwork = false;
+            if (changed) {
+                this.notifyListener();
+            }
         }
 
         return didSomething;
     }
 
-    public void addDrops(List<ItemStack> drops, Level level, BlockPos pos) {
-        for (var stack : stacks) {
+    public void addDrops(List<ItemStack> drops, World level, BlockPos pos) {
+        for (GenericStack stack : this.stacks) {
             if (stack != null) {
                 stack.what().addDrops(stack.amount(), drops, level, pos);
             }

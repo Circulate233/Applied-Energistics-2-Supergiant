@@ -23,15 +23,13 @@
 
 package appeng.api.networking;
 
+import appeng.api.util.AECableType;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
-import appeng.api.util.AECableType;
-
 /**
- * Implement to create a networked {@link BlockEntity}. Must be implemented for a block entity to be available for
+ * Implement to create a networked {@link TileEntity}. Must be implemented for a tile entity to be available for
  * in-world connection attempts by adjacent grid nodes.
  * <p>
  * Must be provided via the {@link appeng.api.AECapabilities#IN_WORLD_GRID_NODE_HOST} capability.
@@ -45,7 +43,7 @@ public interface IInWorldGridNodeHost {
      * @return a IGridNode, create these with IAppEngApi.instance().createGridNode( MyIGridBlock )
      */
     @Nullable
-    IGridNode getGridNode(Direction dir);
+    IGridNode getGridNode(EnumFacing dir);
 
     /**
      * Determines how cables render when they connect to this block. Priority is Smart &gt; Covered &gt; Glass
@@ -53,7 +51,7 @@ public interface IInWorldGridNodeHost {
      * @param dir direction
      */
 
-    default AECableType getCableConnectionType(Direction dir) {
+    default AECableType getCableConnectionType(EnumFacing dir) {
         return AECableType.GLASS;
     }
 

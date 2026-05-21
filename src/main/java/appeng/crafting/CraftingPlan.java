@@ -18,19 +18,18 @@
 
 package appeng.crafting;
 
-import java.util.Map;
-
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 public record CraftingPlan(GenericStack finalOutput,
-        long bytes,
-        boolean simulation,
-        boolean multiplePaths,
-        KeyCounter usedItems,
-        KeyCounter emittedItems,
-        KeyCounter missingItems,
-        Map<IPatternDetails, Long> patternTimes) implements ICraftingPlan {
+                           long bytes,
+                           boolean simulation,
+                           boolean multiplePaths,
+                           KeyCounter usedItems,
+                           KeyCounter emittedItems,
+                           KeyCounter missingItems,
+                           Object2LongMap<IPatternDetails> patternTimes) implements ICraftingPlan {
 }

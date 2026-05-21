@@ -18,16 +18,14 @@
 
 package appeng.core;
 
+import appeng.tile.AEBaseTile;
+import appeng.util.Platform;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.BlockPos;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.state.BlockState;
-
-import appeng.blockentity.AEBaseBlockEntity;
-import appeng.util.Platform;
 
 public final class AELog {
     private static final String LOGGER_PREFIX = "AE2:";
@@ -60,7 +58,7 @@ public final class AELog {
     /**
      * Indicates of the global log is enabled or disabled.
      * <p>
-     * By default it is enabled.
+     * It is enabled by default.
      *
      * @return true when the log is enabled.
      */
@@ -100,7 +98,7 @@ public final class AELog {
      * @see AELog#log(Level, String, Object...)
      */
     private static void log(Level level, Throwable exception, String message,
-            Object... params) {
+                            Object... params) {
         if (AELog.isLogEnabled()) {
             final String formattedMessage = String.format(message, params);
             final Logger logger = getLogger();
@@ -160,6 +158,15 @@ public final class AELog {
     }
 
     /**
+     * Log exception as {@link Level#WARN}
+     *
+     * @see AELog#log(Level, Throwable, String, Object...)
+     */
+    public static void warn(Throwable exception, String message, Object... params) {
+        log(Level.WARN, exception, message, params);
+    }
+
+    /**
      * @see AELog#log(Level, String, Object...)
      */
     public static void error(String format, Object... params) {
@@ -210,6 +217,11 @@ public final class AELog {
     // Specialized handlers
     //
 
+    @SuppressWarnings("unused")
+    public static void setDebugLogEnabled(boolean newValue) {
+        debugLogEnabled = newValue;
+    }
+
     /**
      * Logging of block updates.
      * <p>
@@ -217,8 +229,9 @@ public final class AELog {
      *
      * @see AELog#log(Level, String, Object...)
      */
-    public static void blockUpdate(BlockPos pos, BlockState currentState,
-            BlockState newState, AEBaseBlockEntity blockEntity) {
+    @SuppressWarnings("unused")
+    public static void blockUpdate(BlockPos pos, IBlockState currentState,
+                                   IBlockState newState, AEBaseTile blockEntity) {
         if (AEConfig.instance().isBlockUpdateLogEnabled()) {
             info(BLOCK_UPDATE, blockEntity.getClass().getName(), pos, currentState, newState);
         }
@@ -233,6 +246,11 @@ public final class AELog {
      */
     public static boolean isCraftingLogEnabled() {
         return craftingLogEnabled;
+    }
+
+    @SuppressWarnings("unused")
+    public static void setCraftingLogEnabled(boolean newValue) {
+        craftingLogEnabled = newValue;
     }
 
     /**
@@ -283,6 +301,11 @@ public final class AELog {
         return gridLogEnabled;
     }
 
+    @SuppressWarnings("unused")
+    public static void setGridLogEnabled(boolean newValue) {
+        gridLogEnabled = newValue;
+    }
+
     /**
      * Logging for grid and grid node structure changes.
      * <p>
@@ -294,17 +317,5 @@ public final class AELog {
         if (AELog.isGridLogEnabled()) {
             log(Level.INFO, "[AE2 Grid Log] " + message, params);
         }
-    }
-
-    public static void setCraftingLogEnabled(boolean newValue) {
-        craftingLogEnabled = newValue;
-    }
-
-    public static void setDebugLogEnabled(boolean newValue) {
-        debugLogEnabled = newValue;
-    }
-
-    public static void setGridLogEnabled(boolean newValue) {
-        gridLogEnabled = newValue;
     }
 }

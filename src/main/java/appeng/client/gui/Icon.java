@@ -18,227 +18,231 @@
 
 package appeng.client.gui;
 
-import net.minecraft.resources.ResourceLocation;
-
 import appeng.client.gui.style.Blitter;
+import appeng.client.gui.style.IconAtlas;
 import appeng.core.AppEng;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.minecraft.util.ResourceLocation;
 
-/**
- * Edit in {@code assets/ae2/textures/guis/states.png}.
- */
-public enum Icon {
-    // ROW 0
-    REDSTONE_LOW(0, 0),
-    REDSTONE_HIGH(16, 0),
-    REDSTONE_PULSE(32, 0),
-    REDSTONE_IGNORE(48, 0),
-    REDSTONE_OFF(64, 0),
-    REDSTONE_ON(80, 0),
-    REDSTONE_ABOVE_EQUAL(192, 0),
-    REDSTONE_BELOW(208, 0),
-    // CLEAR, STASH
-    CLEAR(96, 0),
-    ENTER(112, 0),
-    // ENCODE
-    WHITE_ARROW_DOWN(128, 0),
-    // LOCKED
-    LOCKED(144, 0),
-    // UNLOCKED
-    UNLOCKED(160, 0),
-    HELP(176, 0),
-    BACKGROUND_PRIMARY_OUTPUT(224, 0),
-    BACKGROUND_STORAGE_CELL(240, 0),
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
-    // ROW 1
-    VIEW_MODE_STORED(0, 16),
-    VIEW_MODE_ALL(32, 16),
-    VIEW_MODE_CRAFTING(48, 16),
-    BLOCKING_MODE_NO(64, 16),
-    BLOCKING_MODE_YES(80, 16),
-    BACK(96, 16),
-    TRANSPARENT_FACADES_OFF(96, 16),
-    TRANSPARENT_FACADES_ON(112, 16),
-    TYPE_FILTER_ITEMS(128, 16),
-    TYPE_FILTER_FLUIDS(144, 16),
-    TYPE_FILTER_ALL(160, 16),
-    BACKGROUND_ORE(240, 16),
+public final class Icon {
+    private static final Set<Icon> registeredIcons = new ObjectOpenHashSet<>();
 
-    // ROW 2
-    SEARCH_AUTO_FOCUS(48, 32),
-    SEARCH_DEFAULT(64, 32),
-    SEARCH_JEI(80, 32),
-    SEARCH_REI(96, 32),
-    SEARCH_AUTO_FOCUS_REMEMBER(112, 32),
-    SEARCH_REMEMBER(128, 32),
-    SEARCH_JEI_AUTO_CLEAR(144, 32),
-    SEARCH_REI_AUTO_CLEAR(160, 32),
-    BACKGROUND_PLATE(224, 32),
-    BACKGROUND_DUST(240, 32),
-    TAB_CRAFTING(0, 32),
-    TAB_PROCESSING(16, 32),
-    TAB_SMITHING(32, 32),
-    TAB_STONECUTTING(48, 32),
+    public static final Icon REDSTONE_LOW = registerBuiltin("redstone_low", 16, 16);
+    public static final Icon REDSTONE_HIGH = registerBuiltin("redstone_high", 16, 16);
+    public static final Icon REDSTONE_PULSE = registerBuiltin("redstone_pulse", 16, 16);
+    public static final Icon REDSTONE_IGNORE = registerBuiltin("redstone_ignore", 16, 16);
+    public static final Icon REDSTONE_OFF = registerBuiltin("redstone_off", 16, 16);
+    public static final Icon REDSTONE_ON = registerBuiltin("redstone_on", 16, 16);
+    public static final Icon REDSTONE_ABOVE_EQUAL = registerBuiltin("redstone_above_equal", 16, 16);
+    public static final Icon REDSTONE_BELOW = registerBuiltin("redstone_below", 16, 16);
+    public static final Icon CLEAR = registerBuiltin("clear", 16, 16);
+    public static final Icon ENTER = registerBuiltin("enter", 16, 16);
+    public static final Icon WHITE_ARROW_DOWN = registerBuiltin("white_arrow_down", 16, 16);
+    public static final Icon LOCKED = registerBuiltin("locked", 16, 16);
+    public static final Icon UNLOCKED = registerBuiltin("unlocked", 16, 16);
+    public static final Icon HELP = registerBuiltin("help", 16, 16);
+    public static final Icon BACKGROUND_PRIMARY_OUTPUT = registerBuiltin("background_primary_output", 16, 16);
+    public static final Icon BACKGROUND_STORAGE_CELL = registerBuiltin("background_storage_cell", 16, 16);
 
-    // ROW 3
-    ARROW_UP(0, 48),
-    ARROW_DOWN(16, 48),
-    ARROW_RIGHT(32, 48),
-    ARROW_LEFT(48, 48),
-    SUBSTITUTION_ENABLED(64, 48),
-    STORAGE_FILTER_EXTRACTABLE_ONLY(80, 48),
-    STORAGE_FILTER_EXTRACTABLE_NONE(96, 48),
-    SUBSTITUTION_DISABLED(112, 48),
-    FLUID_SUBSTITUTION_ENABLED(128, 48),
-    FLUID_SUBSTITUTION_DISABLED(144, 48),
-    FILTER_ON_EXTRACT_ENABLED(160, 48),
-    FILTER_ON_EXTRACT_DISABLED(176, 48),
-    BACKGROUND_INGOT(224, 48),
-    BACKGROUND_STORAGE_COMPONENT(240, 48),
+    public static final Icon VIEW_MODE_STORED = registerBuiltin("view_mode_stored", 16, 16);
+    public static final Icon VIEW_MODE_ALL = registerBuiltin("view_mode_all", 16, 16);
+    public static final Icon VIEW_MODE_CRAFTING = registerBuiltin("view_mode_crafting", 16, 16);
+    public static final Icon BLOCKING_MODE_NO = registerBuiltin("blocking_mode_no", 16, 16);
+    public static final Icon BLOCKING_MODE_YES = registerBuiltin("blocking_mode_yes", 16, 16);
+    public static final Icon BLOCKING_MODE_STRONG = registerBuiltin("blocking_mode_strong", 16, 16);
+    public static final Icon BLOCKING_MODE_TYPE_NORMAL = registerBuiltin("blocking_mode_type_normal", 16, 16);
+    public static final Icon BLOCKING_MODE_TYPE_SMART = registerBuiltin("blocking_mode_type_smart", 16, 16);
 
-    // ROW 4
-    SORT_BY_NAME(0, 64),
-    SORT_BY_AMOUNT(16, 64),
-    // WRENCH | PARTITION STORAGE
-    COG(32, 64),
-    COG_DISABLED(48, 64),
-    LEVEL_ITEM(64, 64),
-    SORT_BY_INVENTORY_TWEAKS(80, 64),
-    SORT_BY_MOD(96, 64),
-    PRIORITY(144, 64),
-    BACKGROUND_VIEW_CELL(224, 64),
-    BACKGROUND_WIRELESS_TERM(240, 64),
 
-    // ROW 5
-    FULLNESS_EMPTY(0, 80),
-    FULLNESS_HALF(16, 80),
-    FULLNESS_FULL(32, 80),
-    LEVEL_ENERGY(48, 80),
-    PATTERN_ACCESS_SHOW(64, 80),
-    PATTERN_ACCESS_HIDE(80, 80),
-    PATTERN_TERMINAL_VISIBLE(96, 80),
-    PATTERN_TERMINAL_ALL(112, 80),
-    PATTERN_TERMINAL_NOT_FULL(128, 80),
-    BACKGROUND_TRASH(240, 80),
+    public static final Icon BACK = registerBuiltin("back", 16, 16);
+    public static final Icon TRANSPARENT_FACADES_OFF = registerBuiltin("transparent_facades_off", 16, 16);
+    public static final Icon TYPE_FILTER_ALL = registerBuiltin("type_filter_all", 16, 16);
+    public static final Icon BACKGROUND_ORE = registerBuiltin("background_ore", 16, 16);
 
-    // ROW 6
-    FUZZY_PERCENT_25(0, 96),
-    FUZZY_PERCENT_50(16, 96),
-    FUZZY_PERCENT_75(32, 96),
-    FUZZY_PERCENT_99(48, 96),
-    FUZZY_IGNORE(64, 96),
-    INSCRIBER_SEPARATE_SIDES(80, 96),
-    INSCRIBER_COMBINED_SIDES(96, 96),
-    AUTO_EXPORT_OFF(112, 96),
-    AUTO_EXPORT_ON(128, 96),
-    INSCRIBER_BUFFER_4(144, 96),
-    INSCRIBER_BUFFER_64(160, 96),
-    INSCRIBER_BUFFER_1(176, 96),
-    BACKGROUND_WIRELESS_BOOSTER(240, 96),
+    public static final Icon SEARCH_AUTO_FOCUS = registerBuiltin("search_auto_focus", 16, 16);
+    public static final Icon BACKGROUND_PLATE = registerBuiltin("background_plate", 16, 16);
+    public static final Icon TAB_CRAFTING = registerBuiltin("tab_crafting", 16, 16);
+    public static final Icon TAB_PROCESSING = registerBuiltin("tab_processing", 16, 16);
 
-    // ROW 7
-    CONDENSER_OUTPUT_TRASH(0, 112),
-    CONDENSER_OUTPUT_MATTER_BALL(16, 112),
-    CONDENSER_OUTPUT_SINGULARITY(32, 112),
-    BACKGROUND_ENCODED_PATTERN(240, 112),
+    public static final Icon ARROW_UP = registerBuiltin("arrow_up", 16, 16);
+    public static final Icon ARROW_DOWN = registerBuiltin("arrow_down", 16, 16);
+    public static final Icon ARROW_RIGHT = registerBuiltin("arrow_right", 16, 16);
+    public static final Icon ARROW_LEFT = registerBuiltin("arrow_left", 16, 16);
+    public static final Icon STORAGE_FILTER_EXTRACTABLE_ONLY = registerBuiltin("storage_filter_extractable_only", 16, 16);
+    public static final Icon STORAGE_FILTER_EXTRACTABLE_NONE = registerBuiltin("storage_filter_extractable_none", 16, 16);
+    public static final Icon FILTER_ON_EXTRACT_ENABLED = registerBuiltin("filter_on_extract_enabled", 16, 16);
+    public static final Icon FILTER_ON_EXTRACT_DISABLED = registerBuiltin("filter_on_extract_disabled", 16, 16);
+    public static final Icon BACKGROUND_INGOT = registerBuiltin("background_ingot", 16, 16);
+    public static final Icon BACKGROUND_STORAGE_COMPONENT = registerBuiltin("background_storage_component", 16, 16);
 
-    // ROW 8
-    INVALID(0, 128),
-    VALID(16, 128),
-    WHITELIST(32, 128),
-    BLACKLIST(48, 128),
-    HORIZONTAL_TAB(128, 128, 22, 22),
-    HORIZONTAL_TAB_SELECTED(128, 150, 22, 22),
-    HORIZONTAL_TAB_FOCUS(150, 128, 22, 22),
-    BACKGROUND_BLANK_PATTERN(240, 128),
-    TOOLBAR_BUTTON_BACKGROUND(176, 128, 18, 20),
-    TOOLBAR_BUTTON_BACKGROUND_FOCUS(194, 128, 18, 20),
-    TOOLBAR_BUTTON_BACKGROUND_HOVER(212, 128, 18, 20),
+    public static final Icon SORT_BY_NAME = registerBuiltin("sort_by_name", 16, 16);
+    public static final Icon SORT_BY_AMOUNT = registerBuiltin("sort_by_amount", 16, 16);
+    public static final Icon COG = registerBuiltin("cog", 16, 16);
+    public static final Icon COG_DISABLED = registerBuiltin("cog_disabled", 16, 16);
+    public static final Icon SORT_BY_INVENTORY_TWEAKS = registerBuiltin("sort_by_inventory_tweaks", 16, 16);
+    public static final Icon SORT_BY_MOD = registerBuiltin("sort_by_mod", 16, 16);
+    public static final Icon PRIORITY = registerBuiltin("priority", 16, 16);
+    public static final Icon BACKGROUND_VIEW_CELL = registerBuiltin("background_view_cell", 16, 16);
+    public static final Icon BACKGROUND_WIRELESS_TERM = registerBuiltin("background_wireless_term", 16, 16);
 
-    // ROW 9
-    ACCESS_WRITE(0, 144),
-    ACCESS_READ(16, 144),
-    ACCESS_READ_WRITE(32, 144),
-    CRAFT_HAMMER(48, 144),
-    BACKGROUND_CHARGABLE(240, 144),
+    public static final Icon FULLNESS_EMPTY = registerBuiltin("fullness_empty", 16, 16);
+    public static final Icon FULLNESS_HALF = registerBuiltin("fullness_half", 16, 16);
+    public static final Icon FULLNESS_FULL = registerBuiltin("fullness_full", 16, 16);
+    public static final Icon PATTERN_ACCESS_SHOW = registerBuiltin("pattern_access_show", 16, 16);
+    public static final Icon PATTERN_ACCESS_HIDE = registerBuiltin("pattern_access_hide", 16, 16);
+    public static final Icon PATTERN_TERMINAL_VISIBLE = registerBuiltin("pattern_terminal_visible", 16, 16);
+    public static final Icon PATTERN_TERMINAL_ALL = registerBuiltin("pattern_terminal_all", 16, 16);
+    public static final Icon PATTERN_TERMINAL_NOT_FULL = registerBuiltin("pattern_terminal_not_full", 16, 16);
+    public static final Icon BACKGROUND_TRASH = registerBuiltin("background_trash", 16, 16);
 
-    // ROW 10
-    POWER_UNIT_AE(0, 160),
-    POWER_UNIT_EU(16, 160),
-    POWER_UNIT_J(32, 160),
-    POWER_UNIT_W(48, 160),
-    POWER_UNIT_RF(64, 160),
-    POWER_UNIT_TR(80, 160),
-    BACKGROUND_SINGULARITY(240, 160),
+    public static final Icon FUZZY_PERCENT_25 = registerBuiltin("fuzzy_percent_25", 16, 16);
+    public static final Icon FUZZY_PERCENT_50 = registerBuiltin("fuzzy_percent_50", 16, 16);
+    public static final Icon FUZZY_PERCENT_75 = registerBuiltin("fuzzy_percent_75", 16, 16);
+    public static final Icon FUZZY_PERCENT_99 = registerBuiltin("fuzzy_percent_99", 16, 16);
+    public static final Icon FUZZY_IGNORE = registerBuiltin("fuzzy_ignore", 16, 16);
+    public static final Icon INSCRIBER_SEPARATE_SIDES = registerBuiltin("inscriber_separate_sides", 16, 16);
+    public static final Icon INSCRIBER_COMBINED_SIDES = registerBuiltin("inscriber_combined_sides", 16, 16);
+    public static final Icon AUTO_EXPORT_OFF = registerBuiltin("auto_export_off", 16, 16);
+    public static final Icon AUTO_EXPORT_ON = registerBuiltin("auto_export_on", 16, 16);
+    public static final Icon INSCRIBER_BUFFER_4 = registerBuiltin("inscriber_buffer_4", 16, 16);
+    public static final Icon INSCRIBER_BUFFER_64 = registerBuiltin("inscriber_buffer_64", 16, 16);
+    public static final Icon INSCRIBER_BUFFER_1 = registerBuiltin("inscriber_buffer_1", 16, 16);
+    public static final Icon BACKGROUND_WIRELESS_BOOSTER = registerBuiltin("background_wireless_booster", 16, 16);
 
-    // ROW 11
-    COPY_MODE_ON(80, 176),
-    BACKGROUND_SPATIAL_CELL_NO_SHADOW(224, 176),
-    BACKGROUND_SPATIAL_CELL(240, 176),
+    public static final Icon CONDENSER_OUTPUT_TRASH = registerBuiltin("condenser_output_trash", 16, 16);
+    public static final Icon CONDENSER_OUTPUT_MATTER_BALL = registerBuiltin("condenser_output_matter_ball", 16, 16);
+    public static final Icon CONDENSER_OUTPUT_SINGULARITY = registerBuiltin("condenser_output_singularity", 16, 16);
+    public static final Icon BACKGROUND_ENCODED_PATTERN = registerBuiltin("background_encoded_pattern", 16, 16);
 
-    // ROW 12
-    COPY_MODE_OFF(80, 192),
-    TAB_BUTTON_BACKGROUND_BORDERLESS(128, 192, 25, 22),
-    TAB_BUTTON_BACKGROUND(160, 192, 20, 20),
-    SLOT_BACKGROUND(192, 192, 18, 18),
-    BACKGROUND_FUEL(240, 192),
+    public static final Icon INVALID = registerBuiltin("invalid", 16, 16);
+    public static final Icon HORIZONTAL_TAB = registerBuiltin("horizontal_tab", 22, 22);
+    public static final Icon HORIZONTAL_TAB_SELECTED = registerBuiltin("horizontal_tab_selected", 22, 22);
+    public static final Icon HORIZONTAL_TAB_FOCUS = registerBuiltin("horizontal_tab_focus", 22, 22);
+    public static final Icon BACKGROUND_BLANK_PATTERN = registerBuiltin("background_blank_pattern", 16, 16);
+    public static final Icon TOOLBAR_BUTTON_BACKGROUND = registerBuiltin("toolbar_button_background", 18, 20);
+    public static final Icon TOOLBAR_BUTTON_BACKGROUND_FOCUS = registerBuiltin("toolbar_button_background_focus", 18, 20);
+    public static final Icon TOOLBAR_BUTTON_BACKGROUND_HOVER = registerBuiltin("toolbar_button_background_hover", 18, 20);
 
-    // ROW 13
-    TERMINAL_STYLE_SMALL(0, 208),
-    TERMINAL_STYLE_MEDIUM(16, 208),
-    TERMINAL_STYLE_TALL(32, 208),
-    TERMINAL_STYLE_FULL(48, 208),
-    BACKGROUND_UPGRADE(240, 208),
+    public static final Icon ACCESS_WRITE = registerBuiltin("access_write", 16, 16);
+    public static final Icon ACCESS_READ = registerBuiltin("access_read", 16, 16);
+    public static final Icon ACCESS_READ_WRITE = registerBuiltin("access_read_write", 16, 16);
+    public static final Icon CRAFT_HAMMER = registerBuiltin("craft_hammer", 16, 16);
+    public static final Icon BACKGROUND_CHARGABLE = registerBuiltin("background_chargable", 16, 16);
 
-    // ROW 14
-    PLACEMENT_BLOCK(0, 224),
-    PLACEMENT_ITEM(16, 224),
-    TAB_BUTTON_BACKGROUND_BORDERLESS_FOCUS(128, 224, 25, 22),
-    TAB_BUTTON_BACKGROUND_FOCUS(160, 224, 22, 22),
+    public static final Icon POWER_UNIT_AE = registerBuiltin("power_unit_ae", 16, 16);
+    public static final Icon POWER_UNIT_EU = registerBuiltin("power_unit_eu", 16, 16);
+    public static final Icon POWER_UNIT_J = registerBuiltin("power_unit_j", 16, 16);
+    public static final Icon POWER_UNIT_W = registerBuiltin("power_unit_w", 16, 16);
+    public static final Icon POWER_UNIT_RF = registerBuiltin("power_unit_rf", 16, 16);
+    public static final Icon POWER_UNIT_TR = registerBuiltin("power_unit_tr", 16, 16);
+    public static final Icon BACKGROUND_SINGULARITY = registerBuiltin("background_singularity", 16, 16);
 
-    SCHEDULING_DEFAULT(0, 240),
-    SCHEDULING_ROUND_ROBIN(16, 240),
-    SCHEDULING_RANDOM(32, 240),
-    OVERLAY_OFF(48, 240),
-    OVERLAY_ON(64, 240),
+    public static final Icon COPY_MODE_ON = registerBuiltin("copy_mode_on", 16, 16);
+    public static final Icon BACKGROUND_SPATIAL_CELL_NO_SHADOW = registerBuiltin("background_spatial_cell_no_shadow", 16, 16);
+    public static final Icon BACKGROUND_SPATIAL_CELL = registerBuiltin("background_spatial_cell", 16, 16);
 
-    // Small Icons
-    S_ARROW_UP(224, 192, 8, 8),
-    S_ARROW_DOWN(232, 192, 8, 8),
-    S_CLEAR(224, 200, 8, 8),
-    S_CYCLE(232, 200, 8, 8),
-    S_SUBSTITUTION_ENABLED(224, 208, 8, 8),
-    S_SUBSTITUTION_DISABLED(232, 208, 8, 8),
-    S_FLUID_SUBSTITUTION_ENABLED(224, 216, 8, 8),
-    S_FLUID_SUBSTITUTION_DISABLED(232, 216, 8, 8),
-    S_STORAGE(208, 224, 10, 10),
-    S_PROCESSOR(208, 234, 10, 10),
-    S_CRAFT(208, 244, 10, 10),
-    S_TERMINAL(192, 224, 10, 10),
-    S_MACHINE(192, 234, 10, 10);
+    public static final Icon COPY_MODE_OFF = registerBuiltin("copy_mode_off", 16, 16);
+    public static final Icon TAB_BUTTON_BACKGROUND_BORDERLESS = registerBuiltin("tab_button_background_borderless", 25, 22);
+    public static final Icon TAB_BUTTON_BACKGROUND = registerBuiltin("tab_button_background", 20, 20);
+    public static final Icon SLOT_BACKGROUND = registerBuiltin("slot_background", 18, 18);
+    public static final Icon BACKGROUND_FUEL = registerBuiltin("background_fuel", 16, 16);
 
-    public final int x;
-    public final int y;
+    public static final Icon TERMINAL_STYLE_SMALL = registerBuiltin("terminal_style_small", 16, 16);
+    public static final Icon TERMINAL_STYLE_MEDIUM = registerBuiltin("terminal_style_medium", 16, 16);
+    public static final Icon TERMINAL_STYLE_TALL = registerBuiltin("terminal_style_tall", 16, 16);
+    public static final Icon TERMINAL_STYLE_FULL = registerBuiltin("terminal_style_full", 16, 16);
+    public static final Icon BACKGROUND_UPGRADE = registerBuiltin("background_upgrade", 16, 16);
+
+    public static final Icon PLACEMENT_BLOCK = registerBuiltin("placement_block", 16, 16);
+    public static final Icon PLACEMENT_ITEM = registerBuiltin("placement_item", 16, 16);
+    public static final Icon TAB_BUTTON_BACKGROUND_BORDERLESS_FOCUS = registerBuiltin("tab_button_background_borderless_focus", 25, 22);
+    public static final Icon TAB_BUTTON_BACKGROUND_FOCUS = registerBuiltin("tab_button_background_focus", 22, 22);
+
+    public static final Icon SCHEDULING_DEFAULT = registerBuiltin("scheduling_default", 16, 16);
+    public static final Icon SCHEDULING_ROUND_ROBIN = registerBuiltin("scheduling_round_robin", 16, 16);
+    public static final Icon SCHEDULING_RANDOM = registerBuiltin("scheduling_random", 16, 16);
+    public static final Icon OVERLAY_OFF = registerBuiltin("overlay_off", 16, 16);
+    public static final Icon OVERLAY_ON = registerBuiltin("overlay_on", 16, 16);
+
+    public static final Icon S_ARROW_UP = registerBuiltin("s_arrow_up", 8, 8);
+    public static final Icon S_ARROW_DOWN = registerBuiltin("s_arrow_down", 8, 8);
+    public static final Icon S_CLEAR = registerBuiltin("s_clear", 8, 8);
+    public static final Icon S_CYCLE = registerBuiltin("s_cycle", 8, 8);
+    public static final Icon S_SUBSTITUTION_ENABLED = registerBuiltin("s_substitution_enabled", 8, 8);
+    public static final Icon S_SUBSTITUTION_DISABLED = registerBuiltin("s_substitution_disabled", 8, 8);
+    public static final Icon S_FLUID_SUBSTITUTION_ENABLED = registerBuiltin("s_fluid_substitution_enabled", 8, 8);
+    public static final Icon S_FLUID_SUBSTITUTION_DISABLED = registerBuiltin("s_fluid_substitution_disabled", 8, 8);
+    public static final Icon S_STORAGE = registerBuiltin("s_storage", 10, 10);
+    public static final Icon S_PROCESSOR = registerBuiltin("s_processor", 10, 10);
+    public static final Icon S_CRAFT = registerBuiltin("s_craft", 10, 10);
+    public static final Icon S_TERMINAL = registerBuiltin("s_terminal", 10, 10);
+    public static final Icon S_MACHINE = registerBuiltin("s_machine", 10, 10);
+
     public final int width;
     public final int height;
+    private final ResourceLocation id;
+    private final ResourceLocation texture;
+    private final int hash;
 
-    public static final ResourceLocation TEXTURE = AppEng.makeId("textures/guis/states.png");
-    public static final int TEXTURE_WIDTH = 256;
-    public static final int TEXTURE_HEIGHT = 256;
-
-    Icon(int x, int y) {
-        this(x, y, 16, 16);
-    }
-
-    Icon(int x, int y, int width, int height) {
-        this.x = x;
-        this.y = y;
+    private Icon(ResourceLocation id, ResourceLocation texture, int width, int height) {
+        this.id = Objects.requireNonNull(id, "id");
+        this.texture = Objects.requireNonNull(texture, "texture");
         this.width = width;
         this.height = height;
+        this.hash = width * 31 * 31 * 31 + height * 31 * 31 + id.hashCode() * 31 + texture.hashCode();
+    }
+
+    private static Icon registerBuiltin(String name, int width, int height) {
+        return register(AppEng.makeId(name), AppEng.makeId("textures/guis/states/" + name + ".png"), width, height);
+    }
+
+    public static Icon register(ResourceLocation id, int width, int height) {
+        return register(id, new ResourceLocation(id.getNamespace(), "textures/guis/states/" + id.getPath() + ".png"), width, height);
+    }
+
+    public static synchronized Icon register(ResourceLocation id, ResourceLocation texture, int width, int height) {
+        Icon icon = new Icon(id, texture, width, height);
+
+        if (registeredIcons.contains(icon)) {
+            throw new IllegalArgumentException("Duplicate GUI icon id " + id);
+        }
+
+        registeredIcons.add(icon);
+        IconAtlas.invalidate();
+        return icon;
+    }
+
+    public static synchronized List<Icon> getRegisteredIcons() {
+        return Collections.unmodifiableList(new ObjectArrayList<>(registeredIcons));
+    }
+
+    public ResourceLocation id() {
+        return this.id;
+    }
+
+    public ResourceLocation texture() {
+        return this.texture;
     }
 
     public Blitter getBlitter() {
-        return Blitter.texture(TEXTURE, TEXTURE_WIDTH, TEXTURE_HEIGHT)
-                .src(x, y, width, height);
+        return IconAtlas.getBlitter(this);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Icon icon = (Icon) o;
+        return width == icon.width && height == icon.height && Objects.equals(id, icon.id) && Objects.equals(texture, icon.texture);
+    }
+
+    @Override
+    public int hashCode() {
+        return hash;
+    }
 }

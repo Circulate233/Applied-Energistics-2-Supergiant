@@ -18,112 +18,111 @@
 
 package appeng.block.qnb;
 
-import org.jetbrains.annotations.Nullable;
+import appeng.block.AEBaseTileBlock;
+import appeng.tile.qnb.TileQuantumBridge;
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.common.property.ExtendedBlockState;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SimpleWaterloggedBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
+public abstract class QuantumBaseBlock extends AEBaseTileBlock<TileQuantumBridge> {
 
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.qnb.QuantumBridgeBlockEntity;
+    public static final PropertyBool FORMED = PropertyBool.create("formed");
+    protected static final double TWO_PIXELS = 2.0 / 16.0;
+    private static final AxisAlignedBB SHAPE = new AxisAlignedBB(TWO_PIXELS, TWO_PIXELS, TWO_PIXELS,
+        1.0 - TWO_PIXELS, 1.0 - TWO_PIXELS, 1.0 - TWO_PIXELS);
 
-public abstract class QuantumBaseBlock extends AEBaseEntityBlock<QuantumBridgeBlockEntity>
-        implements SimpleWaterloggedBlock {
-
-    public static final BooleanProperty FORMED = BooleanProperty.create("formed");
-    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
-
-    private static final VoxelShape SHAPE;
-
-    static {
-        final float shave = 2.0f / 16.0f;
-        SHAPE = Shapes.create(new AABB(shave, shave, shave, 1.0f - shave, 1.0f - shave, 1.0f - shave));
-    }
-
-    public QuantumBaseBlock(Properties props) {
-        super(props);
-        this.registerDefaultState(this.defaultBlockState().setValue(FORMED, false)
-                .setValue(WATERLOGGED, false));
+    protected QuantumBaseBlock(Material material) {
+        super(material);
+        this.setOpaque();
+        this.setFullSize();
+        this.setHardness(2.2F);
+        this.setResistance(11.0F);
+        this.setTileEntity(TileQuantumBridge.class);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(FORMED, Boolean.FALSE));
     }
 
     @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
+    protected BlockStateContainer createBlockState() {
+        return new ExtendedBlockState(this, new IProperty<?>[]{FORMED},
+            new IUnlistedProperty<?>[]{QnbFormedState.PROPERTY});
+    }
+
+    @Override
+    public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        if (!(state instanceof IExtendedBlockState)) {
+            return state;
+        }
+
+        TileQuantumBridge bridge = this.getTileEntity(world, pos);
+        if (bridge == null || !bridge.isFormed()) {
+            return state;
+        }
+
+        return ((IExtendedBlockState) state).withProperty(QnbFormedState.PROPERTY,
+            new QnbFormedState(bridge.getAdjacentQuantumBridges(), bridge.isCorner(), bridge.isPowered()));
+    }
+
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return state.getValue(FORMED) ? 1 : 0;
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        return this.getDefaultState().withProperty(FORMED, meta != 0);
+    }
+
+    @Override
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileQuantumBridge tileEntity) {
+        return currentState.withProperty(FORMED, tileEntity.isFormed());
+    }
+
+    @Override
+    public AxisAlignedBB getBoundingBox(IBlockState state, IBlockAccess source, BlockPos pos) {
         return SHAPE;
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(FORMED);
-        builder.add(WATERLOGGED);
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
+
+    public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
+        return layer == BlockRenderLayer.CUTOUT;
     }
 
     @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, QuantumBridgeBlockEntity be) {
-        return currentState.setValue(FORMED, be.isFormed());
-    }
+    @SuppressWarnings("deprecation")
+    public void neighborChanged(IBlockState state, World world, BlockPos pos, Block blockIn, BlockPos fromPos) {
+        super.neighborChanged(state, world, pos, blockIn, fromPos);
 
-    @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block blockIn, BlockPos fromPos,
-            boolean isMoving) {
-        final QuantumBridgeBlockEntity bridge = this.getBlockEntity(level, pos);
+        TileQuantumBridge bridge = this.getTileEntity(world, pos);
         if (bridge != null) {
             bridge.neighborUpdate(fromPos);
         }
     }
 
     @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (newState.getBlock() == state.getBlock()) {
-            return; // Just a block state change
-        }
-
-        final QuantumBridgeBlockEntity bridge = this.getBlockEntity(level, pos);
+    public void breakBlock(World world, BlockPos pos, IBlockState state) {
+        TileQuantumBridge bridge = this.getTileEntity(world, pos);
         if (bridge != null) {
             bridge.breakClusterOnRemove();
         }
 
-        super.onRemove(state, level, pos, newState, isMoving);
+        super.breakBlock(world, pos, state);
     }
-
-    @Override
-    @Nullable
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        var fluidState = context.getLevel().getFluidState(context.getClickedPos());
-        return super.getStateForPlacement(context)
-                .setValue(WATERLOGGED, fluidState.getType() == Fluids.WATER);
-    }
-
-    @Override
-    public FluidState getFluidState(BlockState blockState) {
-        return blockState.getValue(WATERLOGGED).booleanValue()
-                ? Fluids.WATER.getSource(false)
-                : super.getFluidState(blockState);
-    }
-
-    @Override
-    public BlockState updateShape(BlockState blockState, Direction facing, BlockState facingState, LevelAccessor level,
-            BlockPos currentPos, BlockPos facingPos) {
-        if (blockState.getValue(WATERLOGGED).booleanValue()) {
-            level.scheduleTick(currentPos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
-        }
-
-        return super.updateShape(blockState, facing, facingState, level, currentPos, facingPos);
-    }
-
 }
+
+
+

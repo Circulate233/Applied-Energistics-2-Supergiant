@@ -1,7 +1,8 @@
 package appeng.util;
 
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.IntFunction;
@@ -19,7 +20,7 @@ public class CowMap<K, V> {
     }
 
     public static <K, V> CowMap<K, V> identityHashMap() {
-        return new CowMap<>(IdentityHashMap::new);
+        return new CowMap<>(Reference2ObjectOpenHashMap::new);
     }
 
     /**

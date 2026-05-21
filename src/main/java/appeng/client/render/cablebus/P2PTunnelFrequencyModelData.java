@@ -1,25 +1,25 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.client.render.cablebus;
 
-import net.neoforged.neoforge.client.model.data.ModelProperty;
-
 public final class P2PTunnelFrequencyModelData {
-    public static final ModelProperty<Long> FREQUENCY = new ModelProperty<>();
+    public static final long FREQUENCY_MASK = 0xffffL;
+    public static final long ACTIVE_MASK = 0x10000L;
+
+    private P2PTunnelFrequencyModelData() {
+    }
+
+    public static long of(short frequency, boolean active) {
+        long flags = Short.toUnsignedLong(frequency) & FREQUENCY_MASK;
+        if (active) {
+            flags |= ACTIVE_MASK;
+        }
+        return flags;
+    }
+
+    public static short getFrequency(long flags) {
+        return (short) (flags & FREQUENCY_MASK);
+    }
+
+    public static boolean isActive(long flags) {
+        return (flags & ACTIVE_MASK) != 0;
+    }
 }

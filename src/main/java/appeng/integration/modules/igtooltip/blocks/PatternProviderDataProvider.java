@@ -1,10 +1,5 @@
 package appeng.integration.modules.igtooltip.blocks;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
-
 import appeng.api.client.AEKeyRendering;
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
@@ -14,12 +9,15 @@ import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.core.localization.InGameTooltip;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
 
-/**
- * Shows information about the current crafting lock.
- */
 public final class PatternProviderDataProvider
-        implements BodyProvider<PatternProviderLogicHost>, ServerDataProvider<PatternProviderLogicHost> {
+    implements BodyProvider<PatternProviderLogicHost>, ServerDataProvider<PatternProviderLogicHost> {
 
     private static final String NBT_LOCK_REASON = "craftingLockReason";
     private static final String NBT_LOCK_UNTIL_RESULT_STACK = "craftingLockUntilResultStack";
@@ -28,58 +26,60 @@ public final class PatternProviderDataProvider
     public void buildTooltip(PatternProviderLogicHost host, TooltipContext context, TooltipBuilder tooltip) {
         var lockReason = context.serverData().getString(NBT_LOCK_REASON);
         if (!lockReason.isEmpty()) {
-            tooltip.addLine(Component.Serializer.fromJson(lockReason, context.registries()));
+            tooltip.addLine(ITextComponent.Serializer.jsonToComponent(lockReason));
         }
-        var stack = context.serverData().getCompound(NBT_LOCK_UNTIL_RESULT_STACK);
+
+        var stack = context.serverData().getCompoundTag(NBT_LOCK_UNTIL_RESULT_STACK);
         if (!stack.isEmpty()) {
-            var genericStack = GenericStack.readTag(context.registries(), stack);
-            Component stackName;
-            Component stackAmount;
+            var genericStack = GenericStack.readTag(stack);
+            ITextComponent stackName;
+            ITextComponent stackAmount;
             if (genericStack == null) {
-                stackName = Component.literal("ERROR");
-                stackAmount = Component.literal("ERROR");
+                stackName = new TextComponentString("ERROR");
+                stackAmount = new TextComponentString("ERROR");
             } else {
                 stackName = AEKeyRendering.getDisplayName(genericStack.what());
-                stackAmount = Component
-                        .literal(genericStack.what().formatAmount(genericStack.amount(), AmountFormat.FULL));
+                stackAmount = new TextComponentString(
+                    genericStack.what().formatAmount(genericStack.amount(), AmountFormat.FULL));
             }
-            tooltip.addLine(
-                    InGameTooltip.CraftingLockedUntilResult.text(stackName, stackAmount).withStyle(ChatFormatting.RED));
+            tooltip.addLine(InGameTooltip.CraftingLockedUntilResult.text(stackName, stackAmount)
+                                                                   .setStyle(new Style().setColor(TextFormatting.RED)));
         }
     }
 
     @Override
-    public void provideServerData(Player player, PatternProviderLogicHost host, CompoundTag serverData) {
+    public void provideServerData(EntityPlayer player, PatternProviderLogicHost host, NBTTagCompound serverData) {
         var logic = host.getLogic();
 
-        Component reason = null;
+        ITextComponent reason = null;
         switch (logic.getCraftingLockedReason()) {
-            case LOCK_UNTIL_PULSE -> {
+            case LOCK_UNTIL_PULSE:
                 reason = InGameTooltip.CraftingLockedUntilPulse.text();
-            }
-            case LOCK_WHILE_HIGH -> {
+                break;
+            case LOCK_WHILE_HIGH:
                 reason = InGameTooltip.CraftingLockedByRedstoneSignal.text();
-            }
-            case LOCK_WHILE_LOW -> {
+                break;
+            case LOCK_WHILE_LOW:
                 reason = InGameTooltip.CraftingLockedByLackOfRedstoneSignal.text();
-            }
-            case LOCK_UNTIL_RESULT -> {
+                break;
+            case LOCK_UNTIL_RESULT:
                 var stack = logic.getUnlockStack();
                 if (stack != null) {
-                    serverData.put(NBT_LOCK_UNTIL_RESULT_STACK, GenericStack.writeTag(player.registryAccess(), stack));
+                    serverData.setTag(NBT_LOCK_UNTIL_RESULT_STACK, GenericStack.writeTag(stack));
                 } else {
-                    // Put a non-empty compound tag, so we get "ERROR" when handling this on the client
-                    final CompoundTag errorDummy = new CompoundTag();
-                    errorDummy.putString("error", "error");
-                    serverData.put(NBT_LOCK_UNTIL_RESULT_STACK, errorDummy);
+                    final NBTTagCompound errorDummy = new NBTTagCompound();
+                    errorDummy.setString("error", "error");
+                    serverData.setTag(NBT_LOCK_UNTIL_RESULT_STACK, errorDummy);
                 }
                 return;
-            }
+            case NONE:
+            default:
+                break;
         }
 
         if (reason != null) {
-            serverData.putString(NBT_LOCK_REASON,
-                    Component.Serializer.toJson(reason.copy().withStyle(ChatFormatting.RED), player.registryAccess()));
+            serverData.setString(NBT_LOCK_REASON,
+                ITextComponent.Serializer.componentToJson(reason.createCopy().setStyle(new Style().setColor(TextFormatting.RED))));
         }
     }
 }

@@ -18,38 +18,6 @@
 
 package appeng.parts;
 
-import java.io.IOException;
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Objects;
-
-import com.google.gson.stream.JsonWriter;
-
-import org.jetbrains.annotations.MustBeInvokedByOverriders;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.CrashReportCategory;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.Nameable;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.phys.Vec3;
-
-import it.unimi.dsi.fastutil.objects.Reference2IntMap;
-
 import appeng.api.ids.AEComponents;
 import appeng.api.implementations.IPowerChannelState;
 import appeng.api.implementations.items.IMemoryCard;
@@ -59,7 +27,6 @@ import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
-import appeng.api.networking.IGridNodeListener.State;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.parts.IPart;
@@ -71,58 +38,90 @@ import appeng.api.util.AEColor;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEParts;
 import appeng.items.tools.MemoryCardItem;
-import appeng.util.IDebugExportable;
-import appeng.util.InteractionUtil;
-import appeng.util.JsonStreamUtil;
+import appeng.util.Platform;
 import appeng.util.SettingsFrom;
+import net.minecraft.crash.CrashReportCategory;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.MustBeInvokedByOverriders;
+import org.jetbrains.annotations.Nullable;
 
-public abstract class AEBasePart
-        implements IPart, IActionHost, ISegmentedInventory, IPowerChannelState, Nameable, IDebugExportable {
+import java.util.EnumSet;
+import java.util.Objects;
+
+public abstract class AEBasePart implements IPart, IActionHost, ISegmentedInventory, IPowerChannelState {
+
+    private static final String CUSTOM_NAME_TAG = "customName";
+    private static final String VISUAL_STATE_TAG = "visual";
+    private static final String POWERED_TAG = "powered";
+    private static final String MISSING_CHANNEL_TAG = "missingChannel";
+    private static final String MEMORY_CARD_SETTINGS_TAG = AEComponents.EXPORTED_SETTINGS;
+    private static final String MEMORY_CARD_SOURCE_TAG = AEComponents.EXPORTED_SETTINGS_SOURCE;
+    private static final String MEMORY_CARD_CUSTOM_NAME_TAG = AEComponents.EXPORTED_CUSTOM_NAME;
 
     private final IManagedGridNode mainNode;
     private IPartItem<?> partItem;
-    private BlockEntity blockEntity = null;
-    private IPartHost host = null;
+    private TileEntity tileEntity;
+    private IPartHost host;
     @Nullable
-    private Direction side;
+    private EnumFacing side;
     @Nullable
-    private Component customName;
-
-    // On the client-side this is the state last sent by the server.
-    // On the server it's the state last sent to the client.
+    private ITextComponent customName;
     private boolean clientSidePowered;
     private boolean clientSideMissingChannel;
 
     public AEBasePart(IPartItem<?> partItem) {
         this.partItem = Objects.requireNonNull(partItem, "partItem");
-        this.mainNode = createMainNode().setVisualRepresentation(AEItemKey.of(this.partItem))
-                .setExposedOnSides(EnumSet.noneOf(Direction.class));
+        this.mainNode = createMainNode()
+            .setVisualRepresentation(AEItemKey.of(this.partItem.asItem()))
+            .setExposedOnSides(EnumSet.noneOf(EnumFacing.class));
     }
 
     protected IManagedGridNode createMainNode() {
         return GridHelper.createManagedNode(this, NodeListener.INSTANCE);
     }
 
-    /**
-     * Called if one of the properties that result in a node becoming active or inactive change.
-     *
-     * @param reason Indicates which of the properties has changed.
-     */
     @MustBeInvokedByOverriders
-    protected void onMainNodeStateChanged(State reason) {
-        // Client flags shouldn't depend on grid boot, optimize!
-        if (reason != State.GRID_BOOT) {
+    protected void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        if (reason != IGridNodeListener.State.GRID_BOOT) {
             markForUpdateIfClientFlagsChanged();
         }
     }
 
     public final boolean isClientSide() {
-        return this.blockEntity == null || this.blockEntity.getLevel() == null
-                || this.blockEntity.getLevel().isClientSide();
+        return this.tileEntity == null || this.tileEntity.getWorld() == null || this.tileEntity.getWorld().isRemote;
     }
 
-    public IPartHost getHost() {
+    public final IManagedGridNode getMainNode() {
+        return this.mainNode;
+    }
+
+    public final IPartHost getHost() {
         return this.host;
+    }
+
+    public final TileEntity getTileEntity() {
+        return this.tileEntity;
+    }
+
+    public final World getLevel() {
+        return this.tileEntity.getWorld();
+    }
+
+    public final @org.jspecify.annotations.Nullable EnumFacing getSide() {
+        return this.side;
     }
 
     protected AEColor getColor() {
@@ -132,8 +131,16 @@ public abstract class AEBasePart
         return this.host.getColor();
     }
 
-    public IManagedGridNode getMainNode() {
-        return this.mainNode;
+    @Override
+    public final IPartItem<?> getPartItem() {
+        return this.partItem;
+    }
+
+    protected void setPartItem(IPartItem<?> partItem) {
+        if (partItem != this.partItem) {
+            this.partItem = Objects.requireNonNull(partItem, "partItem");
+            this.mainNode.setVisualRepresentation(AEItemKey.of(partItem.asItem()));
+        }
     }
 
     @Override
@@ -141,90 +148,50 @@ public abstract class AEBasePart
         return this.mainNode.getNode();
     }
 
-    public final BlockEntity getBlockEntity() {
-        return blockEntity;
-    }
-
-    public Level getLevel() {
-        return this.blockEntity.getLevel();
+    @Override
+    public IGridNode getGridNode() {
+        return this.mainNode.getNode();
     }
 
     @Override
-    public Component getName() {
-        return Objects.requireNonNullElse(this.customName, partItem.asItem().getDescription());
-    }
-
-    @Override
-    @Nullable
-    public Component getCustomName() {
-        return this.customName;
-    }
-
-    @Override
-    public void addEntityCrashInfo(CrashReportCategory crashreportcategory) {
-        crashreportcategory.setDetail("Part Side", this.getSide());
-        var beHost = getBlockEntity();
-        if (beHost != null) {
-            beHost.fillCrashReportCategory(crashreportcategory);
-            var level = beHost.getLevel();
-            if (level != null) {
-                crashreportcategory.setDetail("Level", level.dimension());
-            }
-        }
-    }
-
-    @Override
-    public IPartItem<?> getPartItem() {
-        return this.partItem;
-    }
-
-    /**
-     * Advanced method. Take care to properly update any grid related state and update the host after changing the part
-     * item.
-     */
-    protected void setPartItem(IPartItem<?> partItem) {
-        if (partItem != this.partItem) {
-            this.partItem = Objects.requireNonNull(partItem);
-            this.getMainNode().setVisualRepresentation(partItem);
-        }
-    }
-
-    @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
+    public void readFromNBT(NBTTagCompound data) {
         this.mainNode.loadFromNBT(data);
 
-        if (data.contains("customName")) {
+        if (data.hasKey(CUSTOM_NAME_TAG, 8)) {
             try {
-                this.customName = Component.Serializer.fromJson(data.getString("customName"), registries);
+                this.customName = ITextComponent.Serializer.jsonToComponent(data.getString(CUSTOM_NAME_TAG));
             } catch (Exception ignored) {
+                this.customName = new TextComponentString(data.getString(CUSTOM_NAME_TAG));
             }
+        } else {
+            this.customName = null;
         }
 
-        if (data.contains("visual", Tag.TAG_COMPOUND)) {
-            readVisualStateFromNBT(data.getCompound("visual"));
+        if (data.hasKey(VISUAL_STATE_TAG, 10)) {
+            readVisualStateFromNBT(data.getCompoundTag(VISUAL_STATE_TAG));
         }
     }
 
     @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
+    public void writeToNBT(NBTTagCompound data) {
         this.mainNode.saveToNBT(data);
 
         if (this.customName != null) {
-            data.putString("customName", Component.Serializer.toJson(this.customName, registries));
+            data.setString(CUSTOM_NAME_TAG, ITextComponent.Serializer.componentToJson(this.customName));
         }
     }
 
     @MustBeInvokedByOverriders
     @Override
-    public void writeToStream(RegistryFriendlyByteBuf data) {
+    public void writeToStream(PacketBuffer data) {
         this.clientSidePowered = this.isPowered();
         this.clientSideMissingChannel = this.isMissingChannel();
 
-        var flags = 0;
-        if (clientSidePowered) {
+        int flags = 0;
+        if (this.clientSidePowered) {
             flags |= 1;
         }
-        if (clientSideMissingChannel) {
+        if (this.clientSideMissingChannel) {
             flags |= 2;
         }
         data.writeByte(flags);
@@ -232,46 +199,31 @@ public abstract class AEBasePart
 
     @MustBeInvokedByOverriders
     @Override
-    public boolean readFromStream(RegistryFriendlyByteBuf data) {
-        var flags = data.readByte();
+    public boolean readFromStream(PacketBuffer data) {
+        int flags = data.readUnsignedByte();
 
-        var wasPowered = this.clientSidePowered;
-        var wasMissingChannel = this.clientSideMissingChannel;
+        boolean wasPowered = this.clientSidePowered;
+        boolean wasMissingChannel = this.clientSideMissingChannel;
 
         this.clientSidePowered = (flags & 1) != 0;
         this.clientSideMissingChannel = (flags & 2) != 0;
 
-        return shouldSendPowerStateToClient() && clientSidePowered != wasPowered
-                || shouldSendMissingChannelStateToClient() && clientSideMissingChannel != wasMissingChannel;
+        return shouldSendPowerStateToClient() && this.clientSidePowered != wasPowered
+            || shouldSendMissingChannelStateToClient() && this.clientSideMissingChannel != wasMissingChannel;
     }
 
-    /**
-     * Used to store the state that is synchronized to clients for the visual appearance of this part as NBT. This is
-     * only used to store this state for tools such as Create Ponders in Structure NBT. Actual synchronization uses
-     * {@link IPart#writeToStream(RegistryFriendlyByteBuf)} and {@link IPart#readFromStream(RegistryFriendlyByteBuf)}.
-     * Any data that is saved to the NBT tag in {@link IPart#writeToNBT(CompoundTag, HolderLookup.Provider)} already
-     * does not need to be saved here again.
-     */
     @MustBeInvokedByOverriders
     @Override
-    public void writeVisualStateToNBT(CompoundTag data) {
-        data.putBoolean("powered", this.isPowered());
-        data.putBoolean("missingChannel", this.isMissingChannel());
+    public void writeVisualStateToNBT(NBTTagCompound data) {
+        data.setBoolean(POWERED_TAG, this.isPowered());
+        data.setBoolean(MISSING_CHANNEL_TAG, this.isMissingChannel());
     }
 
-    /**
-     * Loads data saved by {@link #writeVisualStateToNBT(CompoundTag)}.
-     */
     @MustBeInvokedByOverriders
     @Override
-    public void readVisualStateFromNBT(CompoundTag data) {
-        this.clientSidePowered = data.getBoolean("powered");
-        this.clientSideMissingChannel = data.getBoolean("missingChannel");
-    }
-
-    @Override
-    public IGridNode getGridNode() {
-        return this.mainNode.getNode();
+    public void readVisualStateFromNBT(NBTTagCompound data) {
+        this.clientSidePowered = data.getBoolean(POWERED_TAG);
+        this.clientSideMissingChannel = data.getBoolean(MISSING_CHANNEL_TAG);
     }
 
     @Override
@@ -281,13 +233,13 @@ public abstract class AEBasePart
 
     @Override
     public void addToWorld() {
-        this.mainNode.create(getLevel(), blockEntity.getBlockPos());
+        this.mainNode.create(getLevel(), this.tileEntity.getPos());
     }
 
     @Override
-    public void setPartHostInfo(Direction side, IPartHost host, BlockEntity blockEntity) {
-        this.setSide(side);
-        this.blockEntity = blockEntity;
+    public void setPartHostInfo(@Nullable EnumFacing side, IPartHost host, TileEntity blockEntity) {
+        this.side = side;
+        this.tileEntity = blockEntity;
         this.host = host;
     }
 
@@ -296,20 +248,13 @@ public abstract class AEBasePart
         return 3;
     }
 
-    /**
-     * depending on the from, different settings will be accepted
-     *
-     * @param mode   source of settings
-     * @param input  compound of source
-     * @param player the optional player who is importing the settings
-     */
     @Override
     @MustBeInvokedByOverriders
-    public void importSettings(SettingsFrom mode, DataComponentMap input, @Nullable Player player) {
-        if (mode == SettingsFrom.DISMANTLE_ITEM) {
-            this.customName = input.get(DataComponents.CUSTOM_NAME);
-        } else if (mode == SettingsFrom.MEMORY_CARD) {
-            this.customName = input.get(AEComponents.EXPORTED_CUSTOM_NAME);
+    public void importSettings(SettingsFrom mode, NBTTagCompound input, @Nullable EntityPlayer player) {
+        if (mode == SettingsFrom.DISMANTLE_ITEM && input.hasKey(CUSTOM_NAME_TAG, 8)) {
+            setCustomName(input.getString(CUSTOM_NAME_TAG));
+        } else if (mode == SettingsFrom.MEMORY_CARD && input.hasKey(MEMORY_CARD_CUSTOM_NAME_TAG, 8)) {
+            setCustomName(input.getString(MEMORY_CARD_CUSTOM_NAME_TAG));
         }
 
         MemoryCardItem.importGenericSettings(this, input, player);
@@ -317,66 +262,31 @@ public abstract class AEBasePart
 
     @Override
     @MustBeInvokedByOverriders
-    public void exportSettings(SettingsFrom mode, DataComponentMap.Builder builder) {
+    public void exportSettings(SettingsFrom mode, NBTTagCompound output) {
         if (mode == SettingsFrom.DISMANTLE_ITEM) {
-            builder.set(DataComponents.CUSTOM_NAME, this.customName);
+            if (this.customName != null) {
+                output.setString(CUSTOM_NAME_TAG, this.customName.getUnformattedText());
+            }
         } else if (mode == SettingsFrom.MEMORY_CARD) {
-            builder.set(AEComponents.EXPORTED_CUSTOM_NAME, this.customName);
-        }
-
-        if (mode == SettingsFrom.MEMORY_CARD) {
-            MemoryCardItem.exportGenericSettings(this, builder);
-            builder.set(AEComponents.EXPORTED_SETTINGS_SOURCE, getPartItem().asItem().getDescription());
+            if (this.customName != null) {
+                output.setString(MEMORY_CARD_CUSTOM_NAME_TAG, this.customName.getUnformattedText());
+            }
+            MemoryCardItem.exportGenericSettings(this, output);
         }
     }
 
-    public final DataComponentMap exportSettings(SettingsFrom mode) {
-        var builder = DataComponentMap.builder();
-        exportSettings(mode, builder);
-        return builder.build();
+    public final NBTTagCompound exportSettings(SettingsFrom mode) {
+        NBTTagCompound output = new NBTTagCompound();
+        exportSettings(mode, output);
+        return output;
     }
 
     public boolean useStandardMemoryCard() {
         return true;
     }
 
-    private boolean useMemoryCard(ItemStack memCardIS, Player player) {
-        if (!this.useStandardMemoryCard() || !(memCardIS.getItem() instanceof IMemoryCard memoryCard)) {
-            return false;
-        }
-
-        Item partItem = getPartItem().asItem();
-
-        // Blocks and parts share the same soul!
-        if (AEParts.INTERFACE.asItem() == partItem) {
-            partItem = AEBlocks.INTERFACE.asItem();
-        } else if (AEParts.PATTERN_PROVIDER.asItem() == partItem) {
-            partItem = AEBlocks.PATTERN_PROVIDER.asItem();
-        }
-
-        var name = partItem.getDescription();
-
-        if (InteractionUtil.isInAlternateUseMode(player)) {
-            var settings = exportSettings(SettingsFrom.MEMORY_CARD);
-            if (!settings.isEmpty()) {
-                MemoryCardItem.clearCard(memCardIS);
-                memCardIS.applyComponents(settings);
-                memoryCard.notifyUser(player, MemoryCardMessages.SETTINGS_SAVED);
-            }
-        } else {
-            var storedName = memCardIS.get(AEComponents.EXPORTED_SETTINGS_SOURCE);
-            if (name.equals(storedName)) {
-                importSettings(SettingsFrom.MEMORY_CARD, memCardIS.getComponents(), player);
-                memoryCard.notifyUser(player, MemoryCardMessages.SETTINGS_LOADED);
-            } else {
-                MemoryCardItem.importGenericSettingsAndNotify(this, memCardIS.getComponents(), player);
-            }
-        }
-        return true;
-    }
-
     @Override
-    public boolean onUseItemOn(ItemStack heldItem, Player player, InteractionHand hand, Vec3 pos) {
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
         if (useMemoryCard(heldItem, player)) {
             return true;
         }
@@ -384,16 +294,8 @@ public abstract class AEBasePart
     }
 
     @Override
-    public void onPlacement(Player player) {
+    public void onPlacement(EntityPlayer player) {
         this.mainNode.setOwningPlayer(player);
-    }
-
-    public Direction getSide() {
-        return this.side;
-    }
-
-    private void setSide(Direction side) {
-        this.side = side;
     }
 
     @Nullable
@@ -403,40 +305,30 @@ public abstract class AEBasePart
         return null;
     }
 
-    /**
-     * Simple {@link IGridNodeListener} for {@link AEBasePart} that host nodes.
-     */
-    public static class NodeListener<T extends AEBasePart> implements IGridNodeListener<T> {
-
-        public static final NodeListener<AEBasePart> INSTANCE = new NodeListener<>();
-
-        @Override
-        public void onSaveChanges(T nodeOwner, IGridNode node) {
-            nodeOwner.getHost().markForSave();
-        }
-
-        @Override
-        public void onStateChanged(T nodeOwner, IGridNode node, State state) {
-            nodeOwner.onMainNodeStateChanged(state);
+    @Override
+    public void addEntityCrashInfo(CrashReportCategory section) {
+        section.addCrashSection("Part Side", this.side);
+        if (this.tileEntity != null) {
+            this.tileEntity.addInfoToCrashReport(section);
         }
     }
 
     public boolean isPowered() {
         if (isClientSide()) {
-            return clientSidePowered;
-        } else {
-            var node = getGridNode();
-            return node != null && node.isPowered();
+            return this.clientSidePowered;
         }
+
+        IGridNode node = getGridNode();
+        return node != null && node.isPowered();
     }
 
     public boolean isMissingChannel() {
         if (isClientSide()) {
-            return clientSideMissingChannel;
-        } else {
-            var node = getGridNode();
-            return node == null || !node.meetsChannelRequirements();
+            return this.clientSideMissingChannel;
         }
+
+        IGridNode node = getGridNode();
+        return node == null || !node.meetsChannelRequirements();
     }
 
     @Override
@@ -444,53 +336,125 @@ public abstract class AEBasePart
         return isPowered() && !isMissingChannel();
     }
 
-    /**
-     * Updates the entire part on the client-side if one of the flags relevant for its visual appearance has changed.
-     */
-    private void markForUpdateIfClientFlagsChanged() {
-        var changed = false;
-
-        if (shouldSendPowerStateToClient()) {
-            if (isPowered() != this.clientSidePowered) {
-                changed = true;
-            }
-        }
-
-        if (!changed && shouldSendMissingChannelStateToClient()) {
-            if (isMissingChannel() != this.clientSideMissingChannel) {
-                changed = true;
-            }
-        }
-
-        if (changed) {
-            getHost().markForUpdate();
-        }
+    public String getName() {
+        ItemStack stack = new ItemStack(this.partItem.asItem());
+        return this.customName != null ? this.customName.getUnformattedText() : stack.getTranslationKey();
     }
 
-    /**
-     * Override and return false if your part has no visual indicator for the power state and doesn't need this info on
-     * the client.
-     */
+    public ITextComponent getDisplayName() {
+        if (this.customName != null) {
+            return this.customName;
+        }
+
+        ItemStack stack = new ItemStack(this.partItem.asItem());
+        return new TextComponentTranslation(stack.getTranslationKey() + ".name");
+    }
+
+    @Nullable
+    public ITextComponent getCustomName() {
+        return this.customName;
+    }
+
+    public void setCustomName(@Nullable ITextComponent customName) {
+        this.customName = customName;
+    }
+
+    public void setCustomName(@Nullable String customName) {
+        this.customName = customName == null || customName.isEmpty() ? null : new TextComponentString(customName);
+    }
+
+    public boolean hasCustomName() {
+        return this.customName != null;
+    }
+
     protected boolean shouldSendPowerStateToClient() {
         return true;
     }
 
-    /**
-     * Override and return false if your part has no visual indicator for the missing channel state and doesn't need
-     * this info on the client.
-     */
     protected boolean shouldSendMissingChannelStateToClient() {
         return true;
     }
 
-    @Override
-    public void debugExport(JsonWriter writer, HolderLookup.Provider registries, Reference2IntMap<Object> machineIds,
-            Reference2IntMap<IGridNode> nodeIds)
-            throws IOException {
-        var myId = machineIds.getOrDefault(this, -1);
-        JsonStreamUtil.writeProperties(Map.of(
-                "id", myId,
-                "item", BuiltInRegistries.ITEM.getKey(getPartItem().asItem()).toString(),
-                "mainNodeId", nodeIds.getOrDefault(mainNode.getNode(), -1)), writer);
+    private boolean useMemoryCard(ItemStack memoryCardStack, EntityPlayer player) {
+        if (!this.useStandardMemoryCard() || !(memoryCardStack.getItem() instanceof IMemoryCard memoryCard)) {
+            return false;
+        }
+
+        Item partItem = getSettingsSourceItem();
+        String sourceId = getSettingsSourceName(partItem);
+        NBTTagCompound settings = exportSettings(SettingsFrom.MEMORY_CARD);
+
+        if (player.isSneaking()) {
+            MemoryCardItem.clearCard(memoryCardStack);
+            if (!Platform.isNbtEmpty(settings)) {
+                NBTTagCompound tag = Platform.openNbtData(memoryCardStack);
+                tag.setTag(MEMORY_CARD_SETTINGS_TAG, settings);
+                tag.setString(MEMORY_CARD_SOURCE_TAG, sourceId);
+                memoryCard.notifyUser(player, MemoryCardMessages.SETTINGS_SAVED);
+            }
+            return true;
+        }
+
+        NBTTagCompound tag = memoryCardStack.getTagCompound();
+        if (tag == null || !tag.hasKey(MEMORY_CARD_SETTINGS_TAG, 10)) {
+            return true;
+        }
+
+        if (sourceId.equals(tag.getString(MEMORY_CARD_SOURCE_TAG))) {
+            importSettings(SettingsFrom.MEMORY_CARD, tag.getCompoundTag(MEMORY_CARD_SETTINGS_TAG), player);
+            memoryCard.notifyUser(player, MemoryCardMessages.SETTINGS_LOADED);
+        } else {
+            MemoryCardItem.importGenericSettingsAndNotify(this, tag.getCompoundTag(MEMORY_CARD_SETTINGS_TAG), player);
+        }
+
+        return true;
+    }
+
+    private Item getSettingsSourceItem() {
+        Item partItem = this.partItem.asItem();
+        if (AEParts.INTERFACE.item() == partItem && AEBlocks.INTERFACE.item() != null) {
+            return AEBlocks.INTERFACE.item();
+        }
+        if (AEParts.PATTERN_PROVIDER.item() == partItem && AEBlocks.PATTERN_PROVIDER.item() != null) {
+            return AEBlocks.PATTERN_PROVIDER.item();
+        }
+        return partItem;
+    }
+
+    private String getSettingsSourceName(Item item) {
+        return new ItemStack(item).getDisplayName();
+    }
+
+    private void markForUpdateIfClientFlagsChanged() {
+        boolean changed = shouldSendPowerStateToClient() && isPowered() != this.clientSidePowered;
+
+        if (!changed && shouldSendMissingChannelStateToClient()
+            && isMissingChannel() != this.clientSideMissingChannel) {
+            changed = true;
+        }
+
+        if (changed && this.host != null) {
+            this.host.markForUpdate();
+        }
+    }
+
+    public static class NodeListener<T extends AEBasePart> implements IGridNodeListener<T> {
+
+        public static final NodeListener<AEBasePart> INSTANCE = new NodeListener<>();
+
+        @Override
+        public void onSaveChanges(T nodeOwner, IGridNode node) {
+            if (nodeOwner.getHost() != null) {
+                nodeOwner.getHost().markForSave();
+            }
+        }
+
+        @Override
+        public void onStateChanged(T nodeOwner, IGridNode node, State state) {
+            nodeOwner.onMainNodeStateChanged(state);
+        }
     }
 }
+
+
+

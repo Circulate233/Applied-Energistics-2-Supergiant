@@ -1,53 +1,57 @@
 package appeng.api.stacks;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.ApiStatus;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import net.minecraft.util.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.Registry;
-import net.neoforged.neoforge.registries.callback.BakeCallback;
+import java.util.Collections;
+import java.util.Set;
 
-/**
- * Manages the registry used to synchronize key spaces to the client.
- */
-@ApiStatus.Internal
 public final class AEKeyTypesInternal {
-    @Nullable
-    private static Registry<AEKeyType> registry;
+    private static final Object2ObjectLinkedOpenHashMap<ResourceLocation, AEKeyType> byId = new Object2ObjectLinkedOpenHashMap<>();
+    private static final Object2IntMap<AEKeyType> rawIds = new Object2IntOpenHashMap<>();
+    private static final ObjectList<AEKeyType> byRawId = new ObjectArrayList<>();
+    private static final ObjectLinkedOpenHashSet<AEKeyType> allTypes = new ObjectLinkedOpenHashSet<>();
 
-    @Nullable
-    private static Set<AEKeyType> allTypes;
+    static {
+        rawIds.defaultReturnValue(-1);
+        register(AEKeyType.items());
+        register(AEKeyType.fluids());
+    }
 
     private AEKeyTypesInternal() {
     }
 
-    public static Registry<AEKeyType> getRegistry() {
-        Preconditions.checkState(registry != null, "AE2 isn't initialized yet.");
-        return registry;
+    public static @Nullable AEKeyType byId(int id) {
+        if (id < 0 || id >= byRawId.size()) {
+            return null;
+        }
+        return byRawId.get(id);
     }
 
-    public static void setRegistry(Registry<AEKeyType> registry) {
-        Preconditions.checkState(AEKeyTypesInternal.registry == null);
-        AEKeyTypesInternal.registry = registry;
-        registry.addCallback((BakeCallback<AEKeyType>) (ignored -> {
-            var types = new HashSet<AEKeyType>();
-            for (var aeKeyType : registry) {
-                types.add(aeKeyType);
-            }
-            allTypes = Set.copyOf(types);
-        }));
+    public static int getId(AEKeyType keyType) {
+        return rawIds.getInt(keyType);
+    }
+
+    public static AEKeyType get(ResourceLocation id) {
+        return byId.get(id);
     }
 
     public static Set<AEKeyType> getAllTypes() {
-        Preconditions.checkState(allTypes != null, "AE2 isn't initialized yet.");
-        return allTypes;
+        return Collections.unmodifiableSet(allTypes);
     }
 
     public static void register(AEKeyType keyType) {
-        Registry.register(getRegistry(), keyType.getId(), keyType);
+        Preconditions.checkState(!byId.containsKey(keyType.getId()), "Duplicate key type id %s", keyType.getId());
+        byId.put(keyType.getId(), keyType);
+        rawIds.put(keyType, byRawId.size());
+        byRawId.add(keyType);
+        allTypes.add(keyType);
     }
 }

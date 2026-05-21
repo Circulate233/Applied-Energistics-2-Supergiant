@@ -18,22 +18,24 @@
 
 package appeng.api.parts;
 
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import net.minecraft.util.ResourceLocation;
+
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Set;
-
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * Allows registration of part models that can then be used in {@link IPart#getStaticModels()}.
  * <p/>
- * The models will automatically be added as dependencies to the model of the cable bus, and registered with
- * {@link net.neoforged.neoforge.client.event.ModelEvent.RegisterAdditional}.
+ * The models will automatically be added as dependencies to the model of the cable bus and registered during model
+ * initialization.
  */
 public final class PartModels {
 
-    private static final Set<ResourceLocation> models = new HashSet<>();
+    private static final ObjectSet<ResourceLocation> models = new ObjectOpenHashSet<>();
 
     private static volatile boolean frozen = false;
 
@@ -66,6 +68,7 @@ public final class PartModels {
     /**
      * Convenience overload of {@link #registerModels(Collection)}
      */
+    @SuppressWarnings("unused")
     public static void registerModels(ResourceLocation... partModels) {
         registerModels(Arrays.asList(partModels));
     }

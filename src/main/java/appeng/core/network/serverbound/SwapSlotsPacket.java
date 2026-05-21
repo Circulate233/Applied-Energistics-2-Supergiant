@@ -1,41 +1,50 @@
-
 package appeng.core.network.serverbound;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-
-import appeng.core.network.CustomAppEngPayload;
+import appeng.container.AEBaseContainer;
 import appeng.core.network.ServerboundPacket;
-import appeng.menu.AEBaseMenu;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.PacketBuffer;
 
-public record SwapSlotsPacket(int slotA, int slotB) implements ServerboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, SwapSlotsPacket> STREAM_CODEC = StreamCodec.ofMember(
-            SwapSlotsPacket::write,
-            SwapSlotsPacket::decode);
+public class SwapSlotsPacket extends ServerboundPacket {
+    private int windowId = -1;
+    private int slotA;
+    private int slotB;
 
-    public static final Type<SwapSlotsPacket> TYPE = CustomAppEngPayload.createType("swap_slots");
-
-    @Override
-    public Type<SwapSlotsPacket> type() {
-        return TYPE;
+    public SwapSlotsPacket() {
     }
 
-    public static SwapSlotsPacket decode(RegistryFriendlyByteBuf stream) {
-        var slotA = stream.readInt();
-        var slotB = stream.readInt();
-        return new SwapSlotsPacket(slotA, slotB);
+    public SwapSlotsPacket(int slotA, int slotB) {
+        this(-1, slotA, slotB);
     }
 
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeInt(slotA);
-        data.writeInt(slotB);
+    public SwapSlotsPacket(int windowId, int slotA, int slotB) {
+        this.windowId = windowId;
+        this.slotA = slotA;
+        this.slotB = slotB;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (player != null && player.containerMenu instanceof AEBaseMenu) {
-            ((AEBaseMenu) player.containerMenu).swapSlotContents(this.slotA, this.slotB);
+    protected void read(ByteBuf buf) {
+        PacketBuffer data = new PacketBuffer(buf);
+        this.windowId = data.readInt();
+        this.slotA = data.readInt();
+        this.slotB = data.readInt();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        PacketBuffer data = new PacketBuffer(buf);
+        data.writeInt(this.windowId);
+        data.writeInt(this.slotA);
+        data.writeInt(this.slotB);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if ((this.windowId < 0 || player.openContainer.windowId == this.windowId)
+            && player.openContainer instanceof AEBaseContainer container) {
+            container.swapSlotContents(this.slotA, this.slotB);
         }
     }
 }

@@ -1,15 +1,16 @@
 package appeng.api.orientation;
 
+import appeng.block.orientation.SpinMapping;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.properties.PropertyInteger;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
 import java.util.Collection;
 import java.util.stream.Stream;
-
-import net.minecraft.core.Direction;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.IntegerProperty;
-import net.minecraft.world.level.block.state.properties.Property;
-
-import appeng.block.orientation.SpinMapping;
 
 /**
  * Specifies how a block determines its orientation and stores it in the blockstate. For use with
@@ -19,54 +20,61 @@ public interface IOrientationStrategy {
     // This is the clockwise rotation around the facing, starting at:
     // UP for horizontal axes
     // NORTH for vertical axes
-    IntegerProperty SPIN = IntegerProperty.create("spin", 0, 3);
+    PropertyInteger SPIN = PropertyInteger.create("spin", 0, 3);
 
-    static IOrientationStrategy get(BlockState state) {
+    static IOrientationStrategy get(IBlockState state) {
         if (state.getBlock() instanceof IOrientableBlock orientableBlock) {
             return orientableBlock.getOrientationStrategy();
         }
         return OrientationStrategies.none();
     }
 
-    default Direction getFacing(BlockState state) {
-        return Direction.NORTH;
+    private static <T extends Comparable<T>> Stream<IBlockState> enumerateValues(Stream<IBlockState> stream,
+                                                                                 IProperty<T> property) {
+        return stream.flatMap(
+            baseState -> property.getAllowedValues().stream().map(value -> baseState.withProperty(property, value)));
     }
 
-    default int getSpin(BlockState state) {
+    default EnumFacing getFacing(IBlockState state) {
+        return EnumFacing.NORTH;
+    }
+
+    default int getSpin(IBlockState state) {
         return 0;
     }
 
-    default BlockState setFacing(BlockState state, Direction facing) {
+    default IBlockState setFacing(IBlockState state, EnumFacing facing) {
         return state;
     }
 
-    default BlockState setSpin(BlockState state, int spin) {
+    default IBlockState setSpin(IBlockState state, int spin) {
         return state;
     }
 
-    default BlockState setUp(BlockState state, Direction up) {
+    default IBlockState setUp(IBlockState state, EnumFacing up) {
         var facing = getFacing(state);
         var spin = SpinMapping.getSpinFromUp(facing, up);
         return setSpin(state, spin);
     }
 
-    default BlockState setOrientation(BlockState state, Direction facing, int spin) {
+    default IBlockState setOrientation(IBlockState state, EnumFacing facing, int spin) {
         return setSpin(setFacing(state, facing), spin);
     }
 
-    default BlockState setOrientation(BlockState state, Direction facing, Direction up) {
+    default IBlockState setOrientation(IBlockState state, EnumFacing facing, EnumFacing up) {
         return setUp(setFacing(state, facing), up);
     }
 
-    default Direction getSide(BlockState state, RelativeSide side) {
+    default EnumFacing getSide(IBlockState state, RelativeSide side) {
         return BlockOrientation.get(this, state).rotate(side.getUnrotatedSide());
     }
 
-    default BlockState getStateForPlacement(BlockState state, BlockPlaceContext context) {
+    default IBlockState getStateForPlacement(IBlockState state, World world, BlockPos pos, EnumFacing clickedSide,
+                                             float hitX, float hitY, float hitZ, EntityLivingBase placer) {
         return state;
     }
 
-    default Stream<BlockState> getAllStates(BlockState baseState) {
+    default Stream<IBlockState> getAllStates(IBlockState baseState) {
         var result = Stream.of(baseState);
         for (var property : getProperties()) {
             result = enumerateValues(result, property);
@@ -84,11 +92,5 @@ public interface IOrientationStrategy {
     /**
      * @return The block state properties used for storing orientation by this strategy.
      */
-    Collection<Property<?>> getProperties();
-
-    private static <T extends Comparable<T>> Stream<BlockState> enumerateValues(Stream<BlockState> stream,
-            Property<T> property) {
-        return stream.flatMap(
-                baseState -> property.getPossibleValues().stream().map(value -> baseState.setValue(property, value)));
-    }
+    Collection<IProperty<?>> getProperties();
 }

@@ -1,33 +1,65 @@
 package appeng.parts.automation;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.neoforged.neoforge.capabilities.BlockCapability;
-import net.neoforged.neoforge.capabilities.BlockCapabilityCache;
-import net.neoforged.neoforge.capabilities.Capabilities;
-
 import appeng.api.behaviors.StackExportStrategy;
 import appeng.api.behaviors.StackTransferContext;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.StorageHelper;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.items.CapabilityItemHandler;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class StorageExportStrategy<T, S> implements StackExportStrategy {
     private static final Logger LOG = LoggerFactory.getLogger(StorageExportStrategy.class);
-    private final BlockCapabilityCache<T, Direction> cache;
+    private final Capability<T> capability;
     private final HandlerStrategy<T, S> handlerStrategy;
+    private final WorldServer level;
+    private final BlockPos fromPos;
+    private final EnumFacing fromSide;
 
-    public StorageExportStrategy(BlockCapability<T, Direction> capability,
-            HandlerStrategy<T, S> handlerStrategy,
-            ServerLevel level,
-            BlockPos fromPos,
-            Direction fromSide) {
+    public StorageExportStrategy(Capability<T> capability,
+                                 HandlerStrategy<T, S> handlerStrategy,
+                                 WorldServer level,
+                                 BlockPos fromPos,
+                                 EnumFacing fromSide) {
+        this.capability = capability;
         this.handlerStrategy = handlerStrategy;
-        this.cache = BlockCapabilityCache.create(capability, level, fromPos, fromSide);
+        this.level = level;
+        this.fromPos = fromPos;
+        this.fromSide = fromSide;
+    }
+
+    public static StackExportStrategy createItem(WorldServer level, BlockPos fromPos, EnumFacing fromSide) {
+        return new StorageExportStrategy<>(
+            CapabilityItemHandler.ITEM_HANDLER_CAPABILITY,
+            HandlerStrategy.ITEMS,
+            level,
+            fromPos,
+            fromSide);
+    }
+
+    public static StackExportStrategy createFluid(WorldServer level, BlockPos fromPos, EnumFacing fromSide) {
+        return new StorageExportStrategy<>(
+            CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY,
+            HandlerStrategy.FLUIDS,
+            level,
+            fromPos,
+            fromSide);
+    }
+
+    private @Nullable T getAdjacentStorage() {
+        var blockEntity = level.getTileEntity(fromPos);
+        if (blockEntity == null) {
+            return null;
+        }
+
+        return blockEntity.getCapability(capability, fromSide);
     }
 
     @Override
@@ -36,7 +68,7 @@ public class StorageExportStrategy<T, S> implements StackExportStrategy {
             return 0;
         }
 
-        var adjacentStorage = cache.getCapability();
+        var adjacentStorage = getAdjacentStorage();
         if (adjacentStorage == null) {
             return 0;
         }
@@ -44,23 +76,23 @@ public class StorageExportStrategy<T, S> implements StackExportStrategy {
         var inv = context.getInternalStorage();
 
         var extracted = StorageHelper.poweredExtraction(
-                context.getEnergySource(),
-                inv.getInventory(),
-                what,
-                amount,
-                context.getActionSource(),
-                Actionable.SIMULATE);
+            context.getEnergySource(),
+            inv.getInventory(),
+            what,
+            amount,
+            context.getActionSource(),
+            Actionable.SIMULATE);
 
         long wasInserted = handlerStrategy.insert(adjacentStorage, what, extracted, Actionable.SIMULATE);
 
         if (wasInserted > 0) {
             extracted = StorageHelper.poweredExtraction(
-                    context.getEnergySource(),
-                    inv.getInventory(),
-                    what,
-                    wasInserted,
-                    context.getActionSource(),
-                    Actionable.MODULATE);
+                context.getEnergySource(),
+                inv.getInventory(),
+                what,
+                wasInserted,
+                context.getActionSource(),
+                Actionable.MODULATE);
 
             wasInserted = handlerStrategy.insert(adjacentStorage, what, extracted, Actionable.MODULATE);
 
@@ -70,7 +102,7 @@ public class StorageExportStrategy<T, S> implements StackExportStrategy {
                 leftover -= inv.getInventory().insert(what, leftover, Actionable.MODULATE, context.getActionSource());
                 if (leftover > 0) {
                     LOG.error("Storage export: adjacent block unexpectedly refused insert, voided {}x{}", leftover,
-                            what);
+                        what);
                 }
             }
         }
@@ -84,29 +116,11 @@ public class StorageExportStrategy<T, S> implements StackExportStrategy {
             return 0;
         }
 
-        var adjacentStorage = cache.getCapability();
+        var adjacentStorage = getAdjacentStorage();
         if (adjacentStorage == null) {
             return 0;
         }
 
         return handlerStrategy.insert(adjacentStorage, what, amount, mode);
-    }
-
-    public static StackExportStrategy createItem(ServerLevel level, BlockPos fromPos, Direction fromSide) {
-        return new StorageExportStrategy<>(
-                Capabilities.ItemHandler.BLOCK,
-                HandlerStrategy.ITEMS,
-                level,
-                fromPos,
-                fromSide);
-    }
-
-    public static StackExportStrategy createFluid(ServerLevel level, BlockPos fromPos, Direction fromSide) {
-        return new StorageExportStrategy<>(
-                Capabilities.FluidHandler.BLOCK,
-                HandlerStrategy.FLUIDS,
-                level,
-                fromPos,
-                fromSide);
     }
 }

@@ -1,0 +1,12 @@
+{
+  "parent": "block/cube",
+  "textures": {
+    "down": "ae2:block/growth_accelerator_side",
+    "up": "ae2:block/growth_accelerator_side",
+    "north": "ae2:block/growth_accelerator_top",
+    "south": "ae2:block/growth_accelerator_bottom",
+    "west": "ae2:block/growth_accelerator_side",
+    "east": "ae2:block/growth_accelerator_side",
+    "particle": "ae2:block/growth_accelerator_side"
+  }
+}

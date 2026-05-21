@@ -18,39 +18,37 @@
 
 package appeng.parts.p2p;
 
-import java.util.List;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.RedStoneWireBlock;
-import net.minecraft.world.level.block.state.BlockState;
-
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.util.Platform;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockRedstoneWire;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 
+import java.util.List;
+
+@SuppressWarnings("deprecation")
 public class RedstoneP2PTunnelPart extends P2PTunnelPart<RedstoneP2PTunnelPart> {
 
     private static final P2PModels MODELS = new P2PModels(AppEng.makeId("part/p2p/p2p_tunnel_redstone"));
-
-    @PartModels
-    public static List<IPartModel> getModels() {
-        return MODELS.getModels();
-    }
-
     private int power;
     private boolean recursive = false;
 
     public RedstoneP2PTunnelPart(IPartItem<?> partItem) {
         super(partItem);
+    }
+
+    @PartModels
+    public static List<IPartModel> getModels() {
+        return MODELS.getModels();
     }
 
     @Override
@@ -86,13 +84,12 @@ public class RedstoneP2PTunnelPart extends P2PTunnelPart<RedstoneP2PTunnelPart> 
     }
 
     private void notifyNeighbors() {
-        final Level level = this.getBlockEntity().getLevel();
+        final World level = this.getTileEntity().getWorld();
 
-        Platform.notifyBlocksOfNeighbors(level, this.getBlockEntity().getBlockPos());
+        Platform.notifyBlocksOfNeighbors(level, this.getTileEntity().getPos());
 
-        // and this cause sometimes it can go thought walls.
-        for (Direction face : Direction.values()) {
-            Platform.notifyBlocksOfNeighbors(level, this.getBlockEntity().getBlockPos().relative(face));
+        for (EnumFacing face : EnumFacing.VALUES) {
+            Platform.notifyBlocksOfNeighbors(level, this.getTileEntity().getPos().offset(face));
         }
     }
 
@@ -105,15 +102,15 @@ public class RedstoneP2PTunnelPart extends P2PTunnelPart<RedstoneP2PTunnelPart> 
     }
 
     @Override
-    public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.readFromNBT(tag, registries);
-        this.power = tag.getInt("power");
+    public void readFromNBT(NBTTagCompound tag) {
+        super.readFromNBT(tag);
+        this.power = tag.getInteger("power");
     }
 
     @Override
-    public void writeToNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.writeToNBT(tag, registries);
-        tag.putInt("power", this.power);
+    public void writeToNBT(NBTTagCompound tag) {
+        super.writeToNBT(tag);
+        tag.setInteger("power", this.power);
     }
 
     @Override
@@ -122,21 +119,20 @@ public class RedstoneP2PTunnelPart extends P2PTunnelPart<RedstoneP2PTunnelPart> 
     }
 
     @Override
-    public void onNeighborChanged(BlockGetter level, BlockPos pos, BlockPos neighbor) {
+    public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
         if (!this.isOutput()) {
-            final BlockPos target = this.getBlockEntity().getBlockPos().relative(this.getSide());
-
-            final BlockState state = this.getBlockEntity().getLevel().getBlockState(target);
-            final Block b = state.getBlock();
-            if (b != null && !this.isOutput()) {
-                Direction srcSide = this.getSide();
-                if (b instanceof RedStoneWireBlock) {
-                    srcSide = Direction.UP;
+            final BlockPos target = this.getTileEntity().getPos().offset(this.getSide());
+            final World world = this.getTileEntity().getWorld();
+            final IBlockState state = world.getBlockState(target);
+            final Block block = state.getBlock();
+            if (block != null) {
+                EnumFacing srcSide = this.getSide();
+                if (block instanceof BlockRedstoneWire) {
+                    srcSide = EnumFacing.UP;
                 }
 
-                this.power = state.getSignal(this.getBlockEntity().getLevel(), target, srcSide);
-                this.power = Math.max(this.power,
-                        state.getSignal(this.getBlockEntity().getLevel(), target, srcSide));
+                this.power = block.getWeakPower(state, world, target, srcSide);
+                this.power = Math.max(this.power, block.getStrongPower(state, world, target, srcSide));
                 this.sendToOutput(this.power);
             } else {
                 this.sendToOutput(0);
@@ -169,5 +165,6 @@ public class RedstoneP2PTunnelPart extends P2PTunnelPart<RedstoneP2PTunnelPart> 
     public IPartModel getStaticModels() {
         return MODELS.getModel(this.isPowered(), this.isActive());
     }
-
 }
+
+

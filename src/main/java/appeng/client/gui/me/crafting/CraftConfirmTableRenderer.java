@@ -18,39 +18,38 @@
 
 package appeng.client.gui.me.crafting;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import net.minecraft.network.chat.Component;
-
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
-import appeng.client.gui.AEBaseScreen;
+import appeng.client.gui.AEBaseGui;
+import appeng.container.me.crafting.CraftingPlanSummaryEntry;
 import appeng.core.localization.GuiText;
-import appeng.menu.me.crafting.CraftingPlanSummaryEntry;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.util.text.ITextComponent;
+
+import java.util.List;
 
 public class CraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPlanSummaryEntry> {
 
-    public CraftConfirmTableRenderer(AEBaseScreen<?> screen, int x, int y) {
+    public CraftConfirmTableRenderer(AEBaseGui<?> screen, int x, int y) {
         super(screen, x, y, 5);
     }
 
     @Override
-    protected List<Component> getEntryDescription(CraftingPlanSummaryEntry entry) {
-        List<Component> lines = new ArrayList<>(3);
-        if (entry.getStoredAmount() > 0) {
-            String amount = entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.SLOT);
+    protected List<ITextComponent> getEntryDescription(CraftingPlanSummaryEntry entry) {
+        List<ITextComponent> lines = new ObjectArrayList<>(3);
+        if (entry.storedAmount() > 0) {
+            String amount = entry.what().getType().formatAmount(entry.storedAmount(), AmountFormat.SLOT);
             lines.add(GuiText.FromStorage.text(amount));
         }
 
-        if (entry.getMissingAmount() > 0) {
-            String amount = entry.getWhat().formatAmount(entry.getMissingAmount(), AmountFormat.SLOT);
+        if (entry.missingAmount() > 0) {
+            String amount = entry.what().getType().formatAmount(entry.missingAmount(), AmountFormat.SLOT);
             lines.add(GuiText.Missing.text(amount));
         }
 
-        if (entry.getCraftAmount() > 0) {
-            String amount = entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.SLOT);
+        if (entry.craftAmount() > 0) {
+            String amount = entry.what().getType().formatAmount(entry.craftAmount(), AmountFormat.SLOT);
             lines.add(GuiText.ToCraft.text(amount));
         }
         return lines;
@@ -58,34 +57,31 @@ public class CraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPla
 
     @Override
     protected AEKey getEntryStack(CraftingPlanSummaryEntry entry) {
-        return entry.getWhat();
+        return entry.what();
     }
 
     @Override
-    protected List<Component> getEntryTooltip(CraftingPlanSummaryEntry entry) {
-        List<Component> lines = AEKeyRendering.getTooltip(entry.getWhat());
+    protected List<ITextComponent> getEntryTooltip(CraftingPlanSummaryEntry entry) {
+        List<ITextComponent> lines = AEKeyRendering.getTooltip(entry.what());
 
-        // The tooltip compares the unabbreviated amounts
-        if (entry.getStoredAmount() > 0) {
+        if (entry.storedAmount() > 0) {
             lines.add(GuiText.FromStorage
-                    .text(entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.FULL)));
+                .text(entry.what().getType().formatAmount(entry.storedAmount(), AmountFormat.FULL)));
         }
-        if (entry.getMissingAmount() > 0) {
+        if (entry.missingAmount() > 0) {
             lines.add(GuiText.Missing.text(
-                    entry.getWhat().formatAmount(entry.getMissingAmount(), AmountFormat.FULL)));
+                entry.what().getType().formatAmount(entry.missingAmount(), AmountFormat.FULL)));
         }
-        if (entry.getCraftAmount() > 0) {
+        if (entry.craftAmount() > 0) {
             lines.add(GuiText.ToCraft
-                    .text(entry.getWhat().formatAmount(entry.getCraftAmount(), AmountFormat.FULL)));
+                .text(entry.what().getType().formatAmount(entry.craftAmount(), AmountFormat.FULL)));
         }
 
         return lines;
-
     }
 
     @Override
     protected int getEntryOverlayColor(CraftingPlanSummaryEntry entry) {
-        return entry.getMissingAmount() > 0 ? 0x1AFF0000 : 0;
+        return entry.missingAmount() > 0 ? 0x1AFF0000 : 0;
     }
-
 }

@@ -23,23 +23,21 @@
 
 package appeng.api.networking;
 
-import java.util.Set;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ItemLike;
-import net.minecraft.world.level.Level;
-
 import appeng.api.networking.pathing.IPathingService;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.util.AEColor;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * This interface is intended for the host that created this node. It is used to configure the node's properties.
@@ -59,48 +57,44 @@ public interface IManagedGridNode {
      * This should only be called when the node is in a ticking chunk, for example from a callback registered to
      * {@link GridHelper#onFirstTick}.
      */
-    void create(Level level, @Nullable BlockPos blockPos);
+    void create(World level, @Nullable BlockPos blockPos);
 
     /**
-     * this should be called for each node you create, if you have a nodeData compound to load from, you can store all
-     * your nods on a single compound using name.
+     * This should be called for each node you create. If you have a nodeData compound to load from, you can store all
+     * your nodes in a single compound using a name.
      * <p>
-     * Important: You must call this before {@link #create(Level, BlockPos)}.
+     * Important: You must call this before {@link #create(World, BlockPos)}.
      *
      * @param nodeData to be loaded data
      */
-    void loadFromNBT(CompoundTag nodeData);
+    void loadFromNBT(NBTTagCompound nodeData);
 
     /**
-     * this should be called for each node you maintain, you can save all your nodes to the same tag with different
-     * names, if you fail to complete the load / save procedure, network state may be lost between game load/saves.
+     * This should be called for each node you maintain. You can save all your nodes to the same tag with different
+     * names. If you fail to complete the load / save procedure, network state may be lost between game loads and saves.
      *
      * @param nodeData to be saved data
      */
-    void saveToNBT(CompoundTag nodeData);
+    void saveToNBT(NBTTagCompound nodeData);
 
     /**
      * Call the given function on the grid this node is connected to. Will do nothing if the grid node isn't initialized
      * yet or has been destroyed.
-     *
-     * @return True if the action was called, false otherwise.
      */
-    default boolean ifPresent(Consumer<IGrid> action) {
+    default void ifPresent(Consumer<IGrid> action) {
         var node = getNode();
         if (node == null) {
-            return false;
+            return;
         }
         action.accept(node.getGrid());
-        return true;
     }
 
-    default boolean ifPresent(BiConsumer<IGrid, IGridNode> action) {
+    default void ifPresent(BiConsumer<IGrid, IGridNode> action) {
         var node = getNode();
         if (node == null) {
-            return false;
+            return;
         }
         action.accept(node.getGrid(), node);
-        return true;
     }
 
     /**
@@ -122,7 +116,7 @@ public interface IManagedGridNode {
     /**
      * Changes the sides of the node's host this node is exposed on.
      */
-    IManagedGridNode setExposedOnSides(Set<Direction> directions);
+    IManagedGridNode setExposedOnSides(Set<EnumFacing> directions);
 
     /**
      * @param usagePerTick The power in AE/t that will be drained by this node.
@@ -143,9 +137,9 @@ public interface IManagedGridNode {
     }
 
     /**
-     * Shortcut for {@link #setVisualRepresentation(AEItemKey)} based on an {@link ItemLike}.
+     * Shortcut for {@link #setVisualRepresentation(AEItemKey)} based on an {@link Item}.
      */
-    default IManagedGridNode setVisualRepresentation(ItemLike visualRepresentation) {
+    default IManagedGridNode setVisualRepresentation(Item visualRepresentation) {
         return setVisualRepresentation(AEItemKey.of(visualRepresentation));
     }
 
@@ -164,13 +158,14 @@ public interface IManagedGridNode {
      * Colors can be used to prevent adjacent grid nodes from connecting. {@link AEColor#TRANSPARENT} indicates that the
      * node will connect to nodes of any color.
      */
+    @SuppressWarnings("UnusedReturnValue")
     IManagedGridNode setGridColor(AEColor gridColor);
 
     <T extends IGridNodeService> IManagedGridNode addService(Class<T> serviceClass, T service);
 
     /**
      * @return True if the node and its grid are available. This will never be the case on the client-side. Server-side,
-     *         it'll be true after {@link #create(Level, BlockPos)} and before {@link #destroy()} are called.
+     * it'll be true after {@link #create(World, BlockPos)} and before {@link #destroy()} are called.
      */
     boolean isReady();
 
@@ -187,9 +182,9 @@ public interface IManagedGridNode {
     boolean hasGridBooted();
 
     /**
-     * tell the node who was responsible for placing it, failure to do this may result in in-compatibility with the
+     * Tell the node who was responsible for placing it. Failure to do this may result in incompatibility with the
      * security system. Called instead of loadFromNBT when initially placed, once set never required again, the value is
-     * saved with the Node NBT.
+     * saved with the node NBT.
      *
      * @param ownerPlayerId ME player id of the owner. See {@link appeng.api.features.IPlayerRegistry}.
      */
@@ -200,7 +195,7 @@ public interface IManagedGridNode {
      *
      * @param ownerPlayer The owning player.
      */
-    void setOwningPlayer(Player ownerPlayer);
+    void setOwningPlayer(EntityPlayer ownerPlayer);
 
     /**
      * @return The node that was created by the managed node. Will be non-null when {@link #isReady()} is true.

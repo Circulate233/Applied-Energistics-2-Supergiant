@@ -18,15 +18,6 @@
 
 package appeng.me.service;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.advancements.critereon.PlayerTrigger;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-
 import appeng.api.features.IPlayerRegistry;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
@@ -41,30 +32,36 @@ import appeng.api.networking.events.GridControllerChange;
 import appeng.api.networking.pathing.ChannelMode;
 import appeng.api.networking.pathing.ControllerState;
 import appeng.api.networking.pathing.IPathingService;
-import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
-import appeng.core.stats.AdvancementTriggers;
+import appeng.core.AppEng;
+import appeng.core.stats.IAdvancementTrigger;
 import appeng.me.Grid;
 import appeng.me.pathfinding.AdHocChannelUpdater;
 import appeng.me.pathfinding.ChannelFinalizer;
 import appeng.me.pathfinding.ControllerValidator;
 import appeng.me.pathfinding.PathingCalculation;
+import appeng.tile.networking.TileController;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraftforge.common.util.Constants;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import org.jetbrains.annotations.Nullable;
 
 public class PathingService implements IPathingService, IGridServiceProvider {
     private static final String TAG_CHANNEL_MODE = "cm";
 
     static {
         GridHelper.addGridServiceEventHandler(GridChannelRequirementChanged.class,
-                IPathingService.class,
-                (service, event) -> {
-                    ((PathingService) service).updateNodReq(event);
-                });
+            IPathingService.class,
+            (service, event) -> ((PathingService) service).updateNodReq(event));
     }
 
-    private final Set<ControllerBlockEntity> controllers = new HashSet<>();
-    private final Set<IGridNode> nodesNeedingChannels = new HashSet<>();
-    private final Set<IGridNode> cannotCarryCompressedNodes = new HashSet<>();
+    private final ObjectSet<TileController> controllers = new ObjectOpenHashSet<>();
+    private final ReferenceSet<IGridNode> nodesNeedingChannels = new ReferenceOpenHashSet<>();
+    private final ReferenceSet<IGridNode> cannotCarryCompressedNodes = new ReferenceOpenHashSet<>();
     private final Grid grid;
     private int channelsInUse = 0;
     private int channelsByBlocks = 0;
@@ -130,7 +127,6 @@ public class PathingService implements IPathingService, IGridServiceProvider {
                 this.channelsByBlocks = calculation.getChannelsByBlocks();
             }
 
-            // check for achievements
             this.achievementPost();
 
             this.booting = false;
@@ -149,7 +145,7 @@ public class PathingService implements IPathingService, IGridServiceProvider {
 
     @Override
     public void removeNode(IGridNode gridNode) {
-        if (gridNode.getOwner() instanceof ControllerBlockEntity controller) {
+        if (gridNode.getOwner() instanceof TileController controller) {
             this.controllers.remove(controller);
             this.recalculateControllerNextTick = true;
         }
@@ -166,12 +162,12 @@ public class PathingService implements IPathingService, IGridServiceProvider {
     }
 
     @Override
-    public void addNode(IGridNode gridNode, @Nullable CompoundTag savedData) {
+    public void addNode(IGridNode gridNode, @Nullable NBTTagCompound savedData) {
         if (savedData != null) {
             restoreChannelMode(savedData);
         }
 
-        if (gridNode.getOwner() instanceof ControllerBlockEntity controller) {
+        if (gridNode.getOwner() instanceof TileController controller) {
             this.controllers.add(controller);
             this.recalculateControllerNextTick = true;
         }
@@ -187,16 +183,16 @@ public class PathingService implements IPathingService, IGridServiceProvider {
         this.repath();
     }
 
-    private void restoreChannelMode(CompoundTag savedData) {
+    private void restoreChannelMode(NBTTagCompound savedData) {
         // Adding a node to the grid will restore its saved channel mode to the grid
         // in case of conflict (i.e. merging two grids with conflicting modes),
         // the more relaxed mode will win.
-        if (savedData.contains(TAG_CHANNEL_MODE, Tag.TAG_STRING)) {
+        if (savedData.hasKey(TAG_CHANNEL_MODE, Constants.NBT.TAG_STRING)) {
             var channelModeName = savedData.getString(TAG_CHANNEL_MODE);
             try {
                 var nodeChannelMode = ChannelMode.valueOf(channelModeName);
                 if (!this.channelModeLocked
-                        || nodeChannelMode.getAdHocNetworkChannels() > channelMode.getAdHocNetworkChannels()) {
+                    || nodeChannelMode.getAdHocNetworkChannels() > channelMode.getAdHocNetworkChannels()) {
                     channelModeLocked = true;
                     channelMode = nodeChannelMode;
                 }
@@ -223,7 +219,7 @@ public class PathingService implements IPathingService, IGridServiceProvider {
     }
 
     private int calculateAdHocChannels() {
-        var ignore = new HashSet<IGridNode>();
+        var ignore = new ReferenceOpenHashSet<IGridNode>();
 
         this.adHocNetworkError = null;
 
@@ -263,11 +259,11 @@ public class PathingService implements IPathingService, IGridServiceProvider {
     }
 
     private void achievementPost() {
-        var server = grid.getPivot().getLevel().getServer();
+        var server = grid.getPivot().getLevel().getMinecraftServer();
 
         if (this.lastChannels != this.channelsInUse) {
-            final PlayerTrigger currentBracket = this.getAchievementBracket(this.channelsInUse);
-            final PlayerTrigger lastBracket = this.getAchievementBracket(this.lastChannels);
+            final IAdvancementTrigger currentBracket = this.getAchievementBracket(this.channelsInUse);
+            final IAdvancementTrigger lastBracket = this.getAchievementBracket(this.lastChannels);
             if (currentBracket != lastBracket && currentBracket != null) {
                 for (var n : this.nodesNeedingChannels) {
                     var player = IPlayerRegistry.getConnected(server, n.getOwningPlayerId());
@@ -280,20 +276,21 @@ public class PathingService implements IPathingService, IGridServiceProvider {
         this.lastChannels = this.channelsInUse;
     }
 
-    private PlayerTrigger getAchievementBracket(int ch) {
+    @Nullable
+    private IAdvancementTrigger getAchievementBracket(int ch) {
         if (ch < 8) {
             return null;
         }
 
         if (ch < 128) {
-            return AdvancementTriggers.NETWORK_APPRENTICE;
+            return AppEng.instance().getAdvancementTriggers().getNetworkApprentice();
         }
 
         if (ch < 2048) {
-            return AdvancementTriggers.NETWORK_ENGINEER;
+            return AppEng.instance().getAdvancementTriggers().getNetworkEngineer();
         }
 
-        return AdvancementTriggers.NETWORK_ADMIN;
+        return AppEng.instance().getAdvancementTriggers().getNetworkAdmin();
     }
 
     private void updateNodReq(GridChannelRequirementChanged ev) {
@@ -336,23 +333,9 @@ public class PathingService implements IPathingService, IGridServiceProvider {
         this.channelPowerUsage = channelPowerUsage;
     }
 
+    @Override
     public ChannelMode getChannelMode() {
         return channelMode;
-    }
-
-    public void setForcedChannelMode(@Nullable ChannelMode forcedChannelMode) {
-        if (forcedChannelMode == null) {
-            if (this.channelModeLocked) {
-                this.channelModeLocked = false;
-                repath();
-            }
-        } else {
-            this.channelModeLocked = true;
-            if (this.channelMode != forcedChannelMode) {
-                this.channelMode = forcedChannelMode;
-                this.repath();
-            }
-        }
     }
 
     @Override
@@ -361,9 +344,9 @@ public class PathingService implements IPathingService, IGridServiceProvider {
     }
 
     @Override
-    public void saveNodeData(IGridNode gridNode, CompoundTag savedData) {
+    public void saveNodeData(IGridNode gridNode, NBTTagCompound savedData) {
         if (channelModeLocked) {
-            savedData.putString(TAG_CHANNEL_MODE, channelMode.name());
+            savedData.setString(TAG_CHANNEL_MODE, channelMode.name());
         }
     }
 }

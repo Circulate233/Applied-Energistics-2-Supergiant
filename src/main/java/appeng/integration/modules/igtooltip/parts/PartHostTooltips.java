@@ -1,38 +1,36 @@
 package appeng.integration.modules.igtooltip.parts;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.SelectedPart;
 import appeng.util.Platform;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
+import org.jetbrains.annotations.Nullable;
 
 public final class PartHostTooltips {
 
     private PartHostTooltips() {
     }
 
-    public static @Nullable Component getName(BlockEntity object, TooltipContext context) {
+    public static @Nullable ITextComponent getName(TileEntity object, TooltipContext context) {
         return getName((IPartHost) object, context);
     }
 
-    public static @Nullable Component getName(IPartHost object, TooltipContext context) {
+    public static @Nullable ITextComponent getName(IPartHost object, TooltipContext context) {
         var selected = getPart(object, context.hitLocation());
 
         if (selected.facade != null) {
-            return selected.facade.getItemStack().getHoverName();
+            return selected.facade.getItemStack().getTextComponent();
         } else if (selected.part != null) {
             for (var provider : PartTooltipProviders.getProviders(selected.part).nameProviders()) {
                 var name = provider.getName(selected.part, context);
@@ -41,13 +39,13 @@ public final class PartHostTooltips {
                 }
             }
 
-            return selected.part.getPartItem().asItem().getDescription();
+            return new ItemStack(selected.part.getPartItem().asItem()).getTextComponent();
         } else {
             return null;
         }
     }
 
-    public static @Nullable String getModName(BlockEntity blockEntity, TooltipContext context) {
+    public static @Nullable String getModName(TileEntity blockEntity, TooltipContext context) {
         return getModName((IPartHost) blockEntity, context);
     }
 
@@ -63,10 +61,14 @@ public final class PartHostTooltips {
             return null;
         }
 
-        return Platform.getModName(BuiltInRegistries.ITEM.getKey(item).getNamespace());
+        ResourceLocation id = item.getRegistryName();
+        if (id == null) {
+            return null;
+        }
+        return Platform.getModName(id.getNamespace());
     }
 
-    public static @Nullable ItemStack getIcon(BlockEntity object, TooltipContext context) {
+    public static @Nullable ItemStack getIcon(TileEntity object, TooltipContext context) {
         return getIcon((IPartHost) object, context);
     }
 
@@ -82,32 +84,32 @@ public final class PartHostTooltips {
                 }
             }
 
-            return new ItemStack(selected.part.getPartItem());
+            return new ItemStack(selected.part.getPartItem().asItem());
         } else {
             return null;
         }
     }
 
-    public static void buildTooltip(BlockEntity object, TooltipContext context, TooltipBuilder tooltip) {
+    public static void buildTooltip(TileEntity object, TooltipContext context, TooltipBuilder tooltip) {
         buildTooltip((IPartHost) object, context, tooltip);
     }
 
     public static void buildTooltip(IPartHost object, TooltipContext context,
-            TooltipBuilder tooltip) {
+                                    TooltipBuilder tooltip) {
         // Pick the part the cursor is on
         var selected = getPart(object, context.hitLocation());
         if (selected.part != null) {
             // Then pick the data for that particular part
-            var partTag = context.serverData().getCompound(getPartDataName(selected.side));
+            var partTag = context.serverData().getCompoundTag(getPartDataName(selected.side));
 
             buildPartTooltip(selected.part, partTag, context, tooltip);
         }
     }
 
     private static <T extends IPart> void buildPartTooltip(T part,
-            CompoundTag partTag,
-            TooltipContext blockContext,
-            TooltipBuilder tooltip) {
+                                                           NBTTagCompound partTag,
+                                                           TooltipContext blockContext,
+                                                           TooltipBuilder tooltip) {
         var partContext = new TooltipContext(partTag, blockContext.hitLocation(), blockContext.player());
 
         for (var provider : PartTooltipProviders.getProviders(part).bodyProviders()) {
@@ -115,12 +117,12 @@ public final class PartHostTooltips {
         }
     }
 
-    public static void provideServerData(Player player, BlockEntity object, CompoundTag serverData) {
+    public static void provideServerData(EntityPlayer player, TileEntity object, NBTTagCompound serverData) {
         provideServerData(player, (IPartHost) object, serverData);
     }
 
-    public static void provideServerData(Player player, IPartHost object, CompoundTag serverData) {
-        var partTag = new CompoundTag();
+    public static void provideServerData(EntityPlayer player, IPartHost object, NBTTagCompound serverData) {
+        var partTag = new NBTTagCompound();
         for (var location : Platform.DIRECTIONS_WITH_NULL) {
             var part = object.getPart(location);
             if (part == null) {
@@ -132,27 +134,27 @@ public final class PartHostTooltips {
             }
 
             // Send it to the client if there's some data for it
-            if (!partTag.isEmpty()) {
-                serverData.put(getPartDataName(location), partTag);
-                partTag = new CompoundTag();
+            if (!Platform.isNbtEmpty(partTag)) {
+                serverData.setTag(getPartDataName(location), partTag);
+                partTag = new NBTTagCompound();
             }
         }
 
     }
 
-    private static String getPartDataName(@Nullable Direction location) {
+    private static String getPartDataName(@Nullable EnumFacing location) {
         return "cableBusPart" + (location == null ? "center" : location.name());
     }
 
     /**
-     * Hits a {@link IPartHost} with {@link net.minecraft.core.BlockPos}.
+     * Hits a {@link IPartHost} with {@link net.minecraft.util.math.BlockPos}.
      * <p/>
      * You can derive the looked at {@link IPart} by doing that. If a facade is being looked at, it is defined as being
      * absent.
      *
      * @return maybe the looked at {@link IPart}
      */
-    private static SelectedPart getPart(IPartHost partHost, Vec3 hitLocation) {
+    private static SelectedPart getPart(IPartHost partHost, Vec3d hitLocation) {
         return partHost.selectPartWorld(hitLocation);
     }
 }

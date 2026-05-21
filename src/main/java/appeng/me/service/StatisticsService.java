@@ -18,24 +18,6 @@
 
 package appeng.me.service;
 
-import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.Multiset;
-import com.google.gson.stream.JsonWriter;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.ChunkPos;
-
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridService;
@@ -43,6 +25,21 @@ import appeng.api.networking.IGridServiceProvider;
 import appeng.api.networking.events.statistics.GridChunkEvent;
 import appeng.me.InWorldGridNode;
 import appeng.util.JsonStreamUtil;
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.Multiset;
+import com.google.gson.stream.JsonWriter;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.WorldServer;
+import org.jetbrains.annotations.Nullable;
+
+import java.io.IOException;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * A grid providing precomupted statistics about a network.
@@ -57,11 +54,11 @@ public class StatisticsService implements IGridService, IGridServiceProvider {
      * This uses a {@link Multiset} so we can simply add or remove {@link IGridNode} without having to take into account
      * that others still might exist without explicitly counting these.
      */
-    private final Map<ServerLevel, Multiset<ChunkPos>> chunks;
+    private final Reference2ObjectMap<WorldServer, Multiset<ChunkPos>> chunks;
 
     public StatisticsService(IGrid g) {
         this.grid = g;
-        this.chunks = new HashMap<>();
+        this.chunks = new Reference2ObjectOpenHashMap<>();
     }
 
     @Override
@@ -72,7 +69,7 @@ public class StatisticsService implements IGridService, IGridServiceProvider {
     }
 
     @Override
-    public void addNode(IGridNode node, @Nullable CompoundTag savedData) {
+    public void addNode(IGridNode node, @Nullable NBTTagCompound savedData) {
         if (node instanceof InWorldGridNode inWorldNode) {
             this.addChunk(inWorldNode.getLevel(), inWorldNode.getLocation());
         }
@@ -83,76 +80,76 @@ public class StatisticsService implements IGridService, IGridServiceProvider {
     }
 
     /**
-     * A set of all {@link ServerLevel} this grid spans.
+     * A set of all {@link WorldServer} this grid spans.
      */
-    public Set<ServerLevel> getLevels() {
+    @SuppressWarnings("unused")
+    public Set<WorldServer> getLevels() {
         return this.chunks.keySet();
     }
 
     /**
      * A set of chunks this grid spans in a specific level.
      */
-    public Set<ChunkPos> chunks(ServerLevel level) {
+    @SuppressWarnings("unused")
+    public Set<ChunkPos> chunks(WorldServer level) {
         return this.chunks.get(level).elementSet();
     }
 
-    public Map<ServerLevel, Multiset<ChunkPos>> getChunks() {
+    public Reference2ObjectMap<WorldServer, Multiset<ChunkPos>> getChunks() {
         return this.chunks;
     }
 
     /**
      * Mark the chunk of the {@link BlockPos} as location of the network.
      */
-    private boolean addChunk(ServerLevel level, BlockPos pos) {
+    private void addChunk(WorldServer level, BlockPos pos) {
         final ChunkPos position = new ChunkPos(pos);
 
         if (!this.getChunks(level).contains(position)) {
             this.grid.postEvent(new GridChunkEvent.GridChunkAdded(level, position));
         }
 
-        return this.getChunks(level).add(position);
+        this.getChunks(level).add(position);
     }
 
     /**
      * Remove the chunk of this {@link BlockPos} from the network locations.
      * <p>
-     * This uses a {@link Multiset} to ensure it will only marked as no longer containing a grid once all other
+     * This uses a {@link Multiset} to ensure it will only be marked as no longer containing a grid once all other
      * gridnodes are removed as well.
      */
-    private boolean removeChunk(ServerLevel level, BlockPos pos) {
+    private void removeChunk(WorldServer level, BlockPos pos) {
         final ChunkPos position = new ChunkPos(pos);
-        boolean ret = this.getChunks(level).remove(position);
+        boolean removed = this.getChunks(level).remove(position);
 
-        if (ret && !this.getChunks(level).contains(position)) {
+        if (removed && !this.getChunks(level).contains(position)) {
             this.grid.postEvent(new GridChunkEvent.GridChunkRemoved(level, position));
         }
 
         this.clearLevel(level);
-
-        return ret;
     }
 
-    private Multiset<ChunkPos> getChunks(ServerLevel level) {
-        return this.chunks.computeIfAbsent(level, l -> HashMultiset.create());
+    private Multiset<ChunkPos> getChunks(WorldServer level) {
+        return this.chunks.computeIfAbsent(level, ignored -> HashMultiset.create());
     }
 
     /**
      * Cleanup the map in case a whole level is unloaded
      */
-    private void clearLevel(ServerLevel level) {
+    private void clearLevel(WorldServer level) {
         if (this.chunks.get(level).isEmpty()) {
             this.chunks.remove(level);
         }
     }
 
     @Override
-    public void debugDump(JsonWriter writer, HolderLookup.Provider registries) throws IOException {
+    public void debugDump(JsonWriter writer) throws IOException {
         JsonStreamUtil.writeProperties(Map.<String, Object>of("chunks",
                 chunks.keySet().stream().collect(
-                        Collectors.toMap(
-                                level -> level.dimension().location().toString(),
-                                level -> chunks.get(level).elementSet().stream().map(JsonStreamUtil::toJson)
-                                        .toList()))),
-                writer);
+                    Collectors.toMap(
+                        level -> Integer.toString(level.provider.getDimension()),
+                        level -> chunks.get(level).elementSet().stream().map(JsonStreamUtil::toJson)
+                                       .toList()))),
+            writer);
     }
 }

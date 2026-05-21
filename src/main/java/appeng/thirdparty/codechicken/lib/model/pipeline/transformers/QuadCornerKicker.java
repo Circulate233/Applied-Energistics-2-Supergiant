@@ -18,84 +18,56 @@
 
 package appeng.thirdparty.codechicken.lib.model.pipeline.transformers;
 
-import static net.minecraft.core.Direction.AxisDirection.NEGATIVE;
-import static net.minecraft.core.Direction.AxisDirection.POSITIVE;
+import appeng.client.render.mesh.MutableQuadView;
+import appeng.client.render.mesh.RenderContext;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumFacing.AxisDirection;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.Vec3i;
 
-import net.minecraft.core.Direction;
-import net.minecraft.core.Direction.AxisDirection;
-import net.minecraft.core.Vec3i;
-import net.minecraft.world.phys.AABB;
+import static net.minecraft.util.EnumFacing.AxisDirection.NEGATIVE;
+import static net.minecraft.util.EnumFacing.AxisDirection.POSITIVE;
 
-import appeng.thirdparty.fabric.MutableQuadView;
-import appeng.thirdparty.fabric.RenderContext;
-
-/**
- * This transformer is a little complicated. Basically a Facade / Cover can use this to 'kick' the edges in of quads to
- * fix z-Fighting in the corners. Use it by specifying the side of the block you are on, the bitmask for where the other
- * Facades / Cover's are, the bounding box of the facade, NOT the hole piece, and the thickness of your Facade / Cover,
- * this is used as the kick amount.
- *
- * @author covers1624
- */
 public class QuadCornerKicker implements RenderContext.QuadTransform {
 
     public static final QuadCornerKicker INSTANCE = new QuadCornerKicker();
-
-    // Simple horizonal lookups.
-    public static int[][] horizonals = new int[][] {
-            // Around Y axis, NSWE.
-            { 2, 3, 4, 5 }, //
-            { 2, 3, 4, 5 }, //
-
-            // Around Z axis, DUWE.
-            { 0, 1, 4, 5 }, //
-            { 0, 1, 4, 5 }, //
-
-            // Around X axis, DUNS.
-            { 0, 1, 2, 3 }, //
-            { 0, 1, 2, 3 } };
-
+    public static final int[][] horizonals = new int[][]{
+        {2, 3, 4, 5},
+        {2, 3, 4, 5},
+        {0, 1, 4, 5},
+        {0, 1, 4, 5},
+        {0, 1, 2, 3},
+        {0, 1, 2, 3}};
+    private final static double EPSILON = 0.00001;
     private int mySide;
     private int facadeMask;
-    private AABB box;
+    private AxisAlignedBB box;
     private double thickness;
 
     public QuadCornerKicker() {
         super();
     }
 
-    /**
-     * Set's the side this Facade / Cover is attached to.
-     *
-     * @param side The side.
-     */
+    private static boolean epsComp(float a, float b) {
+        if (a == b) {
+            return true;
+        } else {
+            return Math.abs(a - b) < EPSILON;
+        }
+    }
+
     public void setSide(int side) {
         this.mySide = side;
     }
 
-    /**
-     * Sets the bitmask of Facades / Covers in the blockspace. This is as simple as, mask = (1 << side)
-     *
-     * @param mask The mask.
-     */
     public void setFacadeMask(int mask) {
         this.facadeMask = mask;
     }
 
-    /**
-     * Sets the bounding box of the Facade / Cover, this should be the full box, not just a piece of the hole's 'ring'.
-     *
-     * @param box The BoundingBox.
-     */
-    public void setBox(AABB box) {
+    public void setBox(AxisAlignedBB box) {
         this.box = box;
     }
 
-    /**
-     * Sets the amount to kick the vertex in by, this is your facades thickness.
-     *
-     * @param thickness The thickness.
-     */
     public void setThickness(double thickness) {
         this.thickness = thickness;
     }
@@ -112,11 +84,11 @@ public class QuadCornerKicker implements RenderContext.QuadTransform {
                         float y = quad.posByIndex(i, 1);
                         float z = quad.posByIndex(i, 2);
                         if (epsComp(x, corner.pX(this.box)) && epsComp(y, corner.pY(this.box))
-                                && epsComp(z, corner.pZ(this.box))) {
-                            Vec3i vec = Direction.values()[hoz].getNormal();
-                            x -= vec.getX() * this.thickness;
-                            y -= vec.getY() * this.thickness;
-                            z -= vec.getZ() * this.thickness;
+                            && epsComp(z, corner.pZ(this.box))) {
+                            Vec3i vec = EnumFacing.values()[hoz].getDirectionVec();
+                            x -= (float) (vec.getX() * this.thickness);
+                            y -= (float) (vec.getY() * this.thickness);
+                            z -= (float) (vec.getZ() * this.thickness);
                             quad.pos(i, x, y, z);
                         }
                     }
@@ -135,11 +107,10 @@ public class QuadCornerKicker implements RenderContext.QuadTransform {
         MAX_X_MIN_Y_MIN_Z(POSITIVE, NEGATIVE, NEGATIVE), MAX_X_MIN_Y_MAX_Z(POSITIVE, NEGATIVE, POSITIVE),
         MAX_X_MAX_Y_MIN_Z(POSITIVE, POSITIVE, NEGATIVE), MAX_X_MAX_Y_MAX_Z(POSITIVE, POSITIVE, POSITIVE);
 
-        private AxisDirection xAxis;
-        private AxisDirection yAxis;
-        private AxisDirection zAxis;
-
-        private static final int[] sideMask = { 0, 2, 0, 1, 0, 4 };
+        private static final int[] sideMask = {0, 2, 0, 1, 0, 4};
+        private final AxisDirection xAxis;
+        private final AxisDirection yAxis;
+        private final AxisDirection zAxis;
 
         Corner(AxisDirection xAxis, AxisDirection yAxis, AxisDirection zAxis) {
             this.xAxis = xAxis;
@@ -147,42 +118,20 @@ public class QuadCornerKicker implements RenderContext.QuadTransform {
             this.zAxis = zAxis;
         }
 
-        /**
-         * Used to find what corner is at the 3 sides. This method assumes you pass in the X axis side, Y axis side, and
-         * Z axis side, it will NOT complain about an invalid side, you will just get garbage data. This method also
-         * does not care what order the 3 axes are in.
-         *
-         * @param sideA Side one.
-         * @param sideB Side two.
-         * @param sideC Side three.
-         * @return The corner at the 3 sides.
-         */
         public static Corner fromSides(int sideA, int sideB, int sideC) {
-            // <3 Chicken-Bones.
             return values()[sideMask[sideA] | sideMask[sideB] | sideMask[sideC]];
         }
 
-        public float pX(AABB box) {
+        public float pX(AxisAlignedBB box) {
             return (float) (this.xAxis == NEGATIVE ? box.minX : box.maxX);
         }
 
-        public float pY(AABB box) {
+        public float pY(AxisAlignedBB box) {
             return (float) (this.yAxis == NEGATIVE ? box.minY : box.maxY);
         }
 
-        public float pZ(AABB box) {
+        public float pZ(AxisAlignedBB box) {
             return (float) (this.zAxis == NEGATIVE ? box.minZ : box.maxZ);
-        }
-    }
-
-    // Should be small enough.
-    private final static double EPSILON = 0.00001;
-
-    private static boolean epsComp(float a, float b) {
-        if (a == b) {
-            return true;
-        } else {
-            return Math.abs(a - b) < EPSILON;
         }
     }
 

@@ -18,21 +18,14 @@
 
 package appeng.client.render.crafting;
 
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
-/**
- * Stores client-side only state about the ongoing animation for a molecular assembler.
- */
 public class AssemblerAnimationStatus {
 
     private final ItemStack is;
-
     private final byte speed;
-
     private final int ticksRequired;
-
     private float accumulatedTicks;
-
     private float ticksUntilParticles;
 
     public AssemblerAnimationStatus(byte speed, ItemStack is) {

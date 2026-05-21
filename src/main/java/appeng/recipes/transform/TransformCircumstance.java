@@ -1,184 +1,90 @@
 package appeng.recipes.transform;
 
-import java.util.List;
-import java.util.Objects;
-
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
 
-import io.netty.handler.codec.DecoderException;
-
-import net.minecraft.core.Holder;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.FluidState;
+import net.minecraft.util.JsonUtils;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidRegistry;
+import org.jspecify.annotations.Nullable;
 
 public class TransformCircumstance {
-
-    public static final TransformCircumstance EXPLOSION = new TransformCircumstance("explosion");
-
-    private static final MapCodec<TransformCircumstance> EXPLOSION_CODEC = MapCodec.unit(EXPLOSION);
-
-    private static final MapCodec<FluidType> FLUID_CODEC = RecordCodecBuilder.mapCodec(builder -> builder.group(
-            TagKey.codec(Registries.FLUID).fieldOf("tag").forGetter(FluidType::getFluidTag))
-            .apply(builder, FluidType::new));
-
-    public static final Codec<TransformCircumstance> CODEC = Codec.STRING.dispatch(t -> t.type, type -> switch (type) {
-        case "explosion" -> EXPLOSION_CODEC;
-        case "fluid" -> FLUID_CODEC;
-        default -> throw new IllegalStateException("Invalid type: " + type);
-    });
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, TransformCircumstance> STREAM_CODEC = StreamCodec.ofMember(
-            TransformCircumstance::toNetwork,
-            TransformCircumstance::fromNetwork);
+    private static final TransformCircumstance EXPLOSION = new TransformCircumstance("explosion", null);
+    private static final TransformCircumstance WATER = new TransformCircumstance("fluid",
+        new ResourceLocation("minecraft", "water"));
+    private static final ResourceLocation WATER_TAG = new ResourceLocation("minecraft", "water");
 
     private final String type;
+    private final ResourceLocation fluidId;
 
-    public TransformCircumstance(String type) {
+    private TransformCircumstance(String type, ResourceLocation fluidId) {
         this.type = type;
-    }
-
-    static TransformCircumstance fromJson(JsonObject obj) {
-        String type = obj.get("type").getAsString();
-        if (type.equals("explosion"))
-            return explosion();
-        else if (type.equals("fluid")) {
-            return fluid(TagKey.create(Registries.FLUID, ResourceLocation.parse(obj.get("tag").getAsString())));
-        } else
-            throw new JsonParseException("Invalid transform recipe type " + type);
-    }
-
-    static TransformCircumstance fromNetwork(FriendlyByteBuf buf) {
-        String type = buf.readUtf();
-        if (type.equals("explosion"))
-            return explosion();
-        else if (type.equals("fluid")) {
-            return fluid(TagKey.create(Registries.FLUID, buf.readResourceLocation()));
-        } else
-            throw new DecoderException("Invalid transform recipe type " + type);
-    }
-
-    public static TransformCircumstance fluid(TagKey<Fluid> tag) {
-        return new FluidType(tag);
+        this.fluidId = fluidId;
     }
 
     public static TransformCircumstance explosion() {
         return EXPLOSION;
     }
 
-    public JsonObject toJson() {
-        JsonObject obj = new JsonObject();
-        obj.addProperty("type", this.type);
-        return obj;
+    public static TransformCircumstance water() {
+        return WATER;
     }
 
-    void toNetwork(FriendlyByteBuf buf) {
-        buf.writeUtf(type);
+    public static TransformCircumstance fluid(ResourceLocation fluidId) {
+        return new TransformCircumstance("fluid", fluidId);
     }
 
-    @Override
-    public boolean equals(Object obj) {
-        return obj instanceof TransformCircumstance other && type.equals(other.type);
-    }
+    public static TransformCircumstance fromJson(JsonObject json) {
+        if (json == null) {
+            return water();
+        }
 
-    @Override
-    public int hashCode() {
-        return type.hashCode();
+        String type = JsonUtils.getString(json, "type", "fluid");
+        if ("explosion".equals(type)) {
+            return explosion();
+        }
+        if ("fluid".equals(type)) {
+            if (json.has("fluid")) {
+                return fluid(new ResourceLocation(JsonUtils.getString(json, "fluid")));
+            }
+            if (json.has("tag")) {
+                return fluid(new ResourceLocation(JsonUtils.getString(json, "tag")));
+            }
+            return water();
+        }
+        throw new JsonParseException("Unknown transform circumstance: " + type);
     }
 
     public boolean isExplosion() {
-        return type.equals("explosion");
+        return "explosion".equals(this.type);
     }
 
     public boolean isFluid() {
-        return false;
-    }
-
-    public boolean isFluidTag(TagKey<Fluid> tag) {
-        return false;
-    }
-
-    public boolean isFluid(FluidState state) {
-        return false;
+        return "fluid".equals(this.type);
     }
 
     public boolean isFluid(Fluid fluid) {
-        return false;
+        return this.isFluid()
+            && fluid != null
+            && fluid.getName() != null
+            && new ResourceLocation(fluid.getName()).equals(this.fluidId);
     }
 
-    public List<Fluid> getFluidsForRendering() {
-        return List.of();
+    public @Nullable Fluid getFluid() {
+        return this.fluidId != null ? FluidRegistry.getFluid(this.fluidId.toString()) : null;
     }
 
-    private static class FluidType extends TransformCircumstance {
-        public final TagKey<Fluid> fluidTag;
-
-        public FluidType(TagKey<Fluid> fluidTag) {
-            super("fluid");
-            this.fluidTag = fluidTag;
+    public @Nullable Fluid getFluidForRendering() {
+        Fluid fluid = getFluid();
+        if (fluid != null) {
+            return fluid;
         }
 
-        public TagKey<Fluid> getFluidTag() {
-            return fluidTag;
+        if (WATER_TAG.equals(this.fluidId)) {
+            return FluidRegistry.WATER;
         }
 
-        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof FluidType other && Objects.equals(fluidTag, other.fluidTag);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hashCode(fluidTag);
-        }
-
-        @Override
-        public JsonObject toJson() {
-            JsonObject obj = super.toJson();
-            obj.addProperty("tag", fluidTag.location().toString());
-            return obj;
-        }
-
-        @Override
-        void toNetwork(FriendlyByteBuf buf) {
-            super.toNetwork(buf);
-            buf.writeResourceLocation(fluidTag.location());
-        }
-
-        @Override
-        public boolean isFluid() {
-            return true;
-        }
-
-        @Override
-        public boolean isFluid(Fluid fluid) {
-            return fluid.is(fluidTag);
-        }
-
-        @Override
-        public boolean isFluidTag(TagKey<Fluid> tag) {
-            return fluidTag.equals(tag);
-        }
-
-        @Override
-        public boolean isFluid(FluidState state) {
-            return state.is(fluidTag);
-        }
-
-        @Override
-        public List<Fluid> getFluidsForRendering() {
-            return BuiltInRegistries.FLUID.getTag(fluidTag).map(t -> t.stream().map(Holder::value).toList())
-                    .orElse(List.of());
-        }
+        return null;
     }
 }

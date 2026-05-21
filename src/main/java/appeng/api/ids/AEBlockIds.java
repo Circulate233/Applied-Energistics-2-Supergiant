@@ -23,8 +23,8 @@
 
 package appeng.api.ids;
 
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.block.Block;
+import net.minecraft.block.Block;
+import net.minecraft.util.ResourceLocation;
 
 /**
  * Contains {@link Block} ids for various blocks defined by Ae2.
@@ -54,6 +54,10 @@ public final class AEBlockIds {
     public static final ResourceLocation SKY_STONE_TANK = id("sky_stone_tank");
     public static final ResourceLocation LIGHT_DETECTOR = id("light_detector");
     public static final ResourceLocation PAINT = id("paint");
+    public static final ResourceLocation DEBUG_ITEM_GEN = id("debug_item_gen");
+    public static final ResourceLocation DEBUG_CUBE_GEN = id("debug_cube_gen");
+    public static final ResourceLocation DEBUG_PHANTOM_NODE = id("debug_phantom_node");
+    public static final ResourceLocation DEBUG_ENERGY_GEN = id("debug_energy_gen");
 
     ///
     /// ME NETWORK
@@ -168,6 +172,6 @@ public final class AEBlockIds {
     public static final ResourceLocation CRANK = id("crank");
 
     private static ResourceLocation id(String id) {
-        return ResourceLocation.fromNamespaceAndPath(AEConstants.MOD_ID, id);
+        return new ResourceLocation(AEConstants.MOD_ID, id);
     }
 }

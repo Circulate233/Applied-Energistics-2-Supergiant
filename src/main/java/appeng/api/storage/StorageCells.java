@@ -23,28 +23,26 @@
 
 package appeng.api.storage;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.ICellHandler;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
+import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Objects;
 
 /**
- * Storage Cell Registry, used for specially implemented cells, if you just want to make a item act like a cell, or new
+ * Storage Cell Registry, used for specially implemented cells. If you just want to make an item act like a cell, or a
+ * new
  * cell with different bytes, you should probably consider implementing {@link IBasicCellItem} on your item instead.
  */
 public final class StorageCells {
 
-    private static final List<ICellHandler> handlers = new ArrayList<>();
+    private static final ObjectList<ICellHandler> handlers = new ObjectArrayList<>();
 
     private StorageCells() {
     }
@@ -52,15 +50,14 @@ public final class StorageCells {
     /**
      * Register a new handler.
      * <p>
-     * Never be call before {@link net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent} was handled by AE2. Will throw
-     * an exception otherwise.
+     * Must not be called before AE2 has completed its initialization. Will throw an exception otherwise.
      *
      * @param handler cell handler
      */
     public static synchronized void addCellHandler(ICellHandler handler) {
-        Objects.requireNonNull(handler, "Called before FMLCommonSetupEvent.");
+        Objects.requireNonNull(handler, "Called before AE2 initialization completed.");
         Preconditions.checkArgument(!handlers.contains(handler),
-                "Tried to register the same handler instance twice.");
+            "Tried to register the same handler instance twice.");
 
         handlers.add(handler);
     }
@@ -69,8 +66,8 @@ public final class StorageCells {
      * return true, if you can get a InventoryHandler for the item passed.
      *
      * @param is to be checked item
-     * @return true if the provided item, can be handled by a handler in AE, ( AE May choose to skip this and just get
-     *         the handler instead. )
+     * @return true if the provided item can be handled by a handler in AE. AE may choose to skip this and just get the
+     * handler instead.
      */
     public static synchronized boolean isCellHandled(ItemStack is) {
         if (is.isEmpty()) {

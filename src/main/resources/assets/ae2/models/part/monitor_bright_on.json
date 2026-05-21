@@ -11,8 +11,7 @@
       "faces": {
         "north": {
           "texture": "#lights",
-          "tintindex": 3,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 3
         }
       }
     }

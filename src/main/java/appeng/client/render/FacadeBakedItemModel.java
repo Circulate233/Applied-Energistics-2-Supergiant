@@ -18,60 +18,44 @@
 
 package appeng.client.render;
 
-import java.util.ArrayList;
+import appeng.client.render.cablebus.FacadeBuilder;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
+
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
 
-import javax.annotation.Nullable;
-
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
-import appeng.client.render.cablebus.FacadeBuilder;
-
-/**
- * This model used the provided FacadeBuilder to "slice" the item quads for the facade provided.
- *
- * @author covers1624
- */
 public class FacadeBakedItemModel extends DelegateBakedModel {
 
     private final ItemStack textureStack;
     private final FacadeBuilder facadeBuilder;
-    private List<BakedQuad> quads = null;
+    private List<BakedQuad> quads;
 
-    protected FacadeBakedItemModel(BakedModel base, ItemStack textureStack, FacadeBuilder facadeBuilder) {
+    protected FacadeBakedItemModel(IBakedModel base, ItemStack textureStack, FacadeBuilder facadeBuilder) {
         super(base);
-        this.textureStack = textureStack;
+        this.textureStack = textureStack.copy();
         this.facadeBuilder = facadeBuilder;
     }
 
     @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand) {
-        return getQuads(state, side, rand, ModelData.EMPTY, null);
-    }
-
-    @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand,
-            ModelData data, RenderType renderType) {
+    public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
         if (side != null) {
             return Collections.emptyList();
         }
-        if (quads == null) {
-            quads = new ArrayList<>();
-            quads.addAll(
-                    this.facadeBuilder.buildFacadeItemQuads(this.textureStack, Direction.NORTH).toBakedBlockQuads());
-            quads.addAll(this.getBaseModel().getQuads(state, side, rand, data, renderType));
-            quads = Collections.unmodifiableList(quads);
+        if (this.quads == null) {
+            it.unimi.dsi.fastutil.objects.ObjectList<BakedQuad> result = new ObjectArrayList<>();
+            result.addAll(this.facadeBuilder.buildFacadeItemQuads(this.textureStack, EnumFacing.NORTH));
+            result.addAll(this.getBaseModel().getQuads(state, side, rand));
+            this.quads = ObjectLists.unmodifiable(result);
         }
-        return quads;
+        return this.quads;
     }
 
     @Override
@@ -80,17 +64,12 @@ public class FacadeBakedItemModel extends DelegateBakedModel {
     }
 
     @Override
-    public boolean usesBlockLight() {
+    public boolean isBuiltInRenderer() {
         return false;
     }
 
     @Override
-    public boolean isCustomRenderer() {
-        return false;
-    }
-
-    @Override
-    public ItemOverrides getOverrides() {
-        return ItemOverrides.EMPTY;
+    public ItemOverrideList getOverrides() {
+        return ItemOverrideList.NONE;
     }
 }

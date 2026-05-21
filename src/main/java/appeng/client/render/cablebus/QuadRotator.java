@@ -1,116 +1,132 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.client.render.cablebus;
 
-import java.util.EnumMap;
-
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
-
-import net.minecraft.client.renderer.block.model.BlockModel;
-import net.minecraft.client.renderer.block.model.FaceBakery;
-import net.minecraft.core.Direction;
-
 import appeng.api.orientation.BlockOrientation;
-import appeng.thirdparty.fabric.MutableQuadView;
-import appeng.thirdparty.fabric.RenderContext;
+import appeng.core.AELog;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.client.renderer.vertex.VertexFormatElement;
+import net.minecraft.util.EnumFacing;
+import net.minecraftforge.common.model.TRSRTransformation;
 
-/**
- * Assuming a default-orientation of forward=NORTH and up=UP, this class rotates a given list of quads to the desired
- * facing
- */
-public class QuadRotator implements RenderContext.QuadTransform {
+import javax.annotation.Nullable;
+import javax.vecmath.Vector3f;
+import javax.vecmath.Vector4f;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import java.util.List;
 
-    public static final RenderContext.QuadTransform NULL_TRANSFORM = quad -> true;
+public class QuadRotator {
 
-    private static final EnumMap<BlockOrientation, RenderContext.QuadTransform> TRANSFORMS = new EnumMap<>(
-            BlockOrientation.class);
+    private static int getByte(int[] data, int offset) {
+        int idx = offset / 4;
+        int subOffset = offset % 4;
+        return (byte) (data[idx] >> (subOffset * 8));
+    }
 
-    static {
-        for (BlockOrientation rotation : BlockOrientation.values()) {
-            if (rotation.isRedundant()) {
-                TRANSFORMS.put(rotation, NULL_TRANSFORM);
-            } else {
-                TRANSFORMS.put(rotation, new QuadRotator(rotation));
-            }
+    private static void setByte(int[] data, int offset, int value) {
+        int idx = offset / 4;
+        int subOffset = offset % 4;
+        int mask = 0xFF << (subOffset * 8);
+        data[idx] = data[idx] & (~mask) | ((value & 0xFF) << (subOffset * 8));
+    }
+
+    public List<BakedQuad> rotateQuads(List<BakedQuad> quads, EnumFacing newForward, EnumFacing newUp) {
+        if (newForward == EnumFacing.NORTH && newUp == EnumFacing.UP) {
+            return quads;
         }
-    }
 
-    private final BlockOrientation rotation;
-
-    private final Quaternionf quaternion;
-
-    private QuadRotator(BlockOrientation rotation) {
-        this.rotation = rotation;
-        this.quaternion = rotation.getQuaternion();
-    }
-
-    public static RenderContext.QuadTransform get(Direction facing, int spin) {
-        return get(BlockOrientation.get(facing, spin));
-    }
-
-    public static RenderContext.QuadTransform get(BlockOrientation rotation) {
-        if (rotation.isRedundant()) {
-            return NULL_TRANSFORM; // This is the default orientation
+        List<BakedQuad> result = new ObjectArrayList<>(quads.size());
+        for (BakedQuad quad : quads) {
+            result.add(this.rotateQuad(quad, newForward, newUp));
         }
-        return TRANSFORMS.get(rotation);
+        return result;
     }
 
-    @Override
-    public boolean transform(MutableQuadView quad) {
-        Vector3f tmp = new Vector3f();
+    private BakedQuad rotateQuad(BakedQuad quad, EnumFacing forward, EnumFacing up) {
+        if (forward.getAxis() == up.getAxis()) {
+            up = up.getAxis() == EnumFacing.Axis.Y ? EnumFacing.NORTH : EnumFacing.UP;
+        }
+
+        BlockOrientation rotation = BlockOrientation.get(forward, up);
+        TRSRTransformation transformation = rotation.getTransformation();
+
+        int[] newData = quad.getVertexData().clone();
+        VertexFormat format = quad.getFormat();
+        int stride = format.getIntegerSize();
+        int posOffset = this.findElementOffset(format, VertexFormatElement.EnumUsage.POSITION) / 4;
+        int normalOffsetBytes = this.findElementOffset(format, VertexFormatElement.EnumUsage.NORMAL);
+        VertexFormatElement.EnumType normalType = this.findNormalElementType(format);
+
+        Vector4f pos = new Vector4f();
+        Vector3f normal = new Vector3f();
 
         for (int i = 0; i < 4; i++) {
-            // Transform the position (center of rotation is 0.5, 0.5, 0.5)
-            quad.copyPos(i, tmp);
-            tmp.add(-0.5f, -0.5f, -0.5f);
-            tmp.rotate(quaternion);
-            tmp.add(0.5f, 0.5f, 0.5f);
-            quad.pos(i, tmp);
+            int vertexOffset = i * stride;
+            pos.set(
+                Float.intBitsToFloat(newData[vertexOffset + posOffset]) - 0.5f,
+                Float.intBitsToFloat(newData[vertexOffset + posOffset + 1]) - 0.5f,
+                Float.intBitsToFloat(newData[vertexOffset + posOffset + 2]) - 0.5f,
+                1.0f);
 
-            // Transform the normal
-            if (quad.hasNormal(i)) {
-                quad.copyNormal(i, tmp);
-                tmp.rotate(quaternion);
-                quad.normal(i, tmp);
+            transformation.transformPosition(pos);
+
+            newData[vertexOffset + posOffset] = Float.floatToIntBits(pos.x + 0.5f);
+            newData[vertexOffset + posOffset + 1] = Float.floatToIntBits(pos.y + 0.5f);
+            newData[vertexOffset + posOffset + 2] = Float.floatToIntBits(pos.z + 0.5f);
+
+            if (normalOffsetBytes >= 0 && normalType != null) {
+                if (normalType == VertexFormatElement.EnumType.FLOAT) {
+                    int normalOffset = normalOffsetBytes / 4;
+                    normal.set(
+                        Float.intBitsToFloat(newData[vertexOffset + normalOffset]),
+                        Float.intBitsToFloat(newData[vertexOffset + normalOffset + 1]),
+                        Float.intBitsToFloat(newData[vertexOffset + normalOffset + 2]));
+
+                    transformation.transformNormal(normal);
+
+                    newData[vertexOffset + normalOffset] = Float.floatToIntBits(normal.x);
+                    newData[vertexOffset + normalOffset + 1] = Float.floatToIntBits(normal.y);
+                    newData[vertexOffset + normalOffset + 2] = Float.floatToIntBits(normal.z);
+                } else if (normalType == VertexFormatElement.EnumType.BYTE) {
+                    int normalIndex = i * format.getSize() + normalOffsetBytes;
+                    normal.set(
+                        getByte(newData, normalIndex) / 127.0f,
+                        getByte(newData, normalIndex + 1) / 127.0f,
+                        getByte(newData, normalIndex + 2) / 127.0f);
+
+                    transformation.transformNormal(normal);
+
+                    setByte(newData, normalIndex, (int) (normal.x * 127));
+                    setByte(newData, normalIndex + 1, (int) (normal.y * 127));
+                    setByte(newData, normalIndex + 2, (int) (normal.z * 127));
+                } else {
+                    AELog.warn("Unsupported normal format: {}", normalType);
+                }
             }
         }
 
-        // Transform the nominal face, setting the cull face will also overwrite the
-        // nominialFace,
-        // hence saving both first and the order here.
-        Direction nominalFace = quad.nominalFace();
-        Direction cullFace = quad.cullFace();
-        if (cullFace != null) {
-            quad.cullFace(rotation.rotate(cullFace));
-        }
-        var rotatedNominalFace = rotation.rotate(nominalFace);
-        quad.nominalFace(rotatedNominalFace);
-
-        // The vanilla lighting engine expects the vertices of each quad
-        // in a specific order for each cardinal direction.
-        var data = new int[FaceBakery.VERTEX_INT_SIZE * 4];
-        quad.toVanilla(data, 0);
-        BlockModel.FACE_BAKERY.recalculateWinding(data, rotatedNominalFace);
-        quad.fromVanilla(data, 0);
-
-        return true;
+        EnumFacing rotatedFace = rotation.rotate(quad.getFace());
+        return new BakedQuad(newData, quad.getTintIndex(), rotatedFace, quad.getSprite(),
+            quad.shouldApplyDiffuseLighting(), format);
     }
 
+    private int findElementOffset(VertexFormat format, VertexFormatElement.EnumUsage usage) {
+        int offset = 0;
+        for (VertexFormatElement element : format.getElements()) {
+            if (element.getUsage() == usage) {
+                return offset;
+            }
+            offset += element.getSize();
+        }
+        return -1;
+    }
+
+    @Nullable
+    private VertexFormatElement.EnumType findNormalElementType(VertexFormat format) {
+        for (VertexFormatElement element : format.getElements()) {
+            if (element.getUsage() == VertexFormatElement.EnumUsage.NORMAL) {
+                return element.getType();
+            }
+        }
+        return null;
+    }
 }

@@ -18,16 +18,6 @@
 
 package appeng.parts.automation;
 
-import java.util.List;
-
-import org.jetbrains.annotations.MustBeInvokedByOverriders;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Setting;
 import appeng.api.inventories.InternalInventory;
@@ -40,7 +30,15 @@ import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigManagerBuilder;
 import appeng.api.util.IConfigurableObject;
 import appeng.core.definitions.AEItems;
+import appeng.core.definitions.ItemDefinition;
 import appeng.parts.AEBasePart;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
+import org.jetbrains.annotations.MustBeInvokedByOverriders;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public abstract class UpgradeablePart extends AEBasePart implements IConfigurableObject, IUpgradeableObject {
     private final IConfigManager config;
@@ -49,7 +47,7 @@ public abstract class UpgradeablePart extends AEBasePart implements IConfigurabl
     public UpgradeablePart(IPartItem<?> partItem) {
         super(partItem);
         this.upgrades = UpgradeInventories.forMachine(partItem.asItem(), this.getUpgradeSlots(),
-                this::onUpgradesChanged);
+            this::onUpgradesChanged);
         var configBuilder = IConfigManager.builder((manager, setting) -> {
             onSettingChanged(manager, setting);
             getHost().markForSave();
@@ -78,7 +76,7 @@ public abstract class UpgradeablePart extends AEBasePart implements IConfigurabl
     }
 
     protected boolean isSleeping() {
-        if (upgrades.isInstalled(AEItems.REDSTONE_CARD)) {
+        if (isUpgradedWith(AEItems.REDSTONE_CARD)) {
             return switch (this.getRSMode()) {
                 case IGNORE -> false;
                 case HIGH_SIGNAL -> !this.getHost().hasRedstone();
@@ -92,21 +90,21 @@ public abstract class UpgradeablePart extends AEBasePart implements IConfigurabl
 
     @Override
     public boolean canConnectRedstone() {
-        return this.upgrades.getMaxInstalled(AEItems.REDSTONE_CARD) > 0;
+        return this.getMaxInstalled() > 0;
     }
 
     @Override
-    public void readFromNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.readFromNBT(extra, registries);
-        this.config.readFromNBT(extra, registries);
-        this.upgrades.readFromNBT(extra, "upgrades", registries);
+    public void readFromNBT(NBTTagCompound extra) {
+        super.readFromNBT(extra);
+        this.config.readFromNBT(extra);
+        this.upgrades.readFromNBT(extra, "upgrades");
     }
 
     @Override
-    public void writeToNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.writeToNBT(extra, registries);
-        this.config.writeToNBT(extra, registries);
-        this.upgrades.writeToNBT(extra, "upgrades", registries);
+    public void writeToNBT(NBTTagCompound extra) {
+        super.writeToNBT(extra);
+        this.config.writeToNBT(extra);
+        this.upgrades.writeToNBT(extra, "upgrades");
     }
 
     @Override
@@ -145,7 +143,19 @@ public abstract class UpgradeablePart extends AEBasePart implements IConfigurabl
         return upgrades;
     }
 
-    public RedstoneMode getRSMode() {
+    protected boolean isUpgradedWith(ItemDefinition<?> upgradeCard) {
+        return this.upgrades.isInstalled(upgradeCard.asItem());
+    }
+
+    protected int getInstalledUpgrades(ItemDefinition<?> upgradeCard) {
+        return this.upgrades.getInstalledUpgrades(upgradeCard.asItem());
+    }
+
+    protected int getMaxInstalled() {
+        return this.upgrades.getMaxInstalled(((ItemDefinition<?>) AEItems.REDSTONE_CARD).asItem());
+    }
+
+    public @org.jspecify.annotations.Nullable RedstoneMode getRSMode() {
         return null;
     }
 

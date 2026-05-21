@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "variant=default": {
+      "model": "ae2:fluix_slab_double"
+    }
+  }
+}

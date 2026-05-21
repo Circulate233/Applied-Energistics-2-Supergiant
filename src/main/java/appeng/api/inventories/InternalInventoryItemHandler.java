@@ -23,10 +23,10 @@
 
 package appeng.api.inventories;
 
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
-
 import appeng.api.stacks.GenericStack;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandlerModifiable;
+import org.jspecify.annotations.NonNull;
 
 class InternalInventoryItemHandler implements IItemHandlerModifiable {
     private final InternalInventory inventory;
@@ -41,22 +41,22 @@ class InternalInventoryItemHandler implements IItemHandlerModifiable {
     }
 
     @Override
-    public ItemStack getStackInSlot(int slot) {
+    public @NonNull ItemStack getStackInSlot(int slot) {
         return inventory.getStackInSlot(slot);
     }
 
     @Override
-    public void setStackInSlot(int slot, ItemStack stack) {
+    public void setStackInSlot(int slot, @NonNull ItemStack stack) {
         inventory.setItemDirect(slot, stack);
     }
 
     @Override
-    public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+    public @NonNull ItemStack insertItem(int slot, @NonNull ItemStack stack, boolean simulate) {
         return inventory.insertItem(slot, stack, simulate);
     }
 
     @Override
-    public ItemStack extractItem(int slot, int amount, boolean simulate) {
+    public @NonNull ItemStack extractItem(int slot, int amount, boolean simulate) {
         // Do not allow extraction of wrapped stacks because they're an internal detail
         if (GenericStack.isWrapped(inventory.getStackInSlot(slot))) {
             return ItemStack.EMPTY;
@@ -71,7 +71,7 @@ class InternalInventoryItemHandler implements IItemHandlerModifiable {
     }
 
     @Override
-    public boolean isItemValid(int slot, ItemStack stack) {
+    public boolean isItemValid(int slot, @NonNull ItemStack stack) {
         return inventory.isItemValid(slot, stack);
     }
 }

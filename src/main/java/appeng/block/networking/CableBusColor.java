@@ -1,57 +1,25 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.block.networking;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.color.block.BlockColor;
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.BlockAndTintGetter;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.util.AEColor;
-import appeng.blockentity.networking.CableBusBlockEntity;
-import appeng.parts.CableBusContainer;
+import appeng.tile.networking.TileCableBus;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.color.IBlockColor;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
 
-/**
- * Exposes the cable bus color as tint indices 0 (dark variant), 1 (medium variant) and 2 (bright variant).
- */
-@OnlyIn(Dist.CLIENT)
-public class CableBusColor implements BlockColor {
+import javax.annotation.Nullable;
 
+public class CableBusColor implements IBlockColor {
     @Override
-    public int getColor(BlockState state, @Nullable BlockAndTintGetter level, @Nullable BlockPos pos, int color) {
-
-        AEColor busColor = AEColor.TRANSPARENT;
-
-        if (level != null && pos != null) {
-            BlockEntity blockEntity = level.getBlockEntity(pos);
-            if (blockEntity instanceof CableBusBlockEntity) {
-                CableBusContainer container = ((CableBusBlockEntity) blockEntity).getCableBus();
-                busColor = container.getColor();
+    public int colorMultiplier(IBlockState state, @Nullable IBlockAccess world, @Nullable BlockPos pos, int tintIndex) {
+        AEColor color = AEColor.TRANSPARENT;
+        if (world != null && pos != null) {
+            TileEntity tile = world.getTileEntity(pos);
+            if (tile instanceof TileCableBus) {
+                color = ((TileCableBus) tile).getColor();
             }
         }
-
-        return busColor.getVariantByTintIndex(color);
-
+        return color.getVariantByTintIndex(tintIndex);
     }
 }

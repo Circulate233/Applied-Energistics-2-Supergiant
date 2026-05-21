@@ -28,3 +28,4 @@ public enum PaletteColor {
     TEXTFIELD_TEXT,
     ERROR
 }
+

@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "formed=false,powered=false": {
+      "model": "ae2:crafting/storage_1k"
+    },
+    "formed=false,powered=true": {
+      "model": "ae2:crafting/storage_1k"
+    },
+    "formed=true,powered=false": {
+      "model": "ae2:crafting/storage_1k_formed"
+    },
+    "formed=true,powered=true": {
+      "model": "ae2:crafting/storage_1k_formed"
+    },
+    "inventory": {
+      "model": "ae2:item/1k_crafting_storage"
+    }
+  }
+}

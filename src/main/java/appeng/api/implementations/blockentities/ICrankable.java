@@ -23,37 +23,23 @@
 
 package appeng.api.implementations.blockentities;
 
+import appeng.api.AECapabilities;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
-
-import appeng.api.AECapabilities;
-
-/**
- * Crank/Crankable API,
- * <p>
- * Blocks that expose this interface via Api lookup can receive power from the crank. A block can return this interface
- * only on specific sides to control where it can attach to.
- * <p>
- * Cranks obtain this interface from a block using a Forge capability.
- */
 public interface ICrankable {
-    /**
-     * Test if the crank can turn, return false if there is no work to be done.
-     *
-     * @return if crank should be allowed to turn on the given side.
-     */
+    @Nullable
+    static ICrankable get(World level, BlockPos pos, EnumFacing side) {
+        var tileEntity = level.getTileEntity(pos);
+        if (tileEntity == null) {
+            return null;
+        }
+        return tileEntity.getCapability(AECapabilities.CRANKABLE, side);
+    }
+
     boolean canTurn();
 
-    /**
-     * The crank has completed one turn on the given side.
-     */
     void applyTurn();
-
-    @Nullable
-    static ICrankable get(Level level, BlockPos pos, Direction side) {
-        return level.getCapability(AECapabilities.CRANKABLE, pos, side);
-    }
 }

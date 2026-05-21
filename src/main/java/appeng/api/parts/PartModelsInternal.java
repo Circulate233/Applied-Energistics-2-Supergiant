@@ -18,9 +18,9 @@
 
 package appeng.api.parts;
 
-import java.util.Set;
+import net.minecraft.util.ResourceLocation;
 
-import net.minecraft.resources.ResourceLocation;
+import java.util.Set;
 
 public final class PartModelsInternal {
 

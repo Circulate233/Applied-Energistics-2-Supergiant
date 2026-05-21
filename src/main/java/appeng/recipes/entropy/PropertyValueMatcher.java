@@ -1,168 +1,143 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
 package appeng.recipes.entropy;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonSyntaxException;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.JsonUtils;
+
 import java.util.List;
-import java.util.Map;
 
-import com.mojang.datafixers.util.Pair;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.DynamicOps;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.level.block.state.StateHolder;
-import net.minecraft.world.level.block.state.properties.Property;
-
-public sealed interface PropertyValueMatcher
-        permits PropertyValueMatcher.SingleValue, PropertyValueMatcher.MultiValue, PropertyValueMatcher.Range {
-    Codec<PropertyValueMatcher> CODEC = new Codec<>() {
-        @Override
-        public <T> DataResult<Pair<PropertyValueMatcher, T>> decode(DynamicOps<T> ops, T input) {
-            // Try single string value first
-            var singleValueResult = Codec.STRING.decode(ops, input)
-                    .map(pair -> pair.mapFirst(value -> (PropertyValueMatcher) new SingleValue(value)));
-            if (singleValueResult.error().isEmpty()) {
-                return singleValueResult;
-            }
-
-            // Then try list value
-            var listValueResult = Codec.STRING.listOf().decode(ops, input)
-                    .map(pair -> pair.mapFirst(value -> (PropertyValueMatcher) new MultiValue(value)));
-            if (listValueResult.error().isEmpty()) {
-                return listValueResult;
-            }
-
-            // Then try min/max object
-            var rangeValueResult = Range.CODEC.decode(ops, input)
-                    .map(pair -> pair.mapFirst(value -> (PropertyValueMatcher) value));
-            if (rangeValueResult.error().isEmpty()) {
-                return rangeValueResult;
-            }
-
-            // If all three fail, combine the errors
-            return DataResult.error(
-                    () -> "Property values need to be strings, list of strings, or objects with min/max properties");
+public abstract class PropertyValueMatcher {
+    public static PropertyValueMatcher read(JsonElement json) {
+        if (json.isJsonPrimitive()) {
+            return new SingleValue(json.getAsString());
         }
 
-        @Override
-        public <T> DataResult<T> encode(PropertyValueMatcher input, DynamicOps<T> ops, T prefix) {
-            if (input instanceof SingleValue singleValue) {
-                return Codec.STRING.encode(singleValue.value(), ops, prefix);
-            } else if (input instanceof MultiValue multiValue) {
-                return Codec.STRING.listOf().encode(multiValue.values(), ops, prefix);
-            } else if (input instanceof Range range) {
-                return Range.CODEC.encode(range, ops, prefix);
-            } else {
-                throw new IllegalStateException("This cannot happen");
+        if (json.isJsonArray()) {
+            List<String> values = new ObjectArrayList<>();
+            for (JsonElement element : json.getAsJsonArray()) {
+                values.add(element.getAsString());
+            }
+            return new MultiValue(values);
+        }
+
+        if (json.isJsonObject()) {
+            JsonObject object = json.getAsJsonObject();
+            if (object.has("min") && object.has("max")) {
+                return new Range(JsonUtils.getString(object, "min"), JsonUtils.getString(object, "max"));
             }
         }
-    };
 
-    StreamCodec<FriendlyByteBuf, PropertyValueMatcher> STREAM_CODEC = new StreamCodec<>() {
-        @Override
-        public PropertyValueMatcher decode(FriendlyByteBuf buffer) {
-            var type = buffer.readByte();
-            return switch (type) {
-                case 0 -> new SingleValue(buffer.readUtf());
-                case 1 -> new MultiValue(buffer.readList(FriendlyByteBuf::readUtf));
-                case 2 -> new Range(buffer.readUtf(), buffer.readUtf());
-                default -> throw new IllegalStateException("Invalid property value matcher type: " + type);
-            };
+        throw new JsonSyntaxException("Property values need to be strings, list of strings, or objects with min/max properties");
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static boolean hasValue(IProperty<? extends Comparable<?>> property, String value) {
+        for (Comparable allowedValue : property.getAllowedValues()) {
+            if (((IProperty) property).getName(allowedValue).equals(value)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public abstract void validate(IProperty<? extends Comparable<?>> property);
+
+    public abstract <T extends Comparable<T>> boolean matches(IProperty<T> property, IBlockState state);
+
+    private static final class SingleValue extends PropertyValueMatcher {
+        private final String value;
+
+        private SingleValue(String value) {
+            this.value = value;
         }
 
         @Override
-        public void encode(FriendlyByteBuf buffer, PropertyValueMatcher matcher) {
-            matcher.toNetwork(buffer);
-        }
-    };
-
-    Codec<Map<String, PropertyValueMatcher>> MAP_CODEC = Codec.unboundedMap(Codec.STRING, CODEC);
-
-    void toNetwork(FriendlyByteBuf buffer);
-
-    void validate(Property<? extends Comparable<?>> property);
-
-    <T extends Comparable<T>> boolean matches(Property<T> property, StateHolder<?, ?> state);
-
-    record SingleValue(String value) implements PropertyValueMatcher {
-        @Override
-        public void toNetwork(FriendlyByteBuf buffer) {
-            buffer.writeByte(0);
-            buffer.writeUtf(value);
-        }
-
-        @Override
-        public void validate(Property<? extends Comparable<?>> property) {
-            if (property.getValue(value).isEmpty()) {
-                throw new IllegalStateException(
-                        "Property " + property.getName() + " does not have value '" + value + "'");
+        public void validate(IProperty<? extends Comparable<?>> property) {
+            if (!hasValue(property, this.value)) {
+                throw new IllegalStateException("Property " + property.getName() + " does not have value '" + this.value + "'");
             }
         }
 
         @Override
-        public <T extends Comparable<T>> boolean matches(Property<T> property, StateHolder<?, ?> state) {
-            var currentValue = property.getName(state.getValue(property));
-            return value.equals(currentValue);
+        public <T extends Comparable<T>> boolean matches(IProperty<T> property, IBlockState state) {
+            return this.value.equals(property.getName(state.getValue(property)));
         }
     }
 
-    record MultiValue(List<String> values) implements PropertyValueMatcher {
-        @Override
-        public void toNetwork(FriendlyByteBuf buffer) {
-            buffer.writeByte(1);
-            buffer.writeCollection(values, FriendlyByteBuf::writeUtf);
+    private static final class MultiValue extends PropertyValueMatcher {
+        private final List<String> values;
+
+        private MultiValue(List<String> values) {
+            this.values = values;
         }
 
         @Override
-        public void validate(Property<? extends Comparable<?>> property) {
-            for (String value : values) {
-                if (property.getValue(value).isEmpty()) {
-                    throw new IllegalStateException(
-                            "Property " + property.getName() + " does not have value '" + value + "'");
+        public void validate(IProperty<? extends Comparable<?>> property) {
+            for (String value : this.values) {
+                if (!hasValue(property, value)) {
+                    throw new IllegalStateException("Property " + property.getName() + " does not have value '" + value + "'");
                 }
             }
         }
 
         @Override
-        public <T extends Comparable<T>> boolean matches(Property<T> property, StateHolder<?, ?> state) {
-            var currentValue = property.getName(state.getValue(property));
-            for (var value : values) {
-                return value.equals(currentValue);
+        public <T extends Comparable<T>> boolean matches(IProperty<T> property, IBlockState state) {
+            String currentValue = property.getName(state.getValue(property));
+            for (String value : this.values) {
+                if (value.equals(currentValue)) {
+                    return true;
+                }
             }
-            return true;
+            return false;
         }
     }
 
-    record Range(String min, String max) implements PropertyValueMatcher {
-        static Codec<Range> CODEC = RecordCodecBuilder.create(builder -> builder.group(
-                Codec.STRING.fieldOf("min").forGetter(Range::min),
-                Codec.STRING.fieldOf("max").forGetter(Range::max)).apply(builder, Range::new));
+    private static final class Range extends PropertyValueMatcher {
+        private final String min;
+        private final String max;
 
-        @Override
-        public void toNetwork(FriendlyByteBuf buffer) {
-            buffer.writeByte(2);
-            buffer.writeUtf(min);
-            buffer.writeUtf(max);
+        private Range(String min, String max) {
+            this.min = min;
+            this.max = max;
         }
 
         @Override
-        public void validate(Property<? extends Comparable<?>> property) {
-            if (property.getValue(min).isEmpty()) {
-                throw new IllegalStateException(
-                        "Property " + property.getName() + " does not have value '" + min + "'");
+        public void validate(IProperty<? extends Comparable<?>> property) {
+            if (!hasValue(property, this.min)) {
+                throw new IllegalStateException("Property " + property.getName() + " does not have value '" + this.min + "'");
             }
-            if (property.getValue(max).isEmpty()) {
-                throw new IllegalStateException(
-                        "Property " + property.getName() + " does not have value '" + max + "'");
+            if (!hasValue(property, this.max)) {
+                throw new IllegalStateException("Property " + property.getName() + " does not have value '" + this.max + "'");
             }
         }
 
         @Override
-        public <T extends Comparable<T>> boolean matches(Property<T> property, StateHolder<?, ?> state) {
-            var minValue = property.getValue(min).orElseThrow();
-            var maxValue = property.getValue(max).orElseThrow();
-            var value = state.getValue(property);
+        public <T extends Comparable<T>> boolean matches(IProperty<T> property, IBlockState state) {
+            T minValue = PropertyUtils.getRequiredPropertyValue(property, this.min);
+            T maxValue = PropertyUtils.getRequiredPropertyValue(property, this.max);
+            T value = state.getValue(property);
             return value.compareTo(minValue) >= 0 && value.compareTo(maxValue) <= 0;
         }
     }

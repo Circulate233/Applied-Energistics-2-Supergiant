@@ -1,7 +1,11 @@
 {
+  "forge_marker": 1,
   "variants": {
-    "": {
-      "model": "ae2:block/crank"
+    "normal": {
+      "model": "ae2:crank"
+    },
+    "inventory": {
+      "model": "ae2:crank"
     }
   }
 }

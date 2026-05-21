@@ -1,57 +1,27 @@
 package appeng.api.crafting;
 
-import java.util.ArrayList;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.List;
 import java.util.Objects;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.network.chat.Component;
-
-import appeng.api.stacks.AEKey;
-import appeng.api.stacks.GenericStack;
-import appeng.core.localization.GuiText;
-
-/**
- * Properties shown in the tooltip of an encoded pattern. Used for both valid and invalid encoded patterns. For invalid
- * patterns, only partial information might be given.
- */
 public class PatternDetailsTooltip {
-    /**
-     * The text to use when the pattern uses Vanilla crafting as its method of producing the item. Usually reserved for
-     * patterns used in molecular assemblers.
-     */
-    public static final Component OUTPUT_TEXT_CRAFTS = GuiText.Crafts.text();
+    public static final ITextComponent OUTPUT_TEXT_CRAFTS = new TextComponentTranslation("ae2.guitext.crafts");
 
-    /**
-     * The text to use when the pattern uses some other form of processing to produce the output.
-     */
-    public static final Component OUTPUT_TEXT_PRODUCES = GuiText.Produces.text();
+    public static final ITextComponent OUTPUT_TEXT_PRODUCES = new TextComponentTranslation("ae2.guitext.produces");
+    private final ObjectList<Property> additionalProperties = new ObjectArrayList<>();
+    private final ObjectList<GenericStack> inputs = new ObjectArrayList<>();
+    private final ObjectList<GenericStack> outputs = new ObjectArrayList<>();
+    private ITextComponent outputMethod;
 
-    private Component outputMethod;
-
-    private final List<Property> additionalProperties = new ArrayList<>();
-
-    private final List<GenericStack> inputs = new ArrayList<>();
-
-    private final List<GenericStack> outputs = new ArrayList<>();
-
-    /**
-     * @param outputMethod The method of producing the outputs of this pattern ({@link #OUTPUT_TEXT_CRAFTS} or
-     *                     {@link #OUTPUT_TEXT_PRODUCES}). Usually this will depend on the type of pattern and not so
-     *                     much the individual NBT data.
-     */
-    public PatternDetailsTooltip(Component outputMethod) {
+    public PatternDetailsTooltip(ITextComponent outputMethod) {
         setOutputMethod(outputMethod);
-    }
-
-    /**
-     * @param outputMethod The method of producing the outputs of this pattern ({@link #OUTPUT_TEXT_CRAFTS} or
-     *                     {@link #OUTPUT_TEXT_PRODUCES}). Usually this will depend on the type of pattern and not so
-     *                     much the individual NBT data.
-     */
-    public void setOutputMethod(Component outputMethod) {
-        this.outputMethod = Objects.requireNonNull(outputMethod, "outputMethod");
     }
 
     public List<Property> getProperties() {
@@ -82,25 +52,25 @@ public class PatternDetailsTooltip {
         outputs.add(new GenericStack(stack.what(), stack.amount()));
     }
 
-    public void addProperty(Component name, Component value) {
+    public void addProperty(ITextComponent name, ITextComponent value) {
         this.additionalProperties.add(new Property(name, value));
     }
 
-    public void addProperty(Component description) {
+    public void addProperty(ITextComponent description) {
         this.additionalProperties.add(new Property(description, null));
     }
 
     public void addInputsAndOutputs(IPatternDetails details) {
-        for (var input : details.getInputs()) {
+        for (IPatternDetails.IInput input : details.getInputs()) {
             if (input == null) {
                 continue;
             }
 
-            addInput(input.getPossibleInputs()[0].what(),
-                    input.getPossibleInputs()[0].amount() * input.getMultiplier());
+            addInput(input.possibleInputs()[0].what(),
+                input.possibleInputs()[0].amount() * input.getMultiplier());
         }
 
-        for (var output : details.getOutputs()) {
+        for (GenericStack output : details.getOutputs()) {
             if (output == null) {
                 continue;
             }
@@ -109,14 +79,14 @@ public class PatternDetailsTooltip {
         }
     }
 
-    /**
-     * An additional property to display on the patterns tooltip, such as whether substitutions of items was enabled or
-     * not.
-     */
-    public record Property(Component name, @Nullable Component value) {
+    public ITextComponent getOutputMethod() {
+        return outputMethod;
     }
 
-    public Component getOutputMethod() {
-        return outputMethod;
+    public void setOutputMethod(ITextComponent outputMethod) {
+        this.outputMethod = Objects.requireNonNull(outputMethod, "outputMethod");
+    }
+
+    public record Property(ITextComponent name, @Nullable ITextComponent value) {
     }
 }

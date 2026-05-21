@@ -18,108 +18,144 @@
 
 package appeng.client.gui.widgets;
 
+import appeng.client.gui.Icon;
+import appeng.client.gui.Rect2i;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.RenderItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+
 import java.util.Collections;
 import java.util.List;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.gui.components.Button.OnPress;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-
-import appeng.client.gui.Icon;
-
-public class TabButton extends Button implements ITooltip {
+public class TabButton extends GuiButton implements ITooltip {
+    private final Icon icon;
+    private final ItemStack item;
+    private final ITextComponent message;
+    private final RenderItem itemRenderer;
+    private final Runnable onPress;
     private Style style = Style.BOX;
-    private Icon icon = null;
-    private ItemStack item;
-
     private boolean selected;
+    private boolean disableBackground;
+    private boolean focused;
 
-    private boolean disableBackground = false;
-
-    public enum Style {
-        CORNER,
-        BOX,
-        HORIZONTAL
+    public TabButton(Icon icon, ITextComponent message, Runnable onPress) {
+        this(icon, ItemStack.EMPTY, message, onPress);
     }
 
-    public TabButton(Icon ico, Component message, OnPress onPress) {
-        super(0, 0, 22, 22, message, onPress, Button.DEFAULT_NARRATION);
-
-        this.icon = ico;
+    public TabButton(ItemStack item, ITextComponent message, Runnable onPress) {
+        this(null, item, message, onPress);
     }
 
-    /**
-     * Using itemstack as an icon
-     *
-     * @param ico     used icon
-     * @param message mouse over message
-     */
-    public TabButton(ItemStack ico, Component message, OnPress onPress) {
-        super(0, 0, 22, 22, message, onPress, Button.DEFAULT_NARRATION);
-        this.item = ico;
+    private TabButton(Icon icon, ItemStack item, ITextComponent message, Runnable onPress) {
+        super(0, 0, 0, 22, 22, "");
+        this.icon = icon;
+        this.item = item;
+        this.message = message;
+        this.itemRenderer = Minecraft.getMinecraft().getRenderItem();
+        this.displayString = "";
+        this.packedFGColour = 0;
+        this.onPress = onPress;
     }
 
     @Override
-    public void renderWidget(GuiGraphics guiGraphics, int x, int y, float partial) {
-        if (this.visible) {
-            // Selects the button border from the sprite-sheet, where each type occupies a
-            // 2x2 slot
-            var backdrop = switch (this.style) {
-                case CORNER -> this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_BORDERLESS_FOCUS
-                        : Icon.TAB_BUTTON_BACKGROUND_BORDERLESS;
-                case BOX -> this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_FOCUS : Icon.TAB_BUTTON_BACKGROUND;
-                case HORIZONTAL -> {
-                    if (this.isFocused()) {
-                        yield Icon.HORIZONTAL_TAB_FOCUS;
-                    } else if (this.selected) {
-                        yield Icon.HORIZONTAL_TAB_SELECTED;
-                    }
-                    yield Icon.HORIZONTAL_TAB;
-                }
-            };
-            if (!disableBackground) {
-                backdrop.getBlitter().dest(getX(), getY()).blit(guiGraphics);
-            }
-
-            var iconX = switch (this.style) {
-                case CORNER -> 1;
-                case BOX -> 2;
-                case HORIZONTAL -> 3;
-            };
-            var iconY = switch (this.style) {
-                case CORNER -> 1;
-                case BOX -> 2;
-                case HORIZONTAL -> 3;
-            };
-
-            if (this.icon != null) {
-                this.icon.getBlitter().dest(getX() + iconX, getY() + iconY - 1).blit(guiGraphics);
-            }
-
-            if (this.item != null) {
-                var pose = guiGraphics.pose();
-                pose.pushPose();
-                pose.translate(0f, -1f, 100);
-                guiGraphics.renderItem(this.item, getX() + iconX, getY() + iconY);
-                var font = Minecraft.getInstance().font;
-                guiGraphics.renderItemDecorations(font, this.item, getX() + iconX, getY() + iconY);
-                pose.popPose();
-            }
+    public void mouseReleased(int mouseX, int mouseY) {
+        boolean pressed = this.enabled && this.visible
+            && mouseX >= this.x
+            && mouseY >= this.y
+            && mouseX < this.x + this.width
+            && mouseY < this.y + this.height;
+        super.mouseReleased(mouseX, mouseY);
+        if (pressed && this.onPress != null) {
+            this.onPress.run();
         }
     }
 
     @Override
-    public List<Component> getTooltipMessage() {
-        return Collections.singletonList(getMessage());
+    public boolean mousePressed(Minecraft minecraft, int mouseX, int mouseY) {
+        boolean pressed = super.mousePressed(minecraft, mouseX, mouseY);
+        this.focused = pressed;
+        return pressed;
+    }
+
+    @Override
+    public void drawButton(Minecraft minecraft, int mouseX, int mouseY, float partialTicks) {
+        if (!this.visible) {
+            return;
+        }
+
+        this.hovered = mouseX >= this.x && mouseY >= this.y && mouseX < this.x + this.width && mouseY < this.y + this.height;
+
+        Icon backdrop;
+        switch (this.style) {
+            case CORNER:
+                backdrop = this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_BORDERLESS_FOCUS
+                    : Icon.TAB_BUTTON_BACKGROUND_BORDERLESS;
+                break;
+            case HORIZONTAL:
+                if (this.isFocused()) {
+                    backdrop = Icon.HORIZONTAL_TAB_FOCUS;
+                } else if (this.selected) {
+                    backdrop = Icon.HORIZONTAL_TAB_SELECTED;
+                } else {
+                    backdrop = Icon.HORIZONTAL_TAB;
+                }
+                break;
+            case BOX:
+            default:
+                backdrop = this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_FOCUS : Icon.TAB_BUTTON_BACKGROUND;
+                break;
+        }
+
+        if (!this.disableBackground) {
+            backdrop.getBlitter().dest(this.x, this.y).blit();
+        }
+
+        int iconX;
+        int iconY = switch (this.style) {
+            case CORNER -> {
+                iconX = 1;
+                yield 1;
+            }
+            case HORIZONTAL -> {
+                iconX = 3;
+                yield 3;
+            }
+            default -> {
+                iconX = 2;
+                yield 2;
+            }
+        };
+
+        if (this.icon != null) {
+            this.icon.getBlitter().dest(this.x + iconX, this.y + iconY - 1).blit();
+        }
+
+        if (!this.item.isEmpty()) {
+            GlStateManager.pushMatrix();
+            GlStateManager.translate(0, -1, 100);
+            GlStateManager.enableDepth();
+            RenderHelper.enableGUIStandardItemLighting();
+            this.itemRenderer.renderItemAndEffectIntoGUI(this.item, this.x + iconX, this.y + iconY);
+            this.itemRenderer.renderItemOverlayIntoGUI(minecraft.fontRenderer, this.item, this.x + iconX, this.y + iconY,
+                null);
+            RenderHelper.disableStandardItemLighting();
+            GlStateManager.disableDepth();
+            GlStateManager.popMatrix();
+        }
+    }
+
+    @Override
+    public List<ITextComponent> getTooltipMessage() {
+        return Collections.singletonList(this.message);
     }
 
     @Override
     public Rect2i getTooltipArea() {
-        return new Rect2i(getX(), getY(), width, height);
+        return new Rect2i(this.x, this.y, this.width, this.height);
     }
 
     @Override
@@ -136,7 +172,7 @@ public class TabButton extends Button implements ITooltip {
     }
 
     public boolean isSelected() {
-        return selected;
+        return this.selected;
     }
 
     public void setSelected(boolean selected) {
@@ -144,10 +180,25 @@ public class TabButton extends Button implements ITooltip {
     }
 
     public boolean isDisableBackground() {
-        return disableBackground;
+        return this.disableBackground;
     }
 
     public void setDisableBackground(boolean disableBackground) {
         this.disableBackground = disableBackground;
     }
+
+    public boolean isFocused() {
+        return this.focused;
+    }
+
+    public void setFocused(boolean focused) {
+        this.focused = focused;
+    }
+
+    public enum Style {
+        CORNER,
+        BOX,
+        HORIZONTAL
+    }
 }
+

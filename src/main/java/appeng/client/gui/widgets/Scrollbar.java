@@ -18,20 +18,15 @@
 
 package appeng.client.gui.widgets;
 
-import java.time.Duration;
-
-import com.mojang.blaze3d.platform.InputConstants;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
+import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
 import appeng.core.AppEng;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
+
+import java.time.Duration;
 
 /**
  * Implements a vertical scrollbar using Vanilla's scrollbar handle texture from the creative tab.
@@ -43,30 +38,47 @@ import appeng.core.AppEng;
  */
 public class Scrollbar implements IScrollSource, ICompositeWidget {
 
+    public static final Style DEFAULT = Style.sheet(
+        new ResourceLocation("minecraft", "textures/gui/container/creative_inventory/tabs.png"),
+        new ResourceLocation("minecraft", "textures/gui/container/creative_inventory/tabs.png"),
+        232,
+        0,
+        244,
+        0,
+        12,
+        15,
+        256,
+        256);
+    public static final Style BIG = Style.create(
+        AppEng.makeId("textures/gui/sprites/big_scroller.png"),
+        AppEng.makeId("textures/gui/sprites/big_scroller_disabled.png"),
+        12,
+        15);
+    public static final Style SMALL = Style.create(
+        AppEng.makeId("textures/gui/sprites/small_scroller.png"),
+        AppEng.makeId("textures/gui/sprites/small_scroller_disabled.png"),
+        7,
+        15);
+    private static final int MOUSE_BUTTON_LEFT = 0;
+    private final Style style;
+    private final EventRepeater eventRepeater = new EventRepeater(Duration.ofMillis(250), Duration.ofMillis(150));
     private boolean visible = true;
-
     /**
      * The screen x-coordinate of the scrollbar's inner track.
      */
     private int displayX = 0;
-
     /**
      * The screen y-coordinate of the scrollbar's inner track.
      */
     private int displayY = 0;
-
-    private final Style style;
-
     /**
      * The inner height of the scrollbar track.
      */
     private int height = 16;
     private int pageSize = 1;
-
     private int maxScroll = 0;
     private int minScroll = 0;
     private int currentScroll = 0;
-
     /**
      * True if the scrollbar's handle is currently being dragged.
      */
@@ -76,13 +88,10 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
      * drag. While dragging, this is applied as an offset to the effective scrollbar position.
      */
     private int dragYOffset;
-
     /**
      * Capture all mouse wheel events to make it scroll when the mouse wheel is used anywhere on the screen.
      */
     private boolean captureMouseWheel = true;
-
-    private final EventRepeater eventRepeater = new EventRepeater(Duration.ofMillis(250), Duration.ofMillis(150));
 
     public Scrollbar(Style style) {
         this.style = style;
@@ -103,22 +112,18 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
      * The GUI is assumed to already contain a prebaked scrollbar track in its background.
      */
     @Override
-    public void drawForegroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
-        // Draw the track (nice for debugging)
-        // guiGraphics.fill( displayX, displayY, this.displayX + width, this.displayY +
-        // height, 0xffff0000);
-
+    public void drawForegroundLayer(Rect2i bounds, Point mouse) {
         int yOffset;
         Blitter image;
         if (this.getRange() == 0) {
             yOffset = 0;
-            image = Blitter.guiSprite(style.disabledSprite());
+            image = style.disabledBlitter();
         } else {
             yOffset = getHandleYOffset();
-            image = Blitter.guiSprite(style.enabledSprite());
+            image = style.enabledBlitter();
         }
 
-        image.dest(this.displayX, this.displayY + yOffset).blit(guiGraphics);
+        image.dest(this.displayX, this.displayY + yOffset).blit();
     }
 
     /**
@@ -143,8 +148,8 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
 
     @Override
     public void setPosition(Point position) {
-        this.displayX = position.getX();
-        this.displayY = position.getY();
+        this.displayX = position.x();
+        this.displayY = position.y();
     }
 
     @Override
@@ -167,7 +172,7 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
     }
 
     private void applyRange() {
-        this.currentScroll = Math.max(Math.min(this.currentScroll, this.maxScroll), this.minScroll);
+        this.currentScroll = Math.clamp(this.currentScroll, this.minScroll, this.maxScroll);
     }
 
     @Override
@@ -182,32 +187,26 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
 
     @Override
     public boolean onMouseDown(Point mousePos, int button) {
-        if (button != InputConstants.MOUSE_BUTTON_LEFT) {
-            return false; // Only handle left mouse button
+        if (button != MOUSE_BUTTON_LEFT) {
+            return false;
         }
 
         this.dragging = false;
 
-        // Do nothing when there's no range, but swallow the event
         if (getRange() == 0) {
             return true;
         }
 
-        int relY = mousePos.getY() - displayY;
-
+        int relY = mousePos.y() - displayY;
         int handleYOffset = getHandleYOffset();
 
         if (relY < handleYOffset) {
-            // Clicks above the handle will page up, repeatedly
             pageUp();
             eventRepeater.repeat(this::pageUp);
-
         } else if (relY < handleYOffset + style.handleHeight()) {
-            // Clicks on the handle will initiate dragging it
             this.dragging = true;
             this.dragYOffset = relY - handleYOffset;
         } else {
-            // Clicks below the handle will page down, repeatedly
             pageDown();
             eventRepeater.repeat(this::pageDown);
         }
@@ -217,7 +216,7 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
 
     @Override
     public boolean onMouseUp(Point mousePos, int button) {
-        if (button == InputConstants.MOUSE_BUTTON_LEFT) {
+        if (button == MOUSE_BUTTON_LEFT) {
             this.dragging = false;
             this.eventRepeater.stop();
         }
@@ -226,7 +225,6 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
 
     @Override
     public boolean wantsAllMouseUpEvents() {
-        // We need all mouse up events to properly stop dragging, since we don't have "real" mouse capture
         return true;
     }
 
@@ -236,13 +234,9 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
             return false;
         }
 
-        // Compute the position of the mouse (adjusted for where it grabbed the handle,
-        // so as if it grabbed
-        // the upper edge of it) within the scrollable area of the track (minus the
-        // handle height).
-        double handleUpperEdgeY = mousePos.getY() - this.displayY - this.dragYOffset;
+        double handleUpperEdgeY = mousePos.y() - this.displayY - this.dragYOffset;
         double availableHeight = this.height - style.handleHeight();
-        double position = Mth.clamp(handleUpperEdgeY / availableHeight, 0.0, 1.0);
+        double position = MathHelper.clamp(handleUpperEdgeY / availableHeight, 0.0, 1.0);
 
         this.currentScroll = this.minScroll + (int) Math.round(position * this.getRange());
         this.applyRange();
@@ -251,20 +245,18 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
 
     @Override
     public boolean onMouseWheel(Point mousePos, double delta) {
-        // Do nothing when there's no range
         if (getRange() == 0) {
             return false;
         }
 
-        delta = Math.max(Math.min(-delta, 1), -1);
-        this.currentScroll += delta * this.pageSize;
+        delta = Math.clamp(-delta, -1, 1);
+        this.currentScroll += (int) (delta * this.pageSize);
         this.applyRange();
         return true;
     }
 
     @Override
     public boolean wantsAllMouseWheelEvents() {
-        // Capture all mouse wheel events since we want to scroll even when over the item grid
         return captureMouseWheel;
     }
 
@@ -295,38 +287,6 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
         this.applyRange();
     }
 
-    public static final Style DEFAULT = Style.create(
-            ResourceLocation.fromNamespaceAndPath("minecraft", "container/creative_inventory/scroller"),
-            ResourceLocation.fromNamespaceAndPath("minecraft", "container/creative_inventory/scroller_disabled"));
-
-    public static final Style BIG = Style.create(
-            AppEng.makeId("big_scroller"),
-            AppEng.makeId("big_scroller_disabled"));
-
-    public static final Style SMALL = Style.create(
-            AppEng.makeId("small_scroller"),
-            AppEng.makeId("small_scroller_disabled"));
-
-    public record Style(
-            ResourceLocation enabledSprite,
-            ResourceLocation disabledSprite) {
-        public static Style create(
-                ResourceLocation enabledSprite,
-                ResourceLocation disabledSprite) {
-            return new Style(enabledSprite, disabledSprite);
-        }
-
-        public int handleWidth() {
-            var minecraft = Minecraft.getInstance();
-            return minecraft.getGuiSprites().getSprite(enabledSprite).contents().width();
-        }
-
-        public int handleHeight() {
-            var minecraft = Minecraft.getInstance();
-            return minecraft.getGuiSprites().getSprite(enabledSprite).contents().height();
-        }
-    }
-
     @Override
     public boolean isVisible() {
         return visible;
@@ -335,4 +295,109 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
     public void setVisible(boolean visible) {
         this.visible = visible;
     }
+
+    public static final class Style {
+        private final ResourceLocation enabledSprite;
+        private final ResourceLocation disabledSprite;
+        private final int enabledX;
+        private final int enabledY;
+        private final int disabledX;
+        private final int disabledY;
+        private final int handleWidth;
+        private final int handleHeight;
+        private final int textureWidth;
+        private final int textureHeight;
+
+        private Style(
+            ResourceLocation enabledSprite,
+            ResourceLocation disabledSprite,
+            int enabledX,
+            int enabledY,
+            int disabledX,
+            int disabledY,
+            int handleWidth,
+            int handleHeight,
+            int textureWidth,
+            int textureHeight) {
+            this.enabledSprite = enabledSprite;
+            this.disabledSprite = disabledSprite;
+            this.enabledX = enabledX;
+            this.enabledY = enabledY;
+            this.disabledX = disabledX;
+            this.disabledY = disabledY;
+            this.handleWidth = handleWidth;
+            this.handleHeight = handleHeight;
+            this.textureWidth = textureWidth;
+            this.textureHeight = textureHeight;
+        }
+
+        public static Style create(
+            ResourceLocation enabledSprite,
+            ResourceLocation disabledSprite,
+            int handleWidth,
+            int handleHeight) {
+            return new Style(
+                enabledSprite,
+                disabledSprite,
+                0,
+                0,
+                0,
+                0,
+                handleWidth,
+                handleHeight,
+                handleWidth,
+                handleHeight);
+        }
+
+        public static Style sheet(
+            ResourceLocation enabledSprite,
+            ResourceLocation disabledSprite,
+            int enabledX,
+            int enabledY,
+            int disabledX,
+            int disabledY,
+            int handleWidth,
+            int handleHeight,
+            int textureWidth,
+            int textureHeight) {
+            return new Style(
+                enabledSprite,
+                disabledSprite,
+                enabledX,
+                enabledY,
+                disabledX,
+                disabledY,
+                handleWidth,
+                handleHeight,
+                textureWidth,
+                textureHeight);
+        }
+
+        public ResourceLocation enabledSprite() {
+            return enabledSprite;
+        }
+
+        public ResourceLocation disabledSprite() {
+            return disabledSprite;
+        }
+
+        public int handleWidth() {
+            return handleWidth;
+        }
+
+        public int handleHeight() {
+            return handleHeight;
+        }
+
+        private Blitter enabledBlitter() {
+            return Blitter.texture(enabledSprite, textureWidth, textureHeight)
+                          .src(enabledX, enabledY, handleWidth, handleHeight);
+        }
+
+        private Blitter disabledBlitter() {
+            return Blitter.texture(disabledSprite, textureWidth, textureHeight)
+                          .src(disabledX, disabledY, handleWidth, handleHeight);
+        }
+    }
 }
+

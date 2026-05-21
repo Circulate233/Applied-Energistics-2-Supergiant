@@ -18,27 +18,22 @@
 
 package appeng.crafting.inv;
 
-import java.util.Map;
-
-import com.google.common.collect.Iterables;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.ListTag;
-
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import com.google.common.collect.Iterables;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.nbt.NBTTagList;
+
+import java.util.List;
+import java.util.Map;
 
 public class ListCraftingInventory implements ICraftingInventory {
     public final KeyCounter list = new KeyCounter();
 
     private final ChangeListener listener;
-
-    @FunctionalInterface
-    public interface ChangeListener {
-        void onChange(AEKey key);
-    }
 
     public ListCraftingInventory(ChangeListener listener) {
         this.listener = listener;
@@ -82,33 +77,30 @@ public class ListCraftingInventory implements ICraftingInventory {
         list.removeZeros();
     }
 
-    public void readFromNBT(ListTag data, HolderLookup.Provider registries) {
+    public void readFromNBT(NBTTagList data) {
         list.clear();
 
         if (data != null) {
-            for (int i = 0; i < data.size(); ++i) {
-                var compound = data.getCompound(i);
-                var key = AEKey.fromTagGeneric(registries, compound);
-                if (key != null) {
-                    var amount = compound.getLong("#");
-                    insert(key, amount, Actionable.MODULATE);
+            for (var stack : GenericStack.readList(data)) {
+                if (stack != null) {
+                    insert(stack.what(), stack.amount(), Actionable.MODULATE);
                 }
             }
         }
     }
 
-    public ListTag writeToNBT(HolderLookup.Provider registries) {
-        ListTag tag = new ListTag();
+    public NBTTagList writeToNBT() {
+        List<GenericStack> stacks = new ObjectArrayList<>(list.size());
 
         for (var entry : list) {
-            var key = entry.getKey();
-            var amount = entry.getLongValue();
-
-            var entryTag = key.toTagGeneric(registries);
-            entryTag.putLong("#", amount);
-            tag.add(entryTag);
+            stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
         }
 
-        return tag;
+        return GenericStack.writeList(stacks);
+    }
+
+    @FunctionalInterface
+    public interface ChangeListener {
+        void onChange(AEKey key);
     }
 }

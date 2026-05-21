@@ -23,7 +23,7 @@
 
 package appeng.api.orientation;
 
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.state.IBlockState;
 
 /**
  * Implemented on many of AEs blocks to control their orientation.
@@ -31,7 +31,7 @@ import net.minecraft.world.level.block.state.BlockState;
 public interface IOrientableBlock {
     IOrientationStrategy getOrientationStrategy();
 
-    default BlockOrientation getOrientation(BlockState state) {
+    default BlockOrientation getOrientation(IBlockState state) {
         var strategy = getOrientationStrategy();
         var facing = strategy.getFacing(state);
         var spin = strategy.getSpin(state);

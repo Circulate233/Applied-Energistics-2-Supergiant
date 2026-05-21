@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "variant=default": {
+      "model": "ae2:quartz_slab_double"
+    }
+  }
+}

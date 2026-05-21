@@ -18,11 +18,6 @@
 
 package appeng.items.storage;
 
-import java.util.Collection;
-
-import net.minecraft.world.item.Item.Properties;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.config.FuzzyMode;
 import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEItemKey;
@@ -39,37 +34,35 @@ import appeng.util.prioritylist.FuzzyPriorityList;
 import appeng.util.prioritylist.IPartitionList;
 import appeng.util.prioritylist.MergedPriorityList;
 import appeng.util.prioritylist.PrecisePriorityList;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagString;
+
+import java.util.Collection;
 
 public class ViewCellItem extends AEBaseItem implements ICellWorkbenchItem {
-    public ViewCellItem(Properties properties) {
-        super(properties);
+    public ViewCellItem() {
+        this.setMaxStackSize(1);
     }
 
-    /**
-     * Creates a filter from the given list of {@link ViewCellItem view cells}. Only item keys will be considered to be
-     * part of the filter.
-     */
     public static IPartitionList createItemFilter(Collection<ItemStack> list) {
         return createFilter(AEItemKey.filter(), list);
     }
 
-    public static IPartitionList createFilter(AEKeyFilter filter,
-            Collection<ItemStack> list) {
-        IPartitionList myPartitionList = null;
+    public static IPartitionList createFilter(AEKeyFilter filter, Collection<ItemStack> list) {
+        IPartitionList partitionList = null;
+        MergedPriorityList mergedList = new MergedPriorityList();
 
-        final MergedPriorityList myMergedList = new MergedPriorityList();
-
-        for (var currentViewCell : list) {
+        for (ItemStack currentViewCell : list) {
             if (currentViewCell == null) {
                 continue;
             }
 
-            if (currentViewCell.getItem() instanceof ViewCellItem) {
-                var priorityList = new KeyCounter();
+            if (currentViewCell.getItem() instanceof ViewCellItem vc) {
+                KeyCounter priorityList = new KeyCounter();
 
-                var vc = (ICellWorkbenchItem) currentViewCell.getItem();
-                var config = vc.getConfigInventory(currentViewCell);
-                var fzMode = vc.getFuzzyMode(currentViewCell);
+                ConfigInventory config = vc.getConfigInventory(currentViewCell);
+                FuzzyMode fuzzyMode = vc.getFuzzyMode(currentViewCell);
 
                 for (int i = 0; i < config.size(); i++) {
                     var what = config.getKey(i);
@@ -79,20 +72,20 @@ public class ViewCellItem extends AEBaseItem implements ICellWorkbenchItem {
                 }
 
                 if (!priorityList.isEmpty()) {
-                    var upgrades = vc.getUpgrades(currentViewCell);
-                    var hasInverter = upgrades.isInstalled(AEItems.INVERTER_CARD);
-                    if (upgrades.isInstalled(AEItems.FUZZY_CARD)) {
-                        myMergedList.addNewList(new FuzzyPriorityList(priorityList, fzMode), !hasInverter);
+                    IUpgradeInventory upgrades = vc.getUpgrades(currentViewCell);
+                    boolean hasInverter = upgrades.isInstalled(AEItems.INVERTER_CARD.asItem());
+                    if (upgrades.isInstalled(AEItems.FUZZY_CARD.asItem())) {
+                        mergedList.addNewList(new FuzzyPriorityList(priorityList, fuzzyMode), !hasInverter);
                     } else {
-                        myMergedList.addNewList(new PrecisePriorityList(priorityList), !hasInverter);
+                        mergedList.addNewList(new PrecisePriorityList(priorityList), !hasInverter);
                     }
 
-                    myPartitionList = myMergedList;
+                    partitionList = mergedList;
                 }
             }
         }
 
-        return myPartitionList;
+        return partitionList;
     }
 
     @Override
@@ -107,11 +100,26 @@ public class ViewCellItem extends AEBaseItem implements ICellWorkbenchItem {
 
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
-        return is.getOrDefault(AEComponents.STORAGE_CELL_FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        NBTTagCompound tag = is.getTagCompound();
+        if (tag != null) {
+            try {
+                var value = AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.readFrom(tag);
+                if (value != null) {
+                    return FuzzyMode.valueOf(value.getString());
+                }
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return FuzzyMode.IGNORE_ALL;
     }
 
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-        is.set(AEComponents.STORAGE_CELL_FUZZY_MODE, fzMode);
+        NBTTagCompound tag = is.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            is.setTagCompound(tag);
+        }
+        AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.writeTo(tag, new NBTTagString(fzMode.name()));
     }
 }

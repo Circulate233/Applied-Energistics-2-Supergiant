@@ -1,56 +1,54 @@
-
 package appeng.core.network.serverbound;
 
-import java.util.Optional;
-
+import appeng.container.AEBaseContainer;
+import appeng.core.network.ServerboundPacket;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.PacketBuffer;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.AbstractContainerMenu;
+public class GuiActionPacket extends ServerboundPacket {
+    private int windowId;
+    private String actionName;
+    @Nullable
+    private String jsonPayload;
 
-import appeng.core.network.CustomAppEngPayload;
-import appeng.core.network.ServerboundPacket;
-import appeng.menu.AEBaseMenu;
-
-/**
- * This packet is used for triggering generic menu-specific GUI actions.
- */
-public record GuiActionPacket(int containerId, String actionName,
-        @Nullable String jsonPayload) implements ServerboundPacket {
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, GuiActionPacket> STREAM_CODEC = StreamCodec.ofMember(
-            GuiActionPacket::write,
-            GuiActionPacket::decode);
-
-    public static final Type<GuiActionPacket> TYPE = CustomAppEngPayload.createType("gui_action");
-
-    @Override
-    public Type<GuiActionPacket> type() {
-        return TYPE;
+    public GuiActionPacket() {
     }
 
-    public static GuiActionPacket decode(RegistryFriendlyByteBuf data) {
-        var containerId = data.readVarInt();
-        var actionName = data.readUtf();
-        var jsonPayload = data.readOptional(FriendlyByteBuf::readUtf).orElse(null);
-        return new GuiActionPacket(containerId, actionName, jsonPayload);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeVarInt(containerId);
-        data.writeUtf(actionName);
-        data.writeOptional(Optional.ofNullable(jsonPayload), FriendlyByteBuf::writeUtf);
+    public GuiActionPacket(int windowId, String actionName, @Nullable String jsonPayload) {
+        this.windowId = windowId;
+        this.actionName = actionName;
+        this.jsonPayload = jsonPayload;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        AbstractContainerMenu c = player.containerMenu;
-        if (c instanceof AEBaseMenu baseMenu && c.containerId == this.containerId) {
-            baseMenu.receiveClientAction(actionName, jsonPayload);
+    protected void read(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.windowId = packetBuffer.readInt();
+        this.actionName = packetBuffer.readString(32767);
+        if (packetBuffer.readBoolean()) {
+            this.jsonPayload = packetBuffer.readString(32767);
+        } else {
+            this.jsonPayload = null;
         }
     }
 
+    @Override
+    protected void write(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeInt(this.windowId);
+        packetBuffer.writeString(this.actionName);
+        packetBuffer.writeBoolean(this.jsonPayload != null);
+        if (this.jsonPayload != null) {
+            packetBuffer.writeString(this.jsonPayload);
+        }
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if (player.openContainer.windowId == this.windowId && player.openContainer instanceof AEBaseContainer container) {
+            container.receiveClientAction(this.actionName, this.jsonPayload);
+        }
+    }
 }

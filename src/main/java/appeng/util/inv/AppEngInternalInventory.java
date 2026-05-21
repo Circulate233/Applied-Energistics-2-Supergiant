@@ -18,29 +18,23 @@
 
 package appeng.util.inv;
 
-import java.util.Arrays;
-
+import appeng.api.inventories.BaseInternalInventory;
+import appeng.util.inv.filter.IAEItemFilter;
 import com.google.common.base.Preconditions;
-
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.NonNullList;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.NonNullList;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.ItemContainerContents;
-
-import appeng.api.inventories.BaseInternalInventory;
-import appeng.util.inv.filter.IAEItemFilter;
+import java.util.Arrays;
 
 public class AppEngInternalInventory extends BaseInternalInventory {
-    private boolean enableClientEvents = false;
-    private InternalInventoryHost host;
     private final NonNullList<ItemStack> stacks;
     private final int[] maxStack;
+    private boolean enableClientEvents = false;
+    private InternalInventoryHost host;
     private IAEItemFilter filter;
     private boolean notifyingChanges = false;
 
@@ -97,8 +91,7 @@ public class AppEngInternalInventory extends BaseInternalInventory {
         }
 
         var stack = stacks.get(slot);
-
-        // This inventory adheres to vanilla stack size limits
+// This inventory adheres to vanilla stack size limits
         int toExtract = Math.min(stack.getCount(), Math.min(amount, stack.getMaxStackSize()));
         if (toExtract <= 0) {
             return ItemStack.EMPTY;
@@ -142,6 +135,7 @@ public class AppEngInternalInventory extends BaseInternalInventory {
         this.maxStack[slot] = size;
     }
 
+    @Override
     public boolean isItemValid(int slot, ItemStack stack) {
         if (this.maxStack[slot] == 0) {
             return false;
@@ -152,41 +146,34 @@ public class AppEngInternalInventory extends BaseInternalInventory {
         return true;
     }
 
-    public ItemContainerContents toItemContainerContents() {
-        return ItemContainerContents.fromItems(stacks);
-    }
-
-    public void fromItemContainerContents(ItemContainerContents contents) {
-        contents.copyInto(stacks);
-    }
-
-    public void writeToNBT(CompoundTag data, String name, HolderLookup.Provider registries) {
+    public void writeToNBT(NBTTagCompound data, String name) {
         if (isEmpty()) {
-            data.remove(name);
+            data.removeTag(name);
             return;
         }
 
-        var items = new ListTag();
+        var items = new NBTTagList();
         for (int i = 0; i < stacks.size(); i++) {
             var stack = stacks.get(i);
             if (!stack.isEmpty()) {
-                CompoundTag itemTag = new CompoundTag();
-                itemTag.putInt("Slot", i);
-                items.add(stack.save(registries, itemTag));
+                NBTTagCompound itemTag = new NBTTagCompound();
+                itemTag.setInteger("Slot", i);
+                stack.writeToNBT(itemTag);
+                items.appendTag(itemTag);
             }
         }
-        data.put(name, items);
+        data.setTag(name, items);
     }
 
-    public void readFromNBT(CompoundTag data, String name, HolderLookup.Provider registries) {
-        if (data.contains(name, Tag.TAG_LIST)) {
-            var tagList = data.getList(name, Tag.TAG_COMPOUND);
-            for (var itemTag : tagList) {
-                var itemCompound = (CompoundTag) itemTag;
-                int slot = itemCompound.getInt("Slot");
+    public void readFromNBT(NBTTagCompound data, String name) {
+        if (data.hasKey(name, 9)) {
+            var tagList = data.getTagList(name, 10);
+            for (var i = 0; i < tagList.tagCount(); i++) {
+                var itemCompound = tagList.getCompoundTagAt(i);
+                int slot = itemCompound.getInteger("Slot");
 
                 if (slot >= 0 && slot < stacks.size()) {
-                    stacks.set(slot, ItemStack.parseOptional(registries, itemCompound));
+                    stacks.set(slot, new ItemStack(itemCompound));
                 }
             }
         }

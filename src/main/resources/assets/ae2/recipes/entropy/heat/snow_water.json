@@ -1,0 +1,14 @@
+{
+  "type": "ae2:entropy",
+  "mode": "heat",
+  "input": {
+    "block": {
+      "id": "minecraft:snow_layer"
+    }
+  },
+  "output": {
+    "block": {
+      "id": "minecraft:flowing_water"
+    }
+  }
+}

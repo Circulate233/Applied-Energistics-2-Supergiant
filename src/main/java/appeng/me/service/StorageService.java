@@ -18,32 +18,6 @@
 
 package appeng.me.service;
 
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.SetMultimap;
-import com.google.common.math.StatsAccumulator;
-import com.google.gson.Gson;
-import com.google.gson.stream.JsonWriter;
-import com.mojang.serialization.Dynamic;
-import com.mojang.serialization.JsonOps;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
-
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridServiceProvider;
 import appeng.api.networking.storage.IStorageService;
@@ -56,128 +30,97 @@ import appeng.api.storage.MEStorage;
 import appeng.me.helpers.InterestManager;
 import appeng.me.helpers.StackWatcher;
 import appeng.me.storage.NetworkStorage;
-import appeng.util.JsonStreamUtil;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.SetMultimap;
+import com.google.gson.stream.JsonWriter;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
+
+import java.io.IOException;
 
 public class StorageService implements IStorageService, IGridServiceProvider {
-    private static final Gson GSON = new Gson();
 
-    /**
-     * Tracks the storage service's state for each grid node that provides storage to the network.
-     */
-    private final Map<IGridNode, ProviderState> nodeProviders = new IdentityHashMap<>();
-    /**
-     * Tracks state for storage providers that are provided by other grid services (i.e. crafting).
-     */
-    private final List<ProviderState> globalProviders = new ArrayList<>();
+    private final Reference2ObjectMap<IGridNode, ProviderState> nodeProviders = new Reference2ObjectOpenHashMap<>();
+    private final ObjectList<ProviderState> globalProviders = new ObjectArrayList<>();
     private final SetMultimap<AEKey, StackWatcher<IStorageWatcherNode>> interests = HashMultimap.create();
-    private final InterestManager<StackWatcher<IStorageWatcherNode>> interestManager = new InterestManager<>(
-            this.interests);
-    private final NetworkStorage storage;
-    /**
-     * Publicly exposed cached available stacks.
-     */
+    private final InterestManager<StackWatcher<IStorageWatcherNode>> interestManager = new InterestManager<>(this.interests);
+    private final NetworkStorage storage = new NetworkStorage();
     private final KeyCounter cachedAvailableStacks = new KeyCounter();
-    /**
-     * Private cached amounts, to ensure that we send correct change notifications even if
-     * {@link #cachedAvailableStacks} is modified by mistake.
-     */
     private final Object2LongMap<AEKey> cachedAvailableAmounts = new Object2LongOpenHashMap<>();
+    private final Reference2ObjectMap<IGridNode, StackWatcher<IStorageWatcherNode>> watchers =
+        new Reference2ObjectOpenHashMap<>();
+
     private boolean cachedStacksNeedUpdate = true;
-    /**
-     * Tracks the stack watcher associated with a given grid node. Needed to clean up watchers when the node leaves the
-     * grid.
-     */
-    private final Map<IGridNode, StackWatcher<IStorageWatcherNode>> watchers = new IdentityHashMap<>();
-
-    private final StatsAccumulator inventoryRefreshStats = new StatsAccumulator();
-
-    public StorageService() {
-        this.storage = new NetworkStorage();
-    }
 
     @Override
     public void onServerEndTick() {
-        if (interestManager.isEmpty()) {
-            // lazily rebuild cache list
-            cachedStacksNeedUpdate = true;
+        if (this.interestManager.isEmpty()) {
+            this.cachedStacksNeedUpdate = true;
         } else {
-            // we need to rebuild the cache every tick to notify listeners
             updateCachedStacks();
         }
     }
 
     private void updateCachedStacks() {
-        var time = System.nanoTime();
+        this.cachedStacksNeedUpdate = false;
 
-        try {
-            cachedStacksNeedUpdate = false;
+        this.cachedAvailableStacks.clear();
+        this.storage.getAvailableStacks(this.cachedAvailableStacks);
+        this.cachedAvailableStacks.removeEmptySubmaps();
 
-            cachedAvailableStacks.clear();
-            storage.getAvailableStacks(cachedAvailableStacks);
-            // clear() only clears the inner maps,
-            // so ensure that the outer map gets cleaned up too
-            cachedAvailableStacks.removeEmptySubmaps();
-
-            // Post watcher update for currently available stacks
-            for (var entry : cachedAvailableStacks) {
-                var what = entry.getKey();
-                var newAmount = entry.getLongValue();
-                if (newAmount != cachedAvailableAmounts.getLong(what)) {
-                    postWatcherUpdate(what, newAmount);
-                }
+        for (var entry : this.cachedAvailableStacks) {
+            var what = entry.getKey();
+            var newAmount = entry.getLongValue();
+            if (newAmount != this.cachedAvailableAmounts.getLong(what)) {
+                postWatcherUpdate(what, newAmount);
             }
-            // Post watcher update for removed stacks
-            for (var what : cachedAvailableAmounts.keySet()) {
-                var newAmount = cachedAvailableStacks.get(what);
-                if (newAmount == 0) {
-                    postWatcherUpdate(what, newAmount);
-                }
-            }
+        }
 
-            // Update private amounts
-            cachedAvailableAmounts.clear();
-            for (var entry : cachedAvailableStacks) {
-                cachedAvailableAmounts.put(entry.getKey(), entry.getLongValue());
+        for (var what : new ReferenceOpenHashSet<>(this.cachedAvailableAmounts.keySet())) {
+            if (this.cachedAvailableStacks.get(what) == 0) {
+                postWatcherUpdate(what, 0);
             }
-        } finally {
-            inventoryRefreshStats.add(System.nanoTime() - time);
+        }
+
+        this.cachedAvailableAmounts.clear();
+        for (var entry : this.cachedAvailableStacks) {
+            this.cachedAvailableAmounts.put(entry.getKey(), entry.getLongValue());
         }
     }
 
     private void postWatcherUpdate(AEKey what, long newAmount) {
-        for (var watcher : interestManager.get(what)) {
+        for (var watcher : this.interestManager.get(what)) {
             watcher.getHost().onStackChange(what, newAmount);
         }
-        for (var watcher : interestManager.getAllStacksWatchers()) {
+        for (var watcher : this.interestManager.getAllStacksWatchers()) {
             watcher.getHost().onStackChange(what, newAmount);
         }
     }
 
-    /**
-     * When a node joins the grid, we automatically register provided {@link IStorageProvider} and
-     * {@link IStorageWatcherNode}.
-     */
     @Override
-    public void addNode(IGridNode node, @Nullable CompoundTag savedData) {
+    public void addNode(IGridNode node, net.minecraft.nbt.NBTTagCompound savedData) {
         var storageProvider = node.getService(IStorageProvider.class);
         if (storageProvider != null) {
-            ProviderState state = new ProviderState(storageProvider);
+            var state = new ProviderState(storageProvider);
             this.nodeProviders.put(node, state);
             state.mount();
         }
 
-        var watcher = node.getService(IStorageWatcherNode.class);
-        if (watcher != null) {
-            var iw = new StackWatcher<>(interestManager, watcher);
-            this.watchers.put(node, iw);
-            watcher.updateWatcher(iw);
+        var watcherNode = node.getService(IStorageWatcherNode.class);
+        if (watcherNode != null) {
+            var watcher = new StackWatcher<>(this.interestManager, watcherNode);
+            this.watchers.put(node, watcher);
+            watcherNode.updateWatcher(watcher);
         }
     }
 
-    /**
-     * When a node leaves the grid, we automatically unregister the previously registered {@link IStorageProvider} or
-     * {@link IStorageWatcherNode}.
-     */
     @Override
     public void removeNode(IGridNode node) {
         var watcher = this.watchers.remove(node);
@@ -193,20 +136,20 @@ public class StorageService implements IStorageService, IGridServiceProvider {
 
     @Override
     public MEStorage getInventory() {
-        return storage;
+        return this.storage;
     }
 
     @Override
     public KeyCounter getCachedInventory() {
-        if (cachedStacksNeedUpdate) {
+        if (this.cachedStacksNeedUpdate) {
             updateCachedStacks();
         }
-        return cachedAvailableStacks;
+        return this.cachedAvailableStacks;
     }
 
     @Override
     public void addGlobalStorageProvider(IStorageProvider provider) {
-        for (var state : globalProviders) {
+        for (var state : this.globalProviders) {
             if (state.provider == provider) {
                 throw new IllegalArgumentException("Duplicate storage provider registration for " + provider);
             }
@@ -219,11 +162,11 @@ public class StorageService implements IStorageService, IGridServiceProvider {
 
     @Override
     public void removeGlobalStorageProvider(IStorageProvider provider) {
-        var it = this.globalProviders.iterator();
-        while (it.hasNext()) {
-            var state = it.next();
+        var iterator = this.globalProviders.iterator();
+        while (iterator.hasNext()) {
+            var state = iterator.next();
             if (state.provider == provider) {
-                it.remove();
+                iterator.remove();
                 state.unmount();
             }
         }
@@ -231,7 +174,7 @@ public class StorageService implements IStorageService, IGridServiceProvider {
 
     @Override
     public void refreshNodeStorageProvider(IGridNode node) {
-        var state = nodeProviders.get(node);
+        var state = this.nodeProviders.get(node);
         if (state == null) {
             throw new IllegalArgumentException("The given node is not part of this grid or has no storage provider.");
         }
@@ -240,7 +183,7 @@ public class StorageService implements IStorageService, IGridServiceProvider {
 
     @Override
     public void refreshGlobalStorageProvider(IStorageProvider provider) {
-        for (var state : globalProviders) {
+        for (var state : this.globalProviders) {
             if (state.provider == provider) {
                 state.update();
                 return;
@@ -252,86 +195,69 @@ public class StorageService implements IStorageService, IGridServiceProvider {
 
     @Override
     public void invalidateCache() {
-        cachedStacksNeedUpdate = true;
-    }
-
-    /**
-     * A {@link IStorageProvider}-specific mount table facade which allows the provider to easily mount/remount its
-     * storage.
-     */
-    private class ProviderState implements IStorageMounts {
-        private final IStorageProvider provider;
-        private final Set<MEStorage> inventories = new HashSet<>();
-        private boolean mounted;
-
-        public ProviderState(IStorageProvider provider) {
-            this.provider = provider;
-        }
-
-        /**
-         * Performs the first mount operation on this storage provider, which does not assume any of the provider's
-         * inventories are currently mounted and need to be removed first.
-         */
-        private void mount() {
-            Preconditions.checkState(!mounted, "Can't mount a provider's inventories when it's already mounted");
-
-            mounted = true;
-            provider.mountInventories(this);
-        }
-
-        @Override
-        public void mount(MEStorage inventory, int priority) {
-            Preconditions.checkState(mounted, "Cannot use StorageMounts after the storage has been unmounted.");
-
-            if (!inventories.add(inventory)) {
-                throw new IllegalStateException("Cannot mount the same inventory twice.");
-            }
-
-            // Mount this inventory into the network storage
-            storage.mount(priority, inventory);
-        }
-
-        public void update() {
-            unmount();
-            mount();
-        }
-
-        public void unmount() {
-            if (!mounted) {
-                return;
-            }
-            mounted = false;
-
-            for (var inventory : inventories) {
-                unmount(inventory);
-            }
-            inventories.clear();
-        }
-
-        private void unmount(MEStorage inventory) {
-            storage.unmount(inventory);
-        }
+        this.cachedStacksNeedUpdate = true;
     }
 
     @Override
-    public void debugDump(JsonWriter writer, HolderLookup.Provider registries) throws IOException {
-
-        JsonStreamUtil.writeProperties(Map.of(
-                "inventoryRefreshTime", JsonStreamUtil.toMap(inventoryRefreshStats)), writer);
-
+    public void debugDump(JsonWriter writer) throws IOException {
         writer.name("cachedAvailableStacks");
         writer.beginArray();
-        for (var entry : cachedAvailableStacks) {
+        for (var entry : this.cachedAvailableStacks) {
             writer.beginObject();
             writer.name("key");
-            var serializedKey = entry.getKey().toTagGeneric(registries);
-            var jsonKey = Dynamic.convert(NbtOps.INSTANCE, JsonOps.INSTANCE, serializedKey);
-            GSON.toJson(jsonKey, writer);
+            writer.value(String.valueOf(entry.getKey()));
             writer.name("amount");
             writer.value(entry.getLongValue());
             writer.endObject();
         }
         writer.endArray();
+    }
 
+    private class ProviderState implements IStorageMounts {
+        private final IStorageProvider provider;
+        private final ReferenceSet<MEStorage> inventories = new ReferenceOpenHashSet<>();
+        private boolean mounted;
+
+        ProviderState(IStorageProvider provider) {
+            this.provider = provider;
+        }
+
+        private void mount() {
+            Preconditions.checkState(!this.mounted, "Can't mount a provider's inventories when it's already mounted");
+
+            this.mounted = true;
+            this.provider.mountInventories(this);
+            invalidateCache();
+        }
+
+        @Override
+        public void mount(MEStorage inventory, int priority) {
+            Preconditions.checkState(this.mounted, "Cannot use StorageMounts after the storage has been unmounted.");
+
+            if (!this.inventories.add(inventory)) {
+                throw new IllegalStateException("Cannot mount the same inventory twice.");
+            }
+
+            storage.mount(priority, inventory);
+            invalidateCache();
+        }
+
+        void update() {
+            unmount();
+            mount();
+        }
+
+        void unmount() {
+            if (!this.mounted) {
+                return;
+            }
+
+            this.mounted = false;
+            for (var inventory : this.inventories) {
+                storage.unmount(inventory);
+            }
+            this.inventories.clear();
+            invalidateCache();
+        }
     }
 }

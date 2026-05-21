@@ -18,27 +18,80 @@
 
 package appeng.init;
 
-import net.minecraft.world.level.block.DispenserBlock;
-
+import appeng.api.util.AEPartLocation;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
-import appeng.hooks.BlockToolDispenseItemBehavior;
-import appeng.hooks.MatterCannonDispenseItemBehavior;
+import appeng.hooks.IBlockTool;
 import appeng.hooks.TinyTNTDispenseItemBehavior;
+import appeng.items.tools.powered.MatterCannonItem;
+import appeng.util.LookDirection;
+import appeng.util.Platform;
+import net.minecraft.block.BlockDispenser;
+import net.minecraft.dispenser.BehaviorDefaultDispenseItem;
+import net.minecraft.dispenser.IBlockSource;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
 
-/**
- * Registers custom {@link DispenserBlock} behaviors for our items.
- */
 public final class InitDispenserBehavior {
+
+    private static boolean initialized;
 
     private InitDispenserBehavior() {
     }
 
-    public static void init() {
-        DispenserBlock.registerBehavior(AEBlocks.TINY_TNT, new TinyTNTDispenseItemBehavior());
-        DispenserBlock.registerBehavior(AEItems.ENTROPY_MANIPULATOR, new BlockToolDispenseItemBehavior());
-        DispenserBlock.registerBehavior(AEItems.MATTER_CANNON, new MatterCannonDispenseItemBehavior());
-        DispenserBlock.registerBehavior(AEItems.COLOR_APPLICATOR, new BlockToolDispenseItemBehavior());
+    public static synchronized void init() {
+        if (initialized) {
+            return;
+        }
+
+        BlockDispenser.DISPENSE_BEHAVIOR_REGISTRY.putObject(AEBlocks.TINY_TNT.item(), new TinyTNTDispenseItemBehavior());
+        BlockDispenser.DISPENSE_BEHAVIOR_REGISTRY.putObject(AEItems.ENTROPY_MANIPULATOR.asItem(), new ToolDispenseBehavior());
+        BlockDispenser.DISPENSE_BEHAVIOR_REGISTRY.putObject(AEItems.MATTER_CANNON.asItem(), new MatterCannonDispenseBehavior());
+        BlockDispenser.DISPENSE_BEHAVIOR_REGISTRY.putObject(AEItems.COLOR_APPLICATOR.asItem(), new ToolDispenseBehavior());
+        initialized = true;
     }
 
+    private static final class ToolDispenseBehavior extends BehaviorDefaultDispenseItem {
+        @Override
+        protected ItemStack dispenseStack(IBlockSource source, ItemStack stack) {
+            EnumFacing facing = source.getBlockState().getValue(BlockDispenser.FACING);
+            BlockPos targetPos = source.getBlockPos().offset(facing);
+            World world = source.getWorld();
+            if (!world.isRemote && stack.getItem() instanceof IBlockTool tool) {
+                var player = Platform.getFakeEntityPlayer(world, null);
+                Platform.configurePlayer(player, AEPartLocation.fromFacing(facing), source.getBlockTileEntity());
+                EnumActionResult result = tool.onItemUse(stack, player, world, targetPos, EnumHand.MAIN_HAND,
+                    facing.getOpposite(), 0.5F, 0.5F, 0.5F);
+                if (result == EnumActionResult.SUCCESS) {
+                    return stack;
+                }
+            }
+            return super.dispenseStack(source, stack);
+        }
+    }
+
+    private static final class MatterCannonDispenseBehavior extends BehaviorDefaultDispenseItem {
+        @Override
+        protected ItemStack dispenseStack(IBlockSource source, ItemStack stack) {
+            World world = source.getWorld();
+            if (!world.isRemote && stack.getItem() instanceof MatterCannonItem cannon) {
+                EnumFacing facing = source.getBlockState().getValue(BlockDispenser.FACING);
+                var player = Platform.getFakeEntityPlayer(world, null);
+                Platform.configurePlayer(player, AEPartLocation.fromFacing(facing), source.getBlockTileEntity());
+
+                Vec3d from = new Vec3d(source.getX(), source.getY(), source.getZ());
+                Vec3d to = new Vec3d(from.x + facing.getXOffset() * 32.0D,
+                    from.y + facing.getYOffset() * 32.0D,
+                    from.z + facing.getZOffset() * 32.0D);
+                cannon.fireCannon(world, stack, player, EnumHand.MAIN_HAND, new LookDirection(from, to));
+                return stack;
+            }
+            return super.dispenseStack(source, stack);
+        }
+    }
 }

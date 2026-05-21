@@ -1,0 +1,33 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "ded",
+    "aba",
+    "aca"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "b": {
+      "item": "minecraft:furnace"
+    },
+    "c": {
+      "item": "ae2:energy_acceptor"
+    },
+    "d": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "e": {
+      "type": "forge:ore_dict",
+      "ore": "gemFluix"
+    }
+  },
+  "result": {
+    "item": "ae2:vibration_chamber",
+    "count": 1
+  }
+}
+

@@ -1,18 +1,17 @@
 package appeng.api.integrations.igtooltip;
 
-import static appeng.api.integrations.igtooltip.TooltipProvider.DEFAULT_PRIORITY;
-
-import org.jetbrains.annotations.ApiStatus;
-
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
 import appeng.api.integrations.igtooltip.providers.IconProvider;
 import appeng.api.integrations.igtooltip.providers.NameProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.integration.modules.igtooltip.parts.PartTooltipProviders;
+import org.jetbrains.annotations.ApiStatus;
+
+import static appeng.api.integrations.igtooltip.TooltipProvider.DEFAULT_PRIORITY;
 
 /**
- * Add additional in-game tooltips for parts and integrate them automatically with any AE2 supported in-game tooltip mod
- * (Jade, TOP, WTHIT).
+ * Add additional in-game tooltips for parts and integrate them automatically with AE2 supported in-game tooltip
+ * integrations.
  */
 @ApiStatus.Experimental
 public final class PartTooltips {

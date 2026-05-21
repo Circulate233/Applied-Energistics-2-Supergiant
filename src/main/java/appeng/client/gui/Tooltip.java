@@ -18,90 +18,79 @@
 
 package appeng.client.gui;
 
-import java.util.ArrayList;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.FormattedText.StyledContentConsumer;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.Style;
+public record Tooltip(List<ITextComponent> content) {
 
-/**
- * Models a tooltip shown by a custom widget or button.
- */
-public final class Tooltip {
+    public Tooltip(List<ITextComponent> content) {
+        this.content = new ObjectArrayList<>(content.size());
 
-    private final List<Component> content;
-
-    public Tooltip(List<Component> unprocessedLines) {
-        this.content = new ArrayList<>(unprocessedLines.size());
-
-        // Split translated lines at line-breaks found in the translated text
-        for (Component unprocessedLine : unprocessedLines) {
+        for (ITextComponent unprocessedLine : content) {
             splitLine(unprocessedLine, this.content);
         }
     }
 
-    private static void splitLine(Component unprocessedLine, List<Component> lines) {
-        LineSplittingVisitor visitor = new LineSplittingVisitor(lines);
-        unprocessedLine.visit(visitor, Style.EMPTY);
-        visitor.flush();
-    }
-
-    public Tooltip(Component... content) {
+    public Tooltip(ITextComponent... content) {
         this(Arrays.asList(content));
     }
 
-    /**
-     * The tooltip content.
-     */
-    public List<Component> getContent() {
-        return content;
+    private static void splitLine(ITextComponent unprocessedLine, List<ITextComponent> lines) {
+        LineSplittingVisitor visitor = new LineSplittingVisitor(lines);
+        visitComponent(unprocessedLine, visitor);
+        visitor.flush();
     }
 
-    private static class LineSplittingVisitor implements StyledContentConsumer<Object> {
-        private final List<Component> lines;
+    private static void visitComponent(ITextComponent component, LineSplittingVisitor visitor) {
+        visitor.accept(component.getStyle(), component.getUnformattedComponentText());
+        for (ITextComponent sibling : component.getSiblings()) {
+            visitComponent(sibling, visitor);
+        }
+    }
 
-        private MutableComponent currentPart;
+    private static class LineSplittingVisitor {
+        private final List<ITextComponent> lines;
 
-        public LineSplittingVisitor(List<Component> lines) {
+        private ITextComponent currentPart;
+
+        private LineSplittingVisitor(List<ITextComponent> lines) {
             this.lines = lines;
         }
 
-        @Override
-        public Optional<Object> accept(Style style, String text) {
-            // a new-line character in the text should split the line and "flush" the
-            // current part into the lines list
+        private void accept(Style style, String text) {
             String[] parts = text.split("\n", -1);
             for (int i = 0; i < parts.length; i++) {
                 if (i > 0) {
                     flush();
                 }
 
-                String line = parts[i];
-                MutableComponent part = Component.literal(line).setStyle(style);
+                TextComponentString part = new TextComponentString(parts[i]);
+                if (style != null) {
+                    part.setStyle(style.createShallowCopy());
+                }
                 if (currentPart != null) {
-                    currentPart = currentPart.append(part);
+                    currentPart.appendSibling(part);
                 } else {
                     currentPart = part;
                 }
             }
-            return Optional.empty();
         }
 
-        public void flush() {
+        private void flush() {
             if (currentPart != null) {
-                // Set default tooltip styles only if no explicit style has been set
-                if (currentPart.getStyle() == Style.EMPTY) {
-                    // First line should be white, other lines gray
-                    if (lines.isEmpty()) {
-                        currentPart.setStyle(Style.EMPTY.applyFormat(ChatFormatting.WHITE));
-                    } else {
-                        currentPart.setStyle(Style.EMPTY.applyFormat(ChatFormatting.GRAY));
-                    }
+                Style style = currentPart.getStyle();
+                if (style == null) {
+                    style = new Style();
+                    currentPart.setStyle(style);
+                }
+                if (style.getColor() == null) {
+                    style.setColor(lines.isEmpty() ? TextFormatting.WHITE : TextFormatting.GRAY);
                 }
 
                 lines.add(currentPart);

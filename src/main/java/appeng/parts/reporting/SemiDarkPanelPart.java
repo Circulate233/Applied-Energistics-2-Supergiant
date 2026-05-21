@@ -18,15 +18,15 @@
 
 package appeng.parts.reporting;
 
-import net.minecraft.resources.ResourceLocation;
-
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
+import net.minecraft.util.ResourceLocation;
 
 public class SemiDarkPanelPart extends AbstractPanelPart {
+
     @PartModels
     public static final ResourceLocation MODEL_OFF = AppEng.makeId("part/monitor_medium_off");
     @PartModels
@@ -44,13 +44,12 @@ public class SemiDarkPanelPart extends AbstractPanelPart {
         final int light = this.getColor().whiteVariant;
         final int dark = this.getColor().mediumVariant;
         return ((light >> 16 & 0xff) + (dark >> 16 & 0xff)) / 2 << 16
-                | ((light >> 8 & 0xff) + (dark >> 8 & 0xff)) / 2 << 8
-                | ((light & 0xff) + (dark & 0xff)) / 2;
+            | ((light >> 8 & 0xff) + (dark >> 8 & 0xff)) / 2 << 8
+            | ((light & 0xff) + (dark & 0xff)) / 2;
     }
 
     @Override
     public IPartModel getStaticModels() {
         return this.isPowered() ? MODELS_ON : MODELS_OFF;
     }
-
 }

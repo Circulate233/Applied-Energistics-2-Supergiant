@@ -1,57 +1,58 @@
 package appeng.server.subcommands;
 
-import static net.minecraft.commands.Commands.literal;
-
-import java.util.Locale;
-
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
-
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.server.MinecraftServer;
-
 import appeng.api.networking.pathing.ChannelMode;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
-import appeng.core.localization.PlayerMessages;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
 import appeng.server.ISubCommand;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.text.TextComponentString;
 
-/**
- * Command to easily change {@link AEConfig#getChannelMode()} at runtime.
- */
+import java.util.Locale;
+
 public class ChannelModeCommand implements ISubCommand {
-    @Override
-    public void addArguments(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        for (var mode : ChannelMode.values()) {
-            builder.then(literal(mode.name().toLowerCase(Locale.ROOT)).executes(ctx -> {
-                setChannelMode(ctx, mode);
-                return 1;
-            }));
+    private static ChannelMode parseMode(String name) throws WrongUsageException {
+        try {
+            return ChannelMode.valueOf(name.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new WrongUsageException("commands.ae2.channelmode");
         }
     }
 
     @Override
-    public void call(MinecraftServer srv, CommandContext<CommandSourceStack> ctx, CommandSourceStack sender) {
-        var mode = AEConfig.instance().getChannelMode();
-        sender.sendSuccess(() -> PlayerMessages.ChannelModeCurrent.text(mode.name().toLowerCase(Locale.ROOT)), true);
+    public String getHelp(MinecraftServer srv) {
+        return "commands.ae2.channelmode";
     }
 
-    private void setChannelMode(CommandContext<CommandSourceStack> ctx, ChannelMode mode) {
-        AELog.info("%s is changing channel mode to %s", ctx.getSource(), mode);
+    @Override
+    public void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException {
+        if (args.length == 1) {
+            ChannelMode mode = AEConfig.instance().getChannelMode();
+            sender.sendMessage(new TextComponentString("Current channel mode: "
+                + mode.name().toLowerCase(Locale.ROOT)));
+            return;
+        }
 
-        AEConfig.instance().setChannelModel(mode);
+        if (args.length != 2) {
+            throw new WrongUsageException("commands.ae2.channelmode");
+        }
+
+        ChannelMode mode = parseMode(args[1]);
+        AELog.info("%s is changing channel mode to %s", sender.getName(), mode);
+        AEConfig.instance().setChannelMode(mode);
         AEConfig.instance().save();
 
-        var gridCount = 0;
+        int gridCount = 0;
         for (Grid grid : TickHandler.instance().getGridList()) {
             grid.getPathingService().repath();
             gridCount++;
         }
-        var finalGridCount = gridCount;
 
-        var modeName = mode.name().toLowerCase(Locale.ROOT);
-        ctx.getSource().sendSuccess(() -> PlayerMessages.ChannelModeSet.text(modeName, finalGridCount), true);
+        sender.sendMessage(new TextComponentString("Channel mode set to "
+            + mode.name().toLowerCase(Locale.ROOT) + " and repathed " + gridCount + " grids."));
     }
 }

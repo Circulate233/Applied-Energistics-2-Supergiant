@@ -35,24 +35,24 @@ import appeng.core.settings.TickRates;
  *                    return true.
  */
 public record TickingRequest(
-        int minTickRate,
-        int maxTickRate,
-        boolean isSleeping,
-        int initialTickRate) {
+    int minTickRate,
+    int maxTickRate,
+    boolean isSleeping,
+    int initialTickRate) {
 
     public TickingRequest(int minTickRate, int maxTickRate, boolean isSleeping) {
         this(
-                minTickRate,
-                maxTickRate,
-                isSleeping,
-                getInitialTickDelay(minTickRate, maxTickRate));
+            minTickRate,
+            maxTickRate,
+            isSleeping,
+            getInitialTickDelay(minTickRate, maxTickRate));
     }
 
     public TickingRequest(TickRates tickRates, boolean isSleeping) {
         this(
-                tickRates.getMin(),
-                tickRates.getMax(),
-                isSleeping);
+            tickRates.getMin(),
+            tickRates.getMax(),
+            isSleeping);
     }
 
     private static int getInitialTickDelay(int min, int max) {

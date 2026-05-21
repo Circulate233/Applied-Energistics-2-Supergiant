@@ -1,0 +1,15 @@
+{
+  "recipes": {
+    "add_item_upgrade": "appeng.recipes.serializers.AddItemUpgradeRecipeFactory",
+    "remove_item_upgrade": "appeng.recipes.serializers.RemoveItemUpgradeRecipeFactory",
+    "storage_cell_upgrade": "appeng.recipes.serializers.StorageCellUpgradeRecipeFactory",
+    "quartz_cutting": "appeng.recipes.serializers.QuartzCuttingRecipeFactory",
+    "charger": "appeng.recipes.serializers.ChargerRecipeFactory",
+    "inscriber": "appeng.recipes.serializers.InscriberRecipeFactory",
+    "matter_cannon": "appeng.recipes.serializers.MatterCannonAmmoRecipeFactory",
+    "storage_cell_disassembly": "appeng.recipes.serializers.StorageCellDisassemblyRecipeFactory",
+    "transform": "appeng.recipes.serializers.TransformRecipeFactory",
+    "crafting_unit_transform": "appeng.recipes.serializers.CraftingUnitTransformRecipeFactory",
+    "entropy": "appeng.recipes.serializers.EntropyRecipeFactory"
+  }
+}

@@ -1,47 +1,75 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
 package appeng.block.storage;
+
+import appeng.block.AEBaseTileBlock;
+import appeng.tile.storage.TileSkyStoneTank;
+import net.minecraft.block.material.Material;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 import java.util.List;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
+public class SkyStoneTankBlock extends AEBaseTileBlock<TileSkyStoneTank> {
 
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.storage.SkyStoneTankBlockEntity;
-import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
-
-public class SkyStoneTankBlock extends AEBaseEntityBlock<SkyStoneTankBlockEntity> {
-
-    public SkyStoneTankBlock(Properties props) {
-        super(props);
+    public SkyStoneTankBlock() {
+        super(Material.ROCK);
+        this.setHardness(5.0F);
+        this.setResistance(150.0F);
+        this.setTileEntity(TileSkyStoneTank.class);
+        this.setOpaque();
+        this.setFullSize();
+        this.lightOpacity = 1;
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos,
-            Player player, InteractionHand hand, BlockHitResult hit) {
-        if (super.useItemOn(heldItem, state, level, pos, player, hand, hit).result() == InteractionResult.PASS) {
-            if (level.getBlockEntity(pos) instanceof SkyStoneTankBlockEntity tank && tank.onPlayerUse(player, hand)) {
-                return ItemInteractionResult.sidedSuccess(level.isClientSide());
-            }
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
 
+    @Override
+    public boolean canRenderInLayer(net.minecraft.block.state.IBlockState state, BlockRenderLayer layer) {
+        return layer == BlockRenderLayer.CUTOUT || layer == BlockRenderLayer.TRANSLUCENT;
+    }
+
+    @Override
+    public boolean onBlockActivated(World world, BlockPos pos, net.minecraft.block.state.IBlockState state,
+                                    EntityPlayer player, EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, side, hitX, hitY, hitZ)) {
+            return true;
         }
-        return ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
+
+        TileSkyStoneTank tank = this.getTileEntity(world, pos);
+        return tank != null && tank.onPlayerUse(player, hand);
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip,
-            TooltipFlag flag) {
-        super.appendHoverText(stack, context, tooltip, flag);
-        tooltip.add(Tooltips.of(GuiText.TankBucketCapacity, SkyStoneTankBlockEntity.BUCKET_CAPACITY));
+    public void addInformation(ItemStack stack, World world, List<String> tooltip,
+                               net.minecraft.client.util.ITooltipFlag advanced) {
+        super.addInformation(stack, world, tooltip, advanced);
+        tooltip.add(I18n.format("gui.ae2.TankBucketCapacity", TileSkyStoneTank.BUCKET_CAPACITY));
     }
 }
+
+

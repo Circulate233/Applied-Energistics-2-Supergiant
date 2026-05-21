@@ -18,15 +18,11 @@
 
 package appeng.client.gui.style;
 
+import appeng.api.stacks.AEFluidKey;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
-
-import appeng.api.stacks.AEFluidKey;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
 
 /**
  * Creates a {@link Blitter} to draw fluids into the user interface.
@@ -41,21 +37,31 @@ public final class FluidBlitter {
     }
 
     public static Blitter create(FluidStack stack) {
-        if (stack.isEmpty() && stack.getFluid() != Fluids.EMPTY) {
-            stack = new FluidStack(stack.getFluidHolder(), 1, stack.getComponentsPatch());
+        TextureAtlasSprite sprite = getStillSprite(stack);
+        Fluid fluid = stack.getFluid();
+        return Blitter.sprite(sprite)
+                      .colorRgb(fluid.getColor(stack))
+                      .blending(false);
+    }
+
+    public static TextureAtlasSprite getStillSprite(FluidStack stack) {
+        if (stack == null || stack.getFluid() == null) {
+            throw new IllegalArgumentException("stack");
+        }
+
+        if (stack.amount <= 0) {
+            stack = stack.copy();
+            stack.amount = 1;
         }
 
         Fluid fluid = stack.getFluid();
+        var still = fluid.getStill(stack);
+        if (still == null) {
+            still = fluid.getStill();
+        }
 
-        var attributes = IClientFluidTypeExtensions.of(fluid);
-        TextureAtlasSprite sprite = Minecraft.getInstance()
-                .getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
-                .apply(attributes.getStillTexture(stack));
-
-        return Blitter.sprite(sprite)
-                .colorRgb(attributes.getTintColor(stack))
-                // Most fluid texture have transparency, but we want an opaque slot
-                .blending(false);
+        return Minecraft.getMinecraft()
+                        .getTextureMapBlocks()
+                        .getAtlasSprite(still.toString());
     }
-
 }

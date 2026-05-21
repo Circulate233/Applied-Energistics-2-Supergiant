@@ -23,15 +23,14 @@
 
 package appeng.api.storage;
 
-import org.jetbrains.annotations.Nullable;
-
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.util.IConfigurableObject;
 import appeng.client.Hotkeys;
+import org.jetbrains.annotations.Nullable;
 
-public interface ITerminalHost extends IUpgradeableObject, IConfigurableObject, ISubMenuHost {
+public interface ITerminalHost extends IUpgradeableObject, IConfigurableObject, ISubGuiHost {
     /**
-     * Please note that this will only be called <strong>once</strong> when the menu is opened. If the inventory of this
+     * Please note that this will only be called <strong>once</strong> when the container is opened. If the inventory of this
      * terminal host can change during its lifecycle, you need to return a {@link SupplierStorage}.
      */
     MEStorage getInventory();

@@ -18,48 +18,31 @@
 
 package appeng.thirdparty.codechicken.lib.model.pipeline.transformers;
 
-import static net.minecraft.core.Direction.AxisDirection.POSITIVE;
+import appeng.client.render.mesh.MutableQuadView;
+import appeng.client.render.mesh.RenderContext;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
 
-import net.minecraft.core.Direction;
-import net.minecraft.world.phys.AABB;
+import static net.minecraft.util.EnumFacing.AxisDirection.POSITIVE;
 
-import appeng.thirdparty.fabric.MutableQuadView;
-import appeng.thirdparty.fabric.RenderContext;
-
-/**
- * This transformer strips quads that are on faces. Simply set the bounds for the faces, and the strip mask.
- *
- * @author covers1624
- */
 public class QuadFaceStripper implements RenderContext.QuadTransform {
 
-    private AABB bounds;
+    private AxisAlignedBB bounds;
     private int mask;
 
     QuadFaceStripper() {
         super();
     }
 
-    public QuadFaceStripper(AABB bounds, int mask) {
+    public QuadFaceStripper(AxisAlignedBB bounds, int mask) {
         this.bounds = bounds;
         this.mask = mask;
     }
 
-    /**
-     * The bounds of the faces, used as the .. bounds, if all vertices of a quad lay on the bounds, it is up for
-     * stripping.
-     *
-     * @param bounds The bounds.
-     */
-    public void setBounds(AABB bounds) {
+    public void setBounds(AxisAlignedBB bounds) {
         this.bounds = bounds;
     }
 
-    /**
-     * The mask to strip edges. This is an opt in system, the mask is simple 'mask = (1 << side)'.
-     *
-     * @param mask The mask.
-     */
     public void setMask(int mask) {
         this.mask = mask;
     }
@@ -67,12 +50,12 @@ public class QuadFaceStripper implements RenderContext.QuadTransform {
     @Override
     public boolean transform(MutableQuadView quad) {
         if (this.mask == 0) {
-            return true;// No mask, nothing changes.
+            return true;
         }
-        // If the bit for this quad is set, then check if we should strip.
-        Direction face = quad.nominalFace();
+
+        EnumFacing face = quad.nominalFace();
         if ((this.mask & 1 << face.ordinal()) != 0) {
-            Direction.AxisDirection dir = face.getAxisDirection();
+            EnumFacing.AxisDirection dir = face.getAxisDirection();
             switch (face.getAxis()) {
                 case X: {
                     float bound = (float) (dir == POSITIVE ? this.bounds.maxX : this.bounds.minX);
@@ -98,6 +81,8 @@ public class QuadFaceStripper implements RenderContext.QuadTransform {
                     float z4 = quad.posByIndex(3, 2);
                     return z1 != z2 || z2 != z3 || z3 != z4 || z4 != bound;
                 }
+                default:
+                    break;
             }
         }
         return true;

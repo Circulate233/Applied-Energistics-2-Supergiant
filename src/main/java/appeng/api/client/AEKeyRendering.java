@@ -23,46 +23,36 @@
 
 package appeng.api.client;
 
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-
-import com.google.common.base.Preconditions;
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.Level;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Registry for {@link AEKeyRenderHandler}. Also contains convenience functions to render a stack without having to
- * query the render handler first.
- */
-@OnlyIn(Dist.CLIENT)
+import java.util.List;
+import java.util.Objects;
+
+@SideOnly(Side.CLIENT)
 public class AEKeyRendering {
-    private static volatile Map<AEKeyType, AEKeyRenderHandler<?>> renderers = new IdentityHashMap<>();
+    private static volatile Reference2ObjectMap<AEKeyType, AEKeyRenderHandler<?>> renderers = new Reference2ObjectOpenHashMap<>();
 
     public static synchronized <T extends AEKey> void register(AEKeyType channel,
-            Class<T> keyClass,
-            AEKeyRenderHandler<T> handler) {
+                                                               Class<T> keyClass,
+                                                               AEKeyRenderHandler<T> handler) {
         Objects.requireNonNull(channel, "channel");
         Objects.requireNonNull(handler, "handler");
         Objects.requireNonNull(keyClass, "keyClass");
         Preconditions.checkArgument(channel.getKeyClass() == keyClass, "%s != %s",
-                channel.getKeyClass(), keyClass);
+            channel.getKeyClass(), keyClass);
 
-        var renderersCopy = new IdentityHashMap<>(renderers);
+        var renderersCopy = new Reference2ObjectOpenHashMap<>(renderers);
         if (renderersCopy.put(channel, handler) != null) {
             throw new IllegalArgumentException("Duplicate registration of render handler for channel " + channel);
         }
@@ -90,25 +80,22 @@ public class AEKeyRendering {
     }
 
     @SuppressWarnings("unchecked")
-    public static void drawInGui(Minecraft minecraft, GuiGraphics guiGraphics, int x, int y, AEKey what) {
-        getUnchecked(what).drawInGui(minecraft, guiGraphics, x, y, what);
+    public static void drawInGui(Minecraft minecraft, int x, int y, AEKey what) {
+        getUnchecked(what).drawInGui(minecraft, x, y, what);
+    }
+
+    @SuppressWarnings({ "unchecked", "unused" })
+    public static void drawOnBlockFace(AEKey what, float scale, int combinedLightIn, World level) {
+        getUnchecked(what).drawOnBlockFace(what, scale, combinedLightIn, level);
     }
 
     @SuppressWarnings("unchecked")
-    public static void drawOnBlockFace(PoseStack poseStack, MultiBufferSource buffers, AEKey what, float scale,
-            int combinedLightIn, Level level) {
-        getUnchecked(what).drawOnBlockFace(poseStack, buffers, what, scale, combinedLightIn, level);
-    }
-
-    @SuppressWarnings("unchecked")
-    public static Component getDisplayName(AEKey stack) {
+    public static ITextComponent getDisplayName(AEKey stack) {
         return getUnchecked(stack).getDisplayName(stack);
     }
 
     @SuppressWarnings("unchecked")
-    public static List<Component> getTooltip(AEKey stack) {
-        // The array list is used to ensure mutability of the returned tooltip.
-        return new ArrayList<Component>(getUnchecked(stack).getTooltip(stack));
+    public static List<ITextComponent> getTooltip(AEKey stack) {
+        return new ObjectArrayList<ITextComponent>(getUnchecked(stack).getTooltip(stack));
     }
-
 }

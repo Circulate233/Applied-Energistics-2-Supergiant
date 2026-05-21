@@ -18,29 +18,51 @@
 
 package appeng.core.stats;
 
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-
 import appeng.core.AppEng;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.stats.StatBase;
+import net.minecraft.stats.StatBasic;
+import net.minecraft.stats.StatList;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.TextComponentTranslation;
 
 public enum AeStats {
 
     ItemsInserted("items_inserted"),
-
     ItemsExtracted("items_extracted");
 
     private final ResourceLocation registryName;
+    private final String statId;
+    private StatBase stat;
 
     AeStats(String id) {
         this.registryName = AppEng.makeId(id);
+        this.statId = "stat." + this.registryName.getNamespace() + "." + this.registryName.getPath();
     }
 
-    public void addToPlayer(Player player, int howMany) {
-        player.awardStat(this.registryName, howMany);
+    public void addToPlayer(EntityPlayer player, int howMany) {
+        player.addStat(getStat(), howMany);
     }
 
     public ResourceLocation getRegistryName() {
         return registryName;
     }
 
+    public void register() {
+        getStat();
+    }
+
+    private synchronized StatBase getStat() {
+        if (this.stat == null) {
+            var existing = StatList.getOneShotStat(this.statId);
+            if (existing == null) {
+                existing = new StatBasic(this.statId, new TextComponentTranslation(this.statId))
+                    .initIndependentStat()
+                    .registerStat();
+            }
+            this.stat = existing;
+        }
+
+        return this.stat;
+    }
 }

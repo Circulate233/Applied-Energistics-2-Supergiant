@@ -1,8 +1,25 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
 package appeng.block.crafting;
 
-import net.minecraft.world.item.Item;
-
 import appeng.core.definitions.AEBlocks;
+import net.minecraft.item.Item;
 
 public enum CraftingUnitType implements ICraftingUnitType {
     UNIT(0),
@@ -32,16 +49,16 @@ public enum CraftingUnitType implements ICraftingUnitType {
 
     @Override
     public Item getItemFromType() {
-        var definition = switch (this) {
-            case UNIT -> AEBlocks.CRAFTING_UNIT;
-            case ACCELERATOR -> AEBlocks.CRAFTING_ACCELERATOR;
-            case STORAGE_1K -> AEBlocks.CRAFTING_STORAGE_1K;
-            case STORAGE_4K -> AEBlocks.CRAFTING_STORAGE_4K;
-            case STORAGE_16K -> AEBlocks.CRAFTING_STORAGE_16K;
-            case STORAGE_64K -> AEBlocks.CRAFTING_STORAGE_64K;
-            case STORAGE_256K -> AEBlocks.CRAFTING_STORAGE_256K;
-            case MONITOR -> AEBlocks.CRAFTING_MONITOR;
+        return switch (this) {
+            case UNIT -> AEBlocks.CRAFTING_UNIT.item();
+            case ACCELERATOR -> AEBlocks.CRAFTING_ACCELERATOR.item();
+            case STORAGE_1K -> AEBlocks.CRAFTING_STORAGE_1K.item();
+            case STORAGE_4K -> AEBlocks.CRAFTING_STORAGE_4K.item();
+            case STORAGE_16K -> AEBlocks.CRAFTING_STORAGE_16K.item();
+            case STORAGE_64K -> AEBlocks.CRAFTING_STORAGE_64K.item();
+            case STORAGE_256K -> AEBlocks.CRAFTING_STORAGE_256K.item();
+            default -> AEBlocks.CRAFTING_MONITOR.item();
         };
-        return definition.asItem();
     }
 }
+

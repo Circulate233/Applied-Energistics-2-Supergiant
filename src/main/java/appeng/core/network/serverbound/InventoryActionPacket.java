@@ -1,69 +1,83 @@
 package appeng.core.network.serverbound;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-
-import appeng.core.network.CustomAppEngPayload;
+import appeng.container.AEBaseContainer;
 import appeng.core.network.ServerboundPacket;
 import appeng.helpers.InventoryAction;
-import appeng.menu.AEBaseMenu;
-import appeng.util.Platform;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketBuffer;
 
-public record InventoryActionPacket(InventoryAction action,
-        int slot,
-        long extraId,
-        ItemStack slotItem) implements ServerboundPacket {
+public class InventoryActionPacket extends ServerboundPacket {
+    private int windowId;
+    private InventoryAction action;
+    private int slot;
+    private long extraId;
+    private ItemStack slotItem = ItemStack.EMPTY;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, InventoryActionPacket> STREAM_CODEC = StreamCodec.ofMember(
-            InventoryActionPacket::write,
-            InventoryActionPacket::decode);
+    public InventoryActionPacket() {
+    }
 
-    public static final Type<InventoryActionPacket> TYPE = CustomAppEngPayload.createType("inventory_action");
+    public InventoryActionPacket(int windowId, InventoryAction action, int slot, long id) {
+        this.windowId = windowId;
+        this.action = action;
+        this.slot = slot;
+        this.extraId = id;
+    }
+
+    public InventoryActionPacket(int windowId, InventoryAction action, int slot, ItemStack slotItem) {
+        this.windowId = windowId;
+        this.action = action;
+        this.slot = slot;
+        this.slotItem = slotItem.copy();
+    }
+
+    public InventoryActionPacket(int windowId, InventoryAction action, int slot, long id, ItemStack slotItem) {
+        this.windowId = windowId;
+        this.action = action;
+        this.slot = slot;
+        this.extraId = id;
+        this.slotItem = slotItem.copy();
+    }
 
     @Override
-    public Type<InventoryActionPacket> type() {
-        return TYPE;
-    }
-
-    // api
-    public InventoryActionPacket(InventoryAction action, int slot, long id) {
-        this(action, slot, id, ItemStack.EMPTY);
-    }
-
-    // api
-    public InventoryActionPacket(InventoryAction action, int slot, ItemStack slotItem) {
-        this(action, slot, 0, slotItem.copy());
-        if (Platform.isClient() && action != InventoryAction.SET_FILTER) {
-            throw new IllegalStateException("invalid packet, client cannot post inv actions with stacks.");
+    protected void read(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.windowId = packetBuffer.readInt();
+        this.action = packetBuffer.readEnumValue(InventoryAction.class);
+        this.slot = packetBuffer.readInt();
+        this.extraId = packetBuffer.readVarLong();
+        try {
+            this.slotItem = packetBuffer.readItemStack();
+        } catch (java.io.IOException e) {
+            throw new IllegalArgumentException("Could not read inventory action item", e);
         }
     }
 
-    public static InventoryActionPacket decode(RegistryFriendlyByteBuf stream) {
-        var action = stream.readEnum(InventoryAction.class);
-        var slot = stream.readInt();
-        var extraId = stream.readLong();
-        var slotItem = ItemStack.OPTIONAL_STREAM_CODEC.decode(stream);
-        return new InventoryActionPacket(action, slot, extraId, slotItem);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeEnum(action);
-        data.writeInt(slot);
-        data.writeLong(extraId);
-        ItemStack.OPTIONAL_STREAM_CODEC.encode(data, slotItem);
+    @Override
+    protected void write(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeInt(this.windowId);
+        packetBuffer.writeEnumValue(this.action);
+        packetBuffer.writeInt(this.slot);
+        packetBuffer.writeVarLong(this.extraId);
+        packetBuffer.writeItemStack(this.slotItem);
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (player.containerMenu instanceof AEBaseMenu baseMenu) {
-            if (action == InventoryAction.SET_FILTER) {
-                baseMenu.setFilter(this.slot, this.slotItem);
+    public void handleServer(EntityPlayerMP player) {
+        if (player.openContainer.windowId != this.windowId) {
+            return;
+        }
+        if (player.openContainer instanceof AEBaseContainer container) {
+            if (this.action == InventoryAction.SET_FILTER) {
+                container.setFilter(this.slot, this.slotItem, this.extraId != 0);
             } else {
-                baseMenu.doAction(player, this.action, this.slot, this.extraId);
+                container.doAction(player, this.action, this.slot, this.extraId);
+            }
+            if (player.openContainer == container) {
+                container.syncInventoryActionState(player);
             }
         }
     }
-
 }

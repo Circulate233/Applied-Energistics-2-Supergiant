@@ -1,46 +1,48 @@
 package appeng.core.network.clientbound;
 
-import java.util.Optional;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.chat.ComponentSerialization;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-
 import appeng.api.storage.ILinkStatus;
 import appeng.api.storage.LinkStatus;
+import appeng.client.component.TextComponents;
+import appeng.container.guisync.ILinkStatusAwareContainer;
 import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
-import appeng.menu.guisync.LinkStatusAwareMenu;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public record SetLinkStatusPacket(ILinkStatus linkStatus) implements ClientboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, SetLinkStatusPacket> STREAM_CODEC = StreamCodec.ofMember(
-            SetLinkStatusPacket::write,
-            SetLinkStatusPacket::decode);
+public class SetLinkStatusPacket extends ClientboundPacket {
+    private ILinkStatus linkStatus;
 
-    public static final Type<SetLinkStatusPacket> TYPE = CustomAppEngPayload.createType("set_link_status");
-
-    @Override
-    public Type<SetLinkStatusPacket> type() {
-        return TYPE;
+    public SetLinkStatusPacket() {
     }
 
-    public void write(RegistryFriendlyByteBuf buffer) {
-        buffer.writeBoolean(linkStatus.connected());
-        ComponentSerialization.TRUSTED_OPTIONAL_STREAM_CODEC.encode(buffer,
-                Optional.ofNullable(linkStatus.statusDescription()));
-    }
-
-    public static SetLinkStatusPacket decode(RegistryFriendlyByteBuf buffer) {
-        return new SetLinkStatusPacket(new LinkStatus(
-                buffer.readBoolean(),
-                ComponentSerialization.TRUSTED_OPTIONAL_STREAM_CODEC.decode(buffer).orElse(null)));
+    public SetLinkStatusPacket(ILinkStatus linkStatus) {
+        this.linkStatus = linkStatus;
     }
 
     @Override
-    public void handleOnClient(Player player) {
-        if (player.containerMenu instanceof LinkStatusAwareMenu linkStatusAwareMenu) {
-            linkStatusAwareMenu.setLinkStatus(linkStatus);
+    protected void read(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        var connected = packetBuffer.readBoolean();
+        ITextComponent statusDescription = TextComponents.readFromPacket(packetBuffer);
+        this.linkStatus = new LinkStatus(connected, statusDescription);
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeBoolean(this.linkStatus.connected());
+        var statusDescription = this.linkStatus.statusDescription();
+        TextComponents.writeToPacket(packetBuffer, statusDescription);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.player != null && minecraft.player.openContainer instanceof ILinkStatusAwareContainer container) {
+            container.setLinkStatus(this.linkStatus);
         }
     }
 }

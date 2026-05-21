@@ -1,14 +1,13 @@
 package appeng.util;
 
-import java.util.ArrayList;
+import appeng.integration.modules.baubles.BaublesIntegration;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+
 import java.util.List;
-
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-
-import appeng.integration.modules.curios.CuriosIntegration;
 
 /**
  * Event fired when AE2 is looking for ItemStacks in a player inventory. By default, AE2 only looks at the 36 usual
@@ -18,32 +17,21 @@ import appeng.integration.modules.curios.CuriosIntegration;
 public class SearchInventoryEvent extends PlayerEvent {
     private final List<ItemStack> stacks;
 
-    public SearchInventoryEvent(Player player, List<ItemStack> stacks) {
+    public SearchInventoryEvent(EntityPlayer player, List<ItemStack> stacks) {
         super(player);
         this.stacks = stacks;
     }
 
+    public static List<ItemStack> getItems(EntityPlayer player) {
+        List<ItemStack> items = new ObjectArrayList<>(player.inventory.mainInventory);
+        for (int i = 0; i < BaublesIntegration.getSlots(player); i++) {
+            items.add(BaublesIntegration.getStackInSlot(player, i));
+        }
+        MinecraftForge.EVENT_BUS.post(new SearchInventoryEvent(player, items));
+        return items;
+    }
+
     public List<ItemStack> getStacks() {
         return stacks;
-    }
-
-    static {
-        NeoForge.EVENT_BUS.addListener((SearchInventoryEvent event) -> {
-            event.getStacks().addAll(event.getEntity().getInventory().items);
-        });
-        NeoForge.EVENT_BUS.addListener((SearchInventoryEvent event) -> {
-            var cap = event.getEntity().getCapability(CuriosIntegration.ITEM_HANDLER);
-            if (cap == null)
-                return;
-            for (int i = 0; i < cap.getSlots(); i++) {
-                event.getStacks().add(cap.getStackInSlot(i));
-            }
-        });
-    }
-
-    public static List<ItemStack> getItems(Player player) {
-        List<ItemStack> items = new ArrayList<>();
-        NeoForge.EVENT_BUS.post(new SearchInventoryEvent(player, items));
-        return items;
     }
 }

@@ -18,47 +18,58 @@
 
 package appeng.block;
 
+import net.minecraft.block.Block;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
 import java.util.List;
 
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.block.Block;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
-public class AEBaseBlockItem extends BlockItem {
+public class AEBaseBlockItem extends ItemBlock {
 
     private final AEBaseBlock blockType;
 
-    public AEBaseBlockItem(Block id, Properties props) {
-        super(id, props);
+    public AEBaseBlockItem(Block id) {
+        super(id);
         this.blockType = (AEBaseBlock) id;
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public final void appendHoverText(ItemStack itemStack, Item.TooltipContext context, List<Component> toolTip,
-            TooltipFlag advancedTooltips) {
-        this.addCheckedInformation(itemStack, context, toolTip, advancedTooltips);
+    @SideOnly(Side.CLIENT)
+    public final void addInformation(ItemStack itemStack, @org.jetbrains.annotations.Nullable World worldIn,
+                                     List<String> toolTip, ITooltipFlag advancedTooltips) {
+        this.addCheckedInformation(itemStack, worldIn, toolTip, advancedTooltips);
     }
 
-    @OnlyIn(Dist.CLIENT)
-    public void addCheckedInformation(ItemStack itemStack, TooltipContext context, List<Component> toolTip,
-            TooltipFlag advancedTooltips) {
-        this.blockType.appendHoverText(itemStack, context, toolTip, advancedTooltips);
+    @SideOnly(Side.CLIENT)
+    public void addCheckedInformation(ItemStack itemStack, @org.jetbrains.annotations.Nullable World worldIn,
+                                      List<String> toolTip, ITooltipFlag advancedTooltips) {
     }
 
     @Override
-    public boolean isBookEnchantable(final ItemStack itemstack1, final ItemStack itemstack2) {
+    public boolean isBookEnchantable(ItemStack itemstack1, ItemStack itemstack2) {
         return false;
     }
 
     @Override
-    public String getDescriptionId(ItemStack is) {
-        return this.blockType.getDescriptionId();
+    public void getSubItems(CreativeTabs tab, NonNullList<ItemStack> items) {
+        if (this.isInCreativeTab(tab)) {
+            this.blockType.getSubBlocks(tab, items);
+        }
     }
 
+    @Override
+    public String getTranslationKey(ItemStack is) {
+        return this.blockType.getTranslationKey();
+    }
+
+    public AEBaseBlock getBlockType() {
+        return this.blockType;
+    }
 }
+

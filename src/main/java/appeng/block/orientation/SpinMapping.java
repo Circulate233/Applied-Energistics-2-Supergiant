@@ -1,43 +1,32 @@
 package appeng.block.orientation;
 
-import net.minecraft.core.Direction;
+import net.minecraft.util.EnumFacing;
 
-/**
- * Defines the final rotation around the axis the block is facing. (a.k.a. spin).
- */
 public final class SpinMapping {
+    private static final EnumFacing[][] SPIN_DIRECTIONS = new EnumFacing[][]{
+        {EnumFacing.NORTH, EnumFacing.WEST, EnumFacing.SOUTH, EnumFacing.EAST},
+        {EnumFacing.NORTH, EnumFacing.EAST, EnumFacing.SOUTH, EnumFacing.WEST},
+        {EnumFacing.UP, EnumFacing.WEST, EnumFacing.DOWN, EnumFacing.EAST},
+        {EnumFacing.UP, EnumFacing.EAST, EnumFacing.DOWN, EnumFacing.WEST},
+        {EnumFacing.UP, EnumFacing.SOUTH, EnumFacing.DOWN, EnumFacing.NORTH},
+        {EnumFacing.UP, EnumFacing.NORTH, EnumFacing.DOWN, EnumFacing.SOUTH},
+    };
+
     private SpinMapping() {
     }
 
-    // When looking at the block from the given direction
-    // the list contains the rotation in clockwise orientation
-    // For UP/DOWN we consider NORTH to be up
-    private static final Direction[][] SPIN_DIRECTIONS = new Direction[][] {
-            // DOWN
-            { Direction.NORTH, Direction.WEST, Direction.SOUTH, Direction.EAST },
-            // UP
-            { Direction.NORTH, Direction.EAST, Direction.SOUTH, Direction.WEST },
-            // NORTH
-            { Direction.UP, Direction.WEST, Direction.DOWN, Direction.EAST },
-            // SOUTH
-            { Direction.UP, Direction.EAST, Direction.DOWN, Direction.WEST },
-            // WEST
-            { Direction.UP, Direction.SOUTH, Direction.DOWN, Direction.NORTH },
-            // EAST
-            { Direction.UP, Direction.NORTH, Direction.DOWN, Direction.SOUTH },
-    };
-
-    public static int getSpinFromUp(Direction facing, Direction up) {
+    public static int getSpinFromUp(EnumFacing facing, EnumFacing up) {
         var spinDirs = SPIN_DIRECTIONS[facing.ordinal()];
         for (int i = 0; i < spinDirs.length; i++) {
             if (spinDirs[i] == up) {
                 return i;
             }
         }
-        return 0; // Degenerated up direction just falls back to no spin
+        return 0;
     }
 
-    public static Direction getUpFromSpin(Direction facing, int spin) {
+    public static EnumFacing getUpFromSpin(EnumFacing facing, int spin) {
         return SPIN_DIRECTIONS[facing.ordinal()][spin];
     }
 }
+

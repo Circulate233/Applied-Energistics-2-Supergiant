@@ -1,28 +1,21 @@
 package appeng.core.localization;
 
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 public interface LocalizationEnum {
 
-    String getEnglishText();
-
     String getTranslationKey();
 
-    default MutableComponent text() {
-        return Component.translatable(getTranslationKey());
+    @SideOnly(Side.CLIENT)
+    default String getLocal(Object... args) {
+        return I18n.format(getTranslationKey(), args);
     }
 
-    default MutableComponent text(Object... args) {
-        return Component.translatable(getTranslationKey(), args);
+    default ITextComponent text(Object... args) {
+        return new TextComponentTranslation(this.getTranslationKey(), args);
     }
-
-    default MutableComponent withSuffix(String text) {
-        return text().copy().append(text);
-    }
-
-    default MutableComponent withSuffix(Component text) {
-        return text().copy().append(text);
-    }
-
 }

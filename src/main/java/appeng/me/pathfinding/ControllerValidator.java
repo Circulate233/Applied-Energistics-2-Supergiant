@@ -18,17 +18,16 @@
 
 package appeng.me.pathfinding;
 
-import java.util.Collection;
-import java.util.HashSet;
-import java.util.Set;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridVisitor;
 import appeng.api.networking.pathing.ControllerState;
-import appeng.blockentity.networking.ControllerBlockEntity;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import appeng.tile.networking.TileController;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+
+import java.util.Collection;
 
 /**
  * Validates that the controller shape doesn't exceed the max size, and counts the number of adjacent controllers.
@@ -66,7 +65,7 @@ public class ControllerValidator implements IGridVisitor {
      * All controllers of this grid must be connected to the first controller. This is true if the validator could reach
      * all controllers from the first. 3) There must not be any crosses.
      */
-    public static ControllerState calculateState(Collection<ControllerBlockEntity> controllers) {
+    public static ControllerState calculateState(Collection<TileController> controllers) {
         if (controllers.isEmpty()) {
             return ControllerState.NO_CONTROLLER;
         }
@@ -77,34 +76,54 @@ public class ControllerValidator implements IGridVisitor {
             return ControllerState.CONTROLLER_CONFLICT;
         }
 
-        // Explore the controller structure surrounding the first controller in our grid
-        var cv = new ControllerValidator(startingController.getBlockPos());
+        var cv = new ControllerValidator(startingController.getPos());
         startingNode.beginVisit(cv);
 
         if (!cv.isValid()) {
-            // The controller structure exceeds the maximum size
             return ControllerState.CONTROLLER_CONFLICT;
         }
 
         if (cv.getFound() != controllers.size()) {
-            // Not all controllers connected to this grid are directly connected to the first
-            // controller, so the visitor could not reach them.
             return ControllerState.CONTROLLER_CONFLICT;
         }
 
         if (hasControllerCross(controllers)) {
-            // Some controllers are positioned in a "cross"-like shape, which is not allowed either.
             return ControllerState.CONTROLLER_CONFLICT;
         }
 
         return ControllerState.CONTROLLER_ONLINE;
     }
 
+    /**
+     * Return true if controllers have a cross pattern, i.e. two neighbors on two or three axes.
+     */
+    private static boolean hasControllerCross(Collection<TileController> controllers) {
+        ObjectSet<BlockPos> posSet = new ObjectOpenHashSet<>(controllers.size());
+        for (var controller : controllers) {
+            posSet.add(controller.getPos().toImmutable());
+        }
+
+        for (var pos : posSet) {
+            boolean northSouth = posSet.contains(pos.offset(EnumFacing.NORTH))
+                && posSet.contains(pos.offset(EnumFacing.SOUTH));
+            boolean eastWest = posSet.contains(pos.offset(EnumFacing.EAST))
+                && posSet.contains(pos.offset(EnumFacing.WEST));
+            boolean upDown = posSet.contains(pos.offset(EnumFacing.UP))
+                && posSet.contains(pos.offset(EnumFacing.DOWN));
+
+            if ((northSouth ? 1 : 0) + (eastWest ? 1 : 0) + (upDown ? 1 : 0) > 1) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     @Override
     public boolean visitNode(IGridNode node) {
-        if (this.isValid() && node.getOwner() instanceof ControllerBlockEntity c) {
+        if (this.isValid() && node.getOwner() instanceof TileController c) {
 
-            var pos = c.getBlockPos();
+            var pos = c.getPos();
 
             this.minX = Math.min(pos.getX(), this.minX);
             this.maxX = Math.max(pos.getX(), this.maxX);
@@ -114,8 +133,8 @@ public class ControllerValidator implements IGridVisitor {
             this.maxZ = Math.max(pos.getZ(), this.maxZ);
 
             if (this.maxX - this.minX < MAX_SIZE
-                    && this.maxY - this.minY < MAX_SIZE
-                    && this.maxZ - this.minZ < MAX_SIZE) {
+                && this.maxY - this.minY < MAX_SIZE
+                && this.maxZ - this.minZ < MAX_SIZE) {
                 this.found++;
                 return true;
             }
@@ -124,31 +143,6 @@ public class ControllerValidator implements IGridVisitor {
         }
 
         // Only visit neighbors if this is a controller. This ensures that we only visit adjacent controllers.
-        return false;
-    }
-
-    /**
-     * Return true if controllers have a cross pattern, i.e. two neighbors on two or three axes.
-     */
-    private static boolean hasControllerCross(Collection<ControllerBlockEntity> controllers) {
-        Set<BlockPos> posSet = new HashSet<>(controllers.size());
-        for (var controller : controllers) {
-            posSet.add(controller.getBlockPos().immutable());
-        }
-
-        for (var pos : posSet) {
-            boolean northSouth = posSet.contains(pos.relative(Direction.NORTH))
-                    && posSet.contains(pos.relative(Direction.SOUTH));
-            boolean eastWest = posSet.contains(pos.relative(Direction.EAST))
-                    && posSet.contains(pos.relative(Direction.WEST));
-            boolean upDown = posSet.contains(pos.relative(Direction.UP))
-                    && posSet.contains(pos.relative(Direction.DOWN));
-
-            if ((northSouth ? 1 : 0) + (eastWest ? 1 : 0) + (upDown ? 1 : 0) > 1) {
-                return true;
-            }
-        }
-
         return false;
     }
 

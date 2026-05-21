@@ -18,40 +18,56 @@
 
 package appeng.client.render;
 
+import appeng.client.render.cablebus.FacadeBuilder;
+import appeng.core.AppEng;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModel;
+import net.minecraftforge.client.model.ModelLoaderRegistry;
+import net.minecraftforge.common.model.IModelState;
+import net.minecraftforge.common.model.TRSRTransformation;
+import org.jspecify.annotations.NonNull;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.function.Function;
 
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelState;
-import net.minecraft.resources.ResourceLocation;
+@SuppressWarnings("deprecation")
+public class FacadeItemModel implements IModel {
 
-import appeng.client.render.cablebus.FacadeBuilder;
-import appeng.core.AppEng;
-
-/**
- * The model class for facades. Since facades wrap existing models, they don't declare any dependencies here other than
- * the cable anchor.
- */
-public class FacadeItemModel implements BasicUnbakedModel {
-
-    // We use this to get the default item transforms and make our lives easier
     private static final ResourceLocation MODEL_BASE = AppEng.makeId("item/facade_base");
 
     @Override
-    public BakedModel bake(ModelBaker baker, Function<Material, TextureAtlasSprite> spriteGetter,
-            ModelState modelTransform) {
-        BakedModel bakedBaseModel = baker.bake(MODEL_BASE, modelTransform);
-        FacadeBuilder facadeBuilder = new FacadeBuilder(baker, null);
-
-        return new FacadeDispatcherBakedModel(bakedBaseModel, facadeBuilder);
+    public Collection<ResourceLocation> getDependencies() {
+        return Collections.singletonList(MODEL_BASE);
     }
 
     @Override
-    public Collection<ResourceLocation> getDependencies() {
-        return Collections.singleton(MODEL_BASE);
+    public Collection<ResourceLocation> getTextures() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public IBakedModel bake(@NonNull IModelState state, @NonNull VertexFormat format,
+                            @NonNull Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        IBakedModel bakedBaseModel = getBaseModel(state, format, bakedTextureGetter);
+        FacadeBuilder facadeBuilder = new FacadeBuilder(null);
+        return new FacadeDispatcherBakedModel(bakedBaseModel, facadeBuilder);
+    }
+
+    private IBakedModel getBaseModel(IModelState state, VertexFormat format,
+                                     Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        try {
+            return ModelLoaderRegistry.getModel(MODEL_BASE).bake(state, format, bakedTextureGetter);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public IModelState getDefaultState() {
+        return TRSRTransformation.identity().toItemTransform();
     }
 }

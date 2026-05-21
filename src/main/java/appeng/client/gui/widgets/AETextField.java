@@ -18,29 +18,25 @@
 
 package appeng.client.gui.widgets;
 
-import java.util.Collections;
+import appeng.client.Point;
+import appeng.client.gui.Rect2i;
+import appeng.client.gui.style.Blitter;
+import appeng.client.gui.style.GuiStyle;
+import appeng.client.gui.style.PaletteColor;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
+import org.jetbrains.annotations.Nullable;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.opengl.GL11;
+
 import java.util.List;
 import java.util.Objects;
-
-import com.mojang.blaze3d.platform.GlStateManager;
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.EditBox;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-
-import appeng.client.Point;
-import appeng.client.gui.style.Blitter;
-import appeng.client.gui.style.PaletteColor;
-import appeng.client.gui.style.ScreenStyle;
+import java.util.function.Consumer;
 
 /**
  * A modified version of the Minecraft text field. You can initialize it over the full element span. The mouse click
@@ -48,21 +44,25 @@ import appeng.client.gui.style.ScreenStyle;
  * <p>
  * The rendering does pay attention to the size of the '_' caret.
  */
-public class AETextField extends EditBox implements IResizableWidget, ITooltip {
+public class AETextField extends GuiTextField implements IResizableWidget, ITooltip {
     private static final Blitter BLITTER = Blitter.texture("guis/text_field.png", 128, 128);
 
     private static final int PADDING = 2;
 
+    private final FontRenderer fontRenderer;
     private final int fontPad;
-    private final ScreenStyle style;
+    private final GuiStyle style;
     private int selectionColor;
-    private List<Component> tooltipMessage = Collections.emptyList();
+    private boolean enabled = true;
+    private List<ITextComponent> tooltipMessage = ObjectLists.emptyList();
+    @Nullable
+    private Consumer<String> responder;
 
     /**
      * Displayed with a muted text color when the text box is unfocused and has no content.
      */
     @Nullable
-    private Component placeholder;
+    private ITextComponent placeholder;
 
     /**
      * Uses the values to instantiate a padded version of a text field. Pays attention to the '_' caret.
@@ -73,64 +73,83 @@ public class AETextField extends EditBox implements IResizableWidget, ITooltip {
      * @param width        absolute width
      * @param height       absolute height
      */
-    public AETextField(ScreenStyle style, Font fontRenderer, int xPos, int yPos, int width,
-            int height) {
-        super(fontRenderer, xPos + PADDING, yPos + PADDING,
-                width - 2 * PADDING - fontRenderer.width("_"), height - 2 * PADDING,
-                Component.empty());
+    public AETextField(GuiStyle style, FontRenderer fontRenderer, int xPos, int yPos, int width, int height) {
+        super(0, fontRenderer, xPos + PADDING, yPos + PADDING,
+            width - 2 * PADDING - fontRenderer.getStringWidth("_"), height - 2 * PADDING);
 
+        this.fontRenderer = fontRenderer;
         this.style = style;
-        this.fontPad = fontRenderer.width("_");
-        setSelectionColor(style.getColor(PaletteColor.TEXTFIELD_SELECTION).toARGB());
-        setTextColor(style.getColor(PaletteColor.TEXTFIELD_TEXT).toARGB());
+        this.fontPad = fontRenderer.getStringWidth("_");
+        this.setEnableBackgroundDrawing(false);
+        this.setSelectionColor(style.getColor(PaletteColor.TEXTFIELD_SELECTION).toARGB());
+        this.setTextColor(style.getColor(PaletteColor.TEXTFIELD_TEXT).toARGB());
+        this.setDisabledTextColour(style.getColor(PaletteColor.TEXTFIELD_TEXT).toARGB());
     }
 
-    // Extend the clickable area by the padding so we don't have a mouse deadzone that is still visually within
-    // the background we render.
-    @Override
-    public boolean isMouseOver(double mouseX, double mouseY) {
-        var bounds = getVisualBounds();
-        return mouseX >= bounds.left && mouseX < bounds.right
-                && mouseY >= bounds.top && mouseY < bounds.bottom;
+    public int getX() {
+        return this.x;
+    }
+
+    public int getY() {
+        return this.y;
+    }
+
+    public boolean isMouseOver(int mouseX, int mouseY) {
+        return getVisualBounds().contains(mouseX, mouseY);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // This hack is used to allow the standard mouse-click logic to recognize our clicks
-        // that are on the padding, but not really inside the edit box.
-        if (isMouseOver(mouseX, mouseY)) {
-            mouseX = Mth.clamp(mouseX, getX(), getX() + width - 1);
-            mouseY = Mth.clamp(mouseY, getY(), getY() + height - 1);
+    public boolean mouseClicked(int mouseX, int mouseY, int button) {
+        if (this.isMouseOver(mouseX, mouseY)) {
+            mouseX = MathHelper.clamp(mouseX, this.x, this.x + this.width - 1);
+            mouseY = MathHelper.clamp(mouseY, this.y, this.y + this.height - 1);
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
-    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-        if (super.keyPressed(keyCode, scanCode, modifiers)) {
+    public boolean textboxKeyTyped(char typedChar, int keyCode) {
+        if (super.textboxKeyTyped(typedChar, keyCode)) {
+            if (this.responder != null) {
+                this.responder.accept(this.getText());
+            }
             return true;
         }
 
-        // Swallow all key presses except for focus escape when we're focused to prevent "e" from
-        // closing the window instead of typing into the text field
-        return isFocused() && canConsumeInput() && keyCode != GLFW.GLFW_KEY_TAB && keyCode != GLFW.GLFW_KEY_ESCAPE;
+        return this.isFocused() && this.canConsumeInput() && keyCode != Keyboard.KEY_TAB && keyCode != Keyboard.KEY_ESCAPE;
+    }
+
+    public void setResponder(@Nullable Consumer<String> responder) {
+        this.responder = responder;
+    }
+
+    protected boolean canConsumeInput() {
+        return this.enabled && this.getVisible();
+    }
+
+    public void move(Point pos) {
+        this.move(pos.x(), pos.y());
     }
 
     @Override
-    public void move(Point pos) {
-        super.setX(pos.getX() + PADDING);
-        setY(pos.getY() + PADDING);
+    public void move(int x, int y) {
+        this.x = x + PADDING;
+        this.y = y + PADDING;
     }
 
     @Override
     public void resize(int width, int height) {
-        super.setWidth(width - 2 * PADDING - fontPad);
+        this.width = width - 2 * PADDING - this.fontPad;
         this.height = height - 2 * PADDING;
     }
 
     public void selectAll() {
-        this.moveCursorTo(0, false);
-        this.setHighlightPos(this.getMaxLength());
+        this.setCursorPositionZero();
+        this.setSelectionPos(this.getMaxStringLength());
+    }
+
+    public int getSelectionColor() {
+        return this.selectionColor;
     }
 
     public void setSelectionColor(int color) {
@@ -138,115 +157,104 @@ public class AETextField extends EditBox implements IResizableWidget, ITooltip {
     }
 
     @Override
-    public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partial) {
-        if (this.isVisible()) {
-            var yOffset = 0;
-            if (!this.isEditable()) {
-                yOffset = 12;
-            } else if (isFocused()) {
-                yOffset = 24;
-            }
-
-            var bounds = getVisualBounds();
-
-            BLITTER.src(0, yOffset, 1, 12)
-                    .dest(bounds.left, bounds.top)
-                    .blit(guiGraphics);
-            var backgroundWidth = Math.min(126, bounds.right - bounds.left - 2);
-            BLITTER.src(1, yOffset, backgroundWidth, 12)
-                    .dest(bounds.left + 1, bounds.top)
-                    .blit(guiGraphics);
-            BLITTER.src(127, yOffset, 1, 12)
-                    .dest(bounds.right - 1, bounds.top)
-                    .blit(guiGraphics);
-
-            super.renderWidget(guiGraphics, mouseX, mouseY, partial);
-
-            // Render a placeholder value if the text field isn't focused and is empty
-            if (placeholder != null && !isFocused() && getValue().isEmpty()) {
-                var font = Minecraft.getInstance().font;
-                guiGraphics.drawString(font, placeholder, getX(), getY(),
-                        style.getColor(PaletteColor.TEXTFIELD_PLACEHOLDER).toARGB(), false);
-            }
-        }
-    }
-
-    @Override
-    public void renderHighlight(GuiGraphics guiGraphics, int startX, int startY, int endX, int endY) {
-        if (!this.isFocused()) {
+    public void drawTextBox() {
+        if (!this.getVisible()) {
             return;
         }
 
-        if (startX < endX) {
-            int i = startX;
-            startX = endX;
-            endX = i;
+        GlStateManager.pushMatrix();
+        try {
+            RenderHelper.disableStandardItemLighting();
+            GlStateManager.disableLighting();
+            GlStateManager.disableDepth();
+            GlStateManager.enableTexture2D();
+            GlStateManager.enableBlend();
+            GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+            GlStateManager.colorMask(true, true, true, true);
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+
+            int yOffset = 0;
+            if (!this.enabled) {
+                yOffset = 12;
+            } else if (this.isFocused()) {
+                yOffset = 24;
+            }
+
+            Rect2i bounds = getVisualBounds();
+
+            BLITTER.copy().src(0, yOffset, 1, 12)
+                   .dest(bounds.x(), bounds.y())
+                   .blit();
+            int backgroundWidth = Math.min(126, bounds.width() - 2);
+            BLITTER.copy().src(1, yOffset, backgroundWidth, 12)
+                   .dest(bounds.x() + 1, bounds.y())
+                   .blit();
+            BLITTER.copy().src(127, yOffset, 1, 12)
+                   .dest(bounds.x() + bounds.width() - 1, bounds.y())
+                   .blit();
+
+            super.drawTextBox();
+
+            if (this.placeholder != null && !this.isFocused() && this.getText().isEmpty()) {
+                this.fontRenderer.drawString(this.placeholder.getFormattedText(), this.x, this.y,
+                    this.style.getColor(PaletteColor.TEXTFIELD_PLACEHOLDER).toARGB());
+            }
+        } finally {
+            GlStateManager.colorMask(true, true, true, true);
+            GlStateManager.enableTexture2D();
+            GlStateManager.disableLighting();
+            GlStateManager.disableDepth();
+            GlStateManager.enableBlend();
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            GlStateManager.popMatrix();
         }
-
-        startX += 1;
-        endX -= 1;
-
-        if (startY < endY) {
-            int j = startY;
-            startY = endY;
-            endY = j;
-        }
-
-        startY -= PADDING;
-
-        endX = Mth.clamp(endX, getX(), getX() + this.width);
-        startX = Mth.clamp(startX, getX(), getX() + this.width);
-
-        RenderSystem.enableColorLogicOp();
-        RenderSystem.logicOp(GlStateManager.LogicOp.OR_REVERSE);
-        guiGraphics.fill(startX, startY, endX, endY, this.selectionColor);
-        RenderSystem.disableColorLogicOp();
     }
 
     @Override
     public Rect2i getTooltipArea() {
         return new Rect2i(
-                getX() - PADDING,
-                getY() - PADDING,
-                width + 2 * PADDING + fontPad,
-                height + 2 * PADDING);
+            this.x - PADDING,
+            this.y - PADDING,
+            this.width + 2 * PADDING + this.fontPad,
+            this.height + 2 * PADDING);
     }
 
     @Override
     public boolean isTooltipAreaVisible() {
-        return visible;
+        return this.getVisible();
     }
 
-    @NotNull
     @Override
-    public List<Component> getTooltipMessage() {
-        return tooltipMessage;
+    public List<ITextComponent> getTooltipMessage() {
+        return this.tooltipMessage;
     }
 
-    public void setTooltipMessage(List<Component> tooltipMessage) {
+    public void setTooltipMessage(List<ITextComponent> tooltipMessage) {
         this.tooltipMessage = Objects.requireNonNull(tooltipMessage);
     }
 
-    private VisualBounds getVisualBounds() {
-        // Render background
-        int left = getX() - PADDING;
-        int top = getY() - PADDING;
-        int right = left + width + 2 * PADDING + fontPad;
-        return new VisualBounds(
-                left,
-                top,
-                right,
-                top + height + 2 * PADDING);
+    @Override
+    public void setEnabled(boolean enabled) {
+        super.setEnabled(enabled);
+        this.enabled = enabled;
     }
 
-    public void setPlaceholder(Component placeholder) {
+    private Rect2i getVisualBounds() {
+        int left = this.x - PADDING;
+        int top = this.y - PADDING;
+        return new Rect2i(
+            left,
+            top,
+            this.width + 2 * PADDING + this.fontPad,
+            this.height + 2 * PADDING);
+    }
+
+    @Nullable
+    public ITextComponent getPlaceholder() {
+        return this.placeholder;
+    }
+
+    public void setPlaceholder(@Nullable ITextComponent placeholder) {
         this.placeholder = placeholder;
-    }
-
-    public Component getPlaceholder() {
-        return placeholder;
-    }
-
-    private record VisualBounds(int left, int top, int right, int bottom) {
     }
 }

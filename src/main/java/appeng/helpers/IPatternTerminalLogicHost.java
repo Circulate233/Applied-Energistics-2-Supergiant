@@ -1,13 +1,12 @@
 package appeng.helpers;
 
-import net.minecraft.world.level.Level;
-
 import appeng.parts.encoding.PatternEncodingLogic;
+import net.minecraft.world.World;
 
 public interface IPatternTerminalLogicHost {
     PatternEncodingLogic getLogic();
 
-    Level getLevel();
+    World getLevel();
 
     void markForSave();
 }

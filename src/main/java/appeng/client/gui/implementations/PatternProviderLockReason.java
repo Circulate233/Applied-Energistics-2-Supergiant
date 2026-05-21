@@ -1,39 +1,36 @@
 package appeng.client.gui.implementations;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.Style;
-import net.minecraft.util.Mth;
-
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.stacks.AmountFormat;
+import appeng.api.stacks.GenericStack;
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
 import appeng.client.gui.Icon;
+import appeng.client.gui.Rect2i;
 import appeng.client.gui.Tooltip;
+import appeng.container.implementations.ContainerPatternProvider;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.InGameTooltip;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import org.jetbrains.annotations.Nullable;
 
 public class PatternProviderLockReason implements ICompositeWidget {
-    protected boolean visible = false;
-    protected int x;
-    protected int y;
+    private final GuiPatternProvider screen;
+    private boolean visible;
+    private int x;
+    private int y;
 
-    private final PatternProviderScreen<?> screen;
-
-    public PatternProviderLockReason(PatternProviderScreen<?> screen) {
+    public PatternProviderLockReason(GuiPatternProvider screen) {
         this.screen = screen;
     }
 
     @Override
     public void setPosition(Point position) {
-        x = position.getX();
-        y = position.getY();
+        this.x = position.x();
+        this.y = position.y();
     }
 
     @Override
@@ -42,12 +39,12 @@ public class PatternProviderLockReason implements ICompositeWidget {
 
     @Override
     public Rect2i getBounds() {
-        return new Rect2i(x, y, 126, 16);
+        return new Rect2i(this.x, this.y, 126, 16);
     }
 
     @Override
-    public final boolean isVisible() {
-        return visible;
+    public boolean isVisible() {
+        return this.visible;
     }
 
     public void setVisible(boolean visible) {
@@ -55,50 +52,51 @@ public class PatternProviderLockReason implements ICompositeWidget {
     }
 
     @Override
-    public void drawForegroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
-        var menu = screen.getMenu();
-
+    public void drawForegroundLayer(Rect2i bounds, Point mouse) {
+        ContainerPatternProvider container = this.screen.getContainer();
         Icon icon;
-        Component lockStatusText;
-        if (menu.getCraftingLockedReason() == LockCraftingMode.NONE) {
+        ITextComponent text;
+        int color;
+
+        if (container.getCraftingLockedReason() == LockCraftingMode.NONE) {
             icon = Icon.UNLOCKED;
-            lockStatusText = GuiText.CraftingLockIsUnlocked.text()
-                    .setStyle(Style.EMPTY.withColor(Mth.color(125 / 255f, 169 / 255f, 210 / 255f)));
+            text = GuiText.CraftingLockIsUnlocked.text();
+            color = 0x7DA9D2;
         } else {
             icon = Icon.LOCKED;
-            lockStatusText = GuiText.CraftingLockIsLocked.text()
-                    .setStyle(Style.EMPTY.withColor(Mth.color(193 / 255f, 66 / 255f, 75 / 255f)));
+            text = GuiText.CraftingLockIsLocked.text();
+            color = 0xC1424B;
         }
 
-        icon.getBlitter().dest(x, y).blit(guiGraphics);
-        guiGraphics.drawString(Minecraft.getInstance().font, lockStatusText, x + 15, y + 5, -1, false);
+        icon.getBlitter().dest(this.x, this.y).blit();
+        Minecraft.getMinecraft().fontRenderer.drawString(text.getFormattedText(), this.x + 15, this.y + 5, color);
     }
 
     @Nullable
     @Override
     public Tooltip getTooltip(int mouseX, int mouseY) {
-        var menu = screen.getMenu();
-        var tooltip = switch (menu.getCraftingLockedReason()) {
-            case NONE -> null;
-            case LOCK_UNTIL_PULSE -> InGameTooltip.CraftingLockedUntilPulse.text();
-            case LOCK_WHILE_HIGH -> InGameTooltip.CraftingLockedByRedstoneSignal.text();
-            case LOCK_WHILE_LOW -> InGameTooltip.CraftingLockedByLackOfRedstoneSignal.text();
-            case LOCK_UNTIL_RESULT -> {
-                var stack = menu.getUnlockStack();
-                Component stackName;
-                Component stackAmount;
-                if (stack != null) {
-                    stackName = AEKeyRendering.getDisplayName(stack.what());
-                    stackAmount = Component.literal(stack.what().formatAmount(stack.amount(), AmountFormat.FULL));
-                } else {
-                    stackName = Component.literal("ERROR");
-                    stackAmount = Component.literal("ERROR");
-
-                }
-                yield InGameTooltip.CraftingLockedUntilResult.text(stackName, stackAmount);
-            }
-        };
-
-        return tooltip != null ? new Tooltip(tooltip) : null;
+        ContainerPatternProvider container = this.screen.getContainer();
+        LockCraftingMode reason = container.getCraftingLockedReason();
+        switch (reason) {
+            case LOCK_UNTIL_PULSE:
+                return new Tooltip(InGameTooltip.CraftingLockedUntilPulse.text());
+            case LOCK_WHILE_HIGH:
+                return new Tooltip(InGameTooltip.CraftingLockedByRedstoneSignal.text());
+            case LOCK_WHILE_LOW:
+                return new Tooltip(InGameTooltip.CraftingLockedByLackOfRedstoneSignal.text());
+            case LOCK_UNTIL_RESULT:
+                GenericStack unlockStack = container.getUnlockStack();
+                ITextComponent stackName = unlockStack != null
+                    ? AEKeyRendering.getDisplayName(unlockStack.what())
+                    : new TextComponentString("ERROR");
+                ITextComponent stackAmount = unlockStack != null
+                    ? new TextComponentString(unlockStack.what().formatAmount(unlockStack.amount(), AmountFormat.FULL))
+                    : new TextComponentString("ERROR");
+                return new Tooltip(InGameTooltip.CraftingLockedUntilResult.text(stackName, stackAmount));
+            case NONE:
+            default:
+                return null;
+        }
     }
 }
+

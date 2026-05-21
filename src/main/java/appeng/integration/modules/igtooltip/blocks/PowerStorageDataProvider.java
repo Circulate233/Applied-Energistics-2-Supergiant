@@ -1,10 +1,5 @@
 package appeng.integration.modules.igtooltip.blocks;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
@@ -12,22 +7,26 @@ import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.core.localization.InGameTooltip;
 import appeng.util.Platform;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraftforge.common.util.Constants;
 
 /**
- * Shows stored power and max stored power for an {@link IAEPowerStorage} block entity.
+ * Shows stored power and max stored power for an {@link IAEPowerStorage} tile entity.
  */
-public final class PowerStorageDataProvider implements BodyProvider<BlockEntity>, ServerDataProvider<BlockEntity> {
+public final class PowerStorageDataProvider implements BodyProvider<TileEntity>, ServerDataProvider<TileEntity> {
 
     /**
-     * Power key used for the transferred {@link CompoundTag}
+     * Power key used for the transferred {@link NBTTagCompound}
      */
     private static final String TAG_CURRENT_POWER = "currentPower";
     private static final String TAG_MAX_POWER = "maxPower";
 
     @Override
-    public void buildTooltip(BlockEntity object, TooltipContext context, TooltipBuilder tooltip) {
+    public void buildTooltip(TileEntity object, TooltipContext context, TooltipBuilder tooltip) {
         var tag = context.serverData();
-        if (tag.contains(TAG_MAX_POWER, Tag.TAG_DOUBLE)) {
+        if (tag.hasKey(TAG_MAX_POWER, Constants.NBT.TAG_DOUBLE)) {
             var currentPower = tag.getDouble(TAG_CURRENT_POWER);
             var maxPower = tag.getDouble(TAG_MAX_POWER);
 
@@ -39,11 +38,11 @@ public final class PowerStorageDataProvider implements BodyProvider<BlockEntity>
     }
 
     @Override
-    public void provideServerData(Player player, BlockEntity object, CompoundTag serverData) {
+    public void provideServerData(EntityPlayer player, TileEntity object, NBTTagCompound serverData) {
         if (object instanceof IAEPowerStorage storage) {
             if (storage.getAEMaxPower() > 0) {
-                serverData.putDouble(TAG_CURRENT_POWER, storage.getAECurrentPower());
-                serverData.putDouble(TAG_MAX_POWER, storage.getAEMaxPower());
+                serverData.setDouble(TAG_CURRENT_POWER, storage.getAECurrentPower());
+                serverData.setDouble(TAG_MAX_POWER, storage.getAEMaxPower());
             }
         }
     }

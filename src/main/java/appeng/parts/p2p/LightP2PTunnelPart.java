@@ -18,16 +18,6 @@
 
 package appeng.parts.p2p;
 
-import java.util.List;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.ticking.IGridTickable;
@@ -38,22 +28,29 @@ import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
 import appeng.items.parts.PartModels;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+
+import java.util.List;
 
 public class LightP2PTunnelPart extends P2PTunnelPart<LightP2PTunnelPart> implements IGridTickable {
 
     private static final P2PModels MODELS = new P2PModels(AppEng.makeId("part/p2p/p2p_tunnel_light"));
-
-    @PartModels
-    public static List<IPartModel> getModels() {
-        return MODELS.getModels();
-    }
-
     private int lastValue = 0;
     private int opacity = -1;
 
     public LightP2PTunnelPart(IPartItem<?> partItem) {
         super(partItem);
         getMainNode().addService(IGridTickable.class, this);
+    }
+
+    @PartModels
+    public static List<IPartModel> getModels() {
+        return MODELS.getModels();
     }
 
     @Override
@@ -70,13 +67,13 @@ public class LightP2PTunnelPart extends P2PTunnelPart<LightP2PTunnelPart> implem
     }
 
     @Override
-    public void writeToStream(RegistryFriendlyByteBuf data) {
+    public void writeToStream(PacketBuffer data) {
         super.writeToStream(data);
         data.writeInt(this.isOutput() ? this.lastValue : 0);
     }
 
     @Override
-    public boolean readFromStream(RegistryFriendlyByteBuf data) {
+    public boolean readFromStream(PacketBuffer data) {
         boolean changed = super.readFromStream(data);
         final int oldValue = this.lastValue;
 
@@ -91,10 +88,9 @@ public class LightP2PTunnelPart extends P2PTunnelPart<LightP2PTunnelPart> implem
             return false;
         }
 
-        final BlockEntity te = this.getBlockEntity();
-        final Level level = te.getLevel();
-
-        final int newLevel = level.getMaxLocalRawBrightness(te.getBlockPos().relative(this.getSide()));
+        final TileEntity te = this.getTileEntity();
+        final World level = te.getWorld();
+        final int newLevel = level.getLightFromNeighbors(te.getPos().offset(this.getSide()));
 
         if (this.lastValue != newLevel && this.getMainNode().isActive()) {
             this.lastValue = newLevel;
@@ -107,8 +103,8 @@ public class LightP2PTunnelPart extends P2PTunnelPart<LightP2PTunnelPart> implem
     }
 
     @Override
-    public void onNeighborChanged(BlockGetter level, BlockPos pos, BlockPos neighbor) {
-        if (this.isOutput() && pos.relative(this.getSide()).equals(neighbor)) {
+    public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
+        if (this.isOutput() && pos.offset(this.getSide()).equals(neighbor)) {
             this.opacity = -1;
             this.getHost().markForUpdate();
         } else {
@@ -132,25 +128,25 @@ public class LightP2PTunnelPart extends P2PTunnelPart<LightP2PTunnelPart> implem
 
     private int blockLight(int emit) {
         if (this.opacity == -1) {
-            var be = getHost().getBlockEntity();
-            var level = be.getLevel();
-            var pos = be.getBlockPos();
-            this.opacity = level.getMaxLocalRawBrightness(pos.relative(getSide()));
+            TileEntity be = getHost().getTileEntity();
+            World level = be.getWorld();
+            BlockPos pos = be.getPos();
+            this.opacity = level.getLightFromNeighbors(pos.offset(getSide()));
         }
 
-        return Math.max(0, emit - opacity);
+        return Math.max(0, emit - this.opacity);
     }
 
     @Override
-    public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.readFromNBT(tag, registries);
-        this.lastValue = tag.getInt("lastValue");
+    public void readFromNBT(NBTTagCompound tag) {
+        super.readFromNBT(tag);
+        this.lastValue = tag.getInteger("lastValue");
     }
 
     @Override
-    public void writeToNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.writeToNBT(tag, registries);
-        tag.putInt("lastValue", this.lastValue);
+    public void writeToNBT(NBTTagCompound tag) {
+        super.writeToNBT(tag);
+        tag.setInteger("lastValue", this.lastValue);
     }
 
     @Override
@@ -186,5 +182,6 @@ public class LightP2PTunnelPart extends P2PTunnelPart<LightP2PTunnelPart> implem
     public IPartModel getStaticModels() {
         return MODELS.getModel(this.isPowered(), this.isActive());
     }
-
 }
+
+

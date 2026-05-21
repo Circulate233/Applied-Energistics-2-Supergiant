@@ -1,16 +1,16 @@
 package appeng.api.orientation;
 
-import net.minecraft.core.Direction;
+import net.minecraft.util.EnumFacing;
 
 public enum RelativeSide {
-    FRONT(Direction.NORTH),
-    BACK(Direction.SOUTH),
-    TOP(Direction.UP),
-    BOTTOM(Direction.DOWN),
-    LEFT(Direction.WEST),
-    RIGHT(Direction.EAST);
+    FRONT(EnumFacing.NORTH),
+    BACK(EnumFacing.SOUTH),
+    TOP(EnumFacing.UP),
+    BOTTOM(EnumFacing.DOWN),
+    LEFT(EnumFacing.WEST),
+    RIGHT(EnumFacing.EAST);
 
-    private static final RelativeSide[] BY_UNROTATED_SIDE = new RelativeSide[Direction.values().length];
+    private static final RelativeSide[] BY_UNROTATED_SIDE = new RelativeSide[EnumFacing.values().length];
 
     static {
         for (var side : values()) {
@@ -18,20 +18,20 @@ public enum RelativeSide {
         }
     }
 
-    private final Direction unrotatedSide;
+    private final EnumFacing unrotatedSide;
 
-    RelativeSide(Direction unrotatedSide) {
+    RelativeSide(EnumFacing unrotatedSide) {
         this.unrotatedSide = unrotatedSide;
     }
 
     /**
      * Find the relative side on the given absolute side of a block, assuming its default orientation.
      */
-    public static RelativeSide fromUnrotatedSide(Direction side) {
+    public static RelativeSide fromUnrotatedSide(EnumFacing side) {
         return BY_UNROTATED_SIDE[side.ordinal()];
     }
 
-    public Direction getUnrotatedSide() {
+    public EnumFacing getUnrotatedSide() {
         return unrotatedSide;
     }
 }

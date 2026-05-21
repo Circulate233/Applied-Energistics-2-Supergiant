@@ -23,12 +23,11 @@
 
 package appeng.api.config;
 
-import java.util.EnumSet;
-import java.util.Set;
-
+import appeng.api.util.IConfigManager;
 import com.google.common.collect.ImmutableSet;
 
-import appeng.api.util.IConfigManager;
+import java.util.EnumSet;
+import java.util.Set;
 
 public final class Setting<T extends Enum<T>> {
 

@@ -1,40 +1,29 @@
 package appeng.core.network.bidirectional;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.config.Setting;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
-import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
-import appeng.core.network.ServerboundPacket;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import org.jspecify.annotations.Nullable;
 
-public record ConfigValuePacket(String name, String value) implements ClientboundPacket, ServerboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, ConfigValuePacket> STREAM_CODEC = StreamCodec.ofMember(
-            ConfigValuePacket::write,
-            ConfigValuePacket::decode);
+public class ConfigValuePacket implements IMessage {
+    private String name;
+    private String value;
 
-    public static final Type<ConfigValuePacket> TYPE = CustomAppEngPayload.createType("config_value");
-
-    @Override
-    public Type<ConfigValuePacket> type() {
-        return TYPE;
+    public ConfigValuePacket() {
     }
 
-    public static ConfigValuePacket decode(RegistryFriendlyByteBuf stream) {
-        var name = stream.readUtf();
-        var value = stream.readUtf();
-        return new ConfigValuePacket(name, value);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeUtf(name);
-        data.writeUtf(value);
+    public ConfigValuePacket(String name, String value) {
+        this.name = name;
+        this.value = value;
     }
 
     public <T extends Enum<T>> ConfigValuePacket(Setting<T> setting, T value) {
@@ -49,29 +38,55 @@ public record ConfigValuePacket(String name, String value) implements Clientboun
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        if (player.containerMenu instanceof IConfigurableObject configurableObject) {
+    public void fromBytes(ByteBuf buf) {
+        this.name = ByteBufUtils.readUTF8String(buf);
+        this.value = ByteBufUtils.readUTF8String(buf);
+    }
+
+    @Override
+    public void toBytes(ByteBuf buf) {
+        ByteBufUtils.writeUTF8String(buf, this.name);
+        ByteBufUtils.writeUTF8String(buf, this.value);
+    }
+
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.player != null && minecraft.player.openContainer instanceof IConfigurableObject configurableObject) {
             loadSetting(configurableObject);
         }
     }
 
-    @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (player.containerMenu instanceof IConfigurableObject configurableObject) {
+    public void handleServer(EntityPlayerMP player) {
+        if (player.openContainer instanceof IConfigurableObject configurableObject) {
             loadSetting(configurableObject);
         }
     }
 
     private void loadSetting(IConfigurableObject configurableObject) {
-        var cm = configurableObject.getConfigManager();
-
-        for (var setting : cm.getSettings()) {
+        var configManager = configurableObject.getConfigManager();
+        for (var setting : configManager.getSettings()) {
             if (setting.getName().equals(this.name)) {
-                setting.setFromString(cm, value);
+                setting.setFromString(configManager, this.value);
                 break;
             }
         }
     }
 
+    public static final class ClientHandler implements IMessageHandler<ConfigValuePacket, IMessage> {
+        @Override
+        public @Nullable IMessage onMessage(ConfigValuePacket message, MessageContext ctx) {
+            Minecraft minecraft = Minecraft.getMinecraft();
+            minecraft.addScheduledTask(() -> message.handleClient(minecraft));
+            return null;
+        }
+    }
+
+    public static final class ServerHandler implements IMessageHandler<ConfigValuePacket, IMessage> {
+        @Override
+        public @Nullable IMessage onMessage(ConfigValuePacket message, MessageContext ctx) {
+            EntityPlayerMP player = ctx.getServerHandler().player;
+            player.getServerWorld().addScheduledTask(() -> message.handleServer(player));
+            return null;
+        }
+    }
 }

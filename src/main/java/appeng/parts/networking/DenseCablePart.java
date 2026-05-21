@@ -18,22 +18,20 @@
 
 package appeng.parts.networking;
 
-import java.util.function.Predicate;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
 import appeng.api.parts.BusSupport;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.items.parts.ColoredPartItem;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.function.Predicate;
 
 public abstract class DenseCablePart extends CablePart {
     public DenseCablePart(ColoredPartItem<?> partItem) {
         super(partItem);
-
         this.getMainNode().setFlags(GridFlags.DENSE_CAPACITY);
     }
 
@@ -43,7 +41,7 @@ public abstract class DenseCablePart extends CablePart {
     }
 
     @Override
-    public void getBoxes(IPartCollisionHelper bch, Predicate<@Nullable Direction> filterConnections) {
+    public void getBoxes(IPartCollisionHelper bch, Predicate<@Nullable EnumFacing> filterConnections) {
         updateConnections();
 
         final boolean noLadder = !bch.isBBCollision();
@@ -67,16 +65,14 @@ public abstract class DenseCablePart extends CablePart {
         }
     }
 
-    private boolean isDense(Direction of) {
-        var adjacentPos = getBlockEntity().getBlockPos().relative(of);
+    private boolean isDense(EnumFacing of) {
+        BlockPos adjacentPos = getTileEntity().getPos().offset(of);
 
-        if (!getLevel().hasChunkAt(adjacentPos)) {
-            // Avoid loading chunk for this.
+        if (!getLevel().isBlockLoaded(adjacentPos)) {
             return false;
         }
 
-        var adjacentHost = GridHelper.getNodeHost(getBlockEntity().getLevel(), adjacentPos);
-
+        var adjacentHost = GridHelper.getNodeHost(getLevel(), adjacentPos);
         if (adjacentHost != null) {
             var t = adjacentHost.getCableConnectionType(of.getOpposite());
             return t.isDense();
@@ -84,5 +80,5 @@ public abstract class DenseCablePart extends CablePart {
 
         return false;
     }
-
 }
+

@@ -3,343 +3,389 @@ title: Addon and Mod API
 # Note that this file is automatically included into the Website and is available at https://appliedenergistics.github.io/api.html
 ---
 
-The Javadocs of the latest unreleased version are available at https://appliedenergistics.github.io/javadoc/.
+## Source Layout
+
+This branch exposes AE2's public API from `src/main/java/appeng/api`.
+
+The `src/api/java` source set contains compatibility stubs for optional external mods. It is compiled as the
+`stubApi` source set, is placed on the main source set's compile classpath, and is then removed from the final AE2 jar.
+Use `src/main/java/appeng/api` as the public AE2 API surface.
 
 ## Mod Initialization
 
 AE2 offers various extension points for your mod to hook into. The following table lists the API classes that are most
-relevant during mod initialization:
+relevant during normal Forge mod initialization:
 
-| Class | Purpose                                                                                                          |
-| ------------- |------------------------------------------------------------------------------------------------------------------|
-| `appeng.api.stacks.AEKeyTypes`  | Addons can use this class to register custom storage types similar to `AEItemKey` and `AEFluidKey`.               |
-| `appeng.api.networking.GridServices`  | Addons can register their own grid-wide services here.                                                           |
-| `appeng.api.movable.BlockEntityMoveStrategies` | Allows mods to register custom strategies for moving block entities in and out of spatial storage.              |
-| `appeng.api.features.GridLinkables` | For working with and adding items that can be linked to a grid in the security station.                          |
-| `appeng.api.storage.StorageCells` | For working with and adding items that serve as storage cells for grids.                                         |
-| `appeng.api.features.Locatables` | For discovering quantum network bridges based on their unique keys, regardless of location. |
-| `appeng.api.parts.PartModels` | For registering JSON block models used by custom cable bus parts.                                                |
-| `appeng.api.features.P2PTunnelAttunement` | For registering new items that attune P2P tunnels to specific types when right-clicked.                |
-| `appeng.api.client.StorageCellModels` | For customizing the models of storage cells when they're inserted into drives or ME chests.                      |
+| Class                                          | Purpose                                                                                             |
+|------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| `appeng.api.stacks.AEKeyTypes`                 | Addons can register custom storage types similar to `AEItemKey` and `AEFluidKey`.                   |
+| `appeng.api.networking.GridServices`           | Addons can register their own grid-wide services here.                                              |
+| `appeng.api.movable.BlockEntityMoveStrategies` | Allows mods to register custom strategies for moving tile entities in and out of spatial storage.   |
+| `appeng.api.features.GridLinkables`            | For working with and adding items that can be linked to a grid in the security station.             |
+| `appeng.api.storage.StorageCells`              | For working with and adding items that serve as storage cells for grids.                            |
+| `appeng.api.features.Locatables`               | For discovering quantum network bridges and other locatable objects based on their unique keys.     |
+| `appeng.api.parts.PartModels`                  | For registering JSON block models used by custom cable bus parts.                                   |
+| `appeng.api.features.P2PTunnelAttunement`      | For registering new items that attune P2P tunnels to specific types when right-clicked.             |
+| `appeng.api.client.StorageCellModels`          | For customizing the models of storage cells when they are inserted into drives or ME chests.        |
+| `appeng.api.upgrades.Upgrades`                 | For managing upgrade cards and associating them with upgradable items, parts, or blocks.            |
+| `appeng.api.upgrades.UpgradeInventories`       | For creating upgrade inventories for upgradable machines and item-backed hosts.                     |
 
-In general, these classes are thread-safe and may be used directly in a mod's constructor or thereafter.
-Once initialization of mods has completed however, changes to these registries result in undefined behavior.
-
-Since order of mod initialization on Fabric is undefined, addons that rely on AE2's items and blocks being registered
-will need to use the custom entrypoint defined by `IAEAddonEntrypoint`. See that classes javadoc for details.
+In general, these registries are synchronized and may be used during mod loading. Finish registration before gameplay
+starts using the affected systems. Changes after mod initialization can leave already-created grids, storage cells,
+models, or upgrade inventories with stale assumptions.
 
 ## Item and Fluid Keys
 
 Item and fluid types are represented by keys in AE2. The `AEKey` class is the base for all keys, whether they represent
-items (`AEItemKey`) or fluids (`AEFluidKey`). Most of AE2s interfaces are generic in that they accept any `AEKey`,
-whether it is for a fluid or item. 
+items (`AEItemKey`) or fluids (`AEFluidKey`). Most AE2 interfaces are generic in that they accept any `AEKey`, whether
+it represents a fluid, item, or addon-provided key type.
 
-Keys do not have counts since they don't represent a particular amount of items or fluid, they represent the *type*
-of item or type of fluid. As such, an item key consists of a reference to the `Item` and potential NBT data.
+Keys do not have counts because they represent a type of resource. The amount is carried separately by storage,
+crafting, transfer, and display APIs. For items, an `AEItemKey` consists of the `Item`, the 1.12.2 metadata/damage
+value, the maximum stack size captured from the original stack, and optional NBT. For fluids, an `AEFluidKey` consists
+of the `Fluid` and optional `FluidStack` tag data.
 
-To represent a stack of some key, AE2 provides the utility class `GenericStack`. It consists of a key and an amount.
+To represent a stack of some key, AE2 provides `GenericStack`. It consists of a key and an amount. It can be converted
+from `ItemStack` or `FluidStack`, serialized to NBT, written to packets, and wrapped into an `ItemStack` for display
+or filtering.
 
-Each type of key is represented by an instance of `AEKeyType`, which is accessible via `AEKey.getType()`. It stores
-some properties common to all keys of a type (i.e. all item keys, or all fluid keys). 
+Each type of key is represented by an instance of `AEKeyType`, accessible via `AEKey.getType()`. It stores properties
+common to all keys of a type, such as amount formatting, bytes per amount, operation amount, the packet reader, and
+the NBT reader. New key families are registered through `AEKeyTypes.register`.
 
-Keys can be saved to from NBT using `toTagGeneric`, which also stores a reference to their type so that
-`AEKey.fromTagGeneric` can restore the key of the correct type. The same mechanism can be used for packets with
-`AEKey.writeToPacket` and `AEKey.readKey`.
+Keys can be saved to NBT using `toTagGeneric`, which also stores a reference to their type so that
+`AEKey.fromTagGeneric` can restore the key without the caller knowing the exact key class. The same mechanism can be
+used for packets with `AEKey.writeKey`, `AEKey.writeOptionalKey`, `AEKey.readKey`, and `AEKey.readOptionalKey`.
 
-Since Java 16, the following pattern makes it easy to work with generic keys when your code only supports items:
+Use `dropSecondary()` and `getPrimaryKey()` for fuzzy matching and indexing scenarios where the primary resource type
+matters more than NBT or other secondary data. For items in this branch, damage is also exposed through
+`getFuzzySearchValue()` so 1.12.2 durability-based fuzzy filtering can work.
+
+Example when your code only supports item keys:
 
 ```java
-if (key instanceof AEItemKey itemKey) {
-    ItemStack is = itemKey.toStack();
+if (key instanceof AEItemKey) {
+    AEItemKey itemKey = (AEItemKey) key;
+    ItemStack stack = itemKey.toStack();
+    // [...]
+}
+```
+
+Example when your code only supports fluid keys:
+
+```java
+if (key instanceof AEFluidKey) {
+    AEFluidKey fluidKey = (AEFluidKey) key;
+    FluidStack stack = fluidKey.toStack(1000);
     // [...]
 }
 ```
 
 ## Grids and Nodes
 
-AE2's core systems work by building grids from grid nodes that are created and owned by ingame objects such as block
+AE2's core systems work by building grids from grid nodes that are created and owned by in-game objects such as tile
 entities or parts. Grids are never created directly. They form and disband automatically by creating grid nodes, and
-connecting or disconnecting them.
+connecting or disconnecting them through world adjacency or explicit virtual links.
 
 **NOTE:** Grids are purely a server-side concept. They do not exist on the client.
 
 ### Node Owners and Listeners
 
-Every node is owned by an in-game object. An owner doesn't need to implement any particular interface. This makes it
-possible to integrate existing game objects with AE2 without having to introduce a hard dependency on it.
+Every node is owned by an in-game object. An owner can be a tile entity, part, item-backed host, or another object
+that needs to participate in the network. The owner does not need to implement a dedicated API interface. This makes it
+possible to integrate existing game objects with AE2 without forcing all host classes into the same inheritance model.
 
-The node uses a listener (`IGridNodeListener<T>`) to interact with its owner. Both owner and listener have to be passed
-together to `IGridHelper` to create a node to allow the listener to be reused while still having type-safe access to the
-owner.
+The node uses a listener (`IGridNodeListener<T>`) to interact with its owner. Both owner and listener are passed
+together to `GridHelper.createManagedNode(owner, listener)`. Keeping the listener separate allows a single listener
+instance to be reused while still having type-safe access to the owner.
+
+The listener is responsible for adapting node events back into host behavior. Typical actions include marking a tile
+entity dirty when node data changes, refreshing client rendering when visible connections change, and updating block
+state when power, channel, or grid boot state changes.
 
 **Example:**
 
 ```java
-class MyBlockEntityListener implements IGridNodeListener<MyBlockEntity> {
-    public static final MyBlockEntityListener INSTANCE = new MyBlockEntityListener();
+class MyTileListener implements IGridNodeListener<MyTileEntity> {
+    static final MyTileListener INSTANCE = new MyTileListener();
 
     @Override
-    public void onStateChanged(MyBlockEntity nodeOwner, IGridNode node, StateChangeReason reason) {
-        [...]
-        // for example: change block state of nodeOwner to indicate state
-        // send node owner to clients
+    public void onSaveChanges(MyTileEntity nodeOwner, IGridNode node) {
+        nodeOwner.markDirty();
+    }
+
+    @Override
+    public void onStateChanged(MyTileEntity nodeOwner, IGridNode node, State state) {
+        // For example: update block state, refresh rendering, or sync the tile to clients.
     }
 }
 ```
 
 ```java
-class MyBlockEntity {
-    // Create node with owner and listener
-    private final IManagedNode mainNode = api.createManagedNode(
-            this,
-            MyBlockEntityListener.INSTANCE
-    );
+class MyTileEntity extends TileEntity {
+    private final IManagedGridNode mainNode =
+        GridHelper.createManagedNode(this, MyTileListener.INSTANCE);
 }
 ```
 
 ### Managed Grid Nodes
 
-The `IGridHelper` API offers a `createManagedNode` method to create an `IManagedGridNode`. Managed grid nodes simplify
-the lifecycle of creating and destroying grid nodes, and can be used to simplify the distinction between server and
-client, since they are available on the client-side as well. They will just not create the underlying node if they're
-being used on the client.
+`IManagedGridNode` simplifies the lifecycle of creating and destroying grid nodes, and also centralizes the node's
+configuration. Managed grid nodes can be constructed on both logical sides. On the client side they will never expose a
+server grid node; on the server side they become ready after `create(World, BlockPos)` succeeds.
 
 Your game object should notify the managed node about the following events:
 
-- Call `destroy` on the node when your game object is destroyed or its chunk unloaded.
-- Call `create` when the node can assume the owner is now in-world and ready to make outgoing connections (i.e. on its
-  first tick).
-- When your game object loads from NBT data, load the node's stored data using `loadFromNBT`. This has to occur before
-  you call `create`.
-- When your game object saves to NBT data, save the node's data using `saveToNBT`.
+* When your game object loads from NBT data, call `loadFromNBT`. This has to occur before `create(World, BlockPos)`.
+* Call `create(World, BlockPos)` when the owner is in-world and ready to make outgoing connections. For tile entities,
+  use `GridHelper.onFirstTick` to defer creation until the tile is in a ticking chunk.
+* When your game object saves to NBT data, call `saveToNBT`.
+* Call `destroy` when your game object is invalidated, removed, or unloaded.
+
+Managed nodes also configure network behavior. Use `setFlags` for grid flags, `setIdlePowerUsage` for passive power
+drain, `setGridColor` to restrict adjacent color connections, `setVisualRepresentation` for UI display, and
+`setOwningPlayer` or `setOwningPlayerId` for security ownership.
 
 ### In-World Nodes
 
-The main type of grid node are in-world grid nodes. They need to know their location and world when being created with
-`IManagedGridNode.create(Level, BlockPos)`. External connections are automatically attempt to connect with adjacent
-in-world grid nodes by AE2 itself and do not need further handling.
+The main type of grid node is the in-world grid node. It needs its `World` and `BlockPos` when created with
+`IManagedGridNode.create(World, BlockPos)`. AE2 automatically attempts external connections with adjacent in-world
+grid nodes.
 
 In-world nodes can be selectively exposed on specific sides, or on all sides. The exposed sides can be changed after
-node creation and will automatically trigger a repathing.
+node creation through `setExposedOnSides(...)`, and the change will trigger repathing. Use `setInWorldNode(false)` for
+nodes that should be attached to a grid but hidden from normal world adjacency.
 
-To expose the actual `IGridNode`, it needs to be exposed by `IManagedGridNode.getNode()` through an appropriate way like
-capabilities.
+To expose the actual `IGridNode` to other systems, return `IManagedGridNode.getNode()` through an appropriate
+capability or host interface, such as `IInWorldGridNodeHost`.
 
 ### Virtual Nodes
 
-A special case are virtual nodes, which will not automatically form connection with other nodes. These allow addons to
-build ME networks outside the normal world for various reasons.
+Virtual nodes do not automatically form connections with nearby world nodes. They allow addons to build ME network
+topologies that are not represented by normal block adjacency.
 
-As these do not automatically establish connections, these have to be manually created with by using
-`IGridHelper.createGridConnection(IGridNode, IGridNode)`. Removing a connection requires destroying the `IGridNode`,
-which also handles chunk unloading and ensures it leaving no old connections behind.
+Virtual links must be created explicitly with `GridHelper.createConnection(IGridNode, IGridNode)`. Removing the
+connection is handled by destroying the corresponding node, which also handles unload cleanup and prevents old
+connections from lingering.
 
 ### Node Services
 
-The node's owner can add so-called services to a node, which can be used to add additional functionality or behavior to
-grid nodes. Services are represented by an interface that extends from `IGridService`.
+A node owner can add services to a node through `IManagedGridNode.addService(...)`. Services are represented by
+interfaces extending `IGridNodeService`. They allow nodes to opt into additional grid-managed behavior.
 
-Node services are often used by grid services to offer additional functionality to grid nodes that implement a specific
-service. These will be described in more detail in the description of the respective grid service.
+Node services are often consumed by grid services. For example, the ticking service looks for `IGridTickable`, the
+storage service looks for `IStorageProvider`, and the crafting service looks for crafting provider node services.
+This model keeps optional behavior attached to the nodes that need it.
 
 ### Grid Services
 
 Each grid provides several services to machines connected to the grid.
 
-AE2 provides some services by default (see sub-interfaces of `IGridService`). Addons can register their own services
-using `GridServices`.
-
-Services can be retrieved by calling `IGrid#getService` by passing the grid service's interface. For getting AE2's
-default services, `IGrid` offers several convenience methods.
+AE2 provides its default services through `GridServices`. Addons can register their own grid-wide services there as
+well. Services can be retrieved by calling `IGrid#getService` with the service interface. For AE2's default services,
+`IGrid` also offers convenience methods such as `getStorageService()` and `getCraftingService()`.
 
 #### Energy
 
-**Service Interface:** `IEnergyService`
+**Service Interface:** `IEnergyService`  
+**Convenience Getter:** `IGrid.getEnergyService()`
 
-This service allows energy to be extracted from and injected into the grid's energy storage (i.e. energy cells, the
-grid's internal storage, etc.).
+This service allows energy to be extracted from and injected into the grid's energy storage, including energy cells,
+the grid's internal storage, and other grid-connected energy providers.
 
 #### Ticking
 
-**Service Interface:** `ITickManager`
-**Convenience Getter**: `IGrid.getTickManager`
+**Service Interface:** `ITickManager`  
+**Convenience Getter:** `IGrid.getTickManager()`
 
-AE2 offers its grid connected machines an advanced ticking system with the following features:
+AE2 offers its grid-connected machines an advanced ticking system with the following features:
 
-* Ticking without being a tickable block entity
+* Ticking without being a tickable tile entity
 * Variable tick rates
 * Putting devices to sleep if they run out of work
-* Waking sleeping devices in reaction to some event (i.e. neighbors changed)
+* Waking sleeping devices in reaction to some event, such as neighbor changes or new work becoming available
 
 The grid's `ITickManager` service handles the per-grid aspects of this ticking system. It offers an API to manage the
-sleep/wake status of grid nodes.
+sleep and wake status of grid nodes.
 
-To participate in the ticking system, your grid node must provide the `IGridTickable`
-grid node service. The `ITickManager` reacts to the presence of this service when your grid node joins the grid.
+To participate in the ticking system, your grid node must provide the `IGridTickable` node service. The
+`ITickManager` reacts to the presence of this service when your grid node joins the grid. `IGridTickable` returns a
+`TickingRequest` to describe desired responsiveness, then returns `TickRateModulation` from each tick to speed up,
+slow down, sleep, or keep the current rate.
 
 #### Storage
 
-**Service Interface**: `IStorageService`
-**Convenience Getter**: `IGrid.getStorageService`
+**Service Interface:** `appeng.api.networking.storage.IStorageService`  
+**Convenience Getter:** `IGrid.getStorageService()`
 
-This service allows nodes to notify listeners about changes to their inventory that are not caused by normal
-extraction/insertion, such as the external inventories (i.e. chests) changing their content.
+Storage in grids is organized as mounted `MEStorage` inventories. The storage service exposes the unified grid
+inventory through `getInventory()`, provides a cached inventory snapshot through `getCachedInventory()`, and manages
+`IStorageProvider` mounts from nodes and global providers.
 
-Storage in grids is organized in "cells" which model inventories.
+`getCachedInventory()` is updated at most once per tick and should be preferred when slightly outdated content is
+acceptable. This avoids repeatedly walking the full network inventory.
 
-It also implements `IStorageMonitorable` to allow changes to the grid's inventory to be monitored.
+Node-backed storage should implement `IStorageProvider` as a node service. When the node joins or leaves a grid, the
+storage service will mount or unmount it automatically by calling `mountInventories(...)`. Global storage providers
+can be added with `IStorageService.addGlobalStorageProvider(...)` when the storage is provided by a grid service rather
+than by an individual node.
+
+When a storage provider needs to remove, add, or rebuild its mounts due to an external event or config change, call
+`IStorageProvider.requestUpdate(managedNode)` for node providers, or `refreshGlobalStorageProvider(...)` for global
+providers.
 
 #### Auto-Crafting
 
-**Service Interface**: `ICraftingService`
+**Service Interface:** `ICraftingService`  
+**Convenience Getter:** `IGrid.getCraftingService()`
+
+This service provides access to craftable patterns, crafting CPUs, job calculation, job simulation, job submission,
+and active-request tracking. Craftable keys are queried through this service rather than being reported as ordinary
+stored network contents.
 
 #### Pathing
 
-**Service Interface**: `IPathingService`
+**Service Interface:** `IPathingService`  
+**Convenience Getter:** `IGrid.getPathingService()`
+
+This service provides channel and controller/pathing state for the grid. Nodes can use it to inspect whether the grid
+is booting and whether channel requirements are currently satisfied.
 
 #### Spatial I/O
 
-**Service Interface**: `ISpatialService`
+**Service Interface:** `ISpatialService`  
+**Convenience Getter:** `IGrid.getSpatialService()`
+
+This service provides information about the currently defined spatial region, including bounds, validity, world, and
+required power.
 
 ## Adding New Upgrades or Making Upgradable Machines
 
-This will be made available in 10.0.0-beta.3.
-
 Relevant APIs:
 
-- `appeng.api.upgrades.Upgrades` for managing upgrade cards and associating them with machines
-- `appeng.api.upgrades.UpgradeInventories` for creating upgrade inventories for use in upgradable machines or items
+* `appeng.api.upgrades.Upgrades` for managing upgrade cards and associating them with machines
+* `appeng.api.upgrades.UpgradeInventories` for creating upgrade inventories for use in upgradable machines or items
+* `appeng.api.upgrades.IUpgradeInventory` for querying and iterating installed upgrades
 
 ### Custom Upgrade Cards
 
-Each upgrade is unique identified by a registered item (the "upgrade card"). To create a custom upgrade card that
-behaves like the existing AE2 cards (i.e. it can be inserted into the network tool's toolbelt), use the
-utility function `Upgrades#createUpgradeCardItem` to create an item for your card. Remember it's your responsibility
-to actually register this item, provide an icon and a translation key for it. It will however, show the tooltip for supported machines and support insertion into machines by right-click out of the box. 
+Each upgrade is uniquely identified by a registered item, called the upgrade card. To create a custom upgrade card
+that behaves like AE2's own upgrade cards, use `Upgrades.createUpgradeCardItem()` to create an item for your card.
+Register that item normally and provide its model and translation key.
+
+AE2 handles the supported-machine tooltip and right-click insertion behavior for upgrade card items created this way.
+Use `Upgrades.isUpgradeCardItem(...)` when you need to identify upgrade cards.
 
 ### Associating Upgrade Cards with Machines
 
-For both cases where your addon adds a custom machine or upgrade card, you need to associate possible upgrades
-with potential machines. The `Upgrades.add` method allows you to link an upgrade card (represented by its Item) with
-a Machine (also represented by an item, usually a `BlockItem` or `IPartItem`). 
+For both cases where your addon adds a custom machine or a custom upgrade card, associate possible upgrades with
+potential machines. `Upgrades.add(upgradeCard, upgradableObject, maxSupported)` links an upgrade card item with an
+upgradable item, part item, or block item.
 
-If there are multiple machines that are treated equally with regard to upgrades, you can pass a translation key to 
-the `tooltipGroup` parameter. When displaying the tooltip for an upgrade card, all supported machines with the same
-`tooltipGroup` will be merged into a single line and shown using the translation for the group. This was used
-for displaying fluid and item parts as one line, as well as the block/part form of interfaces. 
+If several machines are treated equally for tooltip display, pass a translation key to the `tooltipGroup` parameter
+through `Upgrades.add(upgradeCard, upgradableObject, maxSupported, tooltipGroup)`. When displaying the tooltip for an
+upgrade card, all supported machines with the same `tooltipGroup` are merged into a single translated line. AE2 uses
+this for related block/part forms and related item/fluid variants.
 
-### Making custom Machines Upgradable
+### Making Custom Machines or Items Upgradable
 
-You can use the factory class `UpgradeInventories` to create inventories for storing upgrade cards. These
-inventories will use the provided item to identify which upgrade cards are accepted by the inventory to
-automatically prevent incompatible cards from being inserted.
+Use `UpgradeInventories` to create inventories for storing upgrade cards. These inventories use the provided machine
+or item identity to decide which upgrade cards are accepted, and they prevent incompatible cards from being inserted.
 
-They also offer convenience methods (see `IUpgradeInventory`) to quickly check if an upgrade is present or
-count how many upgrades of a type are present.
+They also offer convenience methods through `IUpgradeInventory` to quickly check if an upgrade is present, count how
+many upgrades of a type are installed, and iterate over installed cards.
 
-For the machine version created by `forMachine`, you are responsible for saving the inventory yourself from the
-change callback. For the item version created by `forItem`, the upgrade inventory will automatically save itself 
-to the provided ´ItemStack` whenever its content changes.
+For the machine version created by `UpgradeInventories.forMachine`, save the inventory from the change callback. For
+the item version created by `UpgradeInventories.forItem`, the upgrade inventory writes changes directly into the
+provided `ItemStack` NBT. The item variant also accepts an optional change callback.
 
-# Changes from 1.17 and before to 1.18
+## Porting from Older AE2 APIs
 
-There are large changes to the API in 1.18.
+This branch uses the key-based storage and crafting API. Older addons built around `IAEStack`, `IAEItemStack`,
+`IAEFluidStack`, and channel-specific inventories need to move to the current model.
 
-`IAEStack`, `IAEItemStack` and `IAEFluidStack` have been removed. The API now separates the "what" from the "how much"
-in that it uses `AEKey` to identify what is being transferred, while a separate method-argument is used for the
-amount.
+`IAEStack`, `IAEItemStack`, and `IAEFluidStack` have been replaced by an API that separates the "what" from the "how
+much". `AEKey` identifies what is being transferred or stored, while a separate method argument or `GenericStack`
+stores the amount.
 
 The mapping is roughly as follows:
 
-| Old Class                | New Class                    |
-|--------------------------|------------------------------|
-| IAEStack                 | GenericStack, AEKey          |
-| IAEItemStack             | GenericStack, AEItemKey      |
-| IAEFluidStack            | GenericStack, AEFluidKey     |
-| IStorageChannel          | AEKeyType                    |
-| StorageChannels          | AEKeyTypes                   |
-| StorageChannels.items()  | AEKeyType.items()            |
-| StorageChannels.fluids() | AEKeyType.fluids()           |
-| IMEInventory             | MEStorage                    |
-| IMEMonitorable           | MEMonitorStorage             |
-| IGuiItem                 | IMenuItem (Use ItemMenuHost) |
-| IPortableCell            | IPortableTerminal            |
-| ICraftingMedium          | ICraftingMachine             |
-| ICellProvider            | IStorageProvider             | 
-| getUnitsPerByte          | getAmountPerByte             |
-| transferFactor           | getAmountPerOperation        |
+| Older Class or Idea        | Current API                                  |
+|----------------------------|----------------------------------------------|
+| `IAEStack`                 | `GenericStack`, `AEKey`                      |
+| `IAEItemStack`             | `GenericStack`, `AEItemKey`                  |
+| `IAEFluidStack`            | `GenericStack`, `AEFluidKey`                 |
+| `IStorageChannel`          | `AEKeyType`                                  |
+| `StorageChannels`          | `AEKeyTypes`                                 |
+| `StorageChannels.items()`  | `AEKeyType.items()`                          |
+| `StorageChannels.fluids()` | `AEKeyType.fluids()`                         |
+| `IMEInventory`             | `MEStorage`                                  |
+| `IMEMonitorable`           | `IStorageService.getInventory()` or storage watchers |
+| `ICraftingMedium`          | `ICraftingMachine`                           |
+| `ICellProvider`            | `IStorageProvider`                           |
+| `getUnitsPerByte`          | `getAmountPerByte`                           |
+| `transferFactor`           | `getAmountPerOperation`                      |
 
-The network inventory is no longer channel specific. It contains items, fluids and potentially keys
-from addons at the same time. This also means `IStorageMonitorable` has become superfluous and was removed.
-`IStorageMonitorableAccessor` now gives direct access to the storage.
+The network inventory is no longer channel-specific. It contains items, fluids, and addon-provided key types at the
+same time. Use `AEKeyFilter.none()` as the no-op filter when you want all key types, `AEItemKey.filter()` for items,
+and `AEFluidKey.filter()` for fluids.
 
-Stack watching has changed to only send the keys for which the stored amount has changed. This was
-done since the amounts reported to the watchers were never reliable to begin with, and were never used.
+Stack watching now sends keys for which the stored amount has changed. Treat the key and amount as separate values in
+your addon code.
 
-Craftable items are no longer reported as part of the network storage. It has been replaced by
-`grid.getCraftingService().getCraftables()`. `NoOpKeyFilter` is provided in case you want all types of 
-keys, otherwise there are the convenience filters `AEItemKey.filter()` and `AEFluidKey.filter()` to
-only retrieve items or fluids.
+Craftable items are provided by `grid.getCraftingService().getCraftables()` and related crafting APIs. They are
+modeled by the crafting service instead of ordinary network storage.
 
-Mounting storage into the network storage has been changed. Since storage has been unified across types,
-the storage service will now call `mountInventories` on the `IStorageProvider` service provided by any
-grid node and allow the node to "mount" storage into the network.
-When the node wants to remove or add storage due to an external event or config change, it can request
-the storage to repeat the mounting process by calling `IStorageGrid.refreshNodeStorageProvider` or using
-the utility provided in `IStorageProvider.requestUpdate`. This supersedes sending the `GridCellArrayUpdate` event.
+Mounting storage into the network storage has changed. Since storage is unified across key types, the storage service
+calls `mountInventories` on `IStorageProvider` services provided by grid nodes and allows each provider to mount
+storage into the network. When the node wants to remove or add storage due to an external event or config change, it
+can request the mounting process again by calling `IStorageProvider.requestUpdate(managedNode)`. This replaces sending
+cell-array refresh events directly.
+
+For item-opened GUIs, this branch uses `IGuiItem` and `ItemGuiHost`.
 
 ## Internal APIs
 
-The following changes have been made to internal APIs, which may still be of interest to addons that
-depend on them.
+The following internal-facing changes may still be useful to addons that depend on AE2 implementation details.
 
-Items that open AE GUIs are now more addon friendly. The `ItemMenuHost` class can be used as an easy
-way to implement a menu host for hosting terminals and other menus.
+Items that open AE GUIs are represented by `IGuiItem`. `ItemGuiHost` can be used as a convenient host for terminals
+and other item-opened screens.
 
-The priority and crafting confirm menus now use a generic system for returning to the previous screen.
-Your part, block entity or item menu host needs to implement `ISubMenuHost` for this to work.
+The priority and crafting-confirm flows use `ISubGuiHost` so hosts can return to the previous screen after a nested
+screen closes.
 
-Custom storage cells have been simplified, and the same class can be used to create addon storage
-cells for any stored item key. Due to the storage math still being different for items and fluids,
-there are still key-type specific cells, which are all based on the same class `BasicStorageCell`,
-which doesn't have a guaranteed API however (this is an improvement for later).
+Custom storage cells are based on the unified key-storage model. Addon cells should expose `MEStorage` through the
+appropriate cell or capability APIs and should use key filters to restrict accepted key types when needed. Item and
+fluid storage math can still differ, so prefer the public cell APIs in `appeng.api.storage.cells` over depending on
+AE2 implementation classes.
 
 ## Crank
 
-The crank uses `ICrankable` to inject energy into the block it's attached to, when the player turns the crank.
-On Fabric, use `ICrankable.LOOKUP` to expose it on your own blocks if you'd like to allow cranks to inject 
-energy. On Forge, expose the `ICrankable.CRANKABLE` capability.
-You can limit which sides of your block a crank is allowed on by only returning a non-null object for the sides
-of your block you want to allow it on.
+The crank uses `ICrankable` to inject energy into the block it is attached to when the player turns the crank.
 
-Fabric Example:
+On Forge 1.12.2, expose `AECapabilities.CRANKABLE` on your tile entity. You can limit which sides of your block a
+crank is allowed on by only returning a non-null `ICrankable` for the allowed sides. AE2 also provides
+`ICrankable.get(World, BlockPos, EnumFacing)` as a lookup helper.
+
+Example:
+
 ```java
-ICrankable.LOOKUP.registerForBlockEntity(ChargerBlockEntity::getCrankable, AEBlockEntities.CHARGER);
+@Nullable
+private ICrankable getCrankable(EnumFacing side) {
+    if (side == EnumFacing.UP || side == EnumFacing.DOWN) {
+        return new ICrankable() {
+            @Override
+            public boolean canTurn() {
+                return getStoredPower() < getMaxStoredPower();
+            }
 
-[...]
-class ChargerBlockEntity {
-  /**
-   * Allow cranking from the top or bottom.
-   */
-  @Nullable
-  public ICrankable getCrankable(Direction direction) {
-    var up = getUp();
-    if (direction == up || direction == up.getOpposite()) {
-      return new Crankable();
+            @Override
+            public void applyTurn() {
+                injectExternalPower(...);
+            }
+        };
     }
+
     return null;
-  }
-
-  class Crankable implements ICrankable {
-    @Override
-    public boolean canTurn() {
-      return getInternalCurrentPower() < getInternalMaxPower();
-    }
-
-    @Override
-    public void applyTurn() {
-      injectExternalPower(PowerUnits.AE, POWER_PER_CRANK_TURN, Actionable.MODULATE);
-    }
-  }
 }
 ```

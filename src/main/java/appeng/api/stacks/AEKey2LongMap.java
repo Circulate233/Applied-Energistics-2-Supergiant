@@ -1,10 +1,10 @@
 package appeng.api.stacks;
 
-import java.util.Comparator;
-
 import it.unimi.dsi.fastutil.objects.Object2LongAVLTreeMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+
+import java.util.Comparator;
 
 /**
  * Custom extension to expose the increment function in a polymorphic way. We don't want to use
@@ -15,7 +15,7 @@ interface AEKey2LongMap extends Object2LongMap<AEKey> {
      * Adds an increment to value currently associated with a key.
      *
      * @return the old value, or the {@linkplain #defaultReturnValue() default return value} if no value was present for
-     *         the given key.
+     * the given key.
      */
     @SuppressWarnings("UnusedReturnValue")
     long addTo(AEKey k, long incr);

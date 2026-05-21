@@ -1,0 +1,397 @@
+{
+  "forge_marker": 1,
+  "variants": {
+    "facing=north,lights_on=false,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=north,lights_on=false,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=north,lights_on=false,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=north,lights_on=false,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=south,lights_on=false,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=south,lights_on=false,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=south,lights_on=false,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=south,lights_on=false,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=west,lights_on=false,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=west,lights_on=false,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=west,lights_on=false,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=west,lights_on=false,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=east,lights_on=false,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=east,lights_on=false,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=east,lights_on=false,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=east,lights_on=false,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=up,lights_on=false,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=up,lights_on=false,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=up,lights_on=false,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=up,lights_on=false,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=down,lights_on=false,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=down,lights_on=false,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=down,lights_on=false,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=down,lights_on=false,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    },
+    "facing=north,lights_on=true,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=north,lights_on=true,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=north,lights_on=true,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=north,lights_on=true,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=south,lights_on=true,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=south,lights_on=true,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=south,lights_on=true,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=south,lights_on=true,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=west,lights_on=true,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=west,lights_on=true,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=west,lights_on=true,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=west,lights_on=true,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=east,lights_on=true,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=east,lights_on=true,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=east,lights_on=true,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=east,lights_on=true,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=up,lights_on=true,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=up,lights_on=true,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=up,lights_on=true,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=up,lights_on=true,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=down,lights_on=true,spin=0": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=down,lights_on=true,spin=1": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=down,lights_on=true,spin=2": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "facing=down,lights_on=true,spin=3": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_on"
+        }
+      }
+    },
+    "inventory": {
+      "model": "ae2:chest/base",
+      "submodel": {
+        "lights": {
+          "model": "ae2:chest/lights_off"
+        }
+      }
+    }
+  }
+}

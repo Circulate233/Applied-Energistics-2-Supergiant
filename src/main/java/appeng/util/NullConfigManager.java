@@ -1,17 +1,18 @@
 package appeng.util;
 
+import appeng.api.config.Setting;
+import appeng.api.util.IConfigManager;
+import net.minecraft.nbt.NBTTagCompound;
+
 import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
 
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-
-import appeng.api.config.Setting;
-import appeng.api.util.IConfigManager;
-
 public final class NullConfigManager implements IConfigManager {
     public static final NullConfigManager INSTANCE = new NullConfigManager();
+
+    private NullConfigManager() {
+    }
 
     @Override
     public Set<Setting<?>> getSettings() {
@@ -29,12 +30,11 @@ public final class NullConfigManager implements IConfigManager {
     }
 
     @Override
-    public void writeToNBT(CompoundTag destination, HolderLookup.Provider registries) {
+    public void writeToNBT(NBTTagCompound destination) {
     }
 
     @Override
-    public boolean readFromNBT(CompoundTag src, HolderLookup.Provider registries) {
-        return false;
+    public void readFromNBT(NBTTagCompound src) {
     }
 
     @Override
@@ -44,6 +44,6 @@ public final class NullConfigManager implements IConfigManager {
 
     @Override
     public Map<String, String> exportSettings() {
-        return Map.of();
+        return Collections.emptyMap();
     }
 }

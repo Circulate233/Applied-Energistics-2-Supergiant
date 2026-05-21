@@ -23,11 +23,10 @@
 
 package appeng.api.implementations.parts;
 
-import org.jetbrains.annotations.Nullable;
-
 import appeng.api.parts.IPart;
 import appeng.api.stacks.AEKey;
 import appeng.api.util.INetworkToolAware;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The Storage monitor is a {@link IPart} located on the sides of a IPartHost

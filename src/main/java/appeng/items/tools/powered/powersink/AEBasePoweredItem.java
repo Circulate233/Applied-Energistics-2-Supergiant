@@ -18,158 +18,179 @@
 
 package appeng.items.tools.powered.powersink;
 
-import java.util.List;
-import java.util.function.DoubleSupplier;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IAEItemPowerStorage;
-import appeng.core.localization.Tooltips;
 import appeng.items.AEBaseItem;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagDouble;
+import net.minecraft.util.NonNullList;
+import net.minecraft.world.World;
+import net.minecraftforge.common.capabilities.ICapabilityProvider;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
+import java.util.List;
 
 public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPowerStorage {
-    // Any energy capacity below this threshold will be clamped to zero
+    private static final String CURRENT_POWER_NBT_KEY = "internalCurrentPower";
+    private static final String MAX_POWER_NBT_KEY = "internalMaxPower";
     private static final double MIN_POWER = 0.0001;
-    private final DoubleSupplier powerCapacity;
 
-    public AEBasePoweredItem(DoubleSupplier powerCapacity, Properties props) {
-        super(props);
+    private final double powerCapacity;
+
+    protected AEBasePoweredItem(final double powerCapacity) {
+        this.setMaxStackSize(1);
+        this.setMaxDamage(32);
+        this.hasSubtypes = false;
+        this.setFull3D();
         this.powerCapacity = powerCapacity;
     }
 
-    @OnlyIn(Dist.CLIENT)
+    @SideOnly(Side.CLIENT)
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        var storedEnergy = getAECurrentPower(stack);
-        var energyCapacity = getAEMaxPower(stack);
-        lines.add(Tooltips.energyStorageComponent(storedEnergy, energyCapacity));
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+        lines.add((int) this.getAECurrentPower(stack) + " / " + (int) this.getAEMaxPower(stack) + " AE");
     }
 
     @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        super.addToMainCreativeTab(parameters, output);
-
-        var charged = new ItemStack(this, 1);
-        injectAEPower(charged, getAEMaxPower(charged), Actionable.MODULATE);
-        output.accept(charged);
-    }
-
-    @Override
-    public boolean isBarVisible(ItemStack stack) {
+    public boolean isDamageable() {
         return true;
     }
 
     @Override
-    public boolean shouldCauseReequipAnimation(ItemStack oldStack, ItemStack newStack, boolean slotChanged) {
-        return slotChanged || !ItemStack.isSameItem(oldStack, newStack);
+    protected void getCheckedSubItems(final CreativeTabs creativeTab, final NonNullList<ItemStack> itemStacks) {
+        super.getCheckedSubItems(creativeTab, itemStacks);
+
+        final ItemStack charged = new ItemStack(this, 1);
+        setAEMaxPower(charged, this.getAEMaxPower(charged));
+        setAECurrentPower(charged, this.getAEMaxPower(charged));
+        itemStacks.add(charged);
     }
 
     @Override
-    public int getBarWidth(ItemStack stack) {
-        double filled = getAECurrentPower(stack) / getAEMaxPower(stack);
-        return Mth.clamp((int) Math.round(filled * 13), 0, 13);
+    public boolean isRepairable() {
+        return false;
     }
 
     @Override
-    public int getBarColor(ItemStack stack) {
-        // This is the standard green color of full durability bars
-        return Mth.hsvToRgb(1 / 3.0F, 1.0F, 1.0F);
+    public double getDurabilityForDisplay(final ItemStack is) {
+        return 1 - this.getAECurrentPower(is) / this.getAEMaxPower(is);
     }
 
     @Override
-    public double injectAEPower(ItemStack stack, double amount, Actionable mode) {
-        final double maxStorage = this.getAEMaxPower(stack);
-        final double currentStorage = this.getAECurrentPower(stack);
+    public boolean isDamaged(final ItemStack stack) {
+        return true;
+    }
+
+    @Override
+    public void setDamage(final ItemStack stack, final int damage) {
+    }
+
+    @Override
+    public double injectAEPower(final ItemStack is, final double amount, Actionable mode) {
+        final double maxStorage = this.getAEMaxPower(is);
+        final double currentStorage = this.getAECurrentPower(is);
         final double required = maxStorage - currentStorage;
-        final double overflow = Math.max(0, Math.min(amount - required, amount));
+        final double overflow = amount - required;
 
         if (mode == Actionable.MODULATE) {
-            var toAdd = Math.min(amount, required);
-            setAECurrentPower(stack, currentStorage + toAdd);
+            final double toAdd = Math.min(amount, required);
+            setAECurrentPower(is, currentStorage + toAdd);
         }
 
-        return overflow;
+        return Math.max(0, overflow);
     }
 
     @Override
-    public double extractAEPower(ItemStack stack, double amount, Actionable mode) {
-        final double currentStorage = this.getAECurrentPower(stack);
+    public double extractAEPower(final ItemStack is, final double amount, Actionable mode) {
+        final double currentStorage = this.getAECurrentPower(is);
         final double fulfillable = Math.min(amount, currentStorage);
 
         if (mode == Actionable.MODULATE) {
-            setAECurrentPower(stack, currentStorage - fulfillable);
+            setAECurrentPower(is, currentStorage - fulfillable);
         }
 
         return fulfillable;
     }
 
     @Override
-    public double getAEMaxPower(ItemStack stack) {
-        // Allow per-item-stack overrides of the maximum power storage
-        return stack.getOrDefault(AEComponents.ENERGY_CAPACITY, powerCapacity.getAsDouble());
+    public double getAEMaxPower(final ItemStack is) {
+        return readLegacyCompatibleDouble(is, AEComponents.ENERGY_CAPACITY_COMPONENT, MAX_POWER_NBT_KEY, this.powerCapacity);
     }
 
-    /**
-     * Allows items to change the max power of their stacks without incurring heavy deserialization cost every time it's
-     * accessed.
-     */
-    protected final void setAEMaxPower(ItemStack stack, double maxPower) {
-        var defaultCapacity = powerCapacity.getAsDouble();
-        if (Math.abs(maxPower - defaultCapacity) < MIN_POWER) {
-            stack.remove(AEComponents.ENERGY_CAPACITY);
+    @Override
+    public double getAECurrentPower(final ItemStack is) {
+        return readLegacyCompatibleDouble(is, AEComponents.STORED_ENERGY_COMPONENT, CURRENT_POWER_NBT_KEY, 0);
+    }
+
+    protected final void setAECurrentPower(ItemStack stack, double power) {
+        final NBTTagCompound data = openNbtData(stack);
+        if (power < MIN_POWER) {
+            data.removeTag(AEComponents.STORED_ENERGY_COMPONENT.name());
+            data.removeTag(CURRENT_POWER_NBT_KEY);
         } else {
-            stack.set(AEComponents.ENERGY_CAPACITY, maxPower);
+            AEComponents.STORED_ENERGY_COMPONENT.writeTo(data, new NBTTagDouble(power));
+            data.removeTag(CURRENT_POWER_NBT_KEY);
+        }
+    }
+
+    protected final void setAEMaxPower(ItemStack stack, double maxPower) {
+        final NBTTagCompound data = openNbtData(stack);
+        if (Math.abs(maxPower - this.powerCapacity) < MIN_POWER) {
+            data.removeTag(AEComponents.ENERGY_CAPACITY_COMPONENT.name());
+            data.removeTag(MAX_POWER_NBT_KEY);
+        } else {
+            AEComponents.ENERGY_CAPACITY_COMPONENT.writeTo(data, new NBTTagDouble(maxPower));
+            data.removeTag(MAX_POWER_NBT_KEY);
         }
 
-        // Clamp current power to be within bounds
-        var currentPower = getAECurrentPower(stack);
-        if (currentPower > maxPower) {
+        if (getAECurrentPower(stack) > maxPower) {
             setAECurrentPower(stack, maxPower);
         }
     }
 
-    /**
-     * Changes the maximum power of the chargeable item based on a multiplier for the configured default power. The
-     * multiplier is clamped to [1,100]
-     */
-    protected final void setAEMaxPowerMultiplier(ItemStack stack, int multiplier) {
-        multiplier = Mth.clamp(multiplier, 1, 100);
-        setAEMaxPower(stack, multiplier * powerCapacity.getAsDouble());
-    }
-
-    /**
-     * Clears any custom maximum power from the given stack.
-     */
-    protected final void resetAEMaxPower(ItemStack stack) {
-        setAEMaxPower(stack, powerCapacity.getAsDouble());
-    }
-
     @Override
-    public double getAECurrentPower(ItemStack is) {
-        return is.getOrDefault(AEComponents.STORED_ENERGY, 0.0);
-    }
-
-    protected final void setAECurrentPower(ItemStack stack, double power) {
-        if (power < MIN_POWER) {
-            stack.remove(AEComponents.STORED_ENERGY);
-        } else {
-            stack.set(AEComponents.STORED_ENERGY, power);
-        }
-    }
-
-    @Override
-    public AccessRestriction getPowerFlow(ItemStack is) {
+    public AccessRestriction getPowerFlow(final ItemStack is) {
         return AccessRestriction.WRITE;
     }
 
+    @Override
+    public double getChargeRate(ItemStack stack) {
+        return 80.0;
+    }
+
+    @Override
+    public ICapabilityProvider initCapabilities(ItemStack stack, NBTTagCompound nbt) {
+        return new PoweredItemCapabilities(stack, this);
+    }
+
+    protected final NBTTagCompound openNbtData(ItemStack stack) {
+        if (!stack.hasTagCompound()) {
+            stack.setTagCompound(new NBTTagCompound());
+        }
+        return stack.getTagCompound();
+    }
+
+    private double readLegacyCompatibleDouble(ItemStack stack, AEComponents.ComponentKey<NBTBase> component,
+                                              String legacyKey, double defaultValue) {
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag == null) {
+            return defaultValue;
+        }
+        if (component.isPresentIn(tag)) {
+            return tag.getDouble(component.name());
+        }
+        if (tag.hasKey(legacyKey)) {
+            return tag.getDouble(legacyKey);
+        }
+        return defaultValue;
+    }
 }

@@ -18,15 +18,13 @@
 
 package appeng.parts.automation;
 
-import java.util.List;
-
-import com.google.common.collect.ImmutableList;
-
-import net.minecraft.resources.ResourceLocation;
-
 import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.parts.PartModel;
+import com.google.common.collect.ImmutableList;
+import net.minecraft.util.ResourceLocation;
+
+import java.util.List;
 
 /**
  * Contains a mapping from a Plane's connections to the models to use for that state.
@@ -34,21 +32,19 @@ import appeng.parts.PartModel;
 public class PlaneModels {
 
     public static final ResourceLocation MODEL_CHASSIS_OFF = AppEng.makeId(
-            "part/transition_plane_off");
+        "part/transition_plane_off");
     public static final ResourceLocation MODEL_CHASSIS_ON = AppEng.makeId(
-            "part/transition_plane_on");
+        "part/transition_plane_on");
     public static final ResourceLocation MODEL_CHASSIS_HAS_CHANNEL = AppEng.makeId(
-            "part/transition_plane_has_channel");
+        "part/transition_plane_has_channel");
 
     private final IPartModel modelOff;
-
     private final IPartModel modelOn;
-
     private final IPartModel modelHasChannel;
 
-    public PlaneModels(String planeOffLocation, String planeOnLocation) {
-        ResourceLocation planeOff = AppEng.makeId(planeOffLocation);
-        ResourceLocation planeOn = AppEng.makeId(planeOnLocation);
+    public PlaneModels(String prefixOff, String prefixOn) {
+        ResourceLocation planeOff = AppEng.makeId(prefixOff);
+        ResourceLocation planeOn = AppEng.makeId(prefixOn);
 
         this.modelOff = new PartModel(MODEL_CHASSIS_OFF, planeOff);
         this.modelOn = new PartModel(MODEL_CHASSIS_ON, planeOff);
@@ -57,16 +53,16 @@ public class PlaneModels {
 
     public IPartModel getModel(boolean hasPower, boolean hasChannel) {
         if (hasPower && hasChannel) {
-            return modelHasChannel;
+            return this.modelHasChannel;
         } else if (hasPower) {
-            return modelOn;
+            return this.modelOn;
         } else {
-            return modelOff;
+            return this.modelOff;
         }
     }
 
     public List<IPartModel> getModels() {
-        return ImmutableList.of(modelOff, modelOn, modelHasChannel);
+        return ImmutableList.of(this.modelOff, this.modelOn, this.modelHasChannel);
     }
 
 }

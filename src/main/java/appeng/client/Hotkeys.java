@@ -1,50 +1,44 @@
 package appeng.client;
 
-import java.util.HashMap;
-import java.util.function.Consumer;
-
-import org.jetbrains.annotations.Nullable;
-import org.lwjgl.glfw.GLFW;
-
-import net.minecraft.client.KeyMapping;
-
 import appeng.hotkeys.HotkeyActions;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraftforge.fml.client.registry.ClientRegistry;
+import org.jetbrains.annotations.Nullable;
+import org.lwjgl.input.Keyboard;
+
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+
+import java.util.Map;
 
 /**
  * client side component of {@link HotkeyActions}
  */
-public class Hotkeys {
+public final class Hotkeys {
 
-    private static final HashMap<String, Hotkey> HOTKEYS = new HashMap<>();
+    private static final Map<String, Hotkey> HOTKEYS = new Object2ObjectOpenHashMap<>();
 
-    private static boolean finalized;
+    private Hotkeys() {
+    }
 
     private static Hotkey createHotkey(String id) {
-        if (finalized) {
-            throw new IllegalStateException("Hotkey registration already finalized!");
+        return new Hotkey(id, new KeyBinding("key.ae2." + id, Keyboard.KEY_NONE, "key.ae2.category"));
+    }
+
+    public static synchronized void registerHotkey(String id) {
+        if (HOTKEYS.containsKey(id)) {
+            return;
         }
-        return new Hotkey(id, new KeyMapping("key.ae2." + id, GLFW.GLFW_KEY_UNKNOWN, "key.ae2.category"));
-    }
 
-    private static void registerHotkey(Hotkey hotkey) {
-        HOTKEYS.put(hotkey.name(), hotkey);
-    }
-
-    public static void finalizeRegistration(Consumer<KeyMapping> register) {
-        for (var value : HOTKEYS.values()) {
-            register.accept(value.mapping());
-        }
-        finalized = true;
-    }
-
-    public static void registerHotkey(String id) {
-        registerHotkey(createHotkey(id));
+        Hotkey hotkey = createHotkey(id);
+        HOTKEYS.put(id, hotkey);
+        ClientRegistry.registerKeyBinding(hotkey.mapping());
     }
 
     public static void checkHotkeys() {
-        HOTKEYS.forEach((name, hotkey) -> hotkey.check());
+        HOTKEYS.values().forEach(Hotkey::check);
     }
 
+    @SuppressWarnings("unused")
     @Nullable
     public static Hotkey getHotkeyMapping(@Nullable String id) {
         return HOTKEYS.get(id);

@@ -18,15 +18,10 @@
 
 package appeng.client.gui.style;
 
+import appeng.client.Point;
+import appeng.client.gui.Rect2i;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.client.renderer.Rect2i;
-
-import appeng.client.Point;
-
-/**
- * Describes positioning for a slot.
- */
 public class Position {
 
     @Nullable
@@ -41,60 +36,56 @@ public class Position {
     @Nullable
     private Integer bottom;
 
-    public Integer getLeft() {
+    public @org.jspecify.annotations.Nullable Integer getLeft() {
         return left;
     }
 
-    public void setLeft(Integer left) {
+    public void setLeft(@org.jspecify.annotations.Nullable Integer left) {
         this.left = left;
     }
 
-    public Integer getTop() {
+    public @org.jspecify.annotations.Nullable Integer getTop() {
         return top;
     }
 
-    public void setTop(Integer top) {
+    public void setTop(@org.jspecify.annotations.Nullable Integer top) {
         this.top = top;
     }
 
-    public Integer getRight() {
+    public @org.jspecify.annotations.Nullable Integer getRight() {
         return right;
     }
 
-    public void setRight(Integer right) {
+    public void setRight(@org.jspecify.annotations.Nullable Integer right) {
         this.right = right;
     }
 
-    public Integer getBottom() {
+    public @org.jspecify.annotations.Nullable Integer getBottom() {
         return bottom;
     }
 
-    public void setBottom(Integer bottom) {
+    public void setBottom(@org.jspecify.annotations.Nullable Integer bottom) {
         this.bottom = bottom;
     }
 
-    /**
-     * Resolves this relative position against the given bounds, and makes it absolute.
-     */
     public Point resolve(Rect2i bounds) {
-        // Start by computing the x,y position
         int x, y;
         if (left != null) {
             x = left;
         } else if (right != null) {
-            x = bounds.getWidth() - right;
+            x = bounds.width() - right;
         } else {
             x = 0;
         }
         if (top != null) {
             y = top;
         } else if (bottom != null) {
-            y = bounds.getHeight() - bottom;
+            y = bounds.height() - bottom;
         } else {
             y = 0;
         }
 
-        return new Point(x, y).move(bounds.getX(), bounds.getY());
+        return new Point(x, y).move(bounds.x(), bounds.y());
     }
 
     @Override
@@ -112,9 +103,10 @@ public class Position {
         if (bottom != null) {
             result.append("bottom=").append(bottom).append(",");
         }
-        if (result.length() > 0) {
+        if (!result.isEmpty()) {
             result.deleteCharAt(result.length() - 1);
         }
         return result.toString();
     }
 }
+

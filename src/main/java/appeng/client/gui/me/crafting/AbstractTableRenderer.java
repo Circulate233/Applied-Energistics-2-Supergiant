@@ -18,20 +18,22 @@
 
 package appeng.client.gui.me.crafting;
 
-import java.util.List;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
-import appeng.client.gui.AEBaseScreen;
+import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.Rect2i;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.PaletteColor;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.text.ITextComponent;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Objects;
 
 /**
  * Renders a 3x5 table where each cell displays an item and some text next to it.
@@ -40,43 +42,42 @@ public abstract class AbstractTableRenderer<T> {
 
     private static final int CELL_WIDTH = 67;
     private static final int CELL_HEIGHT = 22;
-
     private static final int COLS = 3;
-
-    // This border is only shown in-between cells, not around
     private static final int CELL_BORDER = 1;
-
     private static final int LINE_SPACING = 1;
-
     private static final float TEXT_SCALE = 0.5f;
     private static final float INV_TEXT_SCALE = 2.0f;
 
-    protected final AEBaseScreen<?> screen;
-    private final Font fontRenderer;
+    protected final AEBaseGui<?> screen;
+    private final FontRenderer fontRenderer;
     private final float lineHeight;
     private final int x;
     private final int y;
     private final int rows;
+    @Nullable
     private StackWithBounds hoveredStack;
+    @Nullable
+    private List<ITextComponent> hoveredTooltip;
 
-    public AbstractTableRenderer(AEBaseScreen<?> screen, int x, int y, int rows) {
+    public AbstractTableRenderer(AEBaseGui<?> screen, int x, int y, int rows) {
         this.screen = screen;
         this.x = x;
         this.y = y;
-        this.fontRenderer = Minecraft.getInstance().font;
-        this.lineHeight = this.fontRenderer.lineHeight * TEXT_SCALE;
+        this.fontRenderer = Minecraft.getMinecraft().fontRenderer;
+        this.lineHeight = this.fontRenderer.FONT_HEIGHT * TEXT_SCALE;
         this.rows = rows;
     }
 
-    public final void render(GuiGraphics guiGraphics, int mouseX, int mouseY, List<T> entries, int scrollOffset) {
-        mouseX -= screen.getGuiLeft();
-        mouseY -= screen.getGuiTop();
+    protected static int getScrollableRows(int size, int rows) {
+        return (size + COLS - 1) / COLS - rows;
+    }
 
-        final int textColor = screen.getStyle().getColor(PaletteColor.DEFAULT_TEXT_COLOR).toARGB();
-        List<Component> tooltipLines = null;
+    public final void render(int mouseX, int mouseY, List<T> entries, int scrollOffset) {
+        final int textColor = Objects.requireNonNull(screen.getStyle())
+                                     .getColor(PaletteColor.DEFAULT_TEXT_COLOR)
+                                     .toARGB() & 0xFFFFFF;
+        List<ITextComponent> tooltipLines = null;
         StackWithBounds hovered = null;
-
-        var pose = guiGraphics.pose();
 
         for (int row = 0; row < this.rows; row++) {
             for (int col = 0; col < COLS; col++) {
@@ -92,78 +93,73 @@ public abstract class AbstractTableRenderer<T> {
 
                 int background = getEntryBackgroundColor(entry);
                 if (background != 0) {
-                    guiGraphics.fill(cellX, cellY, cellX + CELL_WIDTH, cellY + CELL_HEIGHT, background);
+                    Gui.drawRect(cellX, cellY, cellX + CELL_WIDTH, cellY + CELL_HEIGHT, background);
                 }
 
-                List<Component> lines = getEntryDescription(entry);
+                List<ITextComponent> lines = getEntryDescription(entry);
 
-                // Compute the full height of the text block to center it vertically
                 float textHeight = lines.size() * lineHeight;
                 if (lines.size() > 1) {
                     textHeight += (lines.size() - 1) * LINE_SPACING;
                 }
                 float textY = Math.round(cellY + (CELL_HEIGHT - textHeight) / 2.0f);
 
-                // Position the item at the right side of the cell with a 3px margin
                 int itemX = cellX + CELL_WIDTH - 19;
 
-                pose.pushPose();
-                pose.scale(TEXT_SCALE, TEXT_SCALE, 1.0f);
-                for (Component line : lines) {
-                    final int w = fontRenderer.width(line);
-                    guiGraphics.drawString(fontRenderer, line,
-                            (int) ((itemX - 2 - w * TEXT_SCALE) * INV_TEXT_SCALE),
-                            (int) (textY * INV_TEXT_SCALE), textColor, false);
+                GlStateManager.pushMatrix();
+                GlStateManager.scale(TEXT_SCALE, TEXT_SCALE, 1.0f);
+                for (ITextComponent line : lines) {
+                    final int width = fontRenderer.getStringWidth(line.getFormattedText());
+                    fontRenderer.drawString(line.getFormattedText(),
+                        (itemX - 2 - width * TEXT_SCALE) * INV_TEXT_SCALE,
+                        textY * INV_TEXT_SCALE, textColor, false);
                     textY += lineHeight + LINE_SPACING;
                 }
-                pose.popPose();
+                GlStateManager.popMatrix();
 
                 var entryStack = getEntryStack(entry);
 
                 int itemY = cellY + (CELL_HEIGHT - 16) / 2;
-                AEKeyRendering.drawInGui(Minecraft.getInstance(), guiGraphics, itemX, itemY, entryStack);
+                AEKeyRendering.drawInGui(Minecraft.getMinecraft(), itemX, itemY, entryStack);
 
                 int overlay = getEntryOverlayColor(entry);
                 if (overlay != 0) {
-                    guiGraphics.fill(cellX, cellY, cellX + CELL_WIDTH, cellY + CELL_HEIGHT, overlay);
+                    Gui.drawRect(cellX, cellY, cellX + CELL_WIDTH, cellY + CELL_HEIGHT, overlay);
                 }
 
                 if (mouseX >= cellX && mouseX <= cellX + CELL_WIDTH
-                        && mouseY >= cellY && mouseY <= cellY + CELL_HEIGHT) {
+                    && mouseY >= cellY && mouseY <= cellY + CELL_HEIGHT) {
                     tooltipLines = getEntryTooltip(entry);
                     hovered = new StackWithBounds(
-                            new GenericStack(entryStack, 0),
-                            new Rect2i(screen.getGuiLeft() + cellX, screen.getGuiTop() + cellY, CELL_WIDTH,
-                                    CELL_HEIGHT));
+                        new GenericStack(entryStack, 0),
+                        new Rect2i(screen.getGuiLeft() + cellX, screen.getGuiTop() + cellY, CELL_WIDTH,
+                            CELL_HEIGHT));
                 }
             }
         }
         hoveredStack = hovered;
 
-        if (tooltipLines != null) {
-            screen.drawTooltipWithHeader(guiGraphics, mouseX, mouseY, tooltipLines);
-        }
+        hoveredTooltip = tooltipLines;
     }
 
+    @Nullable
     public StackWithBounds getHoveredStack() {
         return hoveredStack;
     }
 
-    /**
-     * @return The number of rows that are off-screen given a number of entries.
-     */
-    public int getScrollableRows(int size) {
-        return getScrollableRows(size, this.rows);
+    @Nullable
+    public List<ITextComponent> getHoveredTooltip() {
+        return hoveredTooltip;
     }
 
-    protected static int getScrollableRows(int size, int rows) {
-        return (size + COLS - 1) / COLS - rows;
+    public int getScrollableRows(int size) {
+        return getScrollableRows(size, this.rows);
     }
 
     /**
      * Implement in subclass to determine the text to show next to an entry.
      */
-    protected abstract List<Component> getEntryDescription(T entry);
+    protected abstract List<ITextComponent> getEntryDescription(T entry);
 
     /**
      * Get the item to show for an entry.
@@ -173,7 +169,7 @@ public abstract class AbstractTableRenderer<T> {
     /**
      * Get the tooltip lines to show for an entry.
      */
-    protected abstract List<Component> getEntryTooltip(T entry);
+    protected abstract List<ITextComponent> getEntryTooltip(T entry);
 
     /**
      * Override and return a color to draw a colored rectangle behind an entry. Return 0 to not draw a rectangle.
@@ -188,5 +184,4 @@ public abstract class AbstractTableRenderer<T> {
     protected int getEntryOverlayColor(T entry) {
         return 0;
     }
-
 }

@@ -18,28 +18,34 @@
 
 package appeng.client.render.model;
 
-import java.util.function.Function;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelState;
-
 import appeng.client.render.BasicUnbakedModel;
+import com.google.common.collect.ImmutableSet;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.common.model.IModelState;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Collection;
+import java.util.function.Function;
 
 /**
  * Model class for the connected texture glass model.
  */
 public class GlassModel implements BasicUnbakedModel {
-
-    @Nullable
     @Override
-    public BakedModel bake(ModelBaker loader, Function<Material, TextureAtlasSprite> textureGetter,
-            ModelState rotationContainer) {
-        return new GlassBakedModel(textureGetter);
+    public Collection<ResourceLocation> getTextures() {
+        return ImmutableSet.<ResourceLocation>builder()
+                           .add(GlassBakedModel.TEXTURE_A, GlassBakedModel.TEXTURE_B, GlassBakedModel.TEXTURE_C,
+                               GlassBakedModel.TEXTURE_D)
+                           .add(GlassBakedModel.TEXTURES_FRAME)
+                           .build();
     }
 
+    @Override
+    public IBakedModel bake(@NonNull IModelState state, @NonNull VertexFormat format,
+                            @NonNull Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        return new GlassBakedModel(format, bakedTextureGetter);
+    }
 }

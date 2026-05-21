@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "variant=default": {
+      "model": "ae2:quartz_pillar_slab_double"
+    }
+  }
+}

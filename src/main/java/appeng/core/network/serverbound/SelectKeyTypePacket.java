@@ -1,39 +1,45 @@
 package appeng.core.network.serverbound;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-
 import appeng.api.stacks.AEKeyType;
-import appeng.core.network.CustomAppEngPayload;
+import appeng.container.interfaces.IKeyTypeSelectionContainer;
 import appeng.core.network.ServerboundPacket;
-import appeng.menu.interfaces.KeyTypeSelectionMenu;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.PacketBuffer;
 
-public record SelectKeyTypePacket(AEKeyType keyType, boolean enabled) implements ServerboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, SelectKeyTypePacket> STREAM_CODEC = StreamCodec.ofMember(
-            SelectKeyTypePacket::write,
-            SelectKeyTypePacket::decode);
+public class SelectKeyTypePacket extends ServerboundPacket {
+    private AEKeyType keyType;
+    private boolean enabled;
 
-    public static final Type<SelectKeyTypePacket> TYPE = CustomAppEngPayload.createType("select_key_type");
-
-    @Override
-    public Type<SelectKeyTypePacket> type() {
-        return TYPE;
+    public SelectKeyTypePacket() {
     }
 
-    public void write(RegistryFriendlyByteBuf buf) {
-        buf.writeVarInt(keyType.getRawId());
-        buf.writeBoolean(enabled);
-    }
-
-    public static SelectKeyTypePacket decode(RegistryFriendlyByteBuf buf) {
-        return new SelectKeyTypePacket(AEKeyType.fromRawId(buf.readVarInt()), buf.readBoolean());
+    public SelectKeyTypePacket(AEKeyType keyType, boolean enabled) {
+        this.keyType = keyType;
+        this.enabled = enabled;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (player.containerMenu instanceof KeyTypeSelectionMenu menu) {
-            menu.getServerKeyTypeSelection().setEnabled(keyType, enabled);
+    protected void read(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.keyType = AEKeyType.fromRawId(packetBuffer.readVarInt());
+        this.enabled = packetBuffer.readBoolean();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeVarInt(this.keyType.getRawId());
+        packetBuffer.writeBoolean(this.enabled);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if (this.keyType == null) {
+            return;
+        }
+        if (player.openContainer instanceof IKeyTypeSelectionContainer container) {
+            container.getServerKeyTypeSelection().setEnabled(this.keyType, this.enabled);
         }
     }
 }

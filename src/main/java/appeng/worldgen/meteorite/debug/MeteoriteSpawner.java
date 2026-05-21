@@ -15,35 +15,29 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
+
 package appeng.worldgen.meteorite.debug;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.BlockPos.MutableBlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.block.Block;
 
 import appeng.worldgen.meteorite.CraterType;
 import appeng.worldgen.meteorite.PlacedMeteoriteSettings;
 import appeng.worldgen.meteorite.fallout.FalloutMode;
+import net.minecraft.block.Block;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-/**
- * Makes decisions about spawning meteorites in the level.
- */
+import javax.annotation.Nullable;
+
 public class MeteoriteSpawner {
 
-    public MeteoriteSpawner() {
-    }
-
-    public PlacedMeteoriteSettings trySpawnMeteoriteAtSuitableHeight(LevelReader level, BlockPos startPos,
-            float coreRadius, CraterType craterType, boolean pureCrater) {
+    public @org.jspecify.annotations.Nullable PlacedMeteoriteSettings trySpawnMeteoriteAtSuitableHeight(World level, BlockPos startPos, float coreRadius,
+                                                                                                        CraterType craterType, boolean pureCrater) {
         int stepSize = Math.min(5, (int) Math.ceil(coreRadius) + 1);
         int minY = 10 + stepSize;
-        MutableBlockPos mutablePos = startPos.mutable();
+        BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos(startPos.getX(), startPos.getY(),
+            startPos.getZ());
 
-        mutablePos.move(Direction.DOWN, stepSize);
+        mutablePos.move(EnumFacing.DOWN, stepSize);
 
         while (mutablePos.getY() > minY) {
             PlacedMeteoriteSettings spawned = trySpawnMeteorite(level, mutablePos, coreRadius, craterType, pureCrater);
@@ -58,49 +52,42 @@ public class MeteoriteSpawner {
     }
 
     @Nullable
-    public PlacedMeteoriteSettings trySpawnMeteorite(LevelReader level, BlockPos pos, float coreRadius,
-            CraterType craterType, boolean pureCrater) {
+    public PlacedMeteoriteSettings trySpawnMeteorite(World level, BlockPos pos, float coreRadius, CraterType craterType,
+                                                     boolean pureCrater) {
         if (!areSurroundingsSuitable(level, pos)) {
             return null;
         }
 
-        var fallout = FalloutMode.fromBiome(level.getBiome(pos));
-
-        boolean craterLake = false;
-
-        return new PlacedMeteoriteSettings(pos, coreRadius, craterType, fallout, pureCrater, craterLake);
+        FalloutMode fallout = FalloutMode.fromBiome(level.getBiome(pos));
+        return new PlacedMeteoriteSettings(pos, coreRadius, craterType, fallout, pureCrater, false);
     }
 
-    private boolean areSurroundingsSuitable(LevelReader level, BlockPos pos) {
+    private boolean areSurroundingsSuitable(World level, BlockPos pos) {
         int realValidBlocks = 0;
 
-        MutableBlockPos testPos = new MutableBlockPos();
+        BlockPos.MutableBlockPos testPos = new BlockPos.MutableBlockPos();
         for (int i = pos.getX() - 6; i < pos.getX() + 6; i++) {
-            testPos.setX(i);
             for (int j = pos.getY() - 6; j < pos.getY() + 6; j++) {
-                testPos.setY(j);
                 for (int k = pos.getZ() - 6; k < pos.getZ() + 6; k++) {
-                    testPos.setZ(k);
+                    testPos.setPos(i, j, k);
                     Block block = level.getBlockState(testPos).getBlock();
-                    realValidBlocks++;
+                    if (block != null) {
+                        realValidBlocks++;
+                    }
                 }
             }
         }
 
         int validBlocks = 0;
         for (int i = pos.getX() - 15; i < pos.getX() + 15; i++) {
-            testPos.setX(i);
             for (int j = pos.getY() - 15; j < pos.getY() + 15; j++) {
-                testPos.setY(j);
                 for (int k = pos.getZ() - 15; k < pos.getZ() + 15; k++) {
-                    testPos.setZ(k);
+                    testPos.setPos(i, j, k);
                     validBlocks++;
                 }
             }
         }
 
-        final int minBlocks = 200;
-        return validBlocks > minBlocks && realValidBlocks > 80;
+        return validBlocks > 200 && realValidBlocks > 80;
     }
-
 }

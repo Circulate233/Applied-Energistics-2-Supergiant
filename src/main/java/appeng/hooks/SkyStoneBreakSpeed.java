@@ -1,28 +1,9 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.hooks;
 
-import net.minecraft.world.entity.EquipmentSlot;
-import net.minecraft.world.item.Tiers;
-import net.neoforged.neoforge.event.entity.player.PlayerEvent;
-
 import appeng.core.definitions.AEBlocks;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.event.entity.player.PlayerEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
 /**
  * This hook is intended to essentially make sky stone blocks found in meteorites minable with iron tools while
@@ -31,17 +12,17 @@ import appeng.core.definitions.AEBlocks;
  */
 public final class SkyStoneBreakSpeed {
     public static final int SPEEDUP_FACTOR = 10;
+    private static final float IRON_TOOL_SPEED = 6.0F;
 
-    private SkyStoneBreakSpeed() {
-    }
+    @SubscribeEvent
+    public void handleBreakFaster(PlayerEvent.BreakSpeed event) {
+        if (event.getState().getBlock() != AEBlocks.SKY_STONE_BLOCK.block()) {
+            return;
+        }
 
-    public static void handleBreakFaster(PlayerEvent.BreakSpeed event) {
-        var blockState = event.getState();
-        if (blockState.getBlock() == AEBlocks.SKY_STONE_BLOCK.block()) {
-            var tool = event.getEntity().getItemBySlot(EquipmentSlot.MAINHAND);
-            if (tool.getDestroySpeed(blockState) > Tiers.IRON.getSpeed()) {
-                event.setNewSpeed(event.getNewSpeed() * SPEEDUP_FACTOR);
-            }
+        ItemStack tool = event.getEntityPlayer().getHeldItemMainhand();
+        if (!tool.isEmpty() && tool.getDestroySpeed(event.getState()) > IRON_TOOL_SPEED) {
+            event.setNewSpeed(event.getNewSpeed() * SPEEDUP_FACTOR);
         }
     }
 }

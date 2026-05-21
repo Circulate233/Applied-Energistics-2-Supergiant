@@ -1,0 +1,196 @@
+package appeng.integration.modules.hei;
+
+import appeng.api.stacks.GenericStack;
+import appeng.api.stacks.AEFluidKey;
+import appeng.api.stacks.AEItemKey;
+import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.Rect2i;
+import appeng.client.gui.StackWithBounds;
+import appeng.container.slot.FakeSlot;
+import appeng.container.slot.FakeSlotFilterSupport;
+import appeng.core.network.InitNetwork;
+import appeng.core.network.serverbound.InventoryActionPacket;
+import appeng.helpers.InventoryAction;
+import mezz.jei.api.gui.IAdvancedGuiHandler;
+import mezz.jei.api.gui.IGhostIngredientHandler;
+import mezz.jei.bookmarks.BookmarkItem;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidUtil;
+
+import javax.annotation.Nonnull;
+import java.awt.Rectangle;
+import java.util.List;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.jspecify.annotations.Nullable;
+import org.lwjgl.input.Mouse;
+
+public final class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui<?>>, IGhostIngredientHandler<AEBaseGui<?>> {
+    @Nullable
+    private Object currentGhostIngredient;
+
+    @Nonnull
+    @Override
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public Class<AEBaseGui<?>> getGuiContainerClass() {
+        return (Class) AEBaseGui.class;
+    }
+
+    @Override
+    public List<Rectangle> getGuiExtraAreas(@Nonnull AEBaseGui<?> guiContainer) {
+        return guiContainer.getExclusionZones()
+            .stream()
+            .map(AEGuiHandler::toRectangle)
+            .toList();
+    }
+
+    @Override
+    public @Nullable Object getIngredientUnderMouse(@Nonnull AEBaseGui<?> guiContainer, int mouseX, int mouseY) {
+        StackWithBounds hoveredStack = guiContainer.getStackUnderMouse(mouseX, mouseY);
+        if (hoveredStack != null) {
+            return GenericIngredientHelper.stackToIngredient(hoveredStack.stack());
+        }
+
+        var slot = guiContainer.getSlotUnderMouse();
+        if (slot != null && slot.getHasStack()) {
+            return slot.getStack();
+        }
+        return null;
+    }
+
+    private static Rectangle toRectangle(Rect2i rect) {
+        return new Rectangle(rect.x(), rect.y(), rect.width(), rect.height());
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("unchecked")
+    public <I> List<Target<I>> getTargets(@Nonnull AEBaseGui<?> gui, @Nonnull I ingredient, boolean doStart) {
+        if (doStart) {
+            this.currentGhostIngredient = ingredient;
+        }
+        return (List<Target<I>>) (List<?>) getTargetsForIngredient(gui, ingredient);
+    }
+
+    @Override
+    public void onComplete() {
+        this.currentGhostIngredient = null;
+    }
+
+    @Override
+    public boolean shouldHighlightTargets() {
+        return true;
+    }
+
+    static ItemStack toFilterStack(FakeSlot slot, Object ingredient) {
+        ItemStack directStack = toPacketFilterStack(ingredient);
+        if (!directStack.isEmpty()) {
+            if (slot.canSetFilterTo(directStack)) {
+                return directStack;
+            }
+
+            ItemStack preferred = FakeSlotFilterSupport.getPreferredFilterStack(slot, directStack);
+            if (!preferred.isEmpty()) {
+                return preferred;
+            }
+        }
+
+        GenericStack stack = GenericIngredientHelper.ingredientToStack(ingredient);
+        if (stack != null) {
+            ItemStack wrapped = GenericStack.wrapInItemStack(stack);
+            ItemStack preferred = FakeSlotFilterSupport.getPreferredFilterStack(slot, wrapped);
+            if (slot.canSetFilterTo(wrapped)) {
+                return wrapped;
+            }
+            if (!preferred.isEmpty()) {
+                return preferred;
+            }
+        }
+        return ItemStack.EMPTY;
+    }
+
+    @Nullable
+    public Object getCurrentGhostIngredient() {
+        return this.currentGhostIngredient;
+    }
+
+    public List<Target<Object>> getTargetsForIngredient(AEBaseGui<?> gui, Object ingredient) {
+        List<Target<Object>> targets = new ObjectArrayList<>();
+        for (var slot : gui.getContainer().inventorySlots) {
+            if (!(slot instanceof FakeSlot fakeSlot) || !fakeSlot.isEnabled()) {
+                continue;
+            }
+
+            ItemStack stack = toFilterStack(fakeSlot, ingredient);
+            if (!stack.isEmpty()) {
+                targets.add(new FakeSlotTarget(gui, fakeSlot));
+            }
+        }
+        return targets;
+    }
+
+    public static ItemStack toGhostDisplayStack(Object ingredient) {
+        if (ingredient instanceof ItemStack itemStack) {
+            return itemStack.copy();
+        }
+
+        GenericStack stack = GenericIngredientHelper.ingredientToStack(ingredient);
+        if (stack == null) {
+            return ItemStack.EMPTY;
+        }
+
+        if (stack.what() instanceof AEItemKey itemKey) {
+            return itemKey.toStack((int) Math.max(1, stack.amount()));
+        }
+
+        if (stack.what() instanceof AEFluidKey fluidKey) {
+            ItemStack bucket = FluidUtil.getFilledBucket(fluidKey.toStack((int) Math.max(1, stack.amount())));
+            if (!bucket.isEmpty()) {
+                return bucket;
+            }
+        }
+
+        return GenericStack.wrapInItemStack(stack.what(), Math.max(1, stack.amount()));
+    }
+
+    private record FakeSlotTarget(AEBaseGui<?> gui, FakeSlot slot) implements Target<Object> {
+
+        @Override
+        public Rectangle getArea() {
+            return new Rectangle(this.gui.getGuiLeft() + this.slot.xPos, this.gui.getGuiTop() + this.slot.yPos, 16, 16);
+        }
+
+        @Override
+        public void accept(@Nonnull Object ingredient) {
+            if (!this.slot.isEnabled()) {
+                return;
+            }
+
+            ItemStack stack = toPacketFilterStack(ingredient);
+            if (stack.isEmpty()) {
+                return;
+            }
+
+            InitNetwork.sendToServer(new InventoryActionPacket(
+                this.gui.getContainer().windowId,
+                InventoryAction.SET_FILTER,
+                this.slot.slotNumber,
+                Mouse.getEventButton(),
+                stack));
+        }
+
+    }
+
+    private static ItemStack toPacketFilterStack(Object ingredient) {
+        if (ingredient instanceof BookmarkItem<?> bookmarkItem) {
+            return toPacketFilterStack(bookmarkItem.ingredient);
+        }
+
+        if (ingredient instanceof ItemStack itemStack) {
+            return itemStack.copy();
+        }
+
+        GenericStack stack = GenericIngredientHelper.ingredientToStack(ingredient);
+        return stack != null ? GenericStack.wrapInItemStack(stack) : ItemStack.EMPTY;
+    }
+}

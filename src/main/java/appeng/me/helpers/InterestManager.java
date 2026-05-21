@@ -18,29 +18,28 @@
 
 package appeng.me.helpers;
 
-import java.util.Collection;
-import java.util.Set;
-
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
-
 import appeng.api.stacks.AEKey;
+import com.google.common.collect.Multimap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
+
+import java.util.Collection;
 
 public class InterestManager<T> {
 
     private final Multimap<AEKey, T> container;
-    private final Set<T> allStacksWatchers = Sets.newIdentityHashSet();
+    private final ReferenceSet<T> allStacksWatchers = new ReferenceOpenHashSet<>();
 
     public InterestManager(Multimap<AEKey, T> interests) {
         this.container = interests;
     }
 
-    public boolean put(AEKey stack, T iw) {
-        return this.container.put(stack, iw);
+    public void put(AEKey stack, T iw) {
+        this.container.put(stack, iw);
     }
 
-    public boolean remove(AEKey stack, T iw) {
-        return this.container.remove(stack, iw);
+    public void remove(AEKey stack, T iw) {
+        this.container.remove(stack, iw);
     }
 
     public void setWatchAll(boolean watchAll, T watcher) {

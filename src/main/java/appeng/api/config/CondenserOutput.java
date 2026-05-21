@@ -29,7 +29,7 @@ public enum CondenserOutput {
 
     MATTER_BALLS, // 256
 
-    SINGULARITY; // 250,000
+    SINGULARITY; // 256,000
 
     public int requiredPower = 0;
 

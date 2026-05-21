@@ -18,22 +18,6 @@
 
 package appeng.parts.crafting;
 
-import java.util.EnumSet;
-import java.util.List;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
@@ -42,33 +26,43 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.util.AECableType;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEParts;
+import appeng.core.gui.locator.GuiHostLocators;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.items.parts.PartModels;
-import appeng.menu.locator.MenuLocators;
 import appeng.parts.AEBasePart;
 import appeng.parts.PartModel;
 import appeng.util.SettingsFrom;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.IBlockAccess;
+
+import javax.annotation.Nullable;
+import java.util.EnumSet;
+import java.util.List;
 
 public class PatternProviderPart extends AEBasePart implements PatternProviderLogicHost {
 
-    public static final ResourceLocation MODEL_BASE = AppEng.makeId(
-            "part/pattern_provider_base");
-
-    // TODO: unify the following between the 3 interface parts?
-    @PartModels
-    public static final PartModel MODELS_OFF = new PartModel(MODEL_BASE,
-            AppEng.makeId("part/interface_off"));
+    public static final ResourceLocation MODEL_BASE = AppEng.makeId("part/pattern_provider_base");
+    public static final ResourceLocation MODEL_OFF = AppEng.makeId("part/interface_off");
+    public static final ResourceLocation MODEL_ON = AppEng.makeId("part/interface_on");
+    public static final ResourceLocation MODEL_HAS_CHANNEL = AppEng.makeId("part/interface_has_channel");
 
     @PartModels
-    public static final PartModel MODELS_ON = new PartModel(MODEL_BASE,
-            AppEng.makeId("part/interface_on"));
+    public static final PartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF);
 
     @PartModels
-    public static final PartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE,
-            AppEng.makeId("part/interface_has_channel"));
+    public static final PartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON);
 
-    protected final PatternProviderLogic logic = createLogic();
+    @PartModels
+    public static final PartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_HAS_CHANNEL);
+
+    protected final PatternProviderLogic logic = this.createLogic();
 
     public PatternProviderPart(IPartItem<?> partItem) {
         super(partItem);
@@ -85,11 +79,11 @@ public class PatternProviderPart extends AEBasePart implements PatternProviderLo
 
     @Override
     public AEItemKey getTerminalIcon() {
-        return AEItemKey.of(getPartItem());
+        return AEItemKey.of(getPartItem().asItem());
     }
 
     @Override
-    public void onMainNodeStateChanged(IGridNodeListener.State reason) {
+    protected void onMainNodeStateChanged(IGridNodeListener.State reason) {
         super.onMainNodeStateChanged(reason);
         this.logic.onMainNodeStateChanged();
     }
@@ -101,15 +95,15 @@ public class PatternProviderPart extends AEBasePart implements PatternProviderLo
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.readFromNBT(data, registries);
-        this.logic.readFromNBT(data, registries);
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
+        this.logic.readFromNBT(data);
     }
 
     @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.writeToNBT(data, registries);
-        this.logic.writeToNBT(data, registries);
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+        this.logic.writeToNBT(data);
     }
 
     @Override
@@ -127,7 +121,7 @@ public class PatternProviderPart extends AEBasePart implements PatternProviderLo
     @Override
     public void clearContent() {
         super.clearContent();
-        logic.clearContent();
+        this.logic.clearContent();
     }
 
     @Override
@@ -136,44 +130,46 @@ public class PatternProviderPart extends AEBasePart implements PatternProviderLo
     }
 
     @Override
-    public void exportSettings(SettingsFrom mode, DataComponentMap.Builder builder) {
-        super.exportSettings(mode, builder);
+    public void exportSettings(SettingsFrom mode, NBTTagCompound output) {
+        super.exportSettings(mode, output);
 
         if (mode == SettingsFrom.MEMORY_CARD) {
-            logic.exportSettings(builder);
+            this.logic.exportSettings(output);
         }
     }
 
     @Override
-    public void importSettings(SettingsFrom mode, DataComponentMap input, @Nullable Player player) {
+    public void importSettings(SettingsFrom mode, NBTTagCompound input, @Nullable EntityPlayer player) {
         super.importSettings(mode, input, player);
 
         if (mode == SettingsFrom.MEMORY_CARD) {
-            logic.importSettings(input, player);
+            this.logic.importSettings(input, player);
         }
     }
 
     @Override
-    public void onNeighborChanged(BlockGetter level, BlockPos pos, BlockPos neighbor) {
-        logic.updateRedstoneState();
+    public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
+        this.logic.invalidateTargetCaches();
+        this.logic.updateRedstoneState();
     }
 
     @Override
-    public boolean onUseWithoutItem(Player p, Vec3 pos) {
-        if (!p.getCommandSenderWorld().isClientSide()) {
-            openMenu(p, MenuLocators.forPart(this));
+    public boolean onUseWithoutItem(EntityPlayer player, Vec3d pos) {
+        if (!player.world.isRemote) {
+            openGui(player, GuiHostLocators.forPart(this));
         }
         return true;
     }
 
     @Override
     public PatternProviderLogic getLogic() {
-        return logic;
+        return this.logic;
     }
 
     @Override
-    public EnumSet<Direction> getTargets() {
-        return EnumSet.of(this.getSide());
+    public EnumSet<EnumFacing> getTargets() {
+        EnumFacing side = this.getSide();
+        return side != null ? EnumSet.of(side) : EnumSet.noneOf(EnumFacing.class);
     }
 
     @Override
@@ -188,7 +184,10 @@ public class PatternProviderPart extends AEBasePart implements PatternProviderLo
     }
 
     @Override
-    public ItemStack getMainMenuIcon() {
+    public ItemStack getMainContainerIcon() {
         return AEParts.PATTERN_PROVIDER.stack();
     }
 }
+
+
+

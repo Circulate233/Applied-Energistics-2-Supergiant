@@ -18,17 +18,6 @@
 
 package appeng.crafting;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
-import com.google.common.base.Stopwatch;
-
-import org.jetbrains.annotations.Contract;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.level.Level;
-
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingPlan;
@@ -41,10 +30,19 @@ import appeng.crafting.inv.ChildCraftingSimulationState;
 import appeng.crafting.inv.CraftingSimulationState;
 import appeng.crafting.inv.NetworkCraftingSimulationState;
 import appeng.hooks.ticking.TickHandler;
+import com.google.common.base.Stopwatch;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class CraftingCalculation {
+    final ICraftingSimulationRequester simRequester;
     private final NetworkCraftingSimulationState networkInv;
-    private final Level level;
+    private final World level;
     private final KeyCounter missing = new KeyCounter();
     private final Object monitor = new Object();
     private final Stopwatch watch = Stopwatch.createUnstarted();
@@ -53,16 +51,15 @@ public class CraftingCalculation {
     // The initially requested amount of "output", may be reduced depending on the strategy used
     private final long requestedAmount;
     private final CalculationStrategy strategy;
+    private final List<CraftAttempt> attempts = AELog.isCraftingLogEnabled() ? new ObjectArrayList<>() : null;
     private boolean simulate = false;
-    final ICraftingSimulationRequester simRequester;
     private boolean running = false;
     private boolean done = false;
     private int time = 5;
     private int incTime = Integer.MAX_VALUE;
-    private final List<CraftAttempt> attempts = AELog.isCraftingLogEnabled() ? new ArrayList<>() : null;
 
-    public CraftingCalculation(Level level, IGrid grid, ICraftingSimulationRequester simRequester,
-            GenericStack output, CalculationStrategy strategy) {
+    public CraftingCalculation(World level, IGrid grid, ICraftingSimulationRequester simRequester,
+                               GenericStack output, CalculationStrategy strategy) {
         this.level = level;
         this.output = output.what();
         this.requestedAmount = output.amount();
@@ -154,12 +151,6 @@ public class CraftingCalculation {
         // Add bytes for the tree size.
         craftingInventory.addBytes(this.tree.getNodeCount() * 8);
 
-        // TODO: log tree?
-        // for (String s : this.opsAndMultiplier.keySet()) {
-        // final TwoIntegers ti = this.opsAndMultiplier.get(s);
-        // AELog.crafting(s + " * " + ti.times + " = " + ti.perOp * ti.times);
-        // }
-
         var plan = CraftingSimulationState.buildCraftingPlan(craftingInventory, this, amount);
         if (AELog.isCraftingLogEnabled()) {
             String type = simulate ? "simulated" : "succeeded";
@@ -217,7 +208,7 @@ public class CraftingCalculation {
         return missing;
     }
 
-    Level getLevel() {
+    World getLevel() {
         return this.level;
     }
 
@@ -258,32 +249,31 @@ public class CraftingCalculation {
 
     private void logCraftingJob(ICraftingPlan plan) {
         if (AELog.isCraftingLogEnabled()) {
-            ;
-            var actionSource = this.simRequester.getActionSource();
-            String actionSourceName;
-
-            if (actionSource != null && actionSource.player().isPresent()) {
-                var player = actionSource.player().get();
-                actionSourceName = player.toString();
-            } else if (actionSource != null && actionSource.machine().isPresent()) {
-                var machineSource = actionSource.machine().get();
-                var actionableNode = machineSource.getActionableNode();
-                actionSourceName = actionableNode != null ? actionableNode.toString() : machineSource.toString();
-            } else {
-                actionSourceName = "[unknown source]";
-            }
-
             StringBuilder message = new StringBuilder();
             message.append("CraftingCalculation issued by %s requesting [%dx%s] breakdown:\n".formatted(
-                    actionSourceName, this.requestedAmount, this.output));
-            for (var attempt : this.attempts) {
+                getActionSourceName(), this.requestedAmount, this.output));
+            for (CraftAttempt attempt : this.attempts) {
                 message.append(" - %s in %d ms\n".formatted(
-                        attempt.description, attempt.stopwatch.elapsed(TimeUnit.MILLISECONDS)));
+                    attempt.description(), attempt.stopwatch().elapsed(TimeUnit.MILLISECONDS)));
             }
             message.append(" - final plan: %d (%d bytes)".formatted(plan.finalOutput().amount(), plan.bytes()));
 
             AELog.crafting(message.toString());
         }
+    }
+
+    private String getActionSourceName() {
+        var actionSource = this.simRequester.getActionSource();
+        if (actionSource != null && actionSource.player().isPresent()) {
+            var player = actionSource.player().get();
+            return player.toString();
+        }
+        if (actionSource != null && actionSource.machine().isPresent()) {
+            var machineSource = actionSource.machine().get();
+            var actionableNode = machineSource.getActionableNode();
+            return actionableNode != null ? actionableNode.toString() : machineSource.toString();
+        }
+        return "[unknown source]";
     }
 
     public boolean hasMultiplePaths() {

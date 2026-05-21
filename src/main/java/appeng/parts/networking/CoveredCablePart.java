@@ -18,15 +18,13 @@
 
 package appeng.parts.networking;
 
-import java.util.function.Predicate;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.util.AECableType;
 import appeng.items.parts.ColoredPartItem;
+import net.minecraft.util.EnumFacing;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.function.Predicate;
 
 public class CoveredCablePart extends CablePart {
     public CoveredCablePart(ColoredPartItem<?> partItem) {
@@ -39,9 +37,8 @@ public class CoveredCablePart extends CablePart {
     }
 
     @Override
-    public void getBoxes(IPartCollisionHelper bch, Predicate<@Nullable Direction> filterConnections) {
+    public void getBoxes(IPartCollisionHelper bch, Predicate<@Nullable EnumFacing> filterConnections) {
         updateConnections();
-
         addNonDenseBoxes(bch, filterConnections, 5.0, 11.0);
     }
 }

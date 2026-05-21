@@ -23,17 +23,18 @@
 
 package appeng.api.util;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Supplier;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.config.Setting;
 import appeng.api.ids.AEComponents;
 import appeng.util.ConfigManager;
+import appeng.util.Platform;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Used to adjust settings on an object,
@@ -41,6 +42,76 @@ import appeng.util.ConfigManager;
  * Obtained via {@link IConfigurableObject}
  */
 public interface IConfigManager {
+    /**
+     * Get a builder for a configuration manager that stores its settings in an item stack.
+     */
+    static IConfigManagerBuilder builder(ItemStack stack) {
+        return builder(() -> stack);
+    }
+
+    /**
+     * Get a builder for a configuration manager that stores its settings in an item stack.
+     */
+    static IConfigManagerBuilder builder(Supplier<ItemStack> stack) {
+        var manager = new ConfigManager((mgr, settingName) -> {
+            NBTTagCompound settings = new NBTTagCompound();
+            for (var entry : mgr.exportSettings().entrySet()) {
+                settings.setString(entry.getKey(), entry.getValue());
+            }
+            NBTTagCompound tag = Platform.openNbtData(stack.get());
+            if (Platform.isNbtEmpty(settings)) {
+                tag.removeTag(AEComponents.EXPORTED_SETTINGS_COMPONENT.name());
+            } else {
+                AEComponents.EXPORTED_SETTINGS_COMPONENT.writeTo(tag, settings);
+            }
+        });
+
+        return new IConfigManagerBuilder() {
+            @Override
+            public <T extends Enum<T>> IConfigManagerBuilder registerSetting(Setting<T> setting, T defaultValue) {
+                manager.registerSetting(setting, defaultValue);
+                return this;
+            }
+
+            @Override
+            public IConfigManager build() {
+                NBTTagCompound tag = stack.get().getTagCompound();
+                if (tag != null) {
+                    NBTTagCompound settingsTag = AEComponents.EXPORTED_SETTINGS_COMPONENT.readFrom(tag);
+                    if (settingsTag == null) {
+                        return manager;
+                    }
+                    Object2ObjectMap<String, String> settings = new Object2ObjectOpenHashMap<>();
+                    for (String key : settingsTag.getKeySet()) {
+                        settings.put(key, settingsTag.getString(key));
+                    }
+                    manager.importSettings(settings);
+                }
+                return manager;
+            }
+        };
+    }
+
+    static IConfigManagerBuilder builder(Runnable changeListener) {
+        return builder((manager, setting) -> changeListener.run());
+    }
+
+    static IConfigManagerBuilder builder(IConfigManagerListener changeListener) {
+        var manager = new ConfigManager(changeListener);
+        return new IConfigManagerBuilder() {
+            @Override
+            public <T extends Enum<T>> IConfigManagerBuilder registerSetting(Setting<T> setting, T defaultValue) {
+                manager.registerSetting(setting, defaultValue);
+                return this;
+            }
+
+            @Override
+            public IConfigManager build() {
+                return manager;
+            }
+        };
+    }
+
     /**
      * get a list of different settings
      *
@@ -77,18 +148,15 @@ public interface IConfigManager {
      * write all settings to the NBT Tag so they can be read later.
      *
      * @param destination to be written nbt tag
-     * @param registries
      */
-    void writeToNBT(CompoundTag destination, HolderLookup.Provider registries);
+    void writeToNBT(NBTTagCompound destination);
 
     /**
      * Only works after settings have been registered
      *
-     * @param src        to be read nbt tag
-     * @param registries
-     * @return true if any configuration was loaded from src
+     * @param src to be read nbt tag
      */
-    boolean readFromNBT(CompoundTag src, HolderLookup.Provider registries);
+    void readFromNBT(NBTTagCompound src);
 
     /**
      * Import settings that were previously exported from {@link #exportSettings()}. Unparsable or unknown settings are
@@ -102,54 +170,4 @@ public interface IConfigManager {
      * Exports all settings.
      */
     Map<String, String> exportSettings();
-
-    /**
-     * Get a builder for configuration manager that stores its settings in a block entity.
-     */
-    static IConfigManagerBuilder builder(ItemStack stack) {
-        return builder(() -> stack);
-    }
-
-    /**
-     * Get a builder for configuration manager that stores its settings in a block entity.
-     */
-    static IConfigManagerBuilder builder(Supplier<ItemStack> stack) {
-        var manager = new ConfigManager((mgr, settingName) -> {
-            stack.get().set(AEComponents.EXPORTED_SETTINGS, mgr.exportSettings());
-        });
-
-        return new IConfigManagerBuilder() {
-            @Override
-            public <T extends Enum<T>> IConfigManagerBuilder registerSetting(Setting<T> setting, T defaultValue) {
-                manager.registerSetting(setting, defaultValue);
-                return this;
-            }
-
-            @Override
-            public IConfigManager build() {
-                manager.importSettings(stack.get().getOrDefault(AEComponents.EXPORTED_SETTINGS, Map.of()));
-                return manager;
-            }
-        };
-    }
-
-    static IConfigManagerBuilder builder(Runnable changeListener) {
-        return builder((manager, setting) -> changeListener.run());
-    }
-
-    static IConfigManagerBuilder builder(IConfigManagerListener changeListener) {
-        var manager = new ConfigManager(changeListener);
-        return new IConfigManagerBuilder() {
-            @Override
-            public <T extends Enum<T>> IConfigManagerBuilder registerSetting(Setting<T> setting, T defaultValue) {
-                manager.registerSetting(setting, defaultValue);
-                return this;
-            }
-
-            @Override
-            public IConfigManager build() {
-                return manager;
-            }
-        };
-    }
 }

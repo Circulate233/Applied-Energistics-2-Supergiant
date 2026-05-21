@@ -1,73 +1,56 @@
 package appeng.client.gui.me.common;
 
-import java.util.List;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.toasts.Toast;
-import net.minecraft.client.gui.components.toasts.ToastComponent;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.FormattedCharSequence;
-
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.core.localization.GuiText;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.toasts.GuiToast;
+import net.minecraft.client.gui.toasts.IToast;
+import net.minecraft.client.renderer.GlStateManager;
+
+import java.awt.Color;
+import java.util.List;
 
 /**
  * A Minecraft toast for a finished crafting job.
  */
-public class FinishedJobToast implements Toast {
-    private static final ResourceLocation BACKGROUND_SPRITE = ResourceLocation.parse("toast/recipe");
-
+public class FinishedJobToast implements IToast {
     private static final long TIME_VISIBLE = 2500;
-    private static final int TITLE_COLOR = 0xFF500050;
-    private static final int TEXT_COLOR = 0xFF000000;
+    private static final int TITLE_COLOR = Color.blue.getRGB();
+    private static final int TEXT_COLOR = Color.green.getRGB();
 
     private final AEKey what;
-    private final List<FormattedCharSequence> lines;
-    private final int height;
+    private final List<String> lines;
 
     public FinishedJobToast(AEKey what, long amount) {
         this.what = what;
 
-        var minecraft = Minecraft.getInstance();
-        var font = minecraft.font;
-
-        var formattedAmount = what.formatAmount(amount, AmountFormat.SLOT);
-
-        var text = GuiText.ToastCraftingJobFinishedText.text(formattedAmount, AEKeyRendering.getDisplayName(what));
-        lines = font.split(text, width() - 30 - 5);
-        height = Toast.super.height() + (lines.size() - 1) * font.lineHeight;
+        var minecraft = Minecraft.getMinecraft();
+        var formattedAmount = what.getType().formatAmount(amount, AmountFormat.SLOT);
+        var text = GuiText.ToastCraftingJobFinishedText.getLocal(formattedAmount,
+            AEKeyRendering.getDisplayName(what).getFormattedText());
+        this.lines = minecraft.fontRenderer.listFormattedStringToWidth(text, 125);
     }
 
     @Override
-    public Visibility render(GuiGraphics guiGraphics, ToastComponent toastComponent, long timeSinceLastVisible) {
-        var minecraft = Minecraft.getInstance();
-        var font = minecraft.font;
+    public Visibility draw(GuiToast toastGui, long delta) {
+        var minecraft = toastGui.getMinecraft();
 
-        // stretch the middle
-        guiGraphics.blitSprite(BACKGROUND_SPRITE, 160, 32, 0, 0, 0, 0, this.width(), 8);
-        int middleHeight = height - 16;
-        for (var middleY = 0; middleY < middleHeight; middleY += 16) {
-            var tileHeight = Math.min(middleHeight - middleY, 16);
-            guiGraphics.blitSprite(BACKGROUND_SPRITE, 160, 32, 0, 8, 0, 8 + middleY, this.width(), tileHeight);
-        }
-        guiGraphics.blitSprite(BACKGROUND_SPRITE, 160, 32, 0, 32 - 8, 0, height - 8, this.width(), 8);
-        guiGraphics.drawString(toastComponent.getMinecraft().font, GuiText.ToastCraftingJobFinishedTitle.text(), 30, 7,
-                TITLE_COLOR, false);
+        minecraft.getTextureManager().bindTexture(TEXTURE_TOASTS);
+        GlStateManager.color(1.0F, 1.0F, 1.0F);
+        toastGui.drawTexturedModalRect(0, 0, 0, 0, 160, 32);
+        minecraft.fontRenderer.drawString(GuiText.ToastCraftingJobFinishedTitle.getLocal(), 30, 7,
+            TITLE_COLOR);
+
         var lineY = 18;
-        for (var line : lines) {
-            guiGraphics.drawString(toastComponent.getMinecraft().font, line, 30, lineY, TEXT_COLOR, false);
-            lineY += font.lineHeight;
+        for (String line : this.lines) {
+            minecraft.fontRenderer.drawString(line, 30, lineY, TEXT_COLOR);
+            lineY += minecraft.fontRenderer.FONT_HEIGHT;
         }
-        AEKeyRendering.drawInGui(minecraft, guiGraphics, 8, 8, what);
 
-        return timeSinceLastVisible >= TIME_VISIBLE ? Visibility.HIDE : Visibility.SHOW;
-    }
+        AEKeyRendering.drawInGui(minecraft, 8, 8, this.what);
 
-    @Override
-    public int height() {
-        return height;
+        return delta >= TIME_VISIBLE ? Visibility.HIDE : Visibility.SHOW;
     }
 }

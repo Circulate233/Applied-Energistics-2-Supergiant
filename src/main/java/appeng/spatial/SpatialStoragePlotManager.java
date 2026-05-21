@@ -18,43 +18,39 @@
 
 package appeng.spatial;
 
-import java.util.List;
-
+import appeng.core.AELog;
+import appeng.core.definitions.AEBlocks;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.storage.MapStorage;
+import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.saveddata.SavedData;
+import java.util.List;
 
-import appeng.core.AELog;
-import appeng.core.AppEng;
-import appeng.core.definitions.AEBlocks;
-
-/**
- * Allocates and manages plots for spatial storage in the spatial storage level.
- */
 public final class SpatialStoragePlotManager {
-
-    private static final SavedData.Factory<SpatialStorageWorldData> FACTORY = new SavedData.Factory<>(
-            SpatialStorageWorldData::new,
-            SpatialStorageWorldData::load,
-            null);
 
     public static final SpatialStoragePlotManager INSTANCE = new SpatialStoragePlotManager();
 
     private SpatialStoragePlotManager() {
     }
 
-    /**
-     * Gets the level used to store spatial storage cell's content.
-     */
-    public ServerLevel getLevel() {
-        var server = AppEng.instance().getCurrentServer();
+    public WorldServer getLevel() {
+        SpatialStorageDimensionIds.init();
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
         if (server == null) {
             throw new IllegalStateException("No server is currently running.");
         }
-        ServerLevel level = server.getLevel(SpatialStorageDimensionIds.WORLD_ID);
+
+        int dimensionId = SpatialStorageDimensionIds.getDimensionId();
+        WorldServer level = DimensionManager.getWorld(dimensionId);
+        if (level == null) {
+            DimensionManager.initDimension(dimensionId);
+            level = DimensionManager.getWorld(dimensionId);
+        }
         if (level == null) {
             throw new IllegalStateException("The storage cell level is missing.");
         }
@@ -62,9 +58,22 @@ public final class SpatialStoragePlotManager {
     }
 
     private SpatialStorageWorldData getWorldData() {
-        return getLevel().getChunkSource().getDataStorage().computeIfAbsent(
-                FACTORY,
-                SpatialStorageWorldData.ID);
+        MapStorage storage = getLevel().getPerWorldStorage();
+        SpatialStorageWorldData result = (SpatialStorageWorldData) storage.getOrLoadData(
+            SpatialStorageWorldData.class, SpatialStorageWorldData.ID);
+        if (result == null) {
+            SpatialStorageWorldData legacy = (SpatialStorageWorldData) storage.getOrLoadData(
+                SpatialStorageWorldData.class, SpatialStorageWorldData.LEGACY_ID);
+            if (legacy != null) {
+                result = new SpatialStorageWorldData(SpatialStorageWorldData.ID);
+                result.copyFrom(legacy);
+                result.markDirty();
+            } else {
+                result = new SpatialStorageWorldData(SpatialStorageWorldData.ID);
+            }
+            storage.setData(SpatialStorageWorldData.ID, result);
+        }
+        return result;
     }
 
     @Nullable
@@ -81,17 +90,10 @@ public final class SpatialStoragePlotManager {
         return plot;
     }
 
-    /**
-     * Sets the last source for a spatial storage transition into the given plot. This is used to allow the server-admin
-     * commands to know where the content of a given plot came from.
-     */
     public void setLastTransition(int plotId, TransitionInfo info) {
         getWorldData().setLastTransition(plotId, info);
     }
 
-    /**
-     * Returns an immutable list of all plots.
-     */
     public List<SpatialStoragePlot> getPlots() {
         return getWorldData().getPlots();
     }
@@ -99,24 +101,22 @@ public final class SpatialStoragePlotManager {
     public void freePlot(int plotId, boolean resetBlocks) {
         SpatialStoragePlot plot = getPlot(plotId);
         if (plot == null) {
-            return; // Already removed apparently
+            return;
         }
 
         if (resetBlocks) {
             BlockPos from = plot.getOrigin();
-            BlockPos to = from.offset(plot.getSize()).offset(-1, -1, -1);
+            BlockPos to = from.add(plot.getSize()).add(-1, -1, -1);
 
             AELog.info("Clearing spatial storage plot %s (%s -> %s)", plotId, from, to);
 
-            // This is slow, but it should usually be just an admin-command
-            ServerLevel level = getLevel();
-            BlockState matrixFrame = AEBlocks.MATRIX_FRAME.block().defaultBlockState();
-            for (BlockPos blockPos : BlockPos.betweenClosed(from, to)) {
-                level.setBlockAndUpdate(blockPos, matrixFrame);
+            WorldServer level = getLevel();
+            IBlockState matrixFrame = AEBlocks.MATRIX_FRAME.block().getDefaultState();
+            for (BlockPos blockPos : BlockPos.getAllInBoxMutable(from, to)) {
+                level.setBlockState(blockPos, matrixFrame, 2);
             }
         }
 
         getWorldData().removePlot(plotId);
     }
-
 }

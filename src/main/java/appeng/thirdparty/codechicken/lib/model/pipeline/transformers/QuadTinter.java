@@ -18,30 +18,15 @@
 
 package appeng.thirdparty.codechicken.lib.model.pipeline.transformers;
 
-import appeng.thirdparty.fabric.MutableQuadView;
-import appeng.thirdparty.fabric.RenderContext;
+import appeng.client.render.mesh.MutableQuadView;
+import appeng.client.render.mesh.RenderContext;
 
-/**
- * This transformer tints quads.
- */
 public class QuadTinter implements RenderContext.QuadTransform {
 
     private final int argb;
 
     public QuadTinter(int rgb) {
         this.argb = 0xFF << 24 | rgb;
-    }
-
-    @Override
-    public boolean transform(MutableQuadView quad) {
-        // Nuke tintIndex.
-        quad.colorIndex(-1);
-        for (int i = 0; i < 4; i++) {
-            int color = quad.color(i);
-            color = multiplyColor(color, argb);
-            quad.color(i, color);
-        }
-        return true;
     }
 
     private static int multiplyColor(int color1, int color2) {
@@ -57,5 +42,16 @@ public class QuadTinter implements RenderContext.QuadTransform {
         final int blue = (color1 & 0xFF) * (color2 & 0xFF) / 0xFF;
 
         return (alpha << 24) | (red << 16) | (green << 8) | blue;
+    }
+
+    @Override
+    public boolean transform(MutableQuadView quad) {
+        quad.colorIndex(-1);
+        for (int i = 0; i < 4; i++) {
+            int color = quad.color(i);
+            color = multiplyColor(color, argb);
+            quad.color(i, color);
+        }
+        return true;
     }
 }

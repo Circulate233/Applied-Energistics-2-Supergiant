@@ -18,38 +18,41 @@
 
 package appeng.decorative.solid;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
-import appeng.client.render.effects.ParticleTypes;
+import appeng.client.EffectType;
 import appeng.core.AEConfig;
-import appeng.core.AppEngClient;
+import appeng.core.AppEngBase;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
+import java.util.Random;
 
 public class QuartzLampBlock extends QuartzGlassBlock {
 
-    public QuartzLampBlock(Properties props) {
-        super(props);
+    public QuartzLampBlock() {
+        super();
+        this.setLightLevel(1.0F);
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource r) {
+    @SideOnly(Side.CLIENT)
+    public void randomDisplayTick(IBlockState state, World level, BlockPos pos, Random random) {
         if (!AEConfig.instance().isEnableEffects()) {
             return;
         }
 
-        if (AppEngClient.instance().shouldAddParticles(r)) {
-            final double d0 = (r.nextFloat() - 0.5F) * 0.96D;
-            final double d1 = (r.nextFloat() - 0.5F) * 0.96D;
-            final double d2 = (r.nextFloat() - 0.5F) * 0.96D;
+        if (AppEngBase.runtime().shouldAddParticles(random)) {
+            final double d0 = (random.nextFloat() - 0.5F) * 0.96D;
+            final double d1 = (random.nextFloat() - 0.5F) * 0.96D;
+            final double d2 = (random.nextFloat() - 0.5F) * 0.96D;
 
-            level.addParticle(ParticleTypes.VIBRANT, 0.5 + pos.getX() + d0, 0.5 + pos.getY() + d1,
-                    0.5 + pos.getZ() + d2, 0,
-                    0, 0);
+            AppEngBase.runtime().spawnEffect(EffectType.Vibrant, level,
+                0.5 + pos.getX() + d0,
+                0.5 + pos.getY() + d1,
+                0.5 + pos.getZ() + d2,
+                null);
         }
     }
 }

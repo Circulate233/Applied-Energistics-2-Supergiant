@@ -11,14 +11,12 @@
         "south": {
           "uv": [7, 0, 9, 1],
           "texture": "#indicator",
-          "tintindex": 1,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 1
         },
         "up": {
           "uv": [7, 0, 9, 1],
           "texture": "#indicator",
-          "tintindex": 1,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 1
         }
       }
     },
@@ -29,14 +27,12 @@
         "south": {
           "uv": [7, 15, 9, 16],
           "texture": "#indicator",
-          "tintindex": 1,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 1
         },
         "down": {
           "uv": [7, 15, 9, 16],
           "texture": "#indicator",
-          "tintindex": 1,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 1
         }
       }
     },
@@ -47,14 +43,12 @@
         "south": {
           "uv": [0, 7, 1, 9],
           "texture": "#indicator",
-          "tintindex": 1,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 1
         },
         "west": {
           "uv": [0, 7, 1, 9],
           "texture": "#indicator",
-          "tintindex": 1,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 1
         }
       }
     },
@@ -65,14 +59,12 @@
         "east": {
           "uv": [15, 7, 16, 9],
           "texture": "#indicator",
-          "tintindex": 1,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 1
         },
         "south": {
           "uv": [15, 7, 16, 9],
           "texture": "#indicator",
-          "tintindex": 1,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 1
         }
       }
     }

@@ -1,135 +1,157 @@
-
 package appeng.core.network.serverbound;
 
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-
-import com.google.common.base.Preconditions;
-import com.google.common.primitives.Ints;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.NonNullList;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Ingredient;
-
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
-
 import appeng.api.config.FuzzyMode;
+import appeng.api.inventories.InternalInventory;
+import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingService;
+import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.StorageHelper;
-import appeng.core.network.CustomAppEngPayload;
+import appeng.container.interfaces.ICraftingGridContainer;
 import appeng.core.network.ServerboundPacket;
-import appeng.helpers.ICraftingGridMenu;
 import appeng.items.storage.ViewCellItem;
 import appeng.me.storage.NullInventory;
 import appeng.util.CraftingRecipeUtil;
 import appeng.util.prioritylist.IPartitionList;
+import com.google.common.base.Preconditions;
+import com.google.common.primitives.Ints;
+import io.netty.buffer.ByteBuf;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.objects.AbstractObject2LongMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.CraftingManager;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.item.crafting.Ingredient;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
 
-/**
- * This packet will attempt to fill a crafting grid with real items based on a crafting recipe for the purposes of
- * crafting that item.
- *
- * @param recipeId            The Recipe ID to be crafted. This is optional since some recipes in JEI/REI are generated
- *                            on-the-fly and do not really exist.
- * @param ingredientTemplates The client sends us the intended items for the crafting based on the recipe shown to them.
- *                            This can be used in place of the actual ingredients in case the recipe is not resolvable.
- *                            <p/>
- *                            The size of this list *has* to match the size and layout of the crafting matrix used in
- *                            the menu we're trying to fill the matrix in. Usually it'll be 3x3.
- * @param craftMissing        True if missing entries should be queued for autocrafting instead.
- */
-public record FillCraftingGridFromRecipePacket(
-        @Nullable ResourceLocation recipeId,
-        NonNullList<ItemStack> ingredientTemplates,
-        boolean craftMissing) implements ServerboundPacket {
+import java.io.IOException;
+import java.util.List;
+import java.util.Optional;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, FillCraftingGridFromRecipePacket> STREAM_CODEC = StreamCodec
-            .ofMember(
-                    FillCraftingGridFromRecipePacket::write,
-                    FillCraftingGridFromRecipePacket::decode);
+public class FillCraftingGridFromRecipePacket extends ServerboundPacket {
+    private static final int CRAFTING_GRID_SIZE = 9;
 
-    public static final Type<FillCraftingGridFromRecipePacket> TYPE = CustomAppEngPayload
-            .createType("fill_crafting_grid_from_recipe");
+    private ResourceLocation recipeId;
+    private List<List<ItemStack>> ingredientTemplates = createEmptyIngredientTemplates();
+    private boolean craftMissing;
 
-    @Override
-    public Type<FillCraftingGridFromRecipePacket> type() {
-        return TYPE;
+    public FillCraftingGridFromRecipePacket() {
     }
 
-    public FillCraftingGridFromRecipePacket(@Nullable ResourceLocation recipeId,
-            NonNullList<ItemStack> ingredientTemplates,
-            boolean craftMissing) {
+    public FillCraftingGridFromRecipePacket(ResourceLocation recipeId, List<List<ItemStack>> ingredientTemplates,
+                                            boolean craftMissing) {
         this.recipeId = recipeId;
-        this.ingredientTemplates = NonNullList.copyOf(ingredientTemplates.stream().map(ItemStack::copy).toList());
+        this.ingredientTemplates = copyIngredientTemplates(ingredientTemplates);
         this.craftMissing = craftMissing;
     }
 
-    public static FillCraftingGridFromRecipePacket decode(RegistryFriendlyByteBuf stream) {
-        ResourceLocation recipeId = null;
-        if (stream.readBoolean()) {
-            recipeId = stream.readResourceLocation();
+    private static List<List<ItemStack>> createEmptyIngredientTemplates() {
+        List<List<ItemStack>> ingredientTemplates = new ObjectArrayList<>(CRAFTING_GRID_SIZE);
+        for (int i = 0; i < CRAFTING_GRID_SIZE; i++) {
+            ingredientTemplates.add(new ObjectArrayList<>());
         }
+        return ingredientTemplates;
+    }
 
-        var ingredientTemplates = NonNullList.withSize(stream.readInt(), ItemStack.EMPTY);
+    private static List<List<ItemStack>> convertSingleTemplates(NonNullList<ItemStack> ingredientTemplates) {
+        Preconditions.checkArgument(ingredientTemplates.size() == CRAFTING_GRID_SIZE,
+            "Got %s ingredient templates from client, expected %s",
+            ingredientTemplates.size(), CRAFTING_GRID_SIZE);
+        List<List<ItemStack>> result = createEmptyIngredientTemplates();
         for (int i = 0; i < ingredientTemplates.size(); i++) {
-            ingredientTemplates.set(i, ItemStack.OPTIONAL_STREAM_CODEC.decode(stream));
+            ItemStack stack = ingredientTemplates.get(i);
+            if (!stack.isEmpty()) {
+                result.get(i).add(stack.copy());
+            }
         }
-        var craftMissing = stream.readBoolean();
-
-        return new FillCraftingGridFromRecipePacket(recipeId, ingredientTemplates, craftMissing);
+        return result;
     }
 
-    public void write(RegistryFriendlyByteBuf data) {
-        if (recipeId != null) {
-            data.writeBoolean(true);
-            data.writeResourceLocation(recipeId);
-        } else {
-            data.writeBoolean(false);
+    private static List<List<ItemStack>> copyIngredientTemplates(List<List<ItemStack>> ingredientTemplates) {
+        Preconditions.checkArgument(ingredientTemplates.size() == CRAFTING_GRID_SIZE,
+            "Got %s ingredient template slots from client, expected %s",
+            ingredientTemplates.size(), CRAFTING_GRID_SIZE);
+        List<List<ItemStack>> result = createEmptyIngredientTemplates();
+        for (int i = 0; i < ingredientTemplates.size(); i++) {
+            List<ItemStack> slotTemplates = ingredientTemplates.get(i);
+            if (slotTemplates == null) {
+                continue;
+            }
+            List<ItemStack> copiedSlotTemplates = result.get(i);
+            for (ItemStack stack : slotTemplates) {
+                if (stack != null && !stack.isEmpty()) {
+                    copiedSlotTemplates.add(stack.copy());
+                }
+            }
         }
-        data.writeInt(ingredientTemplates.size());
-        for (var stack : ingredientTemplates) {
-            ItemStack.OPTIONAL_STREAM_CODEC.encode(data, stack);
-        }
-        data.writeBoolean(craftMissing);
+        return result;
     }
 
-    /**
-     * Serverside handler for this packet.
-     */
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        // Setup and verification
-        var menu = player.containerMenu;
-        if (!(menu instanceof ICraftingGridMenu cct)) {
-            // Server might have closed the menu before the client-packet is processed. This is not an error.
+    protected void read(ByteBuf buf) {
+        PacketBuffer packetBuffer = new PacketBuffer(buf);
+        this.recipeId = packetBuffer.readBoolean() ? packetBuffer.readResourceLocation() : null;
+        int size = packetBuffer.readInt();
+        Preconditions.checkArgument(size == CRAFTING_GRID_SIZE,
+            "Got %s ingredient template slots from client, expected %s",
+            size, CRAFTING_GRID_SIZE);
+        this.ingredientTemplates = createEmptyIngredientTemplates();
+        for (int i = 0; i < size; i++) {
+            int alternatives = packetBuffer.readInt();
+            List<ItemStack> slotTemplates = this.ingredientTemplates.get(i);
+            for (int j = 0; j < alternatives; j++) {
+                try {
+                    slotTemplates.add(packetBuffer.readItemStack());
+                } catch (IOException e) {
+                    throw new IllegalArgumentException("Could not read recipe transfer ingredient", e);
+                }
+            }
+        }
+        this.craftMissing = packetBuffer.readBoolean();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        PacketBuffer packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeBoolean(this.recipeId != null);
+        if (this.recipeId != null) {
+            packetBuffer.writeResourceLocation(this.recipeId);
+        }
+        packetBuffer.writeInt(this.ingredientTemplates.size());
+        for (List<ItemStack> slotTemplates : this.ingredientTemplates) {
+            packetBuffer.writeInt(slotTemplates.size());
+            for (ItemStack stack : slotTemplates) {
+                packetBuffer.writeItemStack(stack);
+            }
+        }
+        packetBuffer.writeBoolean(this.craftMissing);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if (!(player.openContainer instanceof ICraftingGridContainer container)) {
             return;
         }
-
-        var energy = cct.getEnergySource();
-        @Nullable
+        IEnergySource energy = container.getEnergySource();
         ICraftingService craftingService;
-        @Nullable
         IStorageService storageService;
         MEStorage networkStorage;
         KeyCounter cachedStorage;
 
-        @Nullable
-        var node = cct.getGridNode();
-        if (node != null && cct.getLinkStatus().connected()) {
+        IGridNode node = container.getGridNode();
+        if (node != null && container.getLinkStatus().connected()) {
             craftingService = node.getGrid().getCraftingService();
             storageService = node.getGrid().getStorageService();
             networkStorage = storageService.getInventory();
@@ -141,60 +163,51 @@ public record FillCraftingGridFromRecipePacket(
             cachedStorage = new KeyCounter();
         }
 
-        var craftMatrix = cct.getCraftingMatrix();
+        InternalInventory craftMatrix = container.getCraftingMatrix();
+        IPartitionList filter = ViewCellItem.createItemFilter(container.getViewCells());
+        NonNullList<Ingredient> ingredients = getDesiredIngredients();
 
-        // We'll try to use the best possible ingredients based on what's available in the network
-
-        var filter = ViewCellItem.createItemFilter(cct.getViewCells());
-        var ingredients = getDesiredIngredients(player);
-
-        // Prepare to autocraft some stuff
-        var toAutoCraft = new LinkedHashMap<AEItemKey, IntList>();
+        Object2ObjectMap<AEItemKey, IntList> toAutoCraft = new Object2ObjectLinkedOpenHashMap<>();
         boolean touchedGridStorage = false;
 
-        // Handle each slot
-        for (var x = 0; x < craftMatrix.size(); x++) {
-            var currentItem = craftMatrix.getStackInSlot(x);
-            var ingredient = ingredients.get(x);
+        int slotsToFill = Math.min(craftMatrix.size(), ingredients.size());
+        for (int slot = 0; slot < slotsToFill; slot++) {
+            ItemStack currentItem = craftMatrix.getStackInSlot(slot);
+            Ingredient ingredient = ingredients.get(slot);
 
-            // Move out items blocking the grid
             if (!currentItem.isEmpty()) {
-                // Put away old item, if not correct
-                if (ingredient.test(currentItem)) {
-                    // Grid already has an item that matches the ingredient
+                if (ingredient.apply(currentItem)) {
                     continue;
-                } else {
-                    var in = AEItemKey.of(currentItem);
-                    var inserted = StorageHelper.poweredInsert(energy, networkStorage, in, currentItem.getCount(),
-                            cct.getActionSource());
-                    if (inserted > 0) {
-                        touchedGridStorage = true;
-                    }
-                    if (inserted < currentItem.getCount()) {
-                        currentItem = currentItem.copy();
-                        currentItem.shrink((int) inserted);
-                    } else {
-                        currentItem = ItemStack.EMPTY;
-                    }
-
-                    // If more is remaining, try moving it to the player inventory
-                    player.getInventory().add(currentItem);
-
-                    craftMatrix.setItemDirect(x, currentItem.isEmpty() ? ItemStack.EMPTY : currentItem);
                 }
+
+                AEItemKey in = AEItemKey.of(currentItem);
+                long inserted = in != null
+                    ? StorageHelper.poweredInsert(energy, networkStorage, in, currentItem.getCount(),
+                    container.getActionSource())
+                    : 0;
+                if (inserted > 0) {
+                    touchedGridStorage = true;
+                }
+                if (inserted < currentItem.getCount()) {
+                    currentItem = currentItem.copy();
+                    currentItem.shrink((int) inserted);
+                } else {
+                    currentItem = ItemStack.EMPTY;
+                }
+                if (!currentItem.isEmpty()) {
+                    player.inventory.addItemStackToInventory(currentItem);
+                }
+                craftMatrix.setItemDirect(slot, currentItem.isEmpty() ? ItemStack.EMPTY : currentItem);
             }
 
-            if (ingredient.isEmpty()) {
+            if (ingredient == Ingredient.EMPTY) {
                 continue;
             }
 
-            // Try to find the best item for this slot. Sort by the amount available in the last tick,
-            // then try to extract from most to least available item until 1 can be extracted.
             if (currentItem.isEmpty()) {
-                var request = findBestMatchingItemStack(ingredient, filter, cachedStorage);
-                for (var what : request) {
-                    var extracted = StorageHelper.poweredExtraction(energy, networkStorage, what, 1,
-                            cct.getActionSource());
+                for (AEItemKey what : findBestMatchingItemStack(ingredient, filter, cachedStorage)) {
+                    long extracted = StorageHelper.poweredExtraction(energy, networkStorage, what, 1,
+                        container.getActionSource());
                     if (extracted > 0) {
                         touchedGridStorage = true;
                         currentItem = what.toStack(Ints.saturatedCast(extracted));
@@ -203,49 +216,46 @@ public record FillCraftingGridFromRecipePacket(
                 }
             }
 
-            // If still nothing, try taking it from the player inventory
             if (currentItem.isEmpty()) {
-                currentItem = takeIngredientFromPlayer(cct, player, ingredient);
+                currentItem = takeIngredientFromPlayer(container, player, ingredient);
             }
 
-            craftMatrix.setItemDirect(x, currentItem);
+            craftMatrix.setItemDirect(slot, currentItem);
 
-            // If we couldn't find the item, schedule its autocrafting
-            if (currentItem.isEmpty() && craftMissing && craftingService != null) {
-                int slot = x;
+            if (currentItem.isEmpty() && this.craftMissing && craftingService != null) {
+                final int craftSlot = slot;
                 findCraftableKey(ingredient, craftingService).ifPresent(key -> {
-                    toAutoCraft.computeIfAbsent(key, k -> new IntArrayList()).add(slot);
+                    IntList slots = toAutoCraft.computeIfAbsent(key, ignored -> new IntArrayList());
+                    slots.add(craftSlot);
                 });
             }
         }
 
-        menu.slotsChanged(craftMatrix.toContainer());
+        player.openContainer.onCraftMatrixChanged(craftMatrix.toContainer());
 
         if (!toAutoCraft.isEmpty()) {
-            // Invalidate the grid storage cache if we modified it. The crafting plan will use
-            // the outdated cached inventory otherwise.
-            if (touchedGridStorage) {
+            if (touchedGridStorage && storageService != null) {
                 storageService.invalidateCache();
             }
 
-            // This must be the last call since it changes the menu!
-            var stacks = toAutoCraft.entrySet().stream()
-                    .map(e -> new ICraftingGridMenu.AutoCraftEntry(e.getKey(), e.getValue())).toList();
-            cct.startAutoCrafting(stacks);
+            List<ICraftingGridContainer.AutoCraftEntry> stacks = new ObjectArrayList<>(
+                toAutoCraft.size());
+            for (Object2ObjectMap.Entry<AEItemKey, IntList> entry : toAutoCraft.object2ObjectEntrySet()) {
+                stacks.add(new ICraftingGridContainer.AutoCraftEntry(entry.getKey(), entry.getValue()));
+            }
+            container.startAutoCrafting(stacks);
         }
     }
 
-    private ItemStack takeIngredientFromPlayer(ICraftingGridMenu cct, ServerPlayer player, Ingredient ingredient) {
-        var playerInv = player.getInventory();
-        for (int i = 0; i < playerInv.items.size(); i++) {
-            // Do not take ingredients out of locked slots
-            if (cct.isPlayerInventorySlotLocked(i)) {
+    private ItemStack takeIngredientFromPlayer(ICraftingGridContainer container, EntityPlayerMP player, Ingredient ingredient) {
+        for (int i = 0; i < player.inventory.mainInventory.size(); i++) {
+            if (container.isPlayerInventorySlotLocked(i)) {
                 continue;
             }
 
-            var item = playerInv.getItem(i);
-            if (ingredient.test(item)) {
-                var result = item.split(1);
+            ItemStack item = player.inventory.mainInventory.get(i);
+            if (!item.isEmpty() && ingredient.apply(item)) {
+                ItemStack result = item.splitStack(1);
                 if (!result.isEmpty()) {
                     return result;
                 }
@@ -254,67 +264,62 @@ public record FillCraftingGridFromRecipePacket(
         return ItemStack.EMPTY;
     }
 
-    private NonNullList<Ingredient> getDesiredIngredients(Player player) {
-        // Try to retrieve the real recipe on the server-side
+    private NonNullList<Ingredient> getDesiredIngredients() {
         if (this.recipeId != null) {
-            var recipe = player.level().getRecipeManager().byKey(this.recipeId).orElse(null);
+            IRecipe recipe = CraftingManager.REGISTRY.getObject(this.recipeId);
             if (recipe != null) {
-                return CraftingRecipeUtil.ensure3by3CraftingMatrix(recipe.value());
+                return CraftingRecipeUtil.ensure3by3CraftingMatrix(recipe);
             }
         }
 
-        // If the recipe is unavailable for any reason, use the templates provided by the client
-        var ingredients = NonNullList.withSize(9, Ingredient.EMPTY);
+        NonNullList<Ingredient> ingredients = NonNullList.withSize(CRAFTING_GRID_SIZE, Ingredient.EMPTY);
         Preconditions.checkArgument(ingredients.size() == this.ingredientTemplates.size(),
-                "Got %d ingredient templates from client, expected %d",
-                ingredientTemplates.size(), ingredients.size());
+            "Got %s ingredient template slots from client, expected %s",
+            this.ingredientTemplates.size(), ingredients.size());
         for (int i = 0; i < ingredients.size(); i++) {
-            var template = ingredientTemplates.get(i);
-            if (!template.isEmpty()) {
-                ingredients.set(i, Ingredient.of(template));
+            List<ItemStack> slotTemplates = this.ingredientTemplates.get(i);
+            if (!slotTemplates.isEmpty()) {
+                ingredients.set(i, Ingredient.fromStacks(slotTemplates.toArray(new ItemStack[0])));
             }
         }
-
         return ingredients;
     }
 
-    /**
-     * From a stream of AE item stacks, pick the one with the highest available amount in the network. Returns null if
-     * the stream is empty.
-     * <p/>
-     * We normalize the stored amount vs. the amount needed for the recipe. While this is irrelevant for crafting
-     * recipes, it can be relevant for processing patterns where an ingredient doesn't always have amount=1.
-     *
-     * <pre>
-     * Example:
-     * Recipe asks for 16xItem A or 1xItem B.
-     * Storage has 16xItem A and 15xItem B.
-     * Item B should have priority because the recipe could be crafted 15x, while with item A it could only be crafted
-     * once.
-     * </pre>
-     */
-    private List<AEItemKey> findBestMatchingItemStack(Ingredient ingredient, IPartitionList filter,
-            KeyCounter storage) {
-        return Arrays.stream(ingredient.getItems())//
-                .map(AEItemKey::of) //
-                .filter(r -> r != null && (filter == null || filter.isListed(r)))
-                .flatMap(s -> storage.findFuzzy(s, FuzzyMode.IGNORE_ALL).stream())//
-                // While FuzzyMode.IGNORE_ALL will retrieve all stacks of the same Item which matches
-                // standard Vanilla Ingredient matching, there are NBT-matching Ingredient subclasses on Forge,
-                // and Mods might actually have mixed into Ingredient
-                .filter(e -> ((AEItemKey) e.getKey()).matches(ingredient))
-                // Sort in descending order of availability
-                .sorted((a, b) -> Long.compare(b.getLongValue(), a.getLongValue()))//
-                .map(e -> (AEItemKey) e.getKey())//
-                .toList();
+    private List<AEItemKey> findBestMatchingItemStack(Ingredient ingredient, IPartitionList filter, KeyCounter storage) {
+        List<Object2LongMap.Entry<AEItemKey>> result = new ObjectArrayList<>();
+        for (ItemStack stack : ingredient.getMatchingStacks()) {
+            AEItemKey key = AEItemKey.of(stack);
+            if (key == null || filter != null && !filter.isListed(key)) {
+                continue;
+            }
+            for (Object2LongMap.Entry<AEKey> entry : storage.findFuzzy(key, FuzzyMode.IGNORE_ALL)) {
+                AEKey foundKey = entry.getKey();
+                if (foundKey instanceof AEItemKey && ((AEItemKey) foundKey).matches(ingredient)) {
+                    result.add(new AbstractObject2LongMap.BasicEntry<>((AEItemKey) foundKey, entry.getLongValue()));
+                }
+            }
+        }
+        result.sort((a, b) -> Long.compare(b.getLongValue(), a.getLongValue()));
+
+        List<AEItemKey> keys = new ObjectArrayList<>(result.size());
+        for (Object2LongMap.Entry<AEItemKey> entry : result) {
+            keys.add(entry.getKey());
+        }
+        return keys;
     }
 
     private Optional<AEItemKey> findCraftableKey(Ingredient ingredient, ICraftingService craftingService) {
-        return Arrays.stream(ingredient.getItems())//
-                .map(AEItemKey::of)//
-                .map(s -> (AEItemKey) craftingService.getFuzzyCraftable(s,
-                        key -> ((AEItemKey) key).matches(ingredient)))//
-                .filter(Objects::nonNull)//
-                .findAny();//
+        for (ItemStack stack : ingredient.getMatchingStacks()) {
+            AEItemKey key = AEItemKey.of(stack);
+            if (key == null) {
+                continue;
+            }
+            AEKey craftable = craftingService.getFuzzyCraftable(key,
+                candidate -> candidate instanceof AEItemKey && ((AEItemKey) candidate).matches(ingredient));
+            if (craftable instanceof AEItemKey) {
+                return Optional.of((AEItemKey) craftable);
+            }
+        }
+        return Optional.empty();
     }
 }

@@ -18,14 +18,14 @@
 
 package appeng.util.inv;
 
+import appeng.api.inventories.InternalInventory;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
+import org.jspecify.annotations.NonNull;
+
 import java.util.Iterator;
 import java.util.function.Supplier;
-
-import net.minecraft.world.Container;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
-
-import appeng.api.inventories.InternalInventory;
 
 /**
  * Wraps another {@link IItemHandler} in such a way that the underlying item handler is queried from a supplier, which
@@ -53,7 +53,7 @@ public class SupplierInternalInventory<T extends InternalInventory> implements I
     }
 
     @Override
-    public Container toContainer() {
+    public IInventory toContainer() {
         return getDelegate().toContainer();
     }
 
@@ -98,7 +98,7 @@ public class SupplierInternalInventory<T extends InternalInventory> implements I
     }
 
     @Override
-    public Iterator<ItemStack> iterator() {
+    public @NonNull Iterator<ItemStack> iterator() {
         return getDelegate().iterator();
     }
 

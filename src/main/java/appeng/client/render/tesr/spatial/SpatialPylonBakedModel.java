@@ -18,154 +18,64 @@
 
 package appeng.client.render.tesr.spatial;
 
+import appeng.block.spatial.SpatialPylonBlock;
+import appeng.client.render.cablebus.CubeBuilder;
+import appeng.me.cluster.implementations.SpatialPylonCluster;
+import appeng.tile.spatial.TileSpatialPylon;
+import com.google.common.collect.ImmutableMap;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraftforge.client.MinecraftForgeClient;
+import net.minecraftforge.common.property.IExtendedBlockState;
+
+import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
-import com.google.common.collect.ImmutableMap;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.ChunkRenderTypeSet;
-import net.neoforged.neoforge.client.model.IDynamicBakedModel;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
-import appeng.blockentity.spatial.SpatialPylonBlockEntity;
-import appeng.client.render.cablebus.CubeBuilder;
 
 /**
  * The baked model that will be used for rendering the spatial pylon.
  */
-class SpatialPylonBakedModel implements IDynamicBakedModel {
-    private static final ChunkRenderTypeSet RENDER_TYPES = ChunkRenderTypeSet.of(RenderType.CUTOUT);
-
+class SpatialPylonBakedModel implements IBakedModel {
     private final Map<SpatialPylonTextureType, TextureAtlasSprite> textures;
 
     SpatialPylonBakedModel(Map<SpatialPylonTextureType, TextureAtlasSprite> textures) {
         this.textures = ImmutableMap.copyOf(textures);
     }
 
-    @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState blockState, @Nullable Direction side, RandomSource rand,
-            ModelData extraData, RenderType renderType) {
-        var state = getState(extraData);
-
-        CubeBuilder builder = new CubeBuilder();
-
-        if (state.axisPosition() != SpatialPylonBlockEntity.AxisPosition.NONE) {
-            Direction ori = null;
-            var displayAxis = state.axis();
-            var axisPos = state.axisPosition();
-
-            if (displayAxis == Direction.Axis.Y) {
-                ori = Direction.UP;
-                if (axisPos == SpatialPylonBlockEntity.AxisPosition.END) {
-                    builder.setFlipV(Direction.NORTH, true);
-                    builder.setFlipV(Direction.SOUTH, true);
-                    builder.setFlipV(Direction.WEST, true);
-                    builder.setFlipV(Direction.EAST, true);
-                }
-            } else if (displayAxis == Direction.Axis.X) {
-                ori = Direction.EAST;
-
-                builder.setUvRotation(Direction.NORTH, 1);
-                builder.setUvRotation(Direction.SOUTH, 1);
-                builder.setUvRotation(Direction.UP, 3);
-                builder.setUvRotation(Direction.DOWN, 3);
-
-                if (axisPos == SpatialPylonBlockEntity.AxisPosition.START) {
-                    builder.setFlipV(Direction.UP, true);
-                    builder.setFlipV(Direction.DOWN, true);
-                    builder.setFlipV(Direction.NORTH, true);
-                } else if (axisPos == SpatialPylonBlockEntity.AxisPosition.END) {
-                    builder.setFlipV(Direction.SOUTH, true);
-                }
-            } else if (displayAxis == Direction.Axis.Z) {
-                ori = Direction.NORTH;
-
-                builder.setUvRotation(Direction.WEST, 1);
-                builder.setUvRotation(Direction.EAST, 1);
-
-                if (axisPos == SpatialPylonBlockEntity.AxisPosition.START) {
-                    builder.setFlipV(Direction.UP, true);
-                    builder.setFlipV(Direction.EAST, true);
-                } else if (axisPos == SpatialPylonBlockEntity.AxisPosition.END) {
-                    builder.setFlipV(Direction.DOWN, true);
-                    builder.setFlipV(Direction.WEST, true);
-                }
-            }
-
-            builder.setTextures(this.textures.get(getTextureTypeFromSideOutside(state, ori, Direction.UP)),
-                    this.textures.get(getTextureTypeFromSideOutside(state, ori, Direction.DOWN)),
-                    this.textures.get(getTextureTypeFromSideOutside(state, ori, Direction.NORTH)),
-                    this.textures.get(getTextureTypeFromSideOutside(state, ori, Direction.SOUTH)),
-                    this.textures.get(getTextureTypeFromSideOutside(state, ori, Direction.EAST)),
-                    this.textures.get(getTextureTypeFromSideOutside(state, ori, Direction.WEST)));
-            builder.addCube(0, 0, 0, 16, 16, 16);
-
-            if (state.powered()) {
-                builder.setEmissiveMaterial(true);
-            }
-
-            builder.setTextures(this.textures.get(getTextureTypeFromSideInside(state, ori, Direction.UP)),
-                    this.textures.get(getTextureTypeFromSideInside(state, ori, Direction.DOWN)),
-                    this.textures.get(getTextureTypeFromSideInside(state, ori, Direction.NORTH)),
-                    this.textures.get(getTextureTypeFromSideInside(state, ori, Direction.SOUTH)),
-                    this.textures.get(getTextureTypeFromSideInside(state, ori, Direction.EAST)),
-                    this.textures.get(getTextureTypeFromSideInside(state, ori, Direction.WEST)));
-        } else {
-            builder.setTexture(this.textures.get(SpatialPylonTextureType.BASE));
-            builder.addCube(0, 0, 0, 16, 16, 16);
-
-            builder.setTexture(this.textures.get(SpatialPylonTextureType.DIM));
-        }
-        builder.addCube(0, 0, 0, 16, 16, 16);
-
-        // Reset back to default
-        builder.setEmissiveMaterial(false);
-
-        return builder.getOutput();
-    }
-
-    private SpatialPylonBlockEntity.ClientState getState(ModelData modelData) {
-        var state = modelData.get(SpatialPylonBlockEntity.STATE);
-        return state != null ? state : SpatialPylonBlockEntity.ClientState.DEFAULT;
-    }
-
-    private static SpatialPylonTextureType getTextureTypeFromSideOutside(SpatialPylonBlockEntity.ClientState state,
-            Direction ori, Direction dir) {
+    private static SpatialPylonTextureType getTextureTypeFromSideOutside(TileSpatialPylon.ClientState state,
+                                                                         EnumFacing ori, EnumFacing dir) {
         if (ori == dir || ori.getOpposite() == dir) {
             return SpatialPylonTextureType.BASE;
         }
 
-        if (state.axisPosition() == SpatialPylonBlockEntity.AxisPosition.MIDDLE) {
+        if (state.axisPosition() == TileSpatialPylon.AxisPosition.MIDDLE) {
             return SpatialPylonTextureType.BASE_SPANNED;
-        } else if (state.axisPosition() == SpatialPylonBlockEntity.AxisPosition.START
-                || state.axisPosition() == SpatialPylonBlockEntity.AxisPosition.END) {
+        } else if (state.axisPosition() == TileSpatialPylon.AxisPosition.START
+            || state.axisPosition() == TileSpatialPylon.AxisPosition.END) {
             return SpatialPylonTextureType.BASE_END;
         }
 
         return SpatialPylonTextureType.BASE;
     }
 
-    private static SpatialPylonTextureType getTextureTypeFromSideInside(SpatialPylonBlockEntity.ClientState state,
-            Direction ori, Direction dir) {
-        final boolean good = state.online();
+    private static SpatialPylonTextureType getTextureTypeFromSideInside(TileSpatialPylon.ClientState state,
+                                                                        EnumFacing ori, EnumFacing dir) {
+        boolean good = state.online();
 
         if (ori == dir || ori.getOpposite() == dir) {
             return good ? SpatialPylonTextureType.DIM : SpatialPylonTextureType.RED;
         }
 
-        if (state.axisPosition() == SpatialPylonBlockEntity.AxisPosition.MIDDLE) {
+        if (state.axisPosition() == TileSpatialPylon.AxisPosition.MIDDLE) {
             return good ? SpatialPylonTextureType.DIM_SPANNED : SpatialPylonTextureType.RED_SPANNED;
-        } else if (state.axisPosition() == SpatialPylonBlockEntity.AxisPosition.START
-                || state.axisPosition() == SpatialPylonBlockEntity.AxisPosition.END) {
+        } else if (state.axisPosition() == TileSpatialPylon.AxisPosition.START
+            || state.axisPosition() == TileSpatialPylon.AxisPosition.END) {
             return good ? SpatialPylonTextureType.DIM_END : SpatialPylonTextureType.RED_END;
         }
 
@@ -173,12 +83,130 @@ class SpatialPylonBakedModel implements IDynamicBakedModel {
     }
 
     @Override
-    public boolean usesBlockLight() {
-        return false;
+    public List<BakedQuad> getQuads(@Nullable IBlockState blockState, @Nullable EnumFacing side, long rand) {
+        if (side != null) {
+            return Collections.emptyList();
+        }
+
+        BlockRenderLayer layer = MinecraftForgeClient.getRenderLayer();
+        if (layer != null && layer != BlockRenderLayer.CUTOUT) {
+            return Collections.emptyList();
+        }
+
+        TileSpatialPylon.ClientState state = getState(blockState);
+        return Collections.unmodifiableList(buildQuads(state));
+    }
+
+    private List<BakedQuad> buildQuads(TileSpatialPylon.ClientState state) {
+        CubeBuilder builder = new CubeBuilder();
+
+        if (state.axisPosition() != TileSpatialPylon.AxisPosition.NONE) {
+            EnumFacing ori = null;
+            SpatialPylonCluster.Axis displayAxis = state.axis();
+            TileSpatialPylon.AxisPosition axisPos = state.axisPosition();
+
+            if (displayAxis == SpatialPylonCluster.Axis.X) {
+                ori = EnumFacing.EAST;
+
+                if (axisPos == TileSpatialPylon.AxisPosition.END) {
+                    builder.setUvRotation(EnumFacing.SOUTH, 1);
+                    builder.setUvRotation(EnumFacing.NORTH, 1);
+                    builder.setUvRotation(EnumFacing.UP, 2);
+                    builder.setUvRotation(EnumFacing.DOWN, 2);
+                } else if (axisPos == TileSpatialPylon.AxisPosition.START) {
+                    builder.setUvRotation(EnumFacing.SOUTH, 2);
+                    builder.setUvRotation(EnumFacing.NORTH, 2);
+                    builder.setUvRotation(EnumFacing.UP, 1);
+                    builder.setUvRotation(EnumFacing.DOWN, 1);
+                } else {
+                    builder.setUvRotation(EnumFacing.SOUTH, 1);
+                    builder.setUvRotation(EnumFacing.NORTH, 1);
+                    builder.setUvRotation(EnumFacing.UP, 1);
+                    builder.setUvRotation(EnumFacing.DOWN, 1);
+                }
+
+                if (axisPos == TileSpatialPylon.AxisPosition.END) {
+                    builder.setFlipU(EnumFacing.UP, true);
+                    builder.setFlipU(EnumFacing.DOWN, true);
+                } else if (axisPos == TileSpatialPylon.AxisPosition.START) {
+                    builder.setFlipU(EnumFacing.NORTH, true);
+                    builder.setFlipU(EnumFacing.SOUTH, true);
+                }
+            } else if (displayAxis == SpatialPylonCluster.Axis.Y) {
+                ori = EnumFacing.UP;
+                if (axisPos == TileSpatialPylon.AxisPosition.END) {
+                    builder.setUvRotation(EnumFacing.NORTH, 3);
+                    builder.setUvRotation(EnumFacing.SOUTH, 3);
+                    builder.setUvRotation(EnumFacing.EAST, 3);
+                    builder.setUvRotation(EnumFacing.WEST, 3);
+                    builder.setFlipU(EnumFacing.NORTH, true);
+                    builder.setFlipU(EnumFacing.SOUTH, true);
+                    builder.setFlipU(EnumFacing.EAST, true);
+                    builder.setFlipU(EnumFacing.WEST, true);
+                }
+            } else if (displayAxis == SpatialPylonCluster.Axis.Z) {
+                ori = EnumFacing.NORTH;
+                if (axisPos == TileSpatialPylon.AxisPosition.END) {
+                    builder.setUvRotation(EnumFacing.EAST, 2);
+                    builder.setUvRotation(EnumFacing.WEST, 1);
+                    builder.setFlipU(EnumFacing.EAST, true);
+                    builder.setFlipU(EnumFacing.WEST, true);
+                } else if (axisPos == TileSpatialPylon.AxisPosition.START) {
+                    builder.setUvRotation(EnumFacing.EAST, 1);
+                    builder.setUvRotation(EnumFacing.WEST, 2);
+                    builder.setUvRotation(EnumFacing.UP, 3);
+                    builder.setUvRotation(EnumFacing.DOWN, 3);
+                    builder.setFlipU(EnumFacing.UP, true);
+                    builder.setFlipU(EnumFacing.DOWN, true);
+                } else {
+                    builder.setUvRotation(EnumFacing.EAST, 1);
+                    builder.setUvRotation(EnumFacing.WEST, 2);
+                }
+            }
+
+            builder.setTextures(this.textures.get(getTextureTypeFromSideOutside(state, ori, EnumFacing.UP)),
+                this.textures.get(getTextureTypeFromSideOutside(state, ori, EnumFacing.DOWN)),
+                this.textures.get(getTextureTypeFromSideOutside(state, ori, EnumFacing.NORTH)),
+                this.textures.get(getTextureTypeFromSideOutside(state, ori, EnumFacing.SOUTH)),
+                this.textures.get(getTextureTypeFromSideOutside(state, ori, EnumFacing.EAST)),
+                this.textures.get(getTextureTypeFromSideOutside(state, ori, EnumFacing.WEST)));
+            builder.addCube(0, 0, 0, 16, 16, 16);
+
+            if (state.powered()) {
+                builder.setEmissiveMaterial(true);
+            }
+
+            builder.setTextures(this.textures.get(getTextureTypeFromSideInside(state, ori, EnumFacing.UP)),
+                this.textures.get(getTextureTypeFromSideInside(state, ori, EnumFacing.DOWN)),
+                this.textures.get(getTextureTypeFromSideInside(state, ori, EnumFacing.NORTH)),
+                this.textures.get(getTextureTypeFromSideInside(state, ori, EnumFacing.SOUTH)),
+                this.textures.get(getTextureTypeFromSideInside(state, ori, EnumFacing.EAST)),
+                this.textures.get(getTextureTypeFromSideInside(state, ori, EnumFacing.WEST)));
+            builder.addCube(0, 0, 0, 16, 16, 16);
+        } else {
+            builder.setTexture(this.textures.get(SpatialPylonTextureType.BASE));
+            builder.addCube(0, 0, 0, 16, 16, 16);
+
+            builder.setTexture(this.textures.get(SpatialPylonTextureType.DIM));
+            builder.addCube(0, 0, 0, 16, 16, 16);
+        }
+
+        builder.setEmissiveMaterial(false);
+        return builder.getOutput();
+    }
+
+    private TileSpatialPylon.ClientState getState(@Nullable IBlockState blockState) {
+        if (blockState instanceof IExtendedBlockState) {
+            TileSpatialPylon.ClientState state = ((IExtendedBlockState) blockState).getValue(SpatialPylonBlock.RENDER_STATE);
+            if (state != null) {
+                return state;
+            }
+        }
+        return TileSpatialPylon.ClientState.DEFAULT;
     }
 
     @Override
-    public boolean useAmbientOcclusion() {
+    public boolean isAmbientOcclusion() {
         return false;
     }
 
@@ -188,22 +216,17 @@ class SpatialPylonBakedModel implements IDynamicBakedModel {
     }
 
     @Override
-    public boolean isCustomRenderer() {
+    public boolean isBuiltInRenderer() {
         return false;
     }
 
     @Override
-    public TextureAtlasSprite getParticleIcon() {
+    public TextureAtlasSprite getParticleTexture() {
         return this.textures.get(SpatialPylonTextureType.DIM);
     }
 
     @Override
-    public ItemOverrides getOverrides() {
-        return ItemOverrides.EMPTY;
-    }
-
-    @Override
-    public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
-        return RENDER_TYPES;
+    public ItemOverrideList getOverrides() {
+        return ItemOverrideList.NONE;
     }
 }

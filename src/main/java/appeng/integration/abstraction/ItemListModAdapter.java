@@ -2,6 +2,20 @@ package appeng.integration.abstraction;
 
 public interface ItemListModAdapter {
 
+    static ItemListModAdapter none() {
+        return new ItemListModAdapter() {
+            @Override
+            public boolean isEnabled() {
+                return false;
+            }
+
+            @Override
+            public String getShortName() {
+                return "HEI";
+            }
+        };
+    }
+
     boolean isEnabled();
 
     String getShortName();
@@ -16,19 +30,4 @@ public interface ItemListModAdapter {
     default boolean hasSearchFocus() {
         return false;
     }
-
-    static ItemListModAdapter none() {
-        return new ItemListModAdapter() {
-            @Override
-            public boolean isEnabled() {
-                return false;
-            }
-
-            @Override
-            public String getShortName() {
-                return "REI/EMI";
-            }
-        };
-    }
-
 }

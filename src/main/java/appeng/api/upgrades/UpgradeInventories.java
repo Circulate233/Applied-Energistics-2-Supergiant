@@ -1,7 +1,7 @@
 package appeng.api.upgrades;
 
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ItemLike;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 
 /**
  * Utilities for creating {@link IUpgradeInventory upgrade inventories}.
@@ -22,8 +22,8 @@ public final class UpgradeInventories {
      * cells or wireless terminals. Ensure to save your machine to disk when the upgrades change using the given
      * callback.
      */
-    public static IUpgradeInventory forMachine(ItemLike machineType, int maxUpgrades,
-            MachineUpgradesChanged changeCallback) {
+    public static IUpgradeInventory forMachine(Item machineType, int maxUpgrades,
+                                               MachineUpgradesChanged changeCallback) {
         return new MachineUpgradeInventory(machineType, maxUpgrades, changeCallback);
     }
 

@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "variant=default": {
+      "model": "ae2:sky_stone_brick_slab_double"
+    }
+  }
+}

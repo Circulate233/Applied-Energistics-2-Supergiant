@@ -23,11 +23,10 @@
 
 package appeng.api.networking.crafting;
 
-import java.util.Map;
-
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 /**
  * Result of a {@linkplain ICraftingService#beginCraftingCalculation crafting job calculation}. Do not edit any of the
@@ -74,5 +73,5 @@ public interface ICraftingPlan {
      * Map of each pattern to the number of times it needs to be crafted. Can be used to retrieve the crafted items:
      * outputs * times.
      */
-    Map<IPatternDetails, Long> patternTimes();
+    Object2LongMap<IPatternDetails> patternTimes();
 }

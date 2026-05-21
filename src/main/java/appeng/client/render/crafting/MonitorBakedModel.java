@@ -18,39 +18,29 @@
 
 package appeng.client.render.crafting;
 
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
 import appeng.api.orientation.IOrientationStrategy;
-import appeng.api.orientation.RelativeSide;
 import appeng.api.util.AEColor;
+import appeng.block.crafting.AbstractCraftingUnitBlock;
 import appeng.block.crafting.CraftingMonitorBlock;
-import appeng.blockentity.crafting.CraftingMonitorModelData;
 import appeng.client.render.cablebus.CubeBuilder;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.EnumFacing;
+import net.minecraftforge.common.property.IExtendedBlockState;
 
-/**
- * The baked model for the crafting monitor. Please note that this model doesn't handle the item being displayed. That
- * is handled by a BER. Instead, this model adds 3 layered light textures using the [dark|medium|bright] color variants
- * of the attached bus color. The textures are full-bright if the cube is powered.
- */
-public class MonitorBakedModel extends CraftingCubeBakedModel {
-
+class MonitorBakedModel extends CraftingCubeBakedModel {
     private final TextureAtlasSprite chassisTexture;
-
     private final TextureAtlasSprite baseTexture;
-
     private final TextureAtlasSprite lightDarkTexture;
-
     private final TextureAtlasSprite lightMediumTexture;
-
     private final TextureAtlasSprite lightBrightTexture;
 
-    public MonitorBakedModel(TextureAtlasSprite ringCorner, TextureAtlasSprite ringHor, TextureAtlasSprite ringVer,
-            TextureAtlasSprite chassisTexture, TextureAtlasSprite baseTexture, TextureAtlasSprite lightDarkTexture,
-            TextureAtlasSprite lightMediumTexture, TextureAtlasSprite lightBrightTexture) {
-        super(ringCorner, ringHor, ringVer);
+    MonitorBakedModel(VertexFormat format, TextureAtlasSprite ringCorner, TextureAtlasSprite ringHor,
+                      TextureAtlasSprite ringVer, TextureAtlasSprite chassisTexture, TextureAtlasSprite baseTexture,
+                      TextureAtlasSprite lightDarkTexture, TextureAtlasSprite lightMediumTexture,
+                      TextureAtlasSprite lightBrightTexture) {
+        super(format, ringCorner, ringHor, ringVer);
         this.chassisTexture = chassisTexture;
         this.baseTexture = baseTexture;
         this.lightDarkTexture = lightDarkTexture;
@@ -58,12 +48,21 @@ public class MonitorBakedModel extends CraftingCubeBakedModel {
         this.lightBrightTexture = lightBrightTexture;
     }
 
-    @Override
-    protected void addInnerCube(Direction side, BlockState state, ModelData modelData, CubeBuilder builder, float x1,
-            float y1, float z1, float x2, float y2, float z2) {
-        Direction forward = IOrientationStrategy.get(state).getSide(state, RelativeSide.FRONT);
+    private static AEColor getColor(IBlockState state) {
+        if (state instanceof IExtendedBlockState) {
+            AEColor color = ((IExtendedBlockState) state).getValue(CraftingMonitorBlock.COLOR);
+            if (color != null) {
+                return color;
+            }
+        }
+        return AEColor.TRANSPARENT;
+    }
 
-        // For sides other than the front, use the chassis texture
+    @Override
+    protected void addInnerCube(EnumFacing side, IBlockState state, CubeBuilder builder, float x1, float y1, float z1,
+                                float x2, float y2, float z2) {
+        EnumFacing forward = IOrientationStrategy.get(state).getFacing(state);
+
         if (side != forward) {
             builder.setTexture(this.chassisTexture);
             builder.addCube(x1, y1, z1, x2, y2, z2);
@@ -73,11 +72,10 @@ public class MonitorBakedModel extends CraftingCubeBakedModel {
         builder.setTexture(this.baseTexture);
         builder.addCube(x1, y1, z1, x2, y2, z2);
 
-        // Now add the three layered light textures
-        AEColor color = getColor(modelData);
-        boolean powered = state.getValue(CraftingMonitorBlock.POWERED);
+        AEColor color = getColor(state);
+        boolean powered = state.getValue(AbstractCraftingUnitBlock.POWERED);
 
-        builder.setEmissiveMaterial(powered);
+        builder.setRenderFullBright(powered);
 
         builder.setColorRGB(color.whiteVariant);
         builder.setTexture(this.lightBrightTexture);
@@ -91,15 +89,7 @@ public class MonitorBakedModel extends CraftingCubeBakedModel {
         builder.setTexture(this.lightDarkTexture);
         builder.addCube(x1, y1, z1, x2, y2, z2);
 
-        // Reset back to default
-        builder.setColor(-1);
-        builder.setEmissiveMaterial(false);
-    }
-
-    private static AEColor getColor(ModelData modelData) {
-        if (modelData.has(CraftingMonitorModelData.COLOR)) {
-            return modelData.get(CraftingMonitorModelData.COLOR);
-        }
-        return AEColor.TRANSPARENT;
+        builder.setRenderFullBright(false);
+        builder.setColorRGB(1, 1, 1);
     }
 }

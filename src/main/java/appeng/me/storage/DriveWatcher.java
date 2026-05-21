@@ -26,8 +26,8 @@ import appeng.api.storage.cells.StorageCell;
 
 public class DriveWatcher extends MEInventoryHandler {
 
-    private CellState oldStatus = CellState.EMPTY;
     private final Runnable activityCallback;
+    private CellState oldStatus = CellState.EMPTY;
 
     public DriveWatcher(StorageCell i, Runnable activityCallback) {
         super(i);

@@ -1,27 +1,42 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.items.materials;
 
+import appeng.entity.EntityChargedQuartz;
+import appeng.entity.EntitySingularity;
 import appeng.items.AEBaseItem;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.item.ItemStack;
+import net.minecraft.world.World;
 
-public final class MaterialItem extends AEBaseItem {
-    public MaterialItem(Properties properties) {
-        super(properties);
+public class MaterialItem extends AEBaseItem {
+    public MaterialItem() {
+        super();
+    }
+
+    @Override
+    public boolean hasCustomEntity(ItemStack stack) {
+        return EntityChargedQuartz.applies(stack) || EntitySingularity.applies(stack);
+    }
+
+    @Override
+    public Entity createEntity(World world, Entity location, ItemStack itemstack) {
+        Entity entity;
+        if (EntityChargedQuartz.applies(itemstack)) {
+            entity = new EntityChargedQuartz(world, location.posX, location.posY, location.posZ, itemstack);
+        } else if (EntitySingularity.applies(itemstack)) {
+            entity = new EntitySingularity(world, location.posX, location.posY, location.posZ, itemstack);
+        } else {
+            return null;
+        }
+
+        entity.motionX = location.motionX;
+        entity.motionY = location.motionY;
+        entity.motionZ = location.motionZ;
+
+        if (entity instanceof EntityItem entityItem) {
+            entityItem.setDefaultPickupDelay();
+        }
+
+        return entity;
     }
 }

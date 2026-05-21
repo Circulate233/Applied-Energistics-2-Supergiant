@@ -23,10 +23,10 @@
 
 package appeng.api.implementations.items;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
 
 /**
  * Implemented on a {@link Item}
@@ -35,14 +35,12 @@ public interface ISpatialStorageCell {
 
     /**
      * @param is spatial storage cell
-     *
      * @return true if this item is a spatial storage cell
      */
     boolean isSpatialStorage(ItemStack is);
 
     /**
      * @param is spatial storage cell
-     *
      * @return the maximum size of the spatial storage cell along any given axis
      */
     int getMaxStoredDim(ItemStack is);
@@ -51,7 +49,6 @@ public interface ISpatialStorageCell {
      * get the currently stored spatial storage plot id.
      *
      * @param is spatial storage cell
-     *
      * @return plot id or -1
      */
     int getAllocatedPlotId(ItemStack is);
@@ -64,8 +61,7 @@ public interface ISpatialStorageCell {
      * @param min      min coord
      * @param max      max coord
      * @param playerId owner of current grid or -1
-     *
      * @return success of transition
      */
-    boolean doSpatialTransition(ItemStack is, ServerLevel level, BlockPos min, BlockPos max, int playerId);
+    boolean doSpatialTransition(ItemStack is, WorldServer level, BlockPos min, BlockPos max, int playerId);
 }

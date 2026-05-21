@@ -18,21 +18,17 @@
 
 package appeng.debug;
 
-import net.minecraft.world.item.CreativeModeTab;
+import appeng.block.AEBaseTileBlock;
+import net.minecraft.block.material.Material;
 
-import appeng.block.AEBaseEntityBlock;
-import appeng.core.AEConfig;
-
-public class EnergyGeneratorBlock extends AEBaseEntityBlock<EnergyGeneratorBlockEntity> {
+public class EnergyGeneratorBlock extends AEBaseTileBlock<TileEnergyGenerator> {
 
     public EnergyGeneratorBlock() {
-        super(metalProps());
-    }
-
-    @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        if (AEConfig.instance().isDebugToolsEnabled()) {
-            output.accept(this);
-        }
+        super(Material.IRON);
+        this.setHardness(5.0F);
+        this.setResistance(6.0F);
+        this.setTileEntity(TileEnergyGenerator.class);
     }
 }
+
+

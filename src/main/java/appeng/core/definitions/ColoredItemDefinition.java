@@ -18,31 +18,32 @@
 
 package appeng.core.definitions;
 
+import appeng.api.util.AEColor;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import org.jspecify.annotations.Nullable;
+
 import java.util.EnumMap;
 import java.util.Map;
-
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-
-import appeng.api.util.AEColor;
 
 public final class ColoredItemDefinition<T extends Item> {
 
     private final Map<AEColor, ItemDefinition<T>> items = new EnumMap<>(AEColor.class);
     private final Map<AEColor, ResourceLocation> ids = new EnumMap<>(AEColor.class);
 
-    void add(AEColor v, ResourceLocation id, ItemDefinition<T> is) {
-        this.ids.put(v, id);
-        this.items.put(v, is);
+    void add(AEColor color, ResourceLocation id, ItemDefinition<T> itemDefinition) {
+        this.ids.put(color, id);
+        this.items.put(color, itemDefinition);
     }
 
     public ResourceLocation id(AEColor color) {
-        return ids.get(color);
+        return this.ids.get(color);
     }
 
-    public T item(AEColor color) {
-        return this.items.get(color).asItem();
+    public @Nullable T item(AEColor color) {
+        ItemDefinition<T> itemDefinition = this.items.get(color);
+        return itemDefinition != null ? itemDefinition.asItem() : null;
     }
 
     public ItemStack stack(AEColor color) {
@@ -50,13 +51,11 @@ public final class ColoredItemDefinition<T extends Item> {
     }
 
     public ItemStack stack(AEColor color, int stackSize) {
-        var item = item(color);
-
+        T item = item(color);
         if (item == null) {
             return ItemStack.EMPTY;
         }
 
         return new ItemStack(item, stackSize);
     }
-
 }

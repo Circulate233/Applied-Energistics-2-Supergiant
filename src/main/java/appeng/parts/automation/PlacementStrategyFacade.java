@@ -1,11 +1,11 @@
 package appeng.parts.automation;
 
-import java.util.Map;
-
 import appeng.api.behaviors.PlacementStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+
+import java.util.Map;
 
 class PlacementStrategyFacade implements PlacementStrategy {
     private final Map<AEKeyType, PlacementStrategy> strategies;

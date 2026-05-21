@@ -1,0 +1,80 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "cde",
+    "aba"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "b": {
+      "item": "ae2:logic_processor"
+    },
+    "c": {
+      "item": "ae2:engineering_processor"
+    },
+    "d": {
+      "item": "ae2:energy_cell"
+    },
+    "e": [
+      {
+        "item": "ae2:white_smart_dense_cable"
+      },
+      {
+        "item": "ae2:light_gray_smart_dense_cable"
+      },
+      {
+        "item": "ae2:gray_smart_dense_cable"
+      },
+      {
+        "item": "ae2:black_smart_dense_cable"
+      },
+      {
+        "item": "ae2:lime_smart_dense_cable"
+      },
+      {
+        "item": "ae2:yellow_smart_dense_cable"
+      },
+      {
+        "item": "ae2:orange_smart_dense_cable"
+      },
+      {
+        "item": "ae2:brown_smart_dense_cable"
+      },
+      {
+        "item": "ae2:red_smart_dense_cable"
+      },
+      {
+        "item": "ae2:pink_smart_dense_cable"
+      },
+      {
+        "item": "ae2:magenta_smart_dense_cable"
+      },
+      {
+        "item": "ae2:purple_smart_dense_cable"
+      },
+      {
+        "item": "ae2:blue_smart_dense_cable"
+      },
+      {
+        "item": "ae2:light_blue_smart_dense_cable"
+      },
+      {
+        "item": "ae2:cyan_smart_dense_cable"
+      },
+      {
+        "item": "ae2:green_smart_dense_cable"
+      },
+      {
+        "item": "ae2:fluix_smart_dense_cable"
+      }
+    ]
+  },
+  "result": {
+    "item": "ae2:quantum_ring",
+    "count": 1
+  }
+}

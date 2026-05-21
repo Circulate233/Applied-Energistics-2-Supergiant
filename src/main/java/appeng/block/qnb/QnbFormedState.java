@@ -18,34 +18,33 @@
 
 package appeng.block.qnb;
 
+import net.minecraft.util.EnumFacing;
+import net.minecraftforge.common.property.IUnlistedProperty;
+
 import java.util.Set;
 
-import net.minecraft.core.Direction;
+public record QnbFormedState(Set<EnumFacing> adjacentQuantumBridges, boolean corner, boolean powered) {
 
-public class QnbFormedState {
+    public static final IUnlistedProperty<QnbFormedState> PROPERTY = new IUnlistedProperty<>() {
+        @Override
+        public String getName() {
+            return "formed_state";
+        }
 
-    private final Set<Direction> adjacentQuantumBridges;
+        @Override
+        public boolean isValid(QnbFormedState value) {
+            return value != null;
+        }
 
-    private final boolean corner;
+        @Override
+        public Class<QnbFormedState> getType() {
+            return QnbFormedState.class;
+        }
 
-    private final boolean powered;
-
-    public QnbFormedState(Set<Direction> adjacentQuantumBridges, boolean corner, boolean powered) {
-        this.adjacentQuantumBridges = adjacentQuantumBridges;
-        this.corner = corner;
-        this.powered = powered;
-    }
-
-    public Set<Direction> getAdjacentQuantumBridges() {
-        return this.adjacentQuantumBridges;
-    }
-
-    public boolean isCorner() {
-        return this.corner;
-    }
-
-    public boolean isPowered() {
-        return this.powered;
-    }
+        @Override
+        public String valueToString(QnbFormedState value) {
+            return String.valueOf(value);
+        }
+    };
 
 }

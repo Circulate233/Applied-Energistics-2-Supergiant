@@ -18,19 +18,11 @@
 
 package appeng.thirdparty.codechicken.lib.model.pipeline.transformers;
 
+import appeng.client.render.mesh.MutableQuadView;
+import appeng.client.render.mesh.QuadView;
+import appeng.client.render.mesh.RenderContext;
 import appeng.thirdparty.codechicken.lib.math.InterpHelper;
-import appeng.thirdparty.fabric.MutableQuadView;
-import appeng.thirdparty.fabric.QuadView;
-import appeng.thirdparty.fabric.RenderContext;
 
-/**
- * This transformer Re-Interpolates the Color, UV's and LightMaps. Use this after all transformations that translate
- * vertices in the pipeline.
- * <p>
- * This Transformation can only be used in the BakedPipeline.
- *
- * @author covers1624
- */
 public class QuadReInterpolator implements RenderContext.QuadTransform {
 
     private final InterpHelper interpHelper = new InterpHelper();
@@ -45,17 +37,32 @@ public class QuadReInterpolator implements RenderContext.QuadTransform {
         super();
     }
 
+    private static int dx(int s) {
+        if (s <= 1) {
+            return 0;
+        } else {
+            return 2;
+        }
+    }
+
+    private static int dy(int s) {
+        if (s > 0) {
+            return 1;
+        } else {
+            return 2;
+        }
+    }
+
     public void setInputQuad(QuadView quad) {
         int s = quad.nominalFace().ordinal() >> 1;
         int xIdx = dx(s);
         int yIdx = dy(s);
-        interpHelper.reset( //
-                quad.posByIndex(0, xIdx), quad.posByIndex(0, yIdx), //
-                quad.posByIndex(1, xIdx), quad.posByIndex(1, yIdx), //
-                quad.posByIndex(2, xIdx), quad.posByIndex(2, yIdx), //
-                quad.posByIndex(3, xIdx), quad.posByIndex(3, yIdx));
+        interpHelper.reset(
+            quad.posByIndex(0, xIdx), quad.posByIndex(0, yIdx),
+            quad.posByIndex(1, xIdx), quad.posByIndex(1, yIdx),
+            quad.posByIndex(2, xIdx), quad.posByIndex(2, yIdx),
+            quad.posByIndex(3, xIdx), quad.posByIndex(3, yIdx));
 
-        // Save the original properties of the quad's vertices
         for (int i = 0; i < 4; i++) {
             originalSpriteColor[i] = quad.color(i);
             originalSpriteU[i] = quad.u(i);
@@ -81,19 +88,15 @@ public class QuadReInterpolator implements RenderContext.QuadTransform {
         return true;
     }
 
-    /**
-     * Interpolates the new color values for this Vertex using the others as a reference.
-     */
     public void interpColorFrom(MutableQuadView quad, int vertexIndex) {
         int p1 = this.originalSpriteColor[0];
         int p2 = this.originalSpriteColor[1];
         int p3 = this.originalSpriteColor[2];
         int p4 = this.originalSpriteColor[3];
         if (p1 == p2 && p2 == p3 && p3 == p4) {
-            return; // Don't bother for uniformly colored quads
+            return;
         }
 
-        // Interpolate each color component separately
         int color = 0;
         int mask = 0xFF;
         for (int i = 0; i < 4; i++) {
@@ -109,9 +112,6 @@ public class QuadReInterpolator implements RenderContext.QuadTransform {
         quad.color(vertexIndex, color);
     }
 
-    /**
-     * Interpolates the new UV values for this Vertex using the others as a reference.
-     */
     public void interpUVFrom(MutableQuadView quad, int vertexIndex) {
         float p1 = originalSpriteU[0];
         float p2 = originalSpriteU[1];
@@ -127,11 +127,6 @@ public class QuadReInterpolator implements RenderContext.QuadTransform {
         quad.uv(vertexIndex, u, v);
     }
 
-    /**
-     * Interpolates the new LightMap values for this Vertex using the others as a reference.
-     *
-     * @return The same Vertex.
-     */
     public void interpLightMapFrom(MutableQuadView quad, int vertexIndex) {
         for (int e = 0; e < 2; e++) {
 // FIXME           float p1 = others[0].lightmap[e];
@@ -141,34 +136,6 @@ public class QuadReInterpolator implements RenderContext.QuadTransform {
 // FIXME           if (p1 != p2 || p2 != p3 || p3 != p4) {
 // FIXME               this.lightmap[e] = interpHelper.interpolate(p1, p2, p3, p4);
 // FIXME           }
-        }
-    }
-
-    /**
-     * Gets the 2d X coord for the given axis.
-     *
-     * @param s The axis. side >> 1
-     * @return The x coord.
-     */
-    private static int dx(int s) {
-        if (s <= 1) {
-            return 0;
-        } else {
-            return 2;
-        }
-    }
-
-    /**
-     * Gets the 2d Y coord for the given axis.
-     *
-     * @param s The axis. side >> 1
-     * @return The y coord.
-     */
-    private static int dy(int s) {
-        if (s > 0) {
-            return 1;
-        } else {
-            return 2;
         }
     }
 

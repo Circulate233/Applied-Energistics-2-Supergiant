@@ -15,83 +15,57 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.effects;
 
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleProvider;
-import net.minecraft.client.particle.ParticleRenderType;
-import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.particle.TextureSheetParticle;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.world.World;
 
-@OnlyIn(Dist.CLIENT)
-public class VibrantFX extends TextureSheetParticle {
+public class VibrantFX extends Particle {
 
-    public VibrantFX(ClientLevel level, double x, double y, double z, double par8,
-            double par10, double par12, SpriteSet sprite) {
-        super(level, x, y, z, par8, par10, par12);
-        final float f = this.random.nextFloat() * 0.1F + 0.8F;
-        this.rCol = f * 0.7f;
-        this.gCol = f * 0.89f;
-        this.bCol = f * 0.9f;
-        this.pickSprite(sprite);
+    public VibrantFX(World world, double x, double y, double z, double motionX,
+                     double motionY, double motionZ, TextureAtlasSprite sprite) {
+        super(world, x, y, z, motionX, motionY, motionZ);
+        final float f = this.rand.nextFloat() * 0.1F + 0.8F;
+        this.particleRed = f * 0.7f;
+        this.particleGreen = f * 0.89f;
+        this.particleBlue = f * 0.9f;
         this.setSize(0.04F, 0.04F);
-        this.quadSize *= this.random.nextFloat() * 0.6F + 1.9F;
-        this.xd = 0.0D;
-        this.yd = 0.0D;
-        this.zd = 0.0D;
-        this.xo = this.x;
-        this.yo = this.y;
-        this.zo = this.z;
-        this.lifetime = (int) (20.0D / (Math.random() * 0.8D + 0.1D));
+        this.particleScale *= this.rand.nextFloat() * 0.6F + 1.9F;
+        this.motionX = 0.0D;
+        this.motionY = 0.0D;
+        this.motionZ = 0.0D;
+        this.prevPosX = this.posX;
+        this.prevPosY = this.posY;
+        this.prevPosZ = this.posZ;
+        this.particleMaxAge = (int) (20.0D / (Math.random() * 0.8D + 0.1D));
+        if (sprite != null) {
+            this.setParticleTexture(sprite);
+        }
     }
 
     @Override
-    public ParticleRenderType getRenderType() {
-        // FIXME Might be PARTICLE_SHEET_LIT
-        return ParticleRenderType.PARTICLE_SHEET_OPAQUE;
+    public int getFXLayer() {
+        return 1;
     }
 
     @Override
-    public int getLightColor(float par1) {
-        // This just means full brightness
+    public int getBrightnessForRender(float partialTick) {
         return 15 << 20 | 15 << 4;
     }
 
-    /**
-     * Called to update the entity's position/logic.
-     */
     @Override
-    public void tick() {
-        this.xo = this.x;
-        this.yo = this.y;
-        this.zo = this.z;
-        // this.moveEntity(this.motionX, this.motionY, this.motionZ);
-        this.quadSize *= 0.95;
+    public void onUpdate() {
+        this.prevPosX = this.posX;
+        this.prevPosY = this.posY;
+        this.prevPosZ = this.posZ;
+        this.particleScale *= 0.95f;
 
-        if (this.lifetime <= 0 || this.quadSize < 0.1) {
-            this.remove();
+        if (this.particleMaxAge <= 0 || this.particleScale < 0.1f) {
+            this.setExpired();
+            return;
         }
-        this.lifetime--;
+
+        this.particleMaxAge--;
     }
-
-    @OnlyIn(Dist.CLIENT)
-    public static class Factory implements ParticleProvider<SimpleParticleType> {
-        private final SpriteSet spriteSet;
-
-        public Factory(SpriteSet spriteSet) {
-            this.spriteSet = spriteSet;
-        }
-
-        @Override
-        public Particle createParticle(SimpleParticleType typeIn, ClientLevel level, double x, double y, double z,
-                double xSpeed, double ySpeed, double zSpeed) {
-            return new VibrantFX(level, x, y, z, xSpeed, ySpeed, zSpeed, spriteSet);
-        }
-    }
-
 }

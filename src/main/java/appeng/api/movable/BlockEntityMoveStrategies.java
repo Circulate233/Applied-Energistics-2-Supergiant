@@ -23,34 +23,33 @@
 
 package appeng.api.movable;
 
-import java.util.ArrayList;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.tileentity.TileEntity;
 
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
+import java.util.Objects;
 
 /**
  *
  * <p/>
- * To blacklist blocks or block entities from being moved in and out of spatial storage, see
- * {@link appeng.api.ids.AETags#SPATIAL_BLACKLIST the blacklist tag for blocks}.
+ * To blacklist blocks or tile entities from being moved in and out of spatial storage, use the
+ * registered spatial move strategies for the affected block entities.
  */
 public final class BlockEntityMoveStrategies {
 
     private static final IBlockEntityMoveStrategy DEFAULT_STRATEGY = new DefaultBlockEntityMoveStrategy() {
         @Override
-        public boolean canHandle(BlockEntityType<?> type) {
+        public boolean canHandle(Class<? extends TileEntity> type) {
             return true;
         }
     };
-    private static final List<IBlockEntityMoveStrategy> strategies = new ArrayList<>();
-    private static final Map<BlockEntityType<?>, IBlockEntityMoveStrategy> valid = new IdentityHashMap<>();
+    private static final ObjectList<IBlockEntityMoveStrategy> strategies = new ObjectArrayList<>();
+    private static final Reference2ObjectMap<Class<? extends TileEntity>, IBlockEntityMoveStrategy> valid = new Reference2ObjectOpenHashMap<>();
 
     /**
-     * Adds a custom strategy for moving certain block entities.
+     * Adds a custom strategy for moving certain tile entities.
      *
      * @param strategy The strategy to add.
      */
@@ -60,20 +59,21 @@ public final class BlockEntityMoveStrategies {
     }
 
     /**
-     * Retrieves the strategy for moving the given block entity to a different location.
+     * Retrieves the strategy for moving the given tile entity to a different location.
      *
-     * @return The strategy for moving the given block entity. If no custom strategy was {@link #add registered}, the
-     *         {@link #getDefault() default strategy} will be returned.
+     * @return The strategy for moving the given tile entity. If no custom strategy was {@link #add registered}, the
+     * {@link #getDefault() default strategy} will be returned.
      */
-    public synchronized static IBlockEntityMoveStrategy get(BlockEntity blockEntity) {
+    public synchronized static IBlockEntityMoveStrategy get(TileEntity blockEntity) {
         Objects.requireNonNull(blockEntity, "blockEntity");
 
+        var type = blockEntity.getClass();
         // Prefer a cached handler if possible
-        var result = valid.get(blockEntity.getType());
+        var result = valid.get(type);
         if (result == null) {
             // Give custom strategies a chance
             for (var strategy : strategies) {
-                if (strategy.canHandle(blockEntity.getType())) {
+                if (strategy.canHandle(type)) {
                     result = strategy;
                     break;
                 }
@@ -83,13 +83,13 @@ public final class BlockEntityMoveStrategies {
             if (result == null) {
                 result = DEFAULT_STRATEGY;
             }
-            valid.put(blockEntity.getType(), result);
+            valid.put(type, result);
         }
         return result;
     }
 
     /**
-     * @return The default handler for moving block entities.
+     * @return The default handler for moving tile entities.
      */
     public static IBlockEntityMoveStrategy getDefault() {
         return DEFAULT_STRATEGY;

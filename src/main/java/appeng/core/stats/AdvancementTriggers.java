@@ -18,50 +18,40 @@
 
 package appeng.core.stats;
 
-import java.util.Optional;
-
-import net.minecraft.advancements.Criterion;
-import net.minecraft.advancements.critereon.PlayerTrigger;
+import appeng.bootstrap.ICriterionTriggerRegistry;
 
 public class AdvancementTriggers {
-    /**
-     * Has a network with 8 channels
-     */
-    public static final PlayerTrigger NETWORK_APPRENTICE = new PlayerTrigger();
-    /**
-     * Has a network with 128 channels
-     */
-    public static final PlayerTrigger NETWORK_ENGINEER = new PlayerTrigger();
-    /**
-     * Has a network with 2048 channels
-     */
-    public static final PlayerTrigger NETWORK_ADMIN = new PlayerTrigger();
-    /**
-     * Entered spatial dimension
-     */
-    public static final PlayerTrigger SPATIAL_EXPLORER = new PlayerTrigger();
-    /**
-     * Placed a storage bus on an interface.
-     */
-    public static final PlayerTrigger RECURSIVE = new PlayerTrigger();
+    private final AppEngAdvancementTrigger networkApprentice = new AppEngAdvancementTrigger("network_apprentice");
+    private final AppEngAdvancementTrigger networkEngineer = new AppEngAdvancementTrigger("network_engineer");
+    private final AppEngAdvancementTrigger networkAdmin = new AppEngAdvancementTrigger("network_admin");
+    private final AppEngAdvancementTrigger spatialExplorer = new AppEngAdvancementTrigger("spatial_explorer");
+    private final AppEngAdvancementTrigger recursive = new AppEngAdvancementTrigger("recursive");
 
-    public static Criterion<?> networkApprenticeCriterion() {
-        return NETWORK_APPRENTICE.createCriterion(new PlayerTrigger.TriggerInstance(Optional.empty()));
+    public AdvancementTriggers(ICriterionTriggerRegistry registry) {
+        registry.register(this.networkApprentice);
+        registry.register(this.networkEngineer);
+        registry.register(this.networkAdmin);
+        registry.register(this.spatialExplorer);
+        registry.register(this.recursive);
     }
 
-    public static Criterion<?> networkEngineerCriterion() {
-        return NETWORK_ENGINEER.createCriterion(new PlayerTrigger.TriggerInstance(Optional.empty()));
+    public IAdvancementTrigger getNetworkApprentice() {
+        return this.networkApprentice;
     }
 
-    public static Criterion<?> networkAdminCriterion() {
-        return NETWORK_ADMIN.createCriterion(new PlayerTrigger.TriggerInstance(Optional.empty()));
+    public IAdvancementTrigger getNetworkEngineer() {
+        return this.networkEngineer;
     }
 
-    public static Criterion<?> spatialExplorerCriterion() {
-        return SPATIAL_EXPLORER.createCriterion(new PlayerTrigger.TriggerInstance(Optional.empty()));
+    public IAdvancementTrigger getNetworkAdmin() {
+        return this.networkAdmin;
     }
 
-    public static Criterion<?> recursiveCriterion() {
-        return RECURSIVE.createCriterion(new PlayerTrigger.TriggerInstance(Optional.empty()));
+    public IAdvancementTrigger getSpatialExplorer() {
+        return this.spatialExplorer;
+    }
+
+    public IAdvancementTrigger getRecursive() {
+        return this.recursive;
     }
 }

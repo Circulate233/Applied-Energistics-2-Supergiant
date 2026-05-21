@@ -18,14 +18,10 @@
 
 package appeng.client.gui.me.common;
 
-import net.minecraft.world.item.ItemStack;
+import appeng.container.me.common.GridInventoryEntry;
+import net.minecraft.item.ItemStack;
+import org.jspecify.annotations.Nullable;
 
-import appeng.menu.me.common.GridInventoryEntry;
-
-/**
- * This is a virtual slot that has no corresponding slot on the server-side. It displays an item stack from the
- * client-side {@link Repo}.
- */
 public class RepoSlot extends ClientReadOnlySlot {
 
     private final Repo repo;
@@ -41,7 +37,7 @@ public class RepoSlot extends ClientReadOnlySlot {
         return this.offset;
     }
 
-    public GridInventoryEntry getEntry() {
+    public @Nullable GridInventoryEntry getEntry() {
         if (this.repo.isEnabled()) {
             return this.repo.get(this.offset);
         }
@@ -50,31 +46,31 @@ public class RepoSlot extends ClientReadOnlySlot {
 
     public long getStoredAmount() {
         GridInventoryEntry entry = getEntry();
-        return entry != null ? entry.getStoredAmount() : 0;
+        return entry != null ? entry.storedAmount() : 0;
     }
 
     public long getRequestableAmount() {
         GridInventoryEntry entry = getEntry();
-        return entry != null ? entry.getRequestableAmount() : 0;
+        return entry != null ? entry.requestableAmount() : 0;
     }
 
     public boolean isCraftable() {
         GridInventoryEntry entry = getEntry();
-        return entry != null && entry.isCraftable();
+        return entry != null && entry.craftable();
     }
 
     @Override
-    public ItemStack getItem() {
+    public ItemStack getStack() {
         GridInventoryEntry entry = getEntry();
-        if (entry != null) {
-            return entry.getWhat().wrapForDisplayOrFilter();
+        if (entry != null && entry.what() != null) {
+            return entry.what().wrapForDisplayOrFilter();
         }
         return ItemStack.EMPTY;
     }
 
     @Override
-    public boolean hasItem() {
+    public boolean getHasStack() {
         return getEntry() != null;
     }
-
 }
+

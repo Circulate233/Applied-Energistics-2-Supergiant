@@ -18,26 +18,66 @@
 
 package appeng.block.crafting;
 
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.blockentity.crafting.CraftingMonitorBlockEntity;
+import appeng.api.util.AEColor;
+import appeng.tile.crafting.TileCraftingMonitor;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
 
-public class CraftingMonitorBlock extends AbstractCraftingUnitBlock<CraftingMonitorBlockEntity> {
+public class CraftingMonitorBlock extends AbstractCraftingUnitBlock<TileCraftingMonitor> {
+    public static final IUnlistedProperty<AEColor> COLOR = new IUnlistedProperty<>() {
+        @Override
+        public String getName() {
+            return "color";
+        }
+
+        @Override
+        public boolean isValid(AEColor value) {
+            return true;
+        }
+
+        @Override
+        public Class<AEColor> getType() {
+            return AEColor.class;
+        }
+
+        @Override
+        public String valueToString(AEColor value) {
+            return String.valueOf(value);
+        }
+    };
+
     public CraftingMonitorBlock(ICraftingUnitType type) {
-        super(metalProps(), type);
+        super(type, TileCraftingMonitor.class);
     }
 
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
+    protected IUnlistedProperty<?>[] getUnlistedProperties() {
+        return new IUnlistedProperty<?>[]{STATE, COLOR};
     }
 
     @Override
     public IOrientationStrategy getOrientationStrategy() {
         return OrientationStrategies.full();
     }
+
+    @Override
+    public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        state = super.getExtendedState(state, world, pos);
+        if (!(state instanceof IExtendedBlockState)) {
+            return state;
+        }
+
+        TileCraftingMonitor tile = this.getTileEntity(world, pos);
+        if (tile == null) {
+            return state;
+        }
+
+        return ((IExtendedBlockState) state).withProperty(COLOR, tile.getColor());
+    }
 }
+

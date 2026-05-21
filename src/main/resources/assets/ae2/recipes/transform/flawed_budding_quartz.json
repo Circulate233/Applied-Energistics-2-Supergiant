@@ -1,0 +1,15 @@
+{
+  "type": "ae2:transform",
+  "ingredients": [
+    {
+      "item": "ae2:charged_certus_quartz_crystal"
+    },
+    {
+      "item": "ae2:chipped_budding_quartz"
+    }
+  ],
+  "result": {
+    "id": "ae2:flawed_budding_quartz",
+    "count": 1
+  }
+}

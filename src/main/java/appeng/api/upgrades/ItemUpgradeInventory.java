@@ -18,19 +18,19 @@
 
 package appeng.api.upgrades;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.ItemContainerContents;
-
-import appeng.api.ids.AEComponents;
+import appeng.util.Platform;
 import appeng.util.inv.AppEngInternalInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Provides an upgrade inventory that stores the upgrades directly on an {@link ItemStack}, and derives which updates
  * are compatible from the item of that stack.
  */
 final class ItemUpgradeInventory extends UpgradeInventory {
+    private static final String TAG_UPGRADES = "upgrades";
+
     private final ItemStack stack;
 
     @Nullable
@@ -41,12 +41,19 @@ final class ItemUpgradeInventory extends UpgradeInventory {
         this.stack = stack;
         this.changeCallback = changeCallback;
 
-        fromItemContainerContents(stack.getOrDefault(AEComponents.UPGRADES, ItemContainerContents.EMPTY));
+        if (stack.hasTagCompound()) {
+            readFromNBT(stack.getTagCompound(), TAG_UPGRADES);
+        }
     }
 
     @Override
     public void saveChangedInventory(AppEngInternalInventory inv) {
-        stack.set(AEComponents.UPGRADES, toItemContainerContents());
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+        }
+        writeToNBT(tag, TAG_UPGRADES);
+        stack.setTagCompound(Platform.isNbtEmpty(tag) ? null : tag);
 
         super.saveChangedInventory(inv);
     }

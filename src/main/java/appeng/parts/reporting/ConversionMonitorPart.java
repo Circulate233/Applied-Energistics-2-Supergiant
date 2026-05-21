@@ -18,43 +18,38 @@
 
 package appeng.parts.reporting;
 
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEItemKey;
-import appeng.api.storage.ISubMenuHost;
+import appeng.api.storage.ISubGuiHost;
 import appeng.api.storage.StorageHelper;
+import appeng.container.ISubGui;
+import appeng.container.implementations.ContainerCraftAmount;
 import appeng.core.AppEng;
+import appeng.core.gui.locator.GuiHostLocators;
 import appeng.items.parts.PartModels;
 import appeng.me.helpers.PlayerSource;
-import appeng.menu.ISubMenu;
-import appeng.menu.locator.MenuLocators;
-import appeng.menu.me.crafting.CraftAmountMenu;
 import appeng.parts.PartModel;
 import appeng.util.InteractionUtil;
 import appeng.util.Platform;
 import appeng.util.inv.PlayerInternalInventory;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
 
-public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMenuHost {
+public class ConversionMonitorPart extends AbstractMonitorPart implements ISubGuiHost {
 
     @PartModels
-    public static final ResourceLocation MODEL_OFF = AppEng.makeId(
-            "part/conversion_monitor_off");
+    public static final ResourceLocation MODEL_OFF = AppEng.makeId("part/conversion_monitor_off");
     @PartModels
-    public static final ResourceLocation MODEL_ON = AppEng.makeId(
-            "part/conversion_monitor_on");
+    public static final ResourceLocation MODEL_ON = AppEng.makeId("part/conversion_monitor_on");
     @PartModels
-    public static final ResourceLocation MODEL_LOCKED_OFF = AppEng.makeId(
-            "part/conversion_monitor_locked_off");
+    public static final ResourceLocation MODEL_LOCKED_OFF = AppEng.makeId("part/conversion_monitor_locked_off");
     @PartModels
-    public static final ResourceLocation MODEL_LOCKED_ON = AppEng.makeId(
-            "part/conversion_monitor_locked_on");
+    public static final ResourceLocation MODEL_LOCKED_ON = AppEng.makeId("part/conversion_monitor_locked_on");
 
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_ON);
@@ -62,14 +57,14 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
     public static final IPartModel MODELS_LOCKED_OFF = new PartModel(MODEL_BASE, MODEL_LOCKED_OFF, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_LOCKED_ON = new PartModel(MODEL_BASE, MODEL_LOCKED_ON, MODEL_STATUS_ON);
     public static final IPartModel MODELS_LOCKED_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_LOCKED_ON,
-            MODEL_STATUS_HAS_CHANNEL);
+        MODEL_STATUS_HAS_CHANNEL);
 
     public ConversionMonitorPart(IPartItem<?> partItem) {
         super(partItem, true);
     }
 
     @Override
-    public boolean onUseItemOn(ItemStack heldItem, Player player, InteractionHand hand, Vec3 pos) {
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
         if (isClientSide()) {
             return true;
         }
@@ -80,14 +75,13 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
 
         if (this.isLocked() && !InteractionUtil.isInAlternateUseMode(player)) {
             if (InteractionUtil.canWrenchRotate(heldItem)
-                    && (this.getDisplayed() == null || !AEItemKey.matches(getDisplayed(), heldItem))) {
-                // wrench it
+                && (this.getDisplayed() == null || !AEItemKey.matches(this.getDisplayed(), heldItem))) {
                 return super.onUseWithoutItem(player, pos);
             } else if (!heldItem.isEmpty()) {
                 this.insertItem(player, heldItem);
                 return true;
             }
-        } else if (this.getDisplayed() != null && AEItemKey.matches(getDisplayed(), heldItem)) {
+        } else if (this.getDisplayed() != null && AEItemKey.matches(this.getDisplayed(), heldItem)) {
             this.insertItem(player, heldItem);
             return true;
         }
@@ -96,7 +90,7 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
     }
 
     @Override
-    public boolean onUseWithoutItem(Player player, Vec3 pos) {
+    public boolean onUseWithoutItem(EntityPlayer player, Vec3d pos) {
         if (this.isLocked() && !InteractionUtil.isInAlternateUseMode(player)) {
             if (isClientSide()) {
                 return true;
@@ -112,9 +106,9 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
     }
 
     @Override
-    public boolean onClicked(Player player, Vec3 pos) {
+    public boolean onClicked(EntityPlayer player, Vec3d pos) {
         if (isClientSide()) {
-            return true;
+            return this.isActive() && this.getDisplayed() instanceof AEItemKey;
         }
 
         if (!this.getMainNode().isActive()) {
@@ -127,15 +121,16 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
 
         if (this.getDisplayed() instanceof AEItemKey itemKey) {
             this.extractItem(player, itemKey.getMaxStackSize());
+            return true;
         }
 
-        return true;
+        return false;
     }
 
     @Override
-    public boolean onShiftClicked(Player player, Vec3 pos) {
+    public boolean onShiftClicked(EntityPlayer player, Vec3d pos) {
         if (isClientSide()) {
-            return true;
+            return this.isActive() && this.getDisplayed() instanceof AEItemKey;
         }
 
         if (!this.getMainNode().isActive()) {
@@ -146,20 +141,21 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
             return false;
         }
 
-        if (this.getDisplayed() != null) {
+        if (this.getDisplayed() instanceof AEItemKey) {
             this.extractItem(player, 1);
+            return true;
         }
 
-        return true;
+        return false;
     }
 
-    private void insertAllItem(Player player) {
+    private void insertAllItem(EntityPlayer player) {
         getMainNode().ifPresent(grid -> {
             var energy = grid.getEnergyService();
             var cell = grid.getStorageService().getInventory();
 
             if (getDisplayed() instanceof AEItemKey itemKey) {
-                var inv = new PlayerInternalInventory(player.getInventory());
+                var inv = new PlayerInternalInventory(player.inventory);
 
                 for (int x = 0; x < inv.size(); x++) {
                     var targetStack = inv.getStackInSlot(x);
@@ -167,7 +163,7 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
                         var canExtract = inv.extractItem(x, targetStack.getCount(), true);
                         if (!canExtract.isEmpty()) {
                             var inserted = StorageHelper.poweredInsert(energy, cell, itemKey, canExtract.getCount(),
-                                    new PlayerSource(player, this));
+                                new PlayerSource(player, this));
                             inv.extractItem(x, (int) inserted, false);
                         }
                     }
@@ -176,18 +172,18 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
         });
     }
 
-    private void insertItem(Player player, ItemStack heldItem) {
+    private void insertItem(EntityPlayer player, ItemStack heldItem) {
         getMainNode().ifPresent(grid -> {
             var energy = grid.getEnergyService();
             var cell = grid.getStorageService().getInventory();
 
             var inserted = StorageHelper.poweredInsert(energy, cell, AEItemKey.of(heldItem), heldItem.getCount(),
-                    new PlayerSource(player, this));
+                new PlayerSource(player, this));
             heldItem.shrink((int) inserted);
         });
     }
 
-    private void extractItem(Player player, int count) {
+    private void extractItem(EntityPlayer player, int count) {
         if (!(this.getDisplayed() instanceof AEItemKey itemKey)) {
             return;
         }
@@ -197,8 +193,7 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
         }
 
         if (getAmount() == 0 && canCraft()) {
-            CraftAmountMenu.open((ServerPlayer) player, MenuLocators.forPart(this), itemKey,
-                    itemKey.getAmountPerUnit());
+            ContainerCraftAmount.open((EntityPlayerMP) player, GuiHostLocators.forPart(this), itemKey, itemKey.getAmountPerUnit());
             return;
         }
 
@@ -206,16 +201,15 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
             var energy = grid.getEnergyService();
             var cell = grid.getStorageService().getInventory();
 
-            var retrieved = StorageHelper.poweredExtraction(energy, cell, itemKey, count,
-                    new PlayerSource(player, this));
+            var retrieved = StorageHelper.poweredExtraction(energy, cell, itemKey, count, new PlayerSource(player, this));
             if (retrieved != 0) {
                 var newItems = itemKey.toStack((int) retrieved);
-                if (!player.getInventory().add(newItems)) {
-                    player.drop(newItems, false);
+                if (!player.inventory.addItemStackToInventory(newItems)) {
+                    player.dropItem(newItems, false);
                 }
 
-                if (player.containerMenu != null) {
-                    player.containerMenu.broadcastChanges();
+                if (player.openContainer != null) {
+                    player.openContainer.detectAndSendChanges();
                 }
             }
         });
@@ -224,16 +218,20 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubMe
     @Override
     public IPartModel getStaticModels() {
         return this.selectModel(MODELS_OFF, MODELS_ON, MODELS_HAS_CHANNEL, MODELS_LOCKED_OFF, MODELS_LOCKED_ON,
-                MODELS_LOCKED_HAS_CHANNEL);
+            MODELS_LOCKED_HAS_CHANNEL);
     }
 
     @Override
-    public void returnToMainMenu(Player player, ISubMenu subMenu) {
-        player.closeContainer();
+    public void returnToMainContainer(EntityPlayer player, ISubGui subGui) {
+        if (player instanceof EntityPlayerMP) {
+            ((EntityPlayerMP) player).closeContainer();
+        } else {
+            player.closeScreen();
+        }
     }
 
     @Override
-    public ItemStack getMainMenuIcon() {
-        return new ItemStack(getPartItem());
+    public ItemStack getMainContainerIcon() {
+        return new ItemStack(getPartItem().asItem());
     }
 }

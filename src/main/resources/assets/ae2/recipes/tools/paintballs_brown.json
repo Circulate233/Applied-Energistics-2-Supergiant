@@ -1,0 +1,21 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aaa",
+    "aba",
+    "aaa"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:matter_ball"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "dyeBrown"
+    }
+  },
+  "result": {
+    "item": "ae2:brown_paint_ball",
+    "count": 8
+  }
+}

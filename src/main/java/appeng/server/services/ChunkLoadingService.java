@@ -18,81 +18,133 @@
 
 package appeng.server.services;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.common.world.chunk.LoadingValidationCallback;
-import net.neoforged.neoforge.common.world.chunk.RegisterTicketControllersEvent;
-import net.neoforged.neoforge.common.world.chunk.TicketController;
-import net.neoforged.neoforge.common.world.chunk.TicketHelper;
-import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
-import net.neoforged.neoforge.event.server.ServerStoppingEvent;
+import appeng.core.AppEngBase;
+import appeng.tile.spatial.TileSpatialAnchor;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.ForgeChunkManager;
+import net.minecraftforge.common.ForgeChunkManager.Ticket;
 
-import appeng.blockentity.spatial.SpatialAnchorBlockEntity;
-import appeng.core.AppEng;
+import javax.annotation.Nullable;
+import java.util.List;
 
-public class ChunkLoadingService implements LoadingValidationCallback {
+public class ChunkLoadingService implements ForgeChunkManager.LoadingCallback {
 
+    private static final String TAG_OWNER_X = "ownerX";
+    private static final String TAG_OWNER_Y = "ownerY";
+    private static final String TAG_OWNER_Z = "ownerZ";
     private static final ChunkLoadingService INSTANCE = new ChunkLoadingService();
 
-    // Flag to ignore a server after it is stopping as grid nodes might reevaluate their grids during a shutdown.
+    private final Int2ObjectMap<Object2ObjectMap<BlockPos, Ticket>> ticketsByDimension = new Int2ObjectOpenHashMap<>();
     private boolean running = true;
-
-    private final TicketController controller = new TicketController(AppEng.makeId("default"), this);
-
-    public void register(RegisterTicketControllersEvent event) {
-        event.register(controller);
-    }
-
-    public void onServerAboutToStart(ServerAboutToStartEvent evt) {
-        this.running = true;
-    }
-
-    public void onServerStopping(ServerStoppingEvent event) {
-        this.running = false;
-    }
 
     public static ChunkLoadingService getInstance() {
         return INSTANCE;
     }
 
+    public void onServerAboutToStart() {
+        this.running = true;
+        this.ticketsByDimension.clear();
+    }
+
+    public void onServerStopping() {
+        this.running = false;
+        this.ticketsByDimension.clear();
+    }
+
     @Override
-    public void validateTickets(ServerLevel level, TicketHelper ticketHelper) {
-        // Iterate over all blockpos registered as chunk loader to initialize them
-        ticketHelper.getBlockTickets().forEach((blockPos, chunks) -> {
-            BlockEntity blockEntity = level.getBlockEntity(blockPos);
+    public void ticketsLoaded(List<Ticket> tickets, World world) {
+        if (!(world instanceof WorldServer serverLevel)) {
+            return;
+        }
 
-            // Add all persisted chunks to the list of handled ones by each anchor.
-            // Or remove all in case the anchor no longer exists.
-            if (blockEntity instanceof SpatialAnchorBlockEntity anchor) {
-                for (Long chunk : chunks.ticking()) {
-                    anchor.registerChunk(new ChunkPos(chunk));
-                }
-            } else {
-                ticketHelper.removeAllTickets(blockPos);
+        for (Ticket ticket : tickets) {
+            NBTTagCompound modData = ticket.getModData();
+            if (modData == null) {
+                ForgeChunkManager.releaseTicket(ticket);
+                continue;
             }
-        });
+
+            BlockPos ownerPos = new BlockPos(modData.getInteger(TAG_OWNER_X), modData.getInteger(TAG_OWNER_Y),
+                modData.getInteger(TAG_OWNER_Z));
+            TileEntity tileEntity = serverLevel.getTileEntity(ownerPos);
+            if (!(tileEntity instanceof TileSpatialAnchor anchor)) {
+                ForgeChunkManager.releaseTicket(ticket);
+                continue;
+            }
+
+            this.ticketsByDimension.computeIfAbsent(serverLevel.provider.getDimension(),
+                                   ignored -> new Object2ObjectOpenHashMap<>())
+                                   .put(ownerPos, ticket);
+
+            for (ChunkPos chunkPos : ticket.getChunkList()) {
+                anchor.registerChunk(chunkPos);
+            }
+        }
     }
 
-    public boolean forceChunk(ServerLevel level, BlockPos owner, ChunkPos position) {
-        if (running) {
-            return controller.forceChunk(level, owner, position.x, position.z, true, true);
+    public boolean forceChunk(WorldServer level, BlockPos owner, ChunkPos position) {
+        if (!this.running) {
+            return false;
         }
 
-        return false;
-    }
-
-    public boolean releaseChunk(ServerLevel level, BlockPos owner, ChunkPos position) {
-        if (running) {
-            return controller.forceChunk(level, owner, position.x, position.z, false, true);
+        Ticket ticket = this.getOrCreateTicket(level, owner);
+        if (ticket == null) {
+            return false;
         }
 
-        return false;
+        ForgeChunkManager.forceChunk(ticket, position);
+        return true;
     }
 
-    public boolean isChunkForced(ServerLevel level, int chunkX, int chunkZ) {
-        return ChunkLoadState.get(level).isForceLoaded(chunkX, chunkZ);
+    public boolean releaseChunk(WorldServer level, BlockPos owner, ChunkPos position) {
+        Object2ObjectMap<BlockPos, Ticket> tickets = this.ticketsByDimension.get(level.provider.getDimension());
+        if (tickets == null) {
+            return false;
+        }
+
+        Ticket ticket = tickets.get(owner);
+        if (ticket == null) {
+            return false;
+        }
+
+        ForgeChunkManager.unforceChunk(ticket, position);
+        if (ticket.getChunkList().isEmpty()) {
+            ForgeChunkManager.releaseTicket(ticket);
+            tickets.remove(owner);
+            if (tickets.isEmpty()) {
+                this.ticketsByDimension.remove(level.provider.getDimension());
+            }
+        }
+        return true;
     }
 
+    private @Nullable Ticket getOrCreateTicket(WorldServer level, BlockPos owner) {
+        Object2ObjectMap<BlockPos, Ticket> tickets = this.ticketsByDimension.computeIfAbsent(level.provider.getDimension(),
+            ignored -> new Object2ObjectOpenHashMap<>());
+        Ticket existing = tickets.get(owner);
+        if (existing != null) {
+            return existing;
+        }
+
+        Ticket ticket = ForgeChunkManager.requestTicket(AppEngBase.instance(), level, ForgeChunkManager.Type.NORMAL);
+        if (ticket == null) {
+            return null;
+        }
+
+        NBTTagCompound modData = ticket.getModData();
+        modData.setInteger(TAG_OWNER_X, owner.getX());
+        modData.setInteger(TAG_OWNER_Y, owner.getY());
+        modData.setInteger(TAG_OWNER_Z, owner.getZ());
+        tickets.put(owner, ticket);
+        return ticket;
+    }
 }

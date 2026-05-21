@@ -18,47 +18,114 @@
 
 package appeng.block.spatial;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
+import appeng.block.AEBaseTileBlock;
+import appeng.tile.spatial.TileSpatialPylon;
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.common.property.ExtendedBlockState;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
 
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.spatial.SpatialPylonBlockEntity;
+public class SpatialPylonBlock extends AEBaseTileBlock<TileSpatialPylon> {
+    public static final PropertyBool POWERED_ON = PropertyBool.create("powered_on");
+    public static final IUnlistedProperty<TileSpatialPylon.ClientState> RENDER_STATE = new IUnlistedProperty<>() {
+        @Override
+        public String getName() {
+            return "render_state";
+        }
 
-public class SpatialPylonBlock extends AEBaseEntityBlock<SpatialPylonBlockEntity> {
+        @Override
+        public boolean isValid(TileSpatialPylon.ClientState value) {
+            return true;
+        }
 
-    public static final BooleanProperty POWERED_ON = BooleanProperty.create("powered_on");
+        @Override
+        public Class<TileSpatialPylon.ClientState> getType() {
+            return TileSpatialPylon.ClientState.class;
+        }
+
+        @Override
+        public String valueToString(TileSpatialPylon.ClientState value) {
+            return String.valueOf(value);
+        }
+    };
 
     public SpatialPylonBlock() {
-        super(glassProps().lightLevel(state -> {
-            return state.getValue(POWERED_ON) ? 8 : 0;
-        }));
-        registerDefaultState(defaultBlockState().setValue(POWERED_ON, false));
+        super(Material.GLASS);
+        this.setHardness(2.2F);
+        this.setResistance(11.0F);
+        this.setTileEntity(TileSpatialPylon.class);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(POWERED_ON, Boolean.FALSE));
     }
 
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(POWERED_ON);
+    protected BlockStateContainer createBlockState() {
+        return new ExtendedBlockState(this, new IProperty<?>[]{POWERED_ON}, new IUnlistedProperty<?>[]{RENDER_STATE});
     }
 
     @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, SpatialPylonBlockEntity be) {
-        var state = be.getClientState();
-        return currentState.setValue(SpatialPylonBlock.POWERED_ON, state.powered());
+    public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        if (!(state instanceof IExtendedBlockState)) {
+            return state;
+        }
+
+        TileSpatialPylon tile = getTileEntity(world, pos);
+        if (tile == null) {
+            return state;
+        }
+
+        return ((IExtendedBlockState) state).withProperty(RENDER_STATE, tile.getRenderState());
     }
 
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return state.getValue(POWERED_ON) ? 1 : 0;
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        return this.getDefaultState().withProperty(POWERED_ON, meta != 0);
+    }
+
+    @Override
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileSpatialPylon tileEntity) {
+        return currentState.withProperty(POWERED_ON, tileEntity.isPoweredOn());
+    }
+
+    @Override
+    public int getLightValue(IBlockState state, IBlockAccess world, BlockPos pos) {
+        TileSpatialPylon tile = getTileEntity(world, pos);
+        if (tile != null) {
+            return tile.getLightValue();
+        }
+        return state.getValue(POWERED_ON) ? 8 : 0;
+    }
+
+    @Override
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
+
+    public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
+        return layer == BlockRenderLayer.CUTOUT;
+    }
+
+    @Override
     @SuppressWarnings("deprecation")
-    @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block blockIn, BlockPos fromPos,
-            boolean isMoving) {
-        var tsp = this.getBlockEntity(level, pos);
-        if (tsp != null) {
-            tsp.neighborChanged(fromPos);
+    public void neighborChanged(IBlockState state, World world, BlockPos pos, Block blockIn, BlockPos fromPos) {
+        super.neighborChanged(state, world, pos, blockIn, fromPos);
+        TileSpatialPylon tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            tile.neighborChanged(fromPos);
         }
     }
-
 }
+

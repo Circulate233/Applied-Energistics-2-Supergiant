@@ -18,10 +18,6 @@
 
 package appeng.parts.automation;
 
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Settings;
 import appeng.api.networking.energy.IEnergyService;
@@ -30,30 +26,32 @@ import appeng.api.networking.energy.IEnergyWatcherNode;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.util.IConfigManagerBuilder;
+import appeng.container.GuiIds;
 import appeng.core.AppEng;
+import appeng.core.gui.GuiOpener;
 import appeng.items.parts.PartModels;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.EnergyLevelEmitterMenu;
-import appeng.menu.locator.MenuLocators;
 import appeng.parts.PartModel;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
 
 public class EnergyLevelEmitterPart extends AbstractLevelEmitterPart {
 
     @PartModels
     public static final ResourceLocation MODEL_BASE_OFF = AppEng.makeId(
-            "part/level_emitter_base_off");
+        "part/level_emitter_base_off");
     @PartModels
     public static final ResourceLocation MODEL_BASE_ON = AppEng.makeId(
-            "part/level_emitter_base_on");
+        "part/level_emitter_base_on");
     @PartModels
     public static final ResourceLocation MODEL_STATUS_OFF = AppEng.makeId(
-            "part/level_emitter_status_off");
+        "part/level_emitter_status_off");
     @PartModels
     public static final ResourceLocation MODEL_STATUS_ON = AppEng.makeId(
-            "part/level_emitter_status_on");
+        "part/level_emitter_status_on");
     @PartModels
     public static final ResourceLocation MODEL_STATUS_HAS_CHANNEL = AppEng.makeId(
-            "part/level_emitter_status_has_channel");
+        "part/level_emitter_status_has_channel");
 
     public static final PartModel MODEL_OFF_OFF = new PartModel(MODEL_BASE_OFF, MODEL_STATUS_OFF);
     public static final PartModel MODEL_OFF_ON = new PartModel(MODEL_BASE_OFF, MODEL_STATUS_ON);
@@ -64,23 +62,22 @@ public class EnergyLevelEmitterPart extends AbstractLevelEmitterPart {
 
     private IEnergyWatcher energyWatcher;
 
-    private final IEnergyWatcherNode energyWatcherNode = new IEnergyWatcherNode() {
-        @Override
-        public void updateWatcher(IEnergyWatcher newWatcher) {
-            energyWatcher = newWatcher;
-            configureWatchers();
-        }
-
-        @Override
-        public void onThresholdPass(IEnergyService energyGrid) {
-            lastReportedValue = (long) energyGrid.getStoredPower();
-            updateState();
-        }
-    };
-
     public EnergyLevelEmitterPart(IPartItem<?> partItem) {
         super(partItem);
 
+        IEnergyWatcherNode energyWatcherNode = new IEnergyWatcherNode() {
+            @Override
+            public void updateWatcher(IEnergyWatcher newWatcher) {
+                energyWatcher = newWatcher;
+                configureWatchers();
+            }
+
+            @Override
+            public void onThresholdPass(IEnergyService energyGrid) {
+                lastReportedValue = (long) energyGrid.getStoredPower();
+                updateState();
+            }
+        };
         getMainNode().addService(IEnergyWatcherNode.class, energyWatcherNode);
     }
 
@@ -123,9 +120,9 @@ public class EnergyLevelEmitterPart extends AbstractLevelEmitterPart {
     }
 
     @Override
-    public boolean onUseWithoutItem(Player player, Vec3 pos) {
+    public boolean onUseWithoutItem(EntityPlayer player, Vec3d pos) {
         if (!isClientSide()) {
-            MenuOpener.open(EnergyLevelEmitterMenu.TYPE, player, MenuLocators.forPart(this));
+            GuiOpener.openPartGui(player, GuiIds.GuiKey.ENERGY_LEVEL_EMITTER, this);
         }
         return true;
     }

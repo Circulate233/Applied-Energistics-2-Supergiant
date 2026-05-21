@@ -23,16 +23,15 @@
 
 package appeng.api.networking.spatial;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
-
 import appeng.api.networking.IGridService;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 public interface ISpatialService extends IGridService {
 
     /**
      * @return true if a region is defined at all, it doesn't have to be valid, but all points must be in the same
-     *         level.
+     * level.
      */
     boolean hasRegion();
 
@@ -44,7 +43,7 @@ public interface ISpatialService extends IGridService {
     /**
      * @return The level that the spatial region is in.
      */
-    Level getLevel();
+    World getLevel();
 
     /**
      * @return the minimum anchor point for the spatial region.

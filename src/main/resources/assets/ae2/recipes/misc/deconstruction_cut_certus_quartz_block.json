@@ -1,0 +1,12 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:cut_quartz_block"
+    }
+  ],
+  "result": {
+    "item": "ae2:certus_quartz_crystal",
+    "count": 4
+  }
+}

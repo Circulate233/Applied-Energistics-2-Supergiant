@@ -1,48 +1,72 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
 package appeng.client.gui.widgets;
 
-import java.util.ArrayList;
-import java.util.concurrent.TimeUnit;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-
+import appeng.api.client.AEKeyRendering;
+import appeng.api.config.CpuSelectionMode;
 import appeng.api.stacks.AmountFormat;
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
 import appeng.client.gui.Icon;
+import appeng.client.gui.Rect2i;
 import appeng.client.gui.Tooltip;
+import appeng.client.gui.me.crafting.CraftingTimeDisplay;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.Color;
+import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.PaletteColor;
-import appeng.client.gui.style.ScreenStyle;
+import appeng.container.implementations.ContainerCraftingStatus;
+import appeng.core.definitions.AEParts;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
-import appeng.menu.me.crafting.CraftingStatusMenu;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.util.text.TextFormatting;
+import org.jetbrains.annotations.Nullable;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 public class CPUSelectionList implements ICompositeWidget {
-
     private static final int ROWS = 6;
+    private static final float SMALL_TEXT_SCALE = 0.666f;
+    private static final float MODE_BUTTON_SCALE = 0.5f;
+    private static final int MODE_BUTTON_X = 55;
+    private static final int MODE_BUTTON_Y = 9;
+    private static final int MODE_BUTTON_SIZE = 10;
+    private static final int MODE_BUTTON_CONTENT_OFFSET = 1;
 
     private final Blitter background;
     private final Blitter buttonBg;
     private final Blitter buttonBgSelected;
-    private final CraftingStatusMenu menu;
+    private final ContainerCraftingStatus container;
     private final Color textColor;
     private final int selectedColor;
     private final Scrollbar scrollbar;
-
-    // Relative to the origin of the current screen (not window)
     private Rect2i bounds = new Rect2i(0, 0, 0, 0);
 
-    public CPUSelectionList(CraftingStatusMenu menu, Scrollbar scrollbar, ScreenStyle style) {
-        this.menu = menu;
+    public CPUSelectionList(ContainerCraftingStatus container, Scrollbar scrollbar, GuiStyle style) {
+        this.container = container;
         this.scrollbar = scrollbar;
         this.background = style.getImage("cpuList");
         this.buttonBg = style.getImage("cpuListButton");
@@ -52,14 +76,34 @@ public class CPUSelectionList implements ICompositeWidget {
         this.scrollbar.setCaptureMouseWheel(false);
     }
 
+    private static ITextComponent gray(ITextComponent text) {
+        return text.setStyle(new Style().setColor(TextFormatting.GRAY));
+    }
+
+    private static void drawScaledString(String text, int x, int y, int color) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x, y, 0);
+        GlStateManager.scale(SMALL_TEXT_SCALE, SMALL_TEXT_SCALE, 1.0f);
+        Minecraft.getMinecraft().fontRenderer.drawString(text, 0, 0, color);
+        GlStateManager.popMatrix();
+    }
+
+    private static void drawScaledKey(int x, int y, float scale, appeng.api.stacks.AEKey what) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x, y, 0);
+        GlStateManager.scale(scale, scale, 1.0f);
+        AEKeyRendering.drawInGui(Minecraft.getMinecraft(), 0, 0, what);
+        GlStateManager.popMatrix();
+    }
+
     @Override
     public void setPosition(Point position) {
-        this.bounds = new Rect2i(position.getX(), position.getY(), bounds.getWidth(), bounds.getHeight());
+        this.bounds = new Rect2i(position.x(), position.y(), bounds.width(), bounds.height());
     }
 
     @Override
     public void setSize(int width, int height) {
-        this.bounds = new Rect2i(bounds.getX(), bounds.getY(), width, height);
+        this.bounds = new Rect2i(bounds.x(), bounds.y(), width, height);
     }
 
     @Override
@@ -73,60 +117,17 @@ public class CPUSelectionList implements ICompositeWidget {
         return true;
     }
 
-    @Nullable
-    @Override
-    public Tooltip getTooltip(int mouseX, int mouseY) {
-        var cpu = hitTestCpu(new Point(mouseX, mouseY));
-        if (cpu != null) {
-            var tooltipLines = new ArrayList<Component>();
-            tooltipLines.add(getCpuName(cpu));
-
-            // Show the number of coprocessors if any are installed
-            var coProcessors = cpu.coProcessors();
-            if (coProcessors == 1) {
-                tooltipLines.add(ButtonToolTips.CpuStatusCoProcessor.text(Tooltips.ofNumber(coProcessors))
-                        .withStyle(ChatFormatting.GRAY));
-            } else if (coProcessors > 1) {
-                tooltipLines.add(ButtonToolTips.CpuStatusCoProcessors.text(Tooltips.ofNumber(coProcessors))
-                        .withStyle(ChatFormatting.GRAY));
-            }
-
-            // Show the amount of storage in the Crafting CPU
-            tooltipLines.add(ButtonToolTips.CpuStatusStorage.text(Tooltips.ofBytes(cpu.storage()))
-                    // Vanilla text formatting is broken and inherits the color of the 1st placeholder in the text
-                    .withStyle(ChatFormatting.GRAY));
-
-            // Show if the CPU is player or automation only
-            var modeText = switch (cpu.mode()) {
-                case PLAYER_ONLY -> ButtonToolTips.CpuSelectionModePlayersOnly.text();
-                case MACHINE_ONLY -> ButtonToolTips.CpuSelectionModeAutomationOnly.text();
-                default -> null;
-            };
-            if (modeText != null) {
-                tooltipLines.add(modeText);
-            }
-
-            // Show info on the currently executing job
-            var currentJob = cpu.currentJob();
-            if (currentJob != null) {
-                tooltipLines.add(
-                        ButtonToolTips.CpuStatusCrafting.text(
-                                Tooltips.ofAmount(currentJob)).append(" ").append(currentJob.what().getDisplayName()));
-                tooltipLines.add(
-                        ButtonToolTips.CpuStatusCraftedIn.text(
-                                Tooltips.ofPercent(cpu.progress()),
-                                Tooltips.ofDuration(cpu.elapsedTimeNanos(), TimeUnit.NANOSECONDS)));
-            }
-            return new Tooltip(tooltipLines);
-        }
-        return null;
-    }
-
     @Override
     public boolean onMouseUp(Point mousePos, int button) {
+        var modeButtonCpu = hitTestModeButton(mousePos);
+        if (modeButtonCpu != null) {
+            container.cycleCpuMode(modeButtonCpu.serial(), button == 1);
+            return true;
+        }
+
         var cpu = hitTestCpu(mousePos);
         if (cpu != null) {
-            menu.selectCpu(cpu.serial());
+            container.selectCpu(cpu.serial());
             return true;
         }
 
@@ -134,130 +135,236 @@ public class CPUSelectionList implements ICompositeWidget {
     }
 
     @Nullable
-    private CraftingStatusMenu.CraftingCpuListEntry hitTestCpu(Point mousePos) {
-        var relX = mousePos.getX() - bounds.getX();
-        var relY = mousePos.getY() - bounds.getY();
-        relX -= 8;
-        if (relX < 0 || relX >= buttonBg.getSrcWidth()) {
+    @Override
+    public Tooltip getTooltip(int mouseX, int mouseY) {
+        var modeButtonCpu = hitTestModeButton(new Point(mouseX, mouseY));
+        if (modeButtonCpu != null) {
+            var tooltipLines = new ObjectArrayList<ITextComponent>();
+            tooltipLines.add(ButtonToolTips.CpuSelectionMode.text());
+            tooltipLines.add(gray(getModeButtonTooltip(modeButtonCpu.mode()).text()));
+            return new Tooltip(tooltipLines);
+        }
+
+        var cpu = hitTestCpu(new Point(mouseX, mouseY));
+        if (cpu == null) {
             return null;
         }
 
-        relY -= 19;
-        var buttonIdx = scrollbar.getCurrentScroll() + relY / (buttonBg.getSrcHeight() + 1);
-        if (relY % (buttonBg.getSrcHeight() + 1) == buttonBg.getSrcHeight()) {
-            // Clicked right between two buttons
-            return null;
-        }
-        if (relY < 0 || buttonIdx >= menu.cpuList.cpus().size()) {
-            // Clicked above first or below last button
-            return null;
+        var tooltipLines = new ObjectArrayList<ITextComponent>();
+        tooltipLines.add(getCpuName(cpu));
+        tooltipLines.add(gray(ButtonToolTips.CpuStatusStorage.text(formatStorage(cpu))));
+
+        int coProcessors = cpu.coProcessors();
+        if (coProcessors == 1) {
+            tooltipLines.add(gray(ButtonToolTips.CpuStatusCoProcessor.text(String.valueOf(coProcessors))));
+        } else if (coProcessors > 1) {
+            tooltipLines.add(gray(ButtonToolTips.CpuStatusCoProcessors.text(String.valueOf(coProcessors))));
         }
 
-        var cpus = menu.cpuList.cpus();
-        if (buttonIdx >= 0 && buttonIdx < cpus.size()) {
-            return cpus.get(buttonIdx);
+        switch (cpu.mode()) {
+            case PLAYER_ONLY:
+                tooltipLines.add(gray(ButtonToolTips.CpuSelectionModePlayersOnly.text()));
+                break;
+            case MACHINE_ONLY:
+                tooltipLines.add(gray(ButtonToolTips.CpuSelectionModeAutomationOnly.text()));
+                break;
+            default:
+                break;
         }
 
-        return null;
+        var currentJob = cpu.currentJob();
+        if (currentJob != null) {
+            String amount = currentJob.what().formatAmount(currentJob.amount(), AmountFormat.FULL);
+            tooltipLines.add(gray(ButtonToolTips.CpuStatusCrafting.text(amount)
+                                                                  .appendText(" ")
+                                                                  .appendSibling(currentJob.what().getDisplayName())));
+            var elapsedTimeTooltip = CraftingTimeDisplay.getElapsedTimeTooltip(cpu.progress(), cpu.elapsedTimeNanos());
+            tooltipLines.add(gray(new TextComponentTranslation(
+                elapsedTimeTooltip.translationKey(),
+                elapsedTimeTooltip.args())));
+        }
+
+        return new Tooltip(tooltipLines);
     }
 
     @Override
     public void updateBeforeRender() {
-        var hiddenRows = Math.max(0, menu.cpuList.cpus().size() - ROWS);
-        scrollbar.setRange(0, hiddenRows, ROWS / 3);
+        int hiddenRows = Math.max(0, container.cpuList.cpus().size() - ROWS);
+        scrollbar.setRange(0, hiddenRows, Math.max(1, ROWS / 3));
     }
 
     @Override
-    public void drawBackgroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
-        var x = bounds.getX() + this.bounds.getX();
-        var y = bounds.getY() + this.bounds.getY();
-        background.dest(
-                x,
-                y,
-                this.bounds.getWidth(),
-                this.bounds.getHeight()).blit(guiGraphics);
+    public void drawBackgroundLayer(Rect2i screenBounds, Point mouse) {
+        int x = screenBounds.x() + this.bounds.x();
+        int y = screenBounds.y() + this.bounds.y();
+        background.dest(x, y, this.bounds.width(), this.bounds.height()).blit();
 
-        // Move to first button
         x += 8;
         y += 19;
 
-        var pose = guiGraphics.pose();
-
-        var font = Minecraft.getInstance().font;
-        var cpus = menu.cpuList.cpus().subList(
-                Mth.clamp(scrollbar.getCurrentScroll(), 0, menu.cpuList.cpus().size()),
-                Mth.clamp(scrollbar.getCurrentScroll() + ROWS, 0, menu.cpuList.cpus().size()));
+        var cpus = container.cpuList.cpus().subList(
+            MathHelper.clamp(scrollbar.getCurrentScroll(), 0, container.cpuList.cpus().size()),
+            MathHelper.clamp(scrollbar.getCurrentScroll() + ROWS, 0, container.cpuList.cpus().size()));
+        var hoveredModeButtonCpu = hitTestModeButton(mouse);
         for (var cpu : cpus) {
-            if (cpu.serial() == menu.getSelectedCpuSerial()) {
-                buttonBgSelected.dest(x, y).blit(guiGraphics);
+            if (cpu.serial() == container.getSelectedCpuSerial()) {
+                buttonBgSelected.dest(x, y).blit();
             } else {
-                buttonBg.dest(x, y).blit(guiGraphics);
+                buttonBg.dest(x, y).blit();
             }
 
-            var name = getCpuName(cpu);
-            pose.pushPose();
-            pose.translate(x + 3, y + 2, 0);
-            pose.scale(0.666f, 0.666f, 1);
-            guiGraphics.drawString(font, name, 0, 0, textColor.toARGB(), false);
-            pose.popPose();
-
-            var infoBar = new InfoBar();
+            drawScaledString(getCpuName(cpu).getFormattedText(), x + 3, y + 2, textColor.toARGB());
 
             var currentJob = cpu.currentJob();
             if (currentJob != null) {
-                // Show what was initially requested
-                infoBar.add(Icon.S_CRAFT, 1f, x + 2, y + 9);
-                var craftAmt = currentJob.what().formatAmount(currentJob.amount(), AmountFormat.SLOT);
-                infoBar.add(craftAmt, textColor.toARGB(), 0.666f, x + 14, y + 13);
-                infoBar.add(currentJob.what(), 0.666f, x + 55, y + 9);
+                Icon.S_CRAFT.getBlitter().dest(x + 2, y + 9).blit();
+                drawScaledString(currentJob.what().formatAmount(currentJob.amount(), AmountFormat.SLOT),
+                    x + 14, y + 13, textColor.toARGB());
+                drawScaledKey(x + 55, y + 9, SMALL_TEXT_SCALE, currentJob.what());
 
-                // Draw a bar at the bottom of the button to indicate job progress
-                var progress = (int) (cpu.progress() * (buttonBg.getSrcWidth() - 1));
-                guiGraphics.pose().pushPose();
-                guiGraphics.pose().translate(1, -1, 0);
-                guiGraphics.fill(
+                int progress = (int) (cpu.progress() * (buttonBg.getSrcWidth() - 1));
+                if (progress > 0) {
+                    net.minecraft.client.gui.Gui.drawRect(
                         x,
                         y + buttonBg.getSrcHeight() - 2,
                         x + progress,
                         y + buttonBg.getSrcHeight() - 1,
-                        menu.getSelectedCpuSerial() == cpu.serial() ? 0xFF7da9d2 : (selectedColor));
-                guiGraphics.pose().popPose();
-
+                        container.getSelectedCpuSerial() == cpu.serial() ? 0xFF7da9d2 : selectedColor);
+                }
             } else {
-                infoBar.add(Icon.S_STORAGE, 1f, x + 27, y + 9);
-
-                String storageAmount = formatStorage(cpu);
-                infoBar.add(storageAmount, textColor.toARGB(), 0.666f, x + 39, y + 13);
+                Icon.S_STORAGE.getBlitter().dest(x + 27, y + 9).blit();
+                drawScaledString(formatStorage(cpu), x + 39, y + 13, textColor.toARGB());
 
                 if (cpu.coProcessors() > 0) {
-                    infoBar.add(Icon.S_PROCESSOR, 1f, x + 2, y + 9);
-                    String coProcessorCount = String.valueOf(cpu.coProcessors());
-                    infoBar.add(coProcessorCount, textColor.toARGB(), 0.666f, x + 14, y + 13);
+                    Icon.S_PROCESSOR.getBlitter().dest(x + 2, y + 9).blit();
+                    drawScaledString(String.valueOf(cpu.coProcessors()),
+                        x + 14, y + 13, textColor.toARGB());
                 }
-
-                switch (cpu.mode()) {
-                    case PLAYER_ONLY -> infoBar.add(Icon.S_TERMINAL, 1f, x + 55, y + 9);
-                    case MACHINE_ONLY -> infoBar.add(Icon.S_MACHINE, 1f, x + 55, y + 9);
-                }
+                drawModeButton(
+                    x + MODE_BUTTON_X,
+                    y + MODE_BUTTON_Y,
+                    cpu.mode(),
+                    hoveredModeButtonCpu != null && hoveredModeButtonCpu.serial() == cpu.serial());
             }
-
-            infoBar.render(guiGraphics, x + 2, y + buttonBg.getSrcHeight() - 12);
 
             y += buttonBg.getSrcHeight() + 1;
         }
     }
 
-    private String formatStorage(CraftingStatusMenu.CraftingCpuListEntry cpu) {
-        long storage = cpu.storage();
+    @Nullable
+    private ContainerCraftingStatus.CraftingCpuListEntry hitTestCpu(Point mousePos) {
+        int relX = mousePos.x() - bounds.x() - 8;
+        if (relX < 0 || relX >= buttonBg.getSrcWidth()) {
+            return null;
+        }
 
-        if (storage >= 1024 * 1024) {
-            return (storage / (1024 * 1024)) + "M";
-        } else {
-            return (storage / 1024) + "k";
+        int relY = mousePos.y() - bounds.y() - 19;
+        int buttonHeight = buttonBg.getSrcHeight() + 1;
+        int buttonIdx = scrollbar.getCurrentScroll() + relY / buttonHeight;
+        if (relY < 0 || relY % buttonHeight == buttonBg.getSrcHeight()) {
+            return null;
+        }
+
+        var cpus = container.cpuList.cpus();
+        if (buttonIdx < 0 || buttonIdx >= cpus.size()) {
+            return null;
+        }
+        return cpus.get(buttonIdx);
+    }
+
+    @Nullable
+    private ContainerCraftingStatus.CraftingCpuListEntry hitTestModeButton(Point mousePos) {
+        var cpu = hitTestCpu(mousePos);
+        if (cpu == null || cpu.currentJob() != null) {
+            return null;
+        }
+
+        int relX = mousePos.x() - bounds.x() - 8;
+        int relY = mousePos.y() - bounds.y() - 19;
+        int buttonHeight = buttonBg.getSrcHeight() + 1;
+        int rowY = relY % buttonHeight;
+
+        if (relX < MODE_BUTTON_X || relX >= MODE_BUTTON_X + MODE_BUTTON_SIZE) {
+            return null;
+        }
+
+        if (rowY < MODE_BUTTON_Y || rowY >= MODE_BUTTON_Y + MODE_BUTTON_SIZE) {
+            return null;
+        }
+
+        return cpu;
+    }
+
+    private void drawModeButton(int x, int y, CpuSelectionMode mode, boolean hovered) {
+        drawScaledToolbarBackground(x, y, hovered);
+
+        switch (mode) {
+            case ANY:
+                drawScaledModeIcon(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET);
+                break;
+            case PLAYER_ONLY:
+                drawScaledModeItemStack(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET,
+                    AEParts.TERMINAL.stack());
+                break;
+            case MACHINE_ONLY:
+                drawScaledModeItemStack(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET,
+                    AEParts.EXPORT_BUS.stack());
+                break;
         }
     }
 
-    private Component getCpuName(CraftingStatusMenu.CraftingCpuListEntry cpu) {
-        return cpu.name() != null ? cpu.name() : GuiText.CPUs.text().append(String.format(" #%d", cpu.serial()));
+    private static void drawScaledToolbarBackground(int x, int y, boolean hovered) {
+        Icon backgroundIcon = hovered ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER : Icon.TOOLBAR_BUTTON_BACKGROUND;
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x, y, 0);
+        GlStateManager.scale(MODE_BUTTON_SCALE, MODE_BUTTON_SCALE, 1.0f);
+        backgroundIcon.getBlitter().dest(0, 0).zOffset(10).blit();
+        GlStateManager.popMatrix();
+    }
+
+    private static void drawScaledModeIcon(int x, int y) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x, y, 0);
+        GlStateManager.scale(MODE_BUTTON_SCALE, MODE_BUTTON_SCALE, 1.0f);
+        Icon.CRAFT_HAMMER.getBlitter().dest(0, 0).zOffset(20).blit();
+        GlStateManager.popMatrix();
+    }
+
+    private static void drawScaledModeItemStack(int x, int y, ItemStack stack) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x, y, 20);
+        GlStateManager.scale(MODE_BUTTON_SCALE, MODE_BUTTON_SCALE, 1.0f);
+        GlStateManager.enableDepth();
+        RenderHelper.enableGUIStandardItemLighting();
+        Minecraft.getMinecraft().getRenderItem().renderItemAndEffectIntoGUI(stack, 0, 0);
+        Minecraft.getMinecraft().getRenderItem().renderItemOverlayIntoGUI(
+            Minecraft.getMinecraft().fontRenderer,
+            stack,
+            0,
+            0,
+            null);
+        RenderHelper.disableStandardItemLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.popMatrix();
+    }
+
+    private ButtonToolTips getModeButtonTooltip(CpuSelectionMode mode) {
+        return switch (mode) {
+            case ANY -> ButtonToolTips.CpuSelectionModeAny;
+            case PLAYER_ONLY -> ButtonToolTips.CpuSelectionModePlayersOnly;
+            case MACHINE_ONLY -> ButtonToolTips.CpuSelectionModeAutomationOnly;
+        };
+    }
+
+    private String formatStorage(ContainerCraftingStatus.CraftingCpuListEntry cpu) {
+        long storage = cpu.storage();
+        if (storage >= 1024 * 1024) {
+            return (storage / (1024 * 1024)) + "M";
+        }
+        return (storage / 1024) + "k";
+    }
+
+    private ITextComponent getCpuName(ContainerCraftingStatus.CraftingCpuListEntry cpu) {
+        return cpu.name() != null ? cpu.name() : GuiText.CPUs.text().appendText(" #" + cpu.serial());
     }
 }

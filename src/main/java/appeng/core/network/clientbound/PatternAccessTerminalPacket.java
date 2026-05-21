@@ -1,113 +1,99 @@
-
 package appeng.core.network.clientbound;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
+import appeng.api.implementations.blockentities.PatternContainerGroup;
+import appeng.client.gui.me.patternaccess.GuiPatternAccessTerm;
+import appeng.core.network.ClientboundPacket;
+import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketBuffer;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-import appeng.api.implementations.blockentities.PatternContainerGroup;
-import appeng.client.gui.me.patternaccess.PatternAccessTermScreen;
-import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
+import java.io.IOException;
 
-/**
- * Sends the content for a single {@link appeng.helpers.patternprovider.PatternContainer} shown in the pattern access
- * terminal to the client.
- */
-public record PatternAccessTerminalPacket(
-        boolean fullUpdate,
-        long inventoryId,
-        int inventorySize, // Only valid if fullUpdate
-        long sortBy, // Only valid if fullUpdate
-        PatternContainerGroup group, // Only valid if fullUpdate
-        Int2ObjectMap<ItemStack> slots) implements ClientboundPacket {
+public class PatternAccessTerminalPacket extends ClientboundPacket {
+    private boolean fullUpdate;
+    private long inventoryId;
+    private int inventorySize;
+    private long sortBy;
+    private PatternContainerGroup group;
+    private Int2ObjectMap<ItemStack> slots = new Int2ObjectOpenHashMap<>();
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, PatternAccessTerminalPacket> STREAM_CODEC = StreamCodec
-            .ofMember(
-                    PatternAccessTerminalPacket::write,
-                    PatternAccessTerminalPacket::decode);
-
-    private static final StreamCodec<RegistryFriendlyByteBuf, Int2ObjectMap<ItemStack>> SLOTS_STREAM_CODEC = ByteBufCodecs
-            .map(
-                    Int2ObjectOpenHashMap::new, ByteBufCodecs.SHORT.map(Short::intValue, Integer::shortValue),
-                    ItemStack.OPTIONAL_STREAM_CODEC, 128);
-
-    public static final Type<PatternAccessTerminalPacket> TYPE = CustomAppEngPayload
-            .createType("pattern_access_terminal");
-
-    @Override
-    public Type<PatternAccessTerminalPacket> type() {
-        return TYPE;
+    public PatternAccessTerminalPacket() {
     }
 
-    public static PatternAccessTerminalPacket decode(RegistryFriendlyByteBuf stream) {
-        var inventoryId = stream.readVarLong();
-        var fullUpdate = stream.readBoolean();
-        int inventorySize = 0;
-        long sortBy = 0;
-        PatternContainerGroup group = null;
-        if (fullUpdate) {
-            inventorySize = stream.readVarInt();
-            sortBy = stream.readVarLong();
-            group = PatternContainerGroup.readFromPacket(stream);
-        }
-
-        var slots = SLOTS_STREAM_CODEC.decode(stream);
-        return new PatternAccessTerminalPacket(fullUpdate, inventoryId, inventorySize, sortBy, group, slots);
+    private PatternAccessTerminalPacket(boolean fullUpdate, long inventoryId, int inventorySize, long sortBy,
+                                        PatternContainerGroup group, Int2ObjectMap<ItemStack> slots) {
+        this.fullUpdate = fullUpdate;
+        this.inventoryId = inventoryId;
+        this.inventorySize = inventorySize;
+        this.sortBy = sortBy;
+        this.group = group;
+        this.slots = slots;
     }
 
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeVarLong(inventoryId);
-        data.writeBoolean(fullUpdate);
-        if (fullUpdate) {
-            data.writeVarInt(inventorySize);
-            data.writeVarLong(sortBy);
-            group.writeToPacket(data);
-        }
-        SLOTS_STREAM_CODEC.encode(data, slots);
+    public static PatternAccessTerminalPacket fullUpdate(long inventoryId, int inventorySize, long sortBy,
+                                                         PatternContainerGroup group, Int2ObjectMap<ItemStack> slots) {
+        return new PatternAccessTerminalPacket(true, inventoryId, inventorySize, sortBy, group, slots);
     }
 
-    public static PatternAccessTerminalPacket fullUpdate(long inventoryId,
-            int inventorySize,
-            long sortBy,
-            PatternContainerGroup group,
-            Int2ObjectMap<ItemStack> slots) {
-        return new PatternAccessTerminalPacket(
-                true,
-                inventoryId,
-                inventorySize,
-                sortBy,
-                group,
-                slots);
-    }
-
-    public static PatternAccessTerminalPacket incrementalUpdate(long inventoryId,
-            Int2ObjectMap<ItemStack> slots) {
-        return new PatternAccessTerminalPacket(
-                false,
-                inventoryId,
-                0,
-                0,
-                null,
-                slots);
+    public static PatternAccessTerminalPacket incrementalUpdate(long inventoryId, Int2ObjectMap<ItemStack> slots) {
+        return new PatternAccessTerminalPacket(false, inventoryId, 0, 0, null, slots);
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        if (Minecraft.getInstance().screen instanceof PatternAccessTermScreen<?> patternAccessTerminal) {
-            if (fullUpdate) {
-                patternAccessTerminal.postFullUpdate(this.inventoryId, sortBy, group, inventorySize, slots);
+    protected void read(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.inventoryId = packetBuffer.readVarLong();
+        this.fullUpdate = packetBuffer.readBoolean();
+        if (this.fullUpdate) {
+            this.inventorySize = packetBuffer.readVarInt();
+            this.sortBy = packetBuffer.readVarLong();
+            this.group = PatternContainerGroup.readFromPacket(packetBuffer);
+        }
+
+        var slotCount = packetBuffer.readVarInt();
+        this.slots = new Int2ObjectOpenHashMap<>(slotCount);
+        for (int i = 0; i < slotCount; i++) {
+            var slot = packetBuffer.readVarInt();
+            try {
+                this.slots.put(slot, packetBuffer.readItemStack());
+            } catch (IOException e) {
+                throw new IllegalArgumentException("Could not read pattern access terminal slot", e);
+            }
+        }
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeVarLong(this.inventoryId);
+        packetBuffer.writeBoolean(this.fullUpdate);
+        if (this.fullUpdate) {
+            packetBuffer.writeVarInt(this.inventorySize);
+            packetBuffer.writeVarLong(this.sortBy);
+            this.group.writeToPacket(packetBuffer);
+        }
+
+        packetBuffer.writeVarInt(this.slots.size());
+        for (var entry : this.slots.int2ObjectEntrySet()) {
+            packetBuffer.writeVarInt(entry.getIntKey());
+            packetBuffer.writeItemStack(entry.getValue());
+        }
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.currentScreen instanceof GuiPatternAccessTerm<?> patternAccessTerminal) {
+            if (this.fullUpdate) {
+                patternAccessTerminal.postFullUpdate(this.inventoryId, this.sortBy, this.group, this.inventorySize,
+                    this.slots);
             } else {
-                patternAccessTerminal.postIncrementalUpdate(this.inventoryId, slots);
+                patternAccessTerminal.postIncrementalUpdate(this.inventoryId, this.slots);
             }
         }
     }

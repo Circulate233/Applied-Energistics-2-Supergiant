@@ -1,0 +1,27 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "ab ",
+    "bc ",
+    "  d"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:formation_core"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "c": {
+      "item": "ae2:cell_component_4k"
+    },
+    "d": {
+      "item": "ae2:energy_cell"
+    }
+  },
+  "result": {
+    "item": "ae2:color_applicator",
+    "count": 1
+  }
+}

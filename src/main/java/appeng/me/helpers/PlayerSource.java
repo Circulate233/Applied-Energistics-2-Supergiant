@@ -18,34 +18,32 @@
 
 package appeng.me.helpers;
 
+import appeng.api.networking.security.IActionHost;
+import appeng.api.networking.security.IActionSource;
+import net.minecraft.entity.player.EntityPlayer;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Objects;
 import java.util.Optional;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.entity.player.Player;
-
-import appeng.api.networking.security.IActionHost;
-import appeng.api.networking.security.IActionSource;
-
 public class PlayerSource implements IActionSource {
 
-    private final Player player;
+    private final EntityPlayer player;
     @Nullable
     private final IActionHost via;
 
-    public PlayerSource(Player p) {
+    public PlayerSource(EntityPlayer p) {
         this(p, null);
     }
 
-    public PlayerSource(Player p, @Nullable IActionHost v) {
+    public PlayerSource(EntityPlayer p, @Nullable IActionHost v) {
         Objects.requireNonNull(p);
         this.player = p;
         this.via = v;
     }
 
     @Override
-    public Optional<Player> player() {
+    public Optional<EntityPlayer> player() {
         return Optional.of(this.player);
     }
 

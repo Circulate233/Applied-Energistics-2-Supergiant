@@ -4,23 +4,23 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.ParsePosition;
-import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
-import java.util.Stack;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 public class MathExpressionParser {
     private static final BigDecimal THIRTY = BigDecimal.valueOf(30);
     private static final BigDecimal ONE_BILLION = BigDecimal.valueOf(1e9);
 
     public static Optional<BigDecimal> parse(String expression, DecimalFormat decimalFormat) {
-        // Parse using the Shunting Yard Algorithm
-
-        List<Object> output = new ArrayList<>();
-        Stack<Character> operatorStack = new Stack<>();
+        List<Object> output = new ObjectArrayList<>();
+        Deque<Character> operatorStack = new ArrayDeque<>();
         boolean wasNumberOrRightBracket = false;
 
-        for (int i = 0; i < expression.length();) {
+        for (int i = 0; i < expression.length(); ) {
             if (Character.isWhitespace(expression.charAt(i))) {
                 i++;
                 continue;
@@ -29,9 +29,8 @@ public class MathExpressionParser {
             if (!wasNumberOrRightBracket && expression.charAt(i) != '-') {
                 var position = new ParsePosition(i);
                 Number parsedNumber = decimalFormat.parse(expression, position);
-                if (position.getErrorIndex() == -1) { // no error
+                if (position.getErrorIndex() == -1) {
                     if (!(parsedNumber instanceof BigDecimal decimal)) {
-                        // NaN or infinity
                         return Optional.empty();
                     }
                     output.add(decimal);
@@ -43,19 +42,17 @@ public class MathExpressionParser {
 
             char currentOperator = expression.charAt(i);
             if (currentOperator == '-' && !wasNumberOrRightBracket) {
-                currentOperator = 'u'; // unitary minus
+                currentOperator = 'u';
             }
 
             wasNumberOrRightBracket = false;
 
             switch (currentOperator) {
-                case '(', 'u' -> {
-                    operatorStack.push(currentOperator);
-                }
+                case '(', 'u' -> operatorStack.push(currentOperator);
                 case ')' -> {
                     while (true) {
                         if (operatorStack.isEmpty()) {
-                            return Optional.empty(); // mismatched parenthesis
+                            return Optional.empty();
                         }
                         char operator = operatorStack.pop();
                         if (operator == '(') {
@@ -81,17 +78,15 @@ public class MathExpressionParser {
                 default -> {
                     return Optional.empty();
                 }
-
             }
             i++;
-
         }
 
         while (!operatorStack.isEmpty()) {
             output.add(operatorStack.pop());
         }
 
-        Stack<BigDecimal> number = new Stack<>();
+        Deque<BigDecimal> number = new ArrayDeque<>();
 
         for (Object object : output) {
             if (object instanceof BigDecimal bigDecimal) {
@@ -105,44 +100,33 @@ public class MathExpressionParser {
                         BigDecimal right = number.pop();
                         BigDecimal left = number.pop();
                         switch (currentOperator) {
-                            case '+' -> {
-                                number.push(right.add(left));
-                            }
-                            case '*' -> {
-                                number.push(right.multiply(left));
-                            }
-                            case '-' -> {
-                                number.push(left.subtract(right));
-                            }
+                            case '+' -> number.push(right.add(left));
+                            case '*' -> number.push(right.multiply(left));
+                            case '-' -> number.push(left.subtract(right));
                             case '/' -> {
                                 if (right.compareTo(BigDecimal.ZERO) == 0) {
-                                    return Optional.empty(); // division by zeroes
+                                    return Optional.empty();
                                 } else {
                                     number.push(left.divide(right, 8, RoundingMode.FLOOR));
                                 }
                             }
                             case '^' -> {
                                 right = right.stripTrailingZeros();
-                                // if has a decimal part or is smaller than 0 -> nope
                                 if (right.scale() > 0 || right.compareTo(BigDecimal.ZERO) < 0) {
                                     return Optional.empty();
                                 }
-                                // limit exponent to 30
                                 if (right.compareTo(THIRTY) > 0) {
-                                    return Optional.empty(); // exponent too big
+                                    return Optional.empty();
                                 }
-                                // limit base number to 1e9
                                 if (left.compareTo(ONE_BILLION) > 0) {
-                                    return Optional.empty(); // base number too big
+                                    return Optional.empty();
                                 }
                                 number.push(left.pow(right.intValueExact()));
                             }
                             case '(', ')' -> {
-                                return Optional.empty(); // should not have any remaining parenthesis in the stack
+                                return Optional.empty();
                             }
-                            default -> {
-                                throw new IllegalStateException("Unreachable character : " + currentOperator);
-                            }
+                            default -> throw new IllegalStateException("Unreachable character : " + currentOperator);
                         }
                     }
                 } else {
@@ -160,7 +144,6 @@ public class MathExpressionParser {
         } else {
             return Optional.of(number.pop().stripTrailingZeros());
         }
-
     }
 
     private static int getPrecedence(char operator) {
@@ -176,5 +159,4 @@ public class MathExpressionParser {
     private static boolean precedenceCheck(char first, char second) {
         return getPrecedence(first) <= getPrecedence(second);
     }
-
 }

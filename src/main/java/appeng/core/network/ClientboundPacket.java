@@ -1,16 +1,30 @@
 package appeng.core.network;
 
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public interface ClientboundPacket extends CustomAppEngPayload {
-    default void handleOnClient(IPayloadContext context) {
-        context.enqueueWork(() -> {
-            handleOnClient(context.player());
-        });
+public abstract class ClientboundPacket implements IMessage {
+
+    @Override
+    public final void fromBytes(ByteBuf buf) {
+        this.read(buf);
     }
 
-    default void handleOnClient(Player player) {
-        throw new AbstractMethodError("Unimplemented method on " + getClass());
+    @Override
+    public final void toBytes(ByteBuf buf) {
+        this.write(buf);
+    }
+
+    protected void read(ByteBuf buf) {
+    }
+
+    protected void write(ByteBuf buf) {
+    }
+
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
     }
 }

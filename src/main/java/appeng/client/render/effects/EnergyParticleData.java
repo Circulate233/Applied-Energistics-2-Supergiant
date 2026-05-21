@@ -15,37 +15,12 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.effects;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.util.EnumFacing;
 
-import net.minecraft.core.Direction;
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleType;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
+public record EnergyParticleData(boolean forItem, EnumFacing direction) {
 
-public record EnergyParticleData(boolean forItem, Direction direction) implements ParticleOptions {
-    public static final MapCodec<EnergyParticleData> CODEC = RecordCodecBuilder.mapCodec(builder -> builder.group(
-            Codec.BOOL.fieldOf("forItem").forGetter(EnergyParticleData::forItem),
-            Direction.CODEC.fieldOf("direction").forGetter(EnergyParticleData::direction))
-            .apply(builder, EnergyParticleData::new));
+    public static final EnergyParticleData FOR_BLOCK = new EnergyParticleData(false, EnumFacing.UP);
 
-    public static final StreamCodec<FriendlyByteBuf, EnergyParticleData> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.BOOL,
-            EnergyParticleData::forItem,
-            Direction.STREAM_CODEC,
-            EnergyParticleData::direction,
-            EnergyParticleData::new);
-
-    public static final EnergyParticleData FOR_BLOCK = new EnergyParticleData(false, Direction.UP);
-
-    @Override
-    public ParticleType<?> getType() {
-        return ParticleTypes.ENERGY;
-    }
 }

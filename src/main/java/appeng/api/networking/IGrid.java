@@ -23,11 +23,6 @@
 
 package appeng.api.networking;
 
-import java.io.IOException;
-import java.util.Set;
-
-import com.google.gson.stream.JsonWriter;
-
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.events.GridEvent;
@@ -35,6 +30,10 @@ import appeng.api.networking.pathing.IPathingService;
 import appeng.api.networking.spatial.ISpatialService;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.ticking.ITickManager;
+import com.google.gson.stream.JsonWriter;
+
+import java.io.IOException;
+import java.util.Set;
 
 /**
  * Gives you access to Grid based information.
@@ -62,8 +61,8 @@ public interface IGrid {
     <T extends GridEvent> T postEvent(T ev);
 
     /**
-     * get a list of the diversity of classes, you can use this to better detect which machines your interested in,
-     * rather then iterating the entire grid to test them.
+     * get a list of the diversity of classes, you can use this to better detect which machines you're interested in,
+     * rather than iterating the entire grid to test them.
      *
      * @return IReadOnlyCollection of all available host types (Of Type IGridHost).
      */
@@ -84,7 +83,7 @@ public interface IGrid {
      *
      * @param machineClass class of the machine associated with a grid node
      * @return all unique machines of specified class. if a machine is connected to the grid with multiple nodes, this
-     *         will only return the machine once.
+     * will only return the machine once.
      */
 
     <T> Set<T> getMachines(Class<T> machineClass);
@@ -94,7 +93,7 @@ public interface IGrid {
      *
      * @param machineClass class of the machine associated with a grid node
      * @return all unique machines of specified class. if a machine is connected to the grid with multiple nodes, this
-     *         will only return the machine once.
+     * will only return the machine once.
      */
 
     <T> Set<T> getActiveMachines(Class<T> machineClass);

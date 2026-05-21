@@ -23,15 +23,16 @@
 
 package appeng.api.inventories;
 
-import net.minecraft.world.Container;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 
 /**
- * Adapts an {@link InternalInventory} to the {@link Container} interface in a read-only fashion.
+ * Adapts an {@link InternalInventory} to the {@link IInventory} interface in a read-only fashion.
  */
-class ContainerAdapter implements Container {
+class ContainerAdapter implements IInventory {
     private final InternalInventory inventory;
 
     public ContainerAdapter(InternalInventory inventory) {
@@ -39,7 +40,7 @@ class ContainerAdapter implements Container {
     }
 
     @Override
-    public int getContainerSize() {
+    public int getSizeInventory() {
         return inventory.size();
     }
 
@@ -49,31 +50,31 @@ class ContainerAdapter implements Container {
     }
 
     @Override
-    public ItemStack getItem(int slotIndex) {
+    public ItemStack getStackInSlot(int slotIndex) {
         return inventory.getStackInSlot(slotIndex);
     }
 
     @Override
-    public void setItem(int slotIndex, ItemStack stack) {
-        inventory.setItemDirect(slotIndex, stack);
-    }
-
-    @Override
-    public ItemStack removeItem(int slotIndex, int count) {
+    public ItemStack decrStackSize(int slotIndex, int count) {
         return this.inventory.extractItem(slotIndex, count, false);
     }
 
     @Override
-    public ItemStack removeItemNoUpdate(int slotIndex) {
-        return this.inventory.extractItem(slotIndex, this.inventory.getSlotLimit(slotIndex), false);
+    public ItemStack removeStackFromSlot(int slotIndex) {
+        return this.inventory.extractItem(slotIndex, this.inventory.getStackInSlot(slotIndex).getCount(), false);
+    }
+
+    @Override
+    public void setInventorySlotContents(int slotIndex, ItemStack stack) {
+        inventory.setItemDirect(slotIndex, stack);
     }
 
     /**
      * Since our inventories support a per-slot max size, we find the largest max-size allowable and return that.
      */
     @Override
-    public int getMaxStackSize() {
-        int max = Item.ABSOLUTE_MAX_STACK_SIZE;
+    public int getInventoryStackLimit() {
+        int max = 64;
         for (int i = 0; i < inventory.size(); ++i) {
             max = Math.min(max, inventory.getSlotLimit(i));
         }
@@ -81,24 +82,60 @@ class ContainerAdapter implements Container {
     }
 
     @Override
-    public boolean canPlaceItem(int slotIndex, ItemStack stack) {
+    public void markDirty() {
+    }
+
+    @Override
+    public boolean isUsableByPlayer(EntityPlayer player) {
+        return true;
+    }
+
+    @Override
+    public void openInventory(EntityPlayer player) {
+    }
+
+    @Override
+    public void closeInventory(EntityPlayer player) {
+    }
+
+    @Override
+    public boolean isItemValidForSlot(int slotIndex, ItemStack stack) {
         return inventory.isItemValid(slotIndex, stack);
     }
 
     @Override
-    public void clearContent() {
+    public int getField(int id) {
+        return 0;
+    }
+
+    @Override
+    public void setField(int id, int value) {
+    }
+
+    @Override
+    public int getFieldCount() {
+        return 0;
+    }
+
+    @Override
+    public void clear() {
         for (int i = 0; i < inventory.size(); i++) {
             inventory.setItemDirect(i, ItemStack.EMPTY);
         }
     }
 
     @Override
-    public void setChanged() {
+    public String getName() {
+        return "internal_inventory";
     }
 
     @Override
-    public boolean stillValid(Player player) {
+    public boolean hasCustomName() {
         return false;
     }
 
+    @Override
+    public ITextComponent getDisplayName() {
+        return new TextComponentString(getName());
+    }
 }

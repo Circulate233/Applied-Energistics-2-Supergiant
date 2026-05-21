@@ -18,67 +18,34 @@
 
 package appeng.core;
 
-import java.util.Collection;
-import java.util.Set;
-
-import net.minecraft.core.Registry;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.ItemStackLinkedSet;
-import net.minecraft.world.item.Items;
-
 import appeng.api.ids.AECreativeTabIds;
 import appeng.core.definitions.AEItems;
-import appeng.core.localization.GuiText;
+import appeng.items.parts.FacadeItem;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
 
-public final class FacadeCreativeTab {
+public final class FacadeCreativeTab extends CreativeTabs {
 
-    private static CreativeModeTab group;
+    public static final FacadeCreativeTab INSTANCE = new FacadeCreativeTab();
 
-    public static void init(Registry<CreativeModeTab> registry) {
-        group = CreativeModeTab.builder()
-                .title(GuiText.CreativeTabFacades.text())
-                .withTabsBefore(AECreativeTabIds.MAIN)
-                .icon(() -> {
-                    if (group == null) {
-                        return ItemStack.EMPTY;
-                    }
-                    var items = group.getDisplayItems();
-                    return items.stream().findFirst().orElse(Items.CAKE.getDefaultInstance());
-                })
-                .displayItems(FacadeCreativeTab::buildDisplayItems)
-                .build();
-        Registry.register(registry, AECreativeTabIds.FACADES, group);
+    private FacadeCreativeTab() {
+        super(AECreativeTabIds.FACADES.toString());
     }
 
-    public static Collection<ItemStack> getDisplayItems() {
-        return group == null ? Set.of() : group.getDisplayItems();
+    @Override
+    public ItemStack createIcon() {
+        FacadeItem itemFacade = AEItems.FACADE.asItem();
+        return itemFacade == null ? ItemStack.EMPTY : itemFacade.getCreativeTabIcon();
     }
 
-    private static void buildDisplayItems(CreativeModeTab.ItemDisplayParameters displayParameters,
-            CreativeModeTab.Output output) {
-        // We need to create our own set since vanilla doesn't allow duplicates, but we cannot guarantee
-        // uniqueness
-        var facades = ItemStackLinkedSet.createTypeAndComponentsSet();
-
-        var itemFacade = AEItems.FACADE.get();// Collect all variants of this item from creative tabs
-        try {
-            for (var tab : CreativeModeTabs.allTabs()) {
-                if (tab == group) {
-                    continue; // Don't recurse
-                }
-                for (var displayItem : tab.getDisplayItems()) {
-                    var facade = itemFacade.createFacadeForItem(displayItem, false);
-                    if (!facade.isEmpty()) {
-                        facades.add(facade);
-                    }
-                }
-            }
-        } catch (Throwable t) {
-            // just absorb..
+    @Override
+    public void displayAllRelevantItems(NonNullList<ItemStack> itemStacks) {
+        FacadeItem itemFacade = AEItems.FACADE.asItem();
+        if (itemFacade == null) {
+            return;
         }
 
-        output.acceptAll(facades);
+        itemStacks.addAll(itemFacade.getFacades());
     }
 }

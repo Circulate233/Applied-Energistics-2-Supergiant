@@ -1,5 +1,4 @@
 {
-  "__comment": "Describes the parts of the pattern encoding terminal that relate to encoding a crafting pattern",
   "$schema": "../../schema.json",
   "slots": {
     "CRAFTING_GRID": {

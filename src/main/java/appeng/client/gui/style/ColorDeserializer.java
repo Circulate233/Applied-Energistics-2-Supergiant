@@ -18,12 +18,12 @@
 
 package appeng.client.gui.style;
 
-import java.lang.reflect.Type;
-
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
+
+import java.lang.reflect.Type;
 
 enum ColorDeserializer implements JsonDeserializer<Color> {
 
@@ -31,7 +31,8 @@ enum ColorDeserializer implements JsonDeserializer<Color> {
 
     @Override
     public Color deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-            throws JsonParseException {
+        throws JsonParseException {
         return Color.parse(json.getAsString());
     }
 }
+

@@ -50,7 +50,7 @@ public interface ICraftingWatcherNode extends IGridNodeService {
 
     /**
      * Called when a craftable status changes.
-     * 
+     *
      * @param what changed key
      */
     void onCraftableChange(AEKey what);

@@ -1,8 +1,5 @@
 package appeng.parts.automation;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import appeng.api.behaviors.StackTransferContext;
 import appeng.api.config.Actionable;
 import appeng.api.networking.energy.IEnergySource;
@@ -12,6 +9,9 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.util.prioritylist.IPartitionList;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+
+import java.util.Set;
 
 /**
  * Context for stack transfer operations, regardless of whether they occur in or out of the network.
@@ -27,16 +27,16 @@ class StackTransferContextImpl implements StackTransferContext {
     private boolean isInverted;
 
     public StackTransferContextImpl(IStorageService internalStorage, IEnergySource energySource,
-            IActionSource actionSource,
-            int operationsRemaining,
-            IPartitionList filter) {
+                                    IActionSource actionSource,
+                                    int operationsRemaining,
+                                    IPartitionList filter) {
         this.internalStorage = internalStorage;
         this.energySource = energySource;
         this.actionSource = actionSource;
         this.filter = filter;
         this.initialOperations = operationsRemaining;
         this.operationsRemaining = operationsRemaining;
-        this.keyTypes = new HashSet<>();
+        this.keyTypes = new ObjectOpenHashSet<>();
         for (AEKey item : filter.getItems()) {
             this.keyTypes.add(item.getType());
         }
@@ -93,26 +93,26 @@ class StackTransferContextImpl implements StackTransferContext {
     }
 
     @Override
-    public void setInverted(boolean inverted) {
-        isInverted = inverted;
-    }
-
-    @Override
     public boolean isInverted() {
         return !filter.isEmpty() && isInverted;
     }
 
     @Override
+    public void setInverted(boolean inverted) {
+        isInverted = inverted;
+    }
+
+    @Override
     public boolean canInsert(AEItemKey what, long amount) {
         return internalStorage.getInventory().insert(
-                what,
-                amount,
-                Actionable.SIMULATE,
-                actionSource) > 0;
+            what,
+            amount,
+            Actionable.SIMULATE,
+            actionSource) > 0;
     }
 
     @Override
     public void reduceOperationsRemaining(long inserted) {
-        operationsRemaining -= inserted;
+        operationsRemaining -= (int) inserted;
     }
 }

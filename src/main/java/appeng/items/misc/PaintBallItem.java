@@ -24,11 +24,10 @@ import appeng.items.AEBaseItem;
 public class PaintBallItem extends AEBaseItem {
 
     private final AEColor color;
-
     private final boolean lumen;
 
-    public PaintBallItem(Properties properties, AEColor color, boolean lumen) {
-        super(properties);
+    public PaintBallItem(AEColor color, boolean lumen) {
+        super();
         this.color = color;
         this.lumen = lumen;
     }
@@ -40,5 +39,4 @@ public class PaintBallItem extends AEBaseItem {
     public boolean isLumen() {
         return lumen;
     }
-
 }

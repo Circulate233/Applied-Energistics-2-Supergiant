@@ -1,39 +1,38 @@
-
 package appeng.core.network.serverbound;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.ChunkPos;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
-
-import appeng.core.network.CustomAppEngPayload;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.clientbound.CompassResponsePacket;
 import appeng.server.services.compass.ServerCompassService;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.math.ChunkPos;
 
-public record RequestClosestMeteoritePacket(ChunkPos pos) implements ServerboundPacket {
-    private static final Logger LOG = LoggerFactory.getLogger(RequestClosestMeteoritePacket.class);
+public class RequestClosestMeteoritePacket extends ServerboundPacket {
+    private ChunkPos pos;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, RequestClosestMeteoritePacket> STREAM_CODEC = StreamCodec
-            .composite(
-                    NeoForgeStreamCodecs.CHUNK_POS, RequestClosestMeteoritePacket::pos,
-                    RequestClosestMeteoritePacket::new);
+    public RequestClosestMeteoritePacket() {
+    }
 
-    public static final Type<RequestClosestMeteoritePacket> TYPE = CustomAppEngPayload.createType("compass_request");
-
-    @Override
-    public Type<RequestClosestMeteoritePacket> type() {
-        return TYPE;
+    public RequestClosestMeteoritePacket(ChunkPos pos) {
+        this.pos = pos;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        var result = ServerCompassService.getClosestMeteorite(player.serverLevel(), pos);
-        LOG.trace("{} requested closest meteorite for {} in {} -> {}", player, pos, player.serverLevel(), result);
-        player.connection.send(new CompassResponsePacket(pos, result));
+    protected void read(io.netty.buffer.ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.pos = new ChunkPos(packetBuffer.readInt(), packetBuffer.readInt());
+    }
+
+    @Override
+    protected void write(io.netty.buffer.ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeInt(this.pos.x);
+        packetBuffer.writeInt(this.pos.z);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        var result = ServerCompassService.getClosestMeteorite(player.getServerWorld(), this.pos);
+        appeng.core.network.InitNetwork.sendToClient(player, new CompassResponsePacket(this.pos, result));
     }
 }

@@ -1,24 +1,15 @@
 package appeng.recipes.game;
 
-import com.mojang.serialization.MapCodec;
+import appeng.recipes.IAERecipeFactory;
+import appeng.recipes.serializers.JsonRecipeUtils;
+import com.google.gson.JsonObject;
+import net.minecraftforge.common.crafting.JsonContext;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.item.crafting.RecipeSerializer;
-
-public class StorageCellDisassemblyRecipeSerializer implements RecipeSerializer<StorageCellDisassemblyRecipe> {
-    public static final StorageCellDisassemblyRecipeSerializer INSTANCE = new StorageCellDisassemblyRecipeSerializer();
-
-    private StorageCellDisassemblyRecipeSerializer() {
-    }
-
+public class StorageCellDisassemblyRecipeSerializer implements IAERecipeFactory {
     @Override
-    public MapCodec<StorageCellDisassemblyRecipe> codec() {
-        return StorageCellDisassemblyRecipe.CODEC;
-    }
-
-    @Override
-    public StreamCodec<RegistryFriendlyByteBuf, StorageCellDisassemblyRecipe> streamCodec() {
-        return StorageCellDisassemblyRecipe.STREAM_CODEC;
+    public void register(JsonObject json, JsonContext ctx) {
+        StorageCellDisassemblyRecipe.register(new StorageCellDisassemblyRecipe(
+            JsonRecipeUtils.readItem(json, "cell"),
+            JsonRecipeUtils.readItemStacks(json, "cell_disassembly_items", ctx)));
     }
 }

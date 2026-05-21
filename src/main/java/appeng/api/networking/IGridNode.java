@@ -23,22 +23,20 @@
 
 package appeng.api.networking;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.CrashReportCategory;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.pathing.IPathingService;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.util.AEColor;
+import net.minecraft.crash.CrashReportCategory;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.world.WorldServer;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 /**
  * Gives you a view into a Nodes connections and information.
@@ -58,22 +56,22 @@ public interface IGridNode {
 
     /**
      * Gets the host of the grid node, which does not necessarily have a representation in the game level. In most
-     * cases, this will be the game object that has created the node, for example a {@link BlockEntity} or
+     * cases, this will be the game object that has created the node, for example a {@link TileEntity} or
      * {@link appeng.api.parts.IPart}, but may also represent something entirely different.
      */
 
     Object getOwner();
 
     /**
-     * lets you walk the grid stating at the current node using a IGridVisitor, generally not needed, please use only if
-     * required.
+     * Lets you walk the grid stating at the current node using an IGridVisitor. This is generally not needed; please
+     * use it only if required.
      *
      * @param visitor visitor
      */
     void beginVisit(IGridVisitor visitor);
 
     /**
-     * get the grid for the node, this can change at a moments notice.
+     * Get the grid for the node. This can change at a moment's notice.
      *
      * @return The grid this node is a part of.
      * @throws IllegalStateException If the node is being used after being destroyed or before it's initialized.
@@ -84,20 +82,20 @@ public interface IGridNode {
      * @return the level the node is located in
      */
 
-    ServerLevel getLevel();
+    WorldServer getLevel();
 
     /**
      * @return The externally accessible sides of the host that this grid node has formed a connection through.
      */
 
-    Set<Direction> getConnectedSides();
+    Set<EnumFacing> getConnectedSides();
 
     /**
      * lets you iterate a nodes connections that have been made via the grid host's exposed sides to other adjacent grid
      * nodes.
      */
 
-    Map<Direction, IGridConnection> getInWorldConnections();
+    Map<EnumFacing, IGridConnection> getInWorldConnections();
 
     /**
      * lets you iterate all of a nodes connections that have been made either internally within the grid host, or to
@@ -111,8 +109,8 @@ public interface IGridNode {
      * Reflects the networks status, returns true only if the network is powered, and the network has fully booted, and
      * this node has the channels it needs (if any).
      * <p>
-     * This should be used for active behavior such as network I/O, but {@link #isOnline()} should be used instead for
-     * visual state display to avoid the device looking disabled while the grid is booting.
+     * This should be used for active behavior such as network I/O. Use {@link #isOnline()} instead for visual state
+     * display so the device does not look disabled while the grid is booting.
      */
     default boolean isActive() {
         return isPowered() && hasGridBooted() && meetsChannelRequirements();
@@ -122,8 +120,8 @@ public interface IGridNode {
      * Return true only if the network is powered and the node has the channels it needs (if any).
      * <p>
      * This ignores whether the network is booting, so it should be used for "enabled" visuals or other "passive"
-     * behavior, but should not perform active actions (such as network I/O) without checking that booting is finished,
-     * as the channels might still be outdated.
+     * behavior. Do not perform active actions (such as network I/O) without checking that booting is finished, because
+     * the channels might still be outdated.
      */
     default boolean isOnline() {
         return isPowered() && meetsChannelRequirements();
@@ -137,22 +135,22 @@ public interface IGridNode {
 
     /**
      * @return True if the node has power from it's connected grid. Can be used to show a machine being powered, even if
-     *         the machine doesn't have it's required channel or the network is still booting.
+     * the machine doesn't have it's required channel or the network is still booting.
      * @see #isActive()
      */
     boolean isPowered();
 
     /**
      * @return if the node's channel requirements are currently met, use this for display purposes, use isActive for
-     *         status.
+     * status.
      */
     boolean meetsChannelRequirements();
 
     /**
-     * see if this node has a certain flag
+     * See if this node has a certain flag.
      *
      * @param flag flags
-     * @return true if has flag
+     * @return true if the flag is set
      */
     boolean hasFlag(GridFlags flag);
 
@@ -176,7 +174,7 @@ public interface IGridNode {
 
     /**
      * @return An item that will only be used to represent this grid node in user interfaces. Can return an
-     *         <code>null</code> to indicate the node should not be shown in the UI.
+     * <code>null</code> to indicate the node should not be shown in the UI.
      */
     @Nullable
     AEItemKey getVisualRepresentation();

@@ -1,21 +1,14 @@
 package appeng.helpers.externalstorage;
 
-import com.google.common.primitives.Ints;
-
-import org.jetbrains.annotations.NotNull;
-
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
-
 import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyType;
-import appeng.util.Platform;
+import com.google.common.primitives.Ints;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
+import org.jetbrains.annotations.NotNull;
 
-/**
- * Exposes a {@link GenericInternalInventory} as the platforms external item storage interface.
- */
 public class GenericStackItemStorage implements IItemHandler {
     private final GenericInternalInventory inv;
 
@@ -25,55 +18,61 @@ public class GenericStackItemStorage implements IItemHandler {
 
     @Override
     public int getSlots() {
-        return inv.size();
+        return this.inv.size();
     }
 
-    @NotNull
     @Override
+    @NotNull
     public ItemStack getStackInSlot(int slot) {
-        if (inv.getKey(slot) instanceof AEItemKey what) {
-            var amount = Ints.saturatedCast(inv.getAmount(slot));
-            return what.toStack(amount);
+        if (this.inv.getKey(slot) instanceof AEItemKey what) {
+            return what.toStack(Ints.saturatedCast(this.inv.getAmount(slot)));
         }
         return ItemStack.EMPTY;
     }
 
-    @NotNull
     @Override
+    @NotNull
     public ItemStack insertItem(int slot, @NotNull ItemStack stack, boolean simulate) {
         var what = AEItemKey.of(stack);
         if (what == null) {
             return stack;
         }
 
-        var inserted = (int) inv.insert(slot, what, stack.getCount(), Actionable.ofSimulate(simulate));
-
-        return Platform.copyStackWithSize(stack, stack.getCount() - inserted);
-    }
-
-    @NotNull
-    @Override
-    public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        if (!(inv.getKey(slot) instanceof AEItemKey what)) {
+        int inserted = Ints.saturatedCast(this.inv.insert(slot, what, stack.getCount(), Actionable.ofSimulate(simulate)));
+        if (inserted <= 0) {
+            return stack;
+        }
+        if (inserted >= stack.getCount()) {
             return ItemStack.EMPTY;
         }
 
-        var extracted = (int) inv.extract(slot, what, amount, Actionable.ofSimulate(simulate));
+        ItemStack remainder = stack.copy();
+        remainder.shrink(inserted);
+        return remainder;
+    }
 
-        return what.toStack(extracted);
+    @Override
+    @NotNull
+    public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        if (!(this.inv.getKey(slot) instanceof AEItemKey what)) {
+            return ItemStack.EMPTY;
+        }
+
+        int extracted = Ints.saturatedCast(this.inv.extract(slot, what, amount, Actionable.ofSimulate(simulate)));
+        return extracted > 0 ? what.toStack(extracted) : ItemStack.EMPTY;
     }
 
     @Override
     public int getSlotLimit(int slot) {
-        return Ints.saturatedCast(inv.getCapacity(AEKeyType.items()));
+        return Ints.saturatedCast(this.inv.getCapacity(AEKeyType.items()));
     }
 
     @Override
-    public boolean isItemValid(int slot, @NotNull ItemStack stack) {
+    public boolean isItemValid(int slot, ItemStack stack) {
         if (stack.isEmpty()) {
             return true;
         }
         var what = AEItemKey.of(stack);
-        return what != null && inv.isAllowedIn(slot, what);
+        return what != null && this.inv.isAllowedIn(slot, what);
     }
 }

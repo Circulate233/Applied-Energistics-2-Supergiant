@@ -18,13 +18,13 @@
 
 package appeng.init.internal;
 
-import java.util.List;
-
 import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
 import appeng.core.localization.GuiText;
+
+import java.util.List;
 
 public final class InitUpgrades {
 
@@ -32,123 +32,112 @@ public final class InitUpgrades {
     }
 
     public static void init() {
-        // Block and part interface have different translation keys, but support the
-        // same upgrades
         String interfaceGroup = GuiText.Interface.getTranslationKey();
         String itemIoBusGroup = GuiText.IOBuses.getTranslationKey();
         String storageCellGroup = GuiText.StorageCells.getTranslationKey();
         String portableCellGroup = GuiText.PortableCells.getTranslationKey();
         String wirelessTerminalGroup = GuiText.WirelessTerminals.getTranslationKey();
 
-        // Interface
-        Upgrades.add(AEItems.CRAFTING_CARD, AEParts.INTERFACE, 1, interfaceGroup);
-        Upgrades.add(AEItems.CRAFTING_CARD, AEBlocks.INTERFACE, 1, interfaceGroup);
-        Upgrades.add(AEItems.FUZZY_CARD, AEParts.INTERFACE, 1, interfaceGroup);
-        Upgrades.add(AEItems.FUZZY_CARD, AEBlocks.INTERFACE, 1, interfaceGroup);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEItems.VIEW_CELL.item(), 1);
+        Upgrades.add(AEItems.INVERTER_CARD.item(), AEItems.VIEW_CELL.item(), 1);
 
-        // IO Port!
-        Upgrades.add(AEItems.SPEED_CARD, AEBlocks.IO_PORT, 3);
-        Upgrades.add(AEItems.REDSTONE_CARD, AEBlocks.IO_PORT, 1);
+        Upgrades.add(AEItems.CRAFTING_CARD.item(), AEParts.INTERFACE.item(), 1, interfaceGroup);
+        Upgrades.add(AEItems.CRAFTING_CARD.item(), AEBlocks.INTERFACE.item(), 1, interfaceGroup);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.INTERFACE.item(), 1, interfaceGroup);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEBlocks.INTERFACE.item(), 1, interfaceGroup);
 
-        // Level Emitter!
-        Upgrades.add(AEItems.FUZZY_CARD, AEParts.LEVEL_EMITTER, 1);
-        Upgrades.add(AEItems.CRAFTING_CARD, AEParts.LEVEL_EMITTER, 1);
+        Upgrades.add(AEItems.SPEED_CARD.item(), AEBlocks.MOLECULAR_ASSEMBLER.item(), 5);
+        Upgrades.add(AEItems.SPEED_CARD.item(), AEBlocks.INSCRIBER.item(), 4);
 
-        // Import Bus
-        Upgrades.add(AEItems.FUZZY_CARD, AEParts.IMPORT_BUS, 1, itemIoBusGroup);
-        Upgrades.add(AEItems.REDSTONE_CARD, AEParts.IMPORT_BUS, 1, itemIoBusGroup);
-        Upgrades.add(AEItems.CAPACITY_CARD, AEParts.IMPORT_BUS, 5, itemIoBusGroup);
-        Upgrades.add(AEItems.SPEED_CARD, AEParts.IMPORT_BUS, 4, itemIoBusGroup);
-        Upgrades.add(AEItems.INVERTER_CARD, AEParts.IMPORT_BUS, 1, itemIoBusGroup);
+        Upgrades.add(AEItems.SPEED_CARD.item(), AEBlocks.IO_PORT.item(), 3);
+        Upgrades.add(AEItems.REDSTONE_CARD.item(), AEBlocks.IO_PORT.item(), 1);
 
-        // Export Bus
-        Upgrades.add(AEItems.FUZZY_CARD, AEParts.EXPORT_BUS, 1, itemIoBusGroup);
-        Upgrades.add(AEItems.REDSTONE_CARD, AEParts.EXPORT_BUS, 1, itemIoBusGroup);
-        Upgrades.add(AEItems.CAPACITY_CARD, AEParts.EXPORT_BUS, 5, itemIoBusGroup);
-        Upgrades.add(AEItems.SPEED_CARD, AEParts.EXPORT_BUS, 4, itemIoBusGroup);
-        Upgrades.add(AEItems.CRAFTING_CARD, AEParts.EXPORT_BUS, 1, itemIoBusGroup);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.LEVEL_EMITTER.item(), 1);
+        Upgrades.add(AEItems.CRAFTING_CARD.item(), AEParts.LEVEL_EMITTER.item(), 1);
 
-        // Storage Cells
-        var itemCells = List.of(
-                AEItems.ITEM_CELL_1K, AEItems.ITEM_CELL_4K, AEItems.ITEM_CELL_16K, AEItems.ITEM_CELL_64K,
-                AEItems.ITEM_CELL_256K);
-        for (var itemCell : itemCells) {
-            Upgrades.add(AEItems.FUZZY_CARD, itemCell, 1, storageCellGroup);
-            Upgrades.add(AEItems.INVERTER_CARD, itemCell, 1, storageCellGroup);
-            Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD, itemCell, 1, storageCellGroup);
-            Upgrades.add(AEItems.VOID_CARD, itemCell, 1, storageCellGroup);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.IMPORT_BUS.item(), 1, itemIoBusGroup);
+        Upgrades.add(AEItems.REDSTONE_CARD.item(), AEParts.IMPORT_BUS.item(), 1, itemIoBusGroup);
+        Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.IMPORT_BUS.item(), 5, itemIoBusGroup);
+        Upgrades.add(AEItems.SPEED_CARD.item(), AEParts.IMPORT_BUS.item(), 4, itemIoBusGroup);
+        Upgrades.add(AEItems.INVERTER_CARD.item(), AEParts.IMPORT_BUS.item(), 1, itemIoBusGroup);
+
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.EXPORT_BUS.item(), 1, itemIoBusGroup);
+        Upgrades.add(AEItems.REDSTONE_CARD.item(), AEParts.EXPORT_BUS.item(), 1, itemIoBusGroup);
+        Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.EXPORT_BUS.item(), 5, itemIoBusGroup);
+        Upgrades.add(AEItems.SPEED_CARD.item(), AEParts.EXPORT_BUS.item(), 4, itemIoBusGroup);
+        Upgrades.add(AEItems.CRAFTING_CARD.item(), AEParts.EXPORT_BUS.item(), 1, itemIoBusGroup);
+
+        for (var itemCell : List.of(
+            AEItems.ITEM_CELL_1K,
+            AEItems.ITEM_CELL_4K,
+            AEItems.ITEM_CELL_16K,
+            AEItems.ITEM_CELL_64K,
+            AEItems.ITEM_CELL_256K)) {
+            Upgrades.add(AEItems.FUZZY_CARD.item(), itemCell.item(), 1, storageCellGroup);
+            Upgrades.add(AEItems.INVERTER_CARD.item(), itemCell.item(), 1, storageCellGroup);
+            Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD.item(), itemCell.item(), 1, storageCellGroup);
+            Upgrades.add(AEItems.VOID_CARD.item(), itemCell.item(), 1, storageCellGroup);
         }
 
-        var fluidCells = List.of(
-                AEItems.FLUID_CELL_1K, AEItems.FLUID_CELL_4K, AEItems.FLUID_CELL_16K, AEItems.FLUID_CELL_64K,
-                AEItems.FLUID_CELL_256K);
-        for (var fluidCell : fluidCells) {
-            Upgrades.add(AEItems.INVERTER_CARD, fluidCell, 1, storageCellGroup);
-            Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD, fluidCell, 1, storageCellGroup);
-            Upgrades.add(AEItems.VOID_CARD, fluidCell, 1, storageCellGroup);
+        for (var fluidCell : List.of(
+            AEItems.FLUID_CELL_1K,
+            AEItems.FLUID_CELL_4K,
+            AEItems.FLUID_CELL_16K,
+            AEItems.FLUID_CELL_64K,
+            AEItems.FLUID_CELL_256K)) {
+            Upgrades.add(AEItems.INVERTER_CARD.item(), fluidCell.item(), 1, storageCellGroup);
+            Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD.item(), fluidCell.item(), 1, storageCellGroup);
+            Upgrades.add(AEItems.VOID_CARD.item(), fluidCell.item(), 1, storageCellGroup);
         }
 
-        var portableCells = List.of(
-                AEItems.PORTABLE_ITEM_CELL1K, AEItems.PORTABLE_ITEM_CELL4K, AEItems.PORTABLE_ITEM_CELL16K,
-                AEItems.PORTABLE_ITEM_CELL64K, AEItems.PORTABLE_ITEM_CELL256K);
-        for (var portableCell : portableCells) {
-            Upgrades.add(AEItems.FUZZY_CARD, portableCell, 1, portableCellGroup);
-            Upgrades.add(AEItems.INVERTER_CARD, portableCell, 1, portableCellGroup);
-            Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD, portableCell, 1, portableCellGroup);
-            Upgrades.add(AEItems.VOID_CARD, portableCell, 1, portableCellGroup);
-            Upgrades.add(AEItems.ENERGY_CARD, portableCell, 2, portableCellGroup);
+        for (var portableItemCell : List.of(
+            AEItems.PORTABLE_ITEM_CELL1K,
+            AEItems.PORTABLE_ITEM_CELL4K,
+            AEItems.PORTABLE_ITEM_CELL16K,
+            AEItems.PORTABLE_ITEM_CELL64K,
+            AEItems.PORTABLE_ITEM_CELL256K)) {
+            Upgrades.add(AEItems.FUZZY_CARD.item(), portableItemCell.item(), 1, portableCellGroup);
+            Upgrades.add(AEItems.INVERTER_CARD.item(), portableItemCell.item(), 1, portableCellGroup);
+            Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD.item(), portableItemCell.item(), 1, portableCellGroup);
+            Upgrades.add(AEItems.VOID_CARD.item(), portableItemCell.item(), 1, portableCellGroup);
+            Upgrades.add(AEItems.ENERGY_CARD.item(), portableItemCell.item(), 2, portableCellGroup);
         }
 
-        var portableFluidCells = List.of(
-                AEItems.PORTABLE_FLUID_CELL1K, AEItems.PORTABLE_FLUID_CELL4K, AEItems.PORTABLE_FLUID_CELL16K,
-                AEItems.PORTABLE_FLUID_CELL64K, AEItems.PORTABLE_FLUID_CELL256K);
-        for (var portableFluidCell : portableFluidCells) {
-            Upgrades.add(AEItems.INVERTER_CARD, portableFluidCell, 1, portableCellGroup);
-            Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD, portableFluidCell, 1, portableCellGroup);
-            Upgrades.add(AEItems.VOID_CARD, portableFluidCell, 1, portableCellGroup);
-            Upgrades.add(AEItems.ENERGY_CARD, portableFluidCell, 2, portableCellGroup);
+        for (var portableFluidCell : List.of(
+            AEItems.PORTABLE_FLUID_CELL1K,
+            AEItems.PORTABLE_FLUID_CELL4K,
+            AEItems.PORTABLE_FLUID_CELL16K,
+            AEItems.PORTABLE_FLUID_CELL64K,
+            AEItems.PORTABLE_FLUID_CELL256K)) {
+            Upgrades.add(AEItems.INVERTER_CARD.item(), portableFluidCell.item(), 1, portableCellGroup);
+            Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD.item(), portableFluidCell.item(), 1, portableCellGroup);
+            Upgrades.add(AEItems.VOID_CARD.item(), portableFluidCell.item(), 1, portableCellGroup);
+            Upgrades.add(AEItems.ENERGY_CARD.item(), portableFluidCell.item(), 2, portableCellGroup);
         }
 
-        // Wireless Terminals
-        Upgrades.add(AEItems.ENERGY_CARD, AEItems.WIRELESS_TERMINAL, 2, wirelessTerminalGroup);
-        Upgrades.add(AEItems.ENERGY_CARD, AEItems.WIRELESS_CRAFTING_TERMINAL, 2, wirelessTerminalGroup);
+        Upgrades.add(AEItems.ENERGY_CARD.item(), AEItems.WIRELESS_TERMINAL.item(), 2, wirelessTerminalGroup);
+        Upgrades.add(AEItems.ENERGY_CARD.item(), AEItems.WIRELESS_CRAFTING_TERMINAL.item(), 2,
+            wirelessTerminalGroup);
 
-        // View Cell
-        Upgrades.add(AEItems.FUZZY_CARD, AEItems.VIEW_CELL, 1);
-        Upgrades.add(AEItems.INVERTER_CARD, AEItems.VIEW_CELL, 1);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.STORAGE_BUS.item(), 1);
+        Upgrades.add(AEItems.INVERTER_CARD.item(), AEParts.STORAGE_BUS.item(), 1);
+        Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.STORAGE_BUS.item(), 5);
+        Upgrades.add(AEItems.VOID_CARD.item(), AEParts.STORAGE_BUS.item(), 1);
 
-        // Storage Bus
-        Upgrades.add(AEItems.FUZZY_CARD, AEParts.STORAGE_BUS, 1);
-        Upgrades.add(AEItems.INVERTER_CARD, AEParts.STORAGE_BUS, 1);
-        Upgrades.add(AEItems.CAPACITY_CARD, AEParts.STORAGE_BUS, 5);
-        Upgrades.add(AEItems.VOID_CARD, AEParts.STORAGE_BUS, 1);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.FORMATION_PLANE.item(), 1);
+        Upgrades.add(AEItems.INVERTER_CARD.item(), AEParts.FORMATION_PLANE.item(), 1);
+        Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.FORMATION_PLANE.item(), 5);
 
-        // Formation Plane
-        Upgrades.add(AEItems.FUZZY_CARD, AEParts.FORMATION_PLANE, 1);
-        Upgrades.add(AEItems.INVERTER_CARD, AEParts.FORMATION_PLANE, 1);
-        Upgrades.add(AEItems.CAPACITY_CARD, AEParts.FORMATION_PLANE, 5);
+        Upgrades.add(AEItems.ENERGY_CARD.item(), AEItems.COLOR_APPLICATOR.item(), 2);
+        Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD.item(), AEItems.COLOR_APPLICATOR.item(), 1);
+        Upgrades.add(AEItems.VOID_CARD.item(), AEItems.COLOR_APPLICATOR.item(), 1);
+        Upgrades.add(AEItems.ENERGY_CARD.item(), AEItems.MATTER_CANNON.item(), 2);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEItems.MATTER_CANNON.item(), 1);
+        Upgrades.add(AEItems.INVERTER_CARD.item(), AEItems.MATTER_CANNON.item(), 1);
+        Upgrades.add(AEItems.VOID_CARD.item(), AEItems.MATTER_CANNON.item(), 1);
+        Upgrades.add(AEItems.SPEED_CARD.item(), AEItems.MATTER_CANNON.item(), 4);
 
-        // Color Applicator
-        Upgrades.add(AEItems.ENERGY_CARD, AEItems.COLOR_APPLICATOR, 2);
-        Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD, AEItems.COLOR_APPLICATOR, 1);
-        Upgrades.add(AEItems.VOID_CARD, AEItems.COLOR_APPLICATOR, 1);
-
-        // Matter Cannon
-        Upgrades.add(AEItems.ENERGY_CARD, AEItems.MATTER_CANNON, 2);
-        Upgrades.add(AEItems.FUZZY_CARD, AEItems.MATTER_CANNON, 1);
-        Upgrades.add(AEItems.INVERTER_CARD, AEItems.MATTER_CANNON, 1);
-        Upgrades.add(AEItems.VOID_CARD, AEItems.MATTER_CANNON, 1);
-        Upgrades.add(AEItems.SPEED_CARD, AEItems.MATTER_CANNON, 4);
-
-        // Molecular Assembler
-        Upgrades.add(AEItems.SPEED_CARD, AEBlocks.MOLECULAR_ASSEMBLER, 5);
-
-        // Inscriber
-        Upgrades.add(AEItems.SPEED_CARD, AEBlocks.INSCRIBER, 4);
-
-        // Vibration Chamber
-        Upgrades.add(AEItems.ENERGY_CARD, AEBlocks.VIBRATION_CHAMBER, 3);
-        Upgrades.add(AEItems.SPEED_CARD, AEBlocks.VIBRATION_CHAMBER, 3);
+        Upgrades.add(AEItems.SPEED_CARD.item(), AEBlocks.VIBRATION_CHAMBER.item(), 3);
+        Upgrades.add(AEItems.ENERGY_CARD.item(), AEBlocks.VIBRATION_CHAMBER.item(), 3);
     }
-
 }

@@ -1,19 +1,17 @@
 package appeng.api.behaviors;
 
-import java.util.UUID;
-
-import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.parts.automation.StackWorldBehaviors;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.UUID;
 
 @ApiStatus.Experimental
 public interface PlacementStrategy {
@@ -22,6 +20,10 @@ public interface PlacementStrategy {
      */
     static PlacementStrategy noop() {
         return NoopPlacementStrategy.INSTANCE;
+    }
+
+    static void register(AEKeyType type, Factory factory) {
+        StackWorldBehaviors.registerPlacementStrategy(type, factory);
     }
 
     void clearBlocked();
@@ -33,11 +35,7 @@ public interface PlacementStrategy {
 
     @FunctionalInterface
     interface Factory {
-        PlacementStrategy create(ServerLevel level, BlockPos fromPos, Direction fromSide, BlockEntity host,
-                @Nullable UUID owningPlayerId);
-    }
-
-    static void register(AEKeyType type, Factory factory) {
-        StackWorldBehaviors.registerPlacementStrategy(type, factory);
+        PlacementStrategy create(WorldServer level, BlockPos fromPos, EnumFacing fromSide, TileEntity host,
+                                 @Nullable UUID owningPlayerId);
     }
 }

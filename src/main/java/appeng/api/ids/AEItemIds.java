@@ -23,28 +23,28 @@
 
 package appeng.api.ids;
 
+import appeng.api.util.AEColor;
+import com.google.common.collect.ImmutableMap;
+import net.minecraft.util.ResourceLocation;
+
 import java.util.Map;
 
-import com.google.common.collect.ImmutableMap;
-
-import net.minecraft.resources.ResourceLocation;
-
-import appeng.api.util.AEColor;
-
 /**
- * Contains {@link net.minecraft.world.item.Item} ids for various items defined by Ae2.
+ * Contains {@link net.minecraft.item.Item} ids for various items defined by Ae2.
  */
 @SuppressWarnings("unused")
 public final class AEItemIds {
     public static final ResourceLocation NETWORK_TOOL = id("network_tool");
     public static final ResourceLocation VIEW_CELL = id("view_cell");
     public static final ResourceLocation MEMORY_CARD = id("memory_card");
+    public static final ResourceLocation DEBUG_CARD = id("debug_card");
+    public static final ResourceLocation DEBUG_ERASER = id("debug_eraser");
+    public static final ResourceLocation DEBUG_METEORITE_PLACER = id("debug_meteorite_placer");
+    public static final ResourceLocation DEBUG_REPLICATOR_CARD = id("debug_replicator_card");
 
     public static final ResourceLocation BLANK_PATTERN = id("blank_pattern");
     public static final ResourceLocation CRAFTING_PATTERN = id("crafting_pattern");
     public static final ResourceLocation PROCESSING_PATTERN = id("processing_pattern");
-    public static final ResourceLocation SMITHING_TABLE_PATTERN = id("smithing_table_pattern");
-    public static final ResourceLocation STONECUTTING_PATTERN = id("stonecutting_pattern");
     public static final ResourceLocation MISSING_CONTENT = id("missing_content");
     public static final ResourceLocation ENTROPY_MANIPULATOR = id("entropy_manipulator");
     public static final ResourceLocation MATTER_CANNON = id("matter_cannon");
@@ -89,7 +89,7 @@ public final class AEItemIds {
     public static final ResourceLocation PORTABLE_FLUID_CELL256K = id("portable_fluid_cell_256k");
 
     ///
-    /// PAINT BALLS
+    /// PAINTBALLS
     ///
     public static final ResourceLocation COLORED_LUMEN_PAINT_BALL_WHITE = id("white_lumen_paint_ball");
     public static final ResourceLocation COLORED_LUMEN_PAINT_BALL_ORANGE = id("orange_lumen_paint_ball");
@@ -108,23 +108,23 @@ public final class AEItemIds {
     public static final ResourceLocation COLORED_LUMEN_PAINT_BALL_RED = id("red_lumen_paint_ball");
     public static final ResourceLocation COLORED_LUMEN_PAINT_BALL_BLACK = id("black_lumen_paint_ball");
     public static final Map<AEColor, ResourceLocation> COLORED_LUMEN_PAINT_BALL = ImmutableMap
-            .<AEColor, ResourceLocation>builder().put(AEColor.WHITE, COLORED_LUMEN_PAINT_BALL_WHITE)
-            .put(AEColor.ORANGE, COLORED_LUMEN_PAINT_BALL_ORANGE)
-            .put(AEColor.MAGENTA, COLORED_LUMEN_PAINT_BALL_MAGENTA)
-            .put(AEColor.LIGHT_BLUE, COLORED_LUMEN_PAINT_BALL_LIGHT_BLUE)
-            .put(AEColor.YELLOW, COLORED_LUMEN_PAINT_BALL_YELLOW)
-            .put(AEColor.LIME, COLORED_LUMEN_PAINT_BALL_LIME)
-            .put(AEColor.PINK, COLORED_LUMEN_PAINT_BALL_PINK)
-            .put(AEColor.GRAY, COLORED_LUMEN_PAINT_BALL_GRAY)
-            .put(AEColor.LIGHT_GRAY, COLORED_LUMEN_PAINT_BALL_LIGHT_GRAY)
-            .put(AEColor.CYAN, COLORED_LUMEN_PAINT_BALL_CYAN)
-            .put(AEColor.PURPLE, COLORED_LUMEN_PAINT_BALL_PURPLE)
-            .put(AEColor.BLUE, COLORED_LUMEN_PAINT_BALL_BLUE)
-            .put(AEColor.BROWN, COLORED_LUMEN_PAINT_BALL_BROWN)
-            .put(AEColor.GREEN, COLORED_LUMEN_PAINT_BALL_GREEN)
-            .put(AEColor.RED, COLORED_LUMEN_PAINT_BALL_RED)
-            .put(AEColor.BLACK, COLORED_LUMEN_PAINT_BALL_BLACK)
-            .build();
+        .<AEColor, ResourceLocation>builder().put(AEColor.WHITE, COLORED_LUMEN_PAINT_BALL_WHITE)
+        .put(AEColor.ORANGE, COLORED_LUMEN_PAINT_BALL_ORANGE)
+        .put(AEColor.MAGENTA, COLORED_LUMEN_PAINT_BALL_MAGENTA)
+        .put(AEColor.LIGHT_BLUE, COLORED_LUMEN_PAINT_BALL_LIGHT_BLUE)
+        .put(AEColor.YELLOW, COLORED_LUMEN_PAINT_BALL_YELLOW)
+        .put(AEColor.LIME, COLORED_LUMEN_PAINT_BALL_LIME)
+        .put(AEColor.PINK, COLORED_LUMEN_PAINT_BALL_PINK)
+        .put(AEColor.GRAY, COLORED_LUMEN_PAINT_BALL_GRAY)
+        .put(AEColor.LIGHT_GRAY, COLORED_LUMEN_PAINT_BALL_LIGHT_GRAY)
+        .put(AEColor.CYAN, COLORED_LUMEN_PAINT_BALL_CYAN)
+        .put(AEColor.PURPLE, COLORED_LUMEN_PAINT_BALL_PURPLE)
+        .put(AEColor.BLUE, COLORED_LUMEN_PAINT_BALL_BLUE)
+        .put(AEColor.BROWN, COLORED_LUMEN_PAINT_BALL_BROWN)
+        .put(AEColor.GREEN, COLORED_LUMEN_PAINT_BALL_GREEN)
+        .put(AEColor.RED, COLORED_LUMEN_PAINT_BALL_RED)
+        .put(AEColor.BLACK, COLORED_LUMEN_PAINT_BALL_BLACK)
+        .build();
 
     public static final ResourceLocation COLORED_PAINT_BALL_WHITE = id("white_paint_ball");
     public static final ResourceLocation COLORED_PAINT_BALL_ORANGE = id("orange_paint_ball");
@@ -143,23 +143,23 @@ public final class AEItemIds {
     public static final ResourceLocation COLORED_PAINT_BALL_RED = id("red_paint_ball");
     public static final ResourceLocation COLORED_PAINT_BALL_BLACK = id("black_paint_ball");
     public static final Map<AEColor, ResourceLocation> COLORED_PAINT_BALL = ImmutableMap
-            .<AEColor, ResourceLocation>builder().put(AEColor.WHITE, COLORED_PAINT_BALL_WHITE)
-            .put(AEColor.ORANGE, COLORED_PAINT_BALL_ORANGE)
-            .put(AEColor.MAGENTA, COLORED_PAINT_BALL_MAGENTA)
-            .put(AEColor.LIGHT_BLUE, COLORED_PAINT_BALL_LIGHT_BLUE)
-            .put(AEColor.YELLOW, COLORED_PAINT_BALL_YELLOW)
-            .put(AEColor.LIME, COLORED_PAINT_BALL_LIME)
-            .put(AEColor.PINK, COLORED_PAINT_BALL_PINK)
-            .put(AEColor.GRAY, COLORED_PAINT_BALL_GRAY)
-            .put(AEColor.LIGHT_GRAY, COLORED_PAINT_BALL_LIGHT_GRAY)
-            .put(AEColor.CYAN, COLORED_PAINT_BALL_CYAN)
-            .put(AEColor.PURPLE, COLORED_PAINT_BALL_PURPLE)
-            .put(AEColor.BLUE, COLORED_PAINT_BALL_BLUE)
-            .put(AEColor.BROWN, COLORED_PAINT_BALL_BROWN)
-            .put(AEColor.GREEN, COLORED_PAINT_BALL_GREEN)
-            .put(AEColor.RED, COLORED_PAINT_BALL_RED)
-            .put(AEColor.BLACK, COLORED_PAINT_BALL_BLACK)
-            .build();
+        .<AEColor, ResourceLocation>builder().put(AEColor.WHITE, COLORED_PAINT_BALL_WHITE)
+        .put(AEColor.ORANGE, COLORED_PAINT_BALL_ORANGE)
+        .put(AEColor.MAGENTA, COLORED_PAINT_BALL_MAGENTA)
+        .put(AEColor.LIGHT_BLUE, COLORED_PAINT_BALL_LIGHT_BLUE)
+        .put(AEColor.YELLOW, COLORED_PAINT_BALL_YELLOW)
+        .put(AEColor.LIME, COLORED_PAINT_BALL_LIME)
+        .put(AEColor.PINK, COLORED_PAINT_BALL_PINK)
+        .put(AEColor.GRAY, COLORED_PAINT_BALL_GRAY)
+        .put(AEColor.LIGHT_GRAY, COLORED_PAINT_BALL_LIGHT_GRAY)
+        .put(AEColor.CYAN, COLORED_PAINT_BALL_CYAN)
+        .put(AEColor.PURPLE, COLORED_PAINT_BALL_PURPLE)
+        .put(AEColor.BLUE, COLORED_PAINT_BALL_BLUE)
+        .put(AEColor.BROWN, COLORED_PAINT_BALL_BROWN)
+        .put(AEColor.GREEN, COLORED_PAINT_BALL_GREEN)
+        .put(AEColor.RED, COLORED_PAINT_BALL_RED)
+        .put(AEColor.BLACK, COLORED_PAINT_BALL_BLACK)
+        .build();
 
     ///
     /// TOOLS
@@ -180,7 +180,6 @@ public final class AEItemIds {
     public static final ResourceLocation NETHER_QUARTZ_WRENCH = id("nether_quartz_wrench");
     public static final ResourceLocation NETHER_QUARTZ_KNIFE = id("nether_quartz_cutting_knife");
 
-    public static final ResourceLocation FLUIX_UPGRADE_SMITHING_TEMPLATE = id("fluix_upgrade_smithing_template");
     public static final ResourceLocation FLUIX_AXE = id("fluix_axe");
     public static final ResourceLocation FLUIX_HOE = id("fluix_hoe");
     public static final ResourceLocation FLUIX_SHOVEL = id("fluix_shovel");
@@ -188,7 +187,6 @@ public final class AEItemIds {
     public static final ResourceLocation FLUIX_SWORD = id("fluix_sword");
 
     public static final ResourceLocation METEORITE_COMPASS = id("meteorite_compass");
-
     ///
     /// The following items were previously part of ApiItems
     ///
@@ -241,12 +239,11 @@ public final class AEItemIds {
     public static final ResourceLocation FORMATION_CORE = id("formation_core");
     public static final ResourceLocation ANNIHILATION_CORE = id("annihilation_core");
     public static final ResourceLocation SKY_DUST = id("sky_dust");
-    public static final ResourceLocation GUIDE = id("guide");
     public static final ResourceLocation ENDER_DUST = id("ender_dust");
     public static final ResourceLocation SINGULARITY = id("singularity");
     public static final ResourceLocation QUANTUM_ENTANGLED_SINGULARITY = id("quantum_entangled_singularity");
 
     private static ResourceLocation id(String id) {
-        return ResourceLocation.fromNamespaceAndPath(AEConstants.MOD_ID, id);
+        return new ResourceLocation(AEConstants.MOD_ID, id);
     }
 }

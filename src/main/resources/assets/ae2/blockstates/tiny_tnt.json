@@ -1,7 +1,7 @@
 {
   "variants": {
-    "": {
-      "model": "ae2:block/tiny_tnt"
+    "normal": {
+      "model": "ae2:tiny_tnt"
     }
   }
 }

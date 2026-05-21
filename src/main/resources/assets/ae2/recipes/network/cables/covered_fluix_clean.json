@@ -1,0 +1,67 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    [
+      {
+        "item": "ae2:white_covered_cable"
+      },
+      {
+        "item": "ae2:light_gray_covered_cable"
+      },
+      {
+        "item": "ae2:gray_covered_cable"
+      },
+      {
+        "item": "ae2:black_covered_cable"
+      },
+      {
+        "item": "ae2:lime_covered_cable"
+      },
+      {
+        "item": "ae2:yellow_covered_cable"
+      },
+      {
+        "item": "ae2:orange_covered_cable"
+      },
+      {
+        "item": "ae2:brown_covered_cable"
+      },
+      {
+        "item": "ae2:red_covered_cable"
+      },
+      {
+        "item": "ae2:pink_covered_cable"
+      },
+      {
+        "item": "ae2:magenta_covered_cable"
+      },
+      {
+        "item": "ae2:purple_covered_cable"
+      },
+      {
+        "item": "ae2:blue_covered_cable"
+      },
+      {
+        "item": "ae2:light_blue_covered_cable"
+      },
+      {
+        "item": "ae2:cyan_covered_cable"
+      },
+      {
+        "item": "ae2:green_covered_cable"
+      }
+    ],
+    [
+      {
+        "item": "minecraft:water_bucket"
+      },
+      {
+        "item": "minecraft:snowball"
+      }
+    ]
+  ],
+  "result": {
+    "item": "ae2:fluix_covered_cable",
+    "count": 1
+  }
+}

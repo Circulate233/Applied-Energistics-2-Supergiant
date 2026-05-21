@@ -18,127 +18,118 @@
 
 package appeng.client.render.model;
 
-import java.util.ArrayList;
+import appeng.decorative.solid.GlassState;
+import appeng.decorative.solid.QuartzGlassBlock;
+import com.google.common.base.Strings;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3d;
+import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
+import java.util.Random;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 
-import com.google.common.base.Strings;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3f;
-
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.BlockAndTintGetter;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.ChunkRenderTypeSet;
-import net.neoforged.neoforge.client.model.IDynamicBakedModel;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.neoforged.neoforge.client.model.data.ModelProperty;
-import net.neoforged.neoforge.client.model.pipeline.QuadBakingVertexConsumer;
-
-import appeng.decorative.solid.GlassState;
-import appeng.decorative.solid.QuartzGlassBlock;
-
-public class GlassBakedModel implements IDynamicBakedModel {
-    private static final ChunkRenderTypeSet RENDER_TYPES = ChunkRenderTypeSet.of(RenderType.CUTOUT);
-
-    // This unlisted property is used to determine the actual block that should be
-    // rendered
-    public static final ModelProperty<GlassState> GLASS_STATE = new ModelProperty<>();
-
-    // Alternating textures based on position
-    static final Material TEXTURE_A = new Material(TextureAtlas.LOCATION_BLOCKS,
-            ResourceLocation.parse("ae2:block/glass/quartz_glass_a"));
-    static final Material TEXTURE_B = new Material(TextureAtlas.LOCATION_BLOCKS,
-            ResourceLocation.parse("ae2:block/glass/quartz_glass_b"));
-    static final Material TEXTURE_C = new Material(TextureAtlas.LOCATION_BLOCKS,
-            ResourceLocation.parse("ae2:block/glass/quartz_glass_c"));
-    static final Material TEXTURE_D = new Material(TextureAtlas.LOCATION_BLOCKS,
-            ResourceLocation.parse("ae2:block/glass/quartz_glass_d"));
-
-    // Frame texture
-    static final Material[] TEXTURES_FRAME = generateTexturesFrame();
-
-    // Generates the required textures for the frame
-    private static Material[] generateTexturesFrame() {
-        return IntStream.range(1, 16).mapToObj(Integer::toBinaryString).map(s -> Strings.padStart(s, 4, '0'))
-                .map(s -> ResourceLocation.parse("ae2:block/glass/quartz_glass_frame" + s))
-                .map(rl -> new Material(TextureAtlas.LOCATION_BLOCKS, rl)).toArray(Material[]::new);
-    }
-
+@SuppressWarnings("deprecation")
+public class GlassBakedModel implements IBakedModel {
+    static final ResourceLocation TEXTURE_A = new ResourceLocation("ae2:block/glass/quartz_glass_a");
+    static final ResourceLocation TEXTURE_B = new ResourceLocation("ae2:block/glass/quartz_glass_b");
+    static final ResourceLocation TEXTURE_C = new ResourceLocation("ae2:block/glass/quartz_glass_c");
+    static final ResourceLocation TEXTURE_D = new ResourceLocation("ae2:block/glass/quartz_glass_d");
+    static final ResourceLocation[] TEXTURES_FRAME = generateTexturesFrame();
+    private static final byte[][][] OFFSETS = generateOffsets();
     private final TextureAtlasSprite[] glassTextures;
-
     private final TextureAtlasSprite[] frameTextures;
+    private final VertexFormat vertexFormat;
 
-    public GlassBakedModel(Function<Material, TextureAtlasSprite> bakedTextureGetter) {
-        this.glassTextures = new TextureAtlasSprite[] { bakedTextureGetter.apply(TEXTURE_A),
-                bakedTextureGetter.apply(TEXTURE_B), bakedTextureGetter.apply(TEXTURE_C),
-                bakedTextureGetter.apply(TEXTURE_D) };
+    public GlassBakedModel(VertexFormat format, Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        this.glassTextures = new TextureAtlasSprite[]{
+            bakedTextureGetter.apply(TEXTURE_A),
+            bakedTextureGetter.apply(TEXTURE_B),
+            bakedTextureGetter.apply(TEXTURE_C),
+            bakedTextureGetter.apply(TEXTURE_D)
+        };
 
-        // The first frame texture would be empty, so we simply leave it set to null
-        // here
+        this.vertexFormat = format;
         this.frameTextures = new TextureAtlasSprite[16];
         for (int i = 0; i < TEXTURES_FRAME.length; i++) {
             this.frameTextures[1 + i] = bakedTextureGetter.apply(TEXTURES_FRAME[i]);
         }
     }
 
-    @Override
-    public @NotNull ModelData getModelData(BlockAndTintGetter blockView, @NotNull BlockPos pos,
-            @NotNull BlockState state, @NotNull ModelData modelData) {
-        final GlassState glassState = getGlassState(blockView, state, pos);
-        return modelData.derive().with(GLASS_STATE, glassState).build();
+    private static ResourceLocation[] generateTexturesFrame() {
+        return IntStream.range(1, 16)
+                        .mapToObj(Integer::toBinaryString)
+                        .map(s -> Strings.padStart(s, 4, '0'))
+                        .map(s -> new ResourceLocation("ae2:block/glass/quartz_glass_frame" + s))
+                        .toArray(ResourceLocation[]::new);
+    }
+
+    private static byte[][][] generateOffsets() {
+        Random random = new Random(924);
+        byte[][][] offset = new byte[10][10][10];
+
+        for (int x = 0; x < 10; x++) {
+            for (int y = 0; y < 10; y++) {
+                random.nextBytes(offset[x][y]);
+            }
+        }
+
+        return offset;
     }
 
     @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand,
-            ModelData extraData, RenderType renderType) {
+    public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
         if (side == null) {
             return Collections.emptyList();
         }
 
-        GlassState glassState = Objects.requireNonNullElse(extraData.get(GLASS_STATE), GlassState.DEFAULT);
+        GlassState glassState = GlassState.DEFAULT;
+        if (state instanceof IExtendedBlockState) {
+            GlassState extendedGlassState = ((IExtendedBlockState) state).getValue(QuartzGlassBlock.GLASS_STATE);
+            if (extendedGlassState != null) {
+                glassState = extendedGlassState;
+            }
+        }
 
-        int randomOffset = rand.nextInt(4);
-        var u = randomOffset / 16f;
-        var v = rand.nextInt(4) / 16f;
+        if (glassState.hasAdjacentGlassBlock(side)) {
+            return Collections.emptyList();
+        }
 
-        int texIdx = (randomOffset + rand.nextInt(4)) % 4;
+        int cx = Math.abs((int) (rand & 0xF) % 10);
+        int cy = Math.abs((int) ((rand >> 4) & 0xF) % 10);
+        int cz = Math.abs((int) ((rand >> 8) & 0xF) % 10);
+
+        int u = OFFSETS[cx][cy][cz] % 4;
+        int v = OFFSETS[9 - cx][9 - cy][9 - cz] % 4;
+        int texIdx = Math.abs(OFFSETS[cx][cy][cz] % 4);
 
         if (texIdx < 2) {
             u /= 2;
             v /= 2;
         }
 
-        final TextureAtlasSprite glassTexture = this.glassTextures[texIdx];
+        TextureAtlasSprite glassTexture = this.glassTextures[texIdx];
 
-        // Render the glass side
-        if (glassState.hasAdjacentGlassBlock(side)) { // Skip sides that are connected to another glass block
-            return Collections.emptyList();
-        }
-
-        final List<BakedQuad> quads = new ArrayList<>(5); // At most 5
-
-        final List<Vector3f> corners = RenderHelper.getFaceCorners(side);
+        List<BakedQuad> quads = new ObjectArrayList<>(5);
+        List<Vec3d> corners = RenderHelper.getFaceCorners(side);
         quads.add(this.createQuad(side, corners, glassTexture, u, v));
 
-        final int edgeBitmask = glassState.getMask(side);
-        final TextureAtlasSprite sideSprite = this.frameTextures[edgeBitmask];
+        int edgeBitmask = glassState.getMask(side);
+        TextureAtlasSprite sideSprite = this.frameTextures[edgeBitmask];
 
         if (sideSprite != null) {
             quads.add(this.createQuad(side, corners, sideSprite, 0, 0));
@@ -147,101 +138,61 @@ public class GlassBakedModel implements IDynamicBakedModel {
         return quads;
     }
 
-    @Override
-    public boolean usesBlockLight() {
-        // TODO: Forge: Auto-generated method stub
-        return false;
-    }
-
-    /**
-     * Creates the bitmask that indicates, in which directions (in terms of u,v space) a border should be drawn.
-     */
-    private static int makeBitmask(BlockAndTintGetter level, BlockState state, BlockPos pos, Direction side) {
-        return switch (side) {
-            case DOWN -> makeBitmask(level, state, pos, side, Direction.SOUTH, Direction.EAST, Direction.NORTH,
-                    Direction.WEST);
-            case UP -> makeBitmask(level, state, pos, side, Direction.SOUTH, Direction.WEST, Direction.NORTH,
-                    Direction.EAST);
-            case NORTH -> makeBitmask(level, state, pos, side, Direction.UP, Direction.WEST, Direction.DOWN,
-                    Direction.EAST);
-            case SOUTH -> makeBitmask(level, state, pos, side, Direction.UP, Direction.EAST, Direction.DOWN,
-                    Direction.WEST);
-            case WEST -> makeBitmask(level, state, pos, side, Direction.UP, Direction.SOUTH, Direction.DOWN,
-                    Direction.NORTH);
-            case EAST -> makeBitmask(level, state, pos, side, Direction.UP, Direction.NORTH, Direction.DOWN,
-                    Direction.SOUTH);
-        };
-    }
-
-    private static int makeBitmask(BlockAndTintGetter level, BlockState state, BlockPos pos, Direction face,
-            Direction up, Direction right, Direction down, Direction left) {
-
-        int bitmask = 0;
-
-        if (!isGlassBlock(level, state, pos, face, up, face)) {
-            bitmask |= 1;
-        }
-        if (!isGlassBlock(level, state, pos, face, right, face)) {
-            bitmask |= 2;
-        }
-        if (!isGlassBlock(level, state, pos, face, down, face)) {
-            bitmask |= 4;
-        }
-        if (!isGlassBlock(level, state, pos, face, left, face)) {
-            bitmask |= 8;
-        }
-        return bitmask;
-    }
-
-    private BakedQuad createQuad(Direction side, List<Vector3f> corners, TextureAtlasSprite sprite, float uOffset,
-            float vOffset) {
+    private BakedQuad createQuad(EnumFacing side, List<Vec3d> corners, TextureAtlasSprite sprite, float uOffset,
+                                 float vOffset) {
         return this.createQuad(side, corners.get(0), corners.get(1), corners.get(2), corners.get(3), sprite, uOffset,
-                vOffset);
+            vOffset);
     }
 
-    private BakedQuad createQuad(Direction side, Vector3f c1, Vector3f c2, Vector3f c3, Vector3f c4,
-            TextureAtlasSprite sprite, float uOffset, float vOffset) {
-        Vec3 normal = new Vec3(side.getNormal().getX(), side.getNormal().getY(),
-                side.getNormal().getZ());
+    private BakedQuad createQuad(EnumFacing side, Vec3d c1, Vec3d c2, Vec3d c3, Vec3d c4,
+                                 TextureAtlasSprite sprite, float uOffset, float vOffset) {
+        Vec3d normal = new Vec3d(side.getDirectionVec());
 
-        // Apply the u,v shift.
-        // This mirrors the logic from OffsetIcon from 1.7
-        float u1 = Mth.clamp(0 - uOffset, 0, 1);
-        float u2 = Mth.clamp(1 - uOffset, 0, 1);
-        float v1 = Mth.clamp(0 - vOffset, 0, 1);
-        float v2 = Mth.clamp(1 - vOffset, 0, 1);
+        float u1 = MathHelper.clamp(0 - uOffset, 0, 16);
+        float u2 = MathHelper.clamp(16 - uOffset, 0, 16);
+        float v1 = MathHelper.clamp(0 - vOffset, 0, 16);
+        float v2 = MathHelper.clamp(16 - vOffset, 0, 16);
 
-        var builder = new QuadBakingVertexConsumer();
-        builder.setSprite(sprite);
-        builder.setDirection(side);
-        this.putVertex(builder, normal, c1.x(), c1.y(), c1.z(), sprite, u1, v1);
-        this.putVertex(builder, normal, c2.x(), c2.y(), c2.z(), sprite, u1, v2);
-        this.putVertex(builder, normal, c3.x(), c3.y(), c3.z(), sprite, u2, v2);
-        this.putVertex(builder, normal, c4.x(), c4.y(), c4.z(), sprite, u2, v1);
-        return builder.bakeQuad();
+        UnpackedBakedQuad.Builder builder = new UnpackedBakedQuad.Builder(this.vertexFormat);
+        builder.setTexture(sprite);
+        this.putVertex(builder, normal, c1.x, c1.y, c1.z, sprite, u1, v1);
+        this.putVertex(builder, normal, c2.x, c2.y, c2.z, sprite, u1, v2);
+        this.putVertex(builder, normal, c3.x, c3.y, c3.z, sprite, u2, v2);
+        this.putVertex(builder, normal, c4.x, c4.y, c4.z, sprite, u2, v1);
+        return builder.build();
     }
 
     /*
      * This method is as complicated as it is, because the order in which we push data into the vertexbuffer actually
      * has to be precisely the order in which the vertex elements had been declared in the vertex format.
      */
-    private void putVertex(QuadBakingVertexConsumer builder, Vec3 normal, float x, float y, float z,
-            TextureAtlasSprite sprite, float u, float v) {
-        builder.addVertex(x, y, z);
-        builder.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-        builder.setNormal((float) normal.x, (float) normal.y, (float) normal.z);
-        u = sprite.getU(u);
-        v = sprite.getV(v);
-        builder.setUv(u, v);
+    private void putVertex(UnpackedBakedQuad.Builder builder, Vec3d normal, double x, double y, double z,
+                           TextureAtlasSprite sprite, float u, float v) {
+        for (int e = 0; e < this.vertexFormat.getElementCount(); e++) {
+            switch (this.vertexFormat.getElement(e).getUsage()) {
+                case POSITION:
+                    builder.put(e, (float) x, (float) y, (float) z, 1.0f);
+                    break;
+                case COLOR:
+                    builder.put(e, 1.0f, 1.0f, 1.0f, 1.0f);
+                    break;
+                case UV:
+                    if (this.vertexFormat.getElement(e).getIndex() == 0) {
+                        builder.put(e, sprite.getInterpolatedU(u), sprite.getInterpolatedV(v), 0f, 1f);
+                        break;
+                    }
+                case NORMAL:
+                    builder.put(e, (float) normal.x, (float) normal.y, (float) normal.z, 0f);
+                    break;
+                default:
+                    builder.put(e);
+                    break;
+            }
+        }
     }
 
     @Override
-    public ItemOverrides getOverrides() {
-        return ItemOverrides.EMPTY;
-    }
-
-    @Override
-    public boolean useAmbientOcclusion() {
+    public boolean isAmbientOcclusion() {
         return false;
     }
 
@@ -251,61 +202,22 @@ public class GlassBakedModel implements IDynamicBakedModel {
     }
 
     @Override
-    public boolean isCustomRenderer() {
+    public boolean isBuiltInRenderer() {
         return false;
     }
 
     @Override
-    public TextureAtlasSprite getParticleIcon() {
+    public TextureAtlasSprite getParticleTexture() {
         return this.frameTextures[this.frameTextures.length - 1];
     }
 
-    private static GlassState getGlassState(BlockAndTintGetter level, BlockState state, BlockPos pos) {
-        /*
-         * This needs some explanation: The bit-field contains 4-bits, one for each direction that a frame may be drawn.
-         * Converted to a number, the bit-field is then used as an index into the list of frame textures, which have
-         * been created in such a way that their filenames indicate, in which directions they contain borders. i.e.
-         * bitmask = 0101 means a border should be drawn up and down (in terms of u,v space). Converted to a number,
-         * this bitmask is 5. So the texture at index 5 is used. That texture had "0101" in its filename to indicate
-         * this.
-         */
-        int[] masks = new int[6];
-        for (Direction facing : Direction.values()) {
-            masks[facing.get3DDataValue()] = makeBitmask(level, state, pos, facing);
-        }
-        boolean[] adjacentGlassBlocks = new boolean[6];
-        for (Direction facing : Direction.values()) {
-            adjacentGlassBlocks[facing.get3DDataValue()] = isGlassBlock(level, state, pos, facing,
-                    facing, facing.getOpposite());
-        }
-        return new GlassState(masks, adjacentGlassBlocks);
-    }
-
-    /**
-     * Checks if the given block is a glass block.
-     *
-     * @param queryingFace Face of the glass that is currently performing the check.
-     * @param adjFace      Face of the glass that we are currently checking for.
-     * @param adjDir       Direction in which to check.
-     */
-    private static boolean isGlassBlock(BlockAndTintGetter level, BlockState state, BlockPos pos,
-            Direction queryingFace, Direction adjDir, Direction adjFace) {
-        var adjacentPos = pos.relative(adjDir);
-        var adjacentState = level.getBlockState(adjacentPos);
-        // Checks that the adjacent block is indeed glass
-        if (!(adjacentState.getAppearance(level, adjacentPos, adjFace, state, pos)
-                .getBlock() instanceof QuartzGlassBlock)) {
-            return false;
-        }
-        // Checks that the current block is also glass, in other words that the adjacent block would connect to us.
-        // This ensures consistency between this block and the adjacent block deciding to connect or not.
-        // This is important for advanced use cases such as FramedBlocks.
-        return state.getAppearance(level, pos, queryingFace, adjacentState, adjacentPos)
-                .getBlock() instanceof QuartzGlassBlock;
+    @Override
+    public ItemCameraTransforms getItemCameraTransforms() {
+        return ItemCameraTransforms.DEFAULT;
     }
 
     @Override
-    public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
-        return RENDER_TYPES;
+    public ItemOverrideList getOverrides() {
+        return ItemOverrideList.NONE;
     }
 }

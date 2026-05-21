@@ -1,361 +1,412 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 plugins {
-    id 'net.neoforged.moddev'
+    id 'java'
+    id 'java-library'
     id 'maven-publish'
-    id 'signing'
-    id 'com.diffplug.spotless'
+    id 'org.jetbrains.gradle.plugin.idea-ext' version '1.4.1'
+    id 'com.gradleup.shadow' version '9.4.0'
+    id 'xyz.wagyourtail.unimined' version '1.4.18-kappa'
+    id 'net.kyori.blossom' version '2.2.0'
+    id 'com.diffplug.spotless' version '8.4.0'
 }
 
-apply plugin: ProjectDefaultsPlugin
-apply plugin: CrowdinPlugin
+apply from: 'gradle/scripts/helpers.gradle'
+
+// Early Assertions
+assertProperty 'mod_version'
+assertProperty 'root_package'
+assertProperty 'mod_id'
+assertProperty 'mod_name'
+
+assertSubProperties 'use_lombok_ap', 'lombok_version'
+assertSubProperties 'use_access_transformer', 'access_transformer_locations'
+assertSubProperties 'is_coremod', 'coremod_includes_mod', 'coremod_plugin_class_name'
+assertSubProperties 'use_asset_mover', 'asset_mover_version'
+
+setDefaultProperty 'generate_sources_jar', true, false
+setDefaultProperty 'generate_javadocs_jar', true, false
+setDefaultProperty 'minecraft_username', true, 'Developer'
+setDefaultProperty 'extra_jvm_args', false, ''
+
+version = propertyString('mod_version')
+group = propertyString('root_package')
 
 base {
-    archivesName = "appliedenergistics2"
+    archivesName = 'AppliedEnergistics2-Supergiant'
 }
 
-neoForge.version = project.neoforge_version
-
-sourceSets {
-    main {
-        resources {
-            srcDir 'src/generated/resources'
-        }
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
     }
-    buildtools
+    if (propertyBool('generate_sources_jar')) {
+        withSourcesJar()
+    }
+    if (propertyBool('generate_javadocs_jar')) {
+        withJavadocJar()
+    }
+}
+
+repositories {
+    flatDir {
+        dirs("lib")
+    }
+    maven {
+        url = "https://maven.cleanroommc.com"
+    }
+    maven {
+        url = "https://cursemaven.com"
+    }
+    maven {
+        url = "https://curse.cleanroommc.com"
+    }
+    maven {
+        url = "https://maven.blamejared.com/"
+    }
+    maven {
+        url = "https://repo.spongepowered.org/maven"
+    }
+    maven {
+        url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+    }
+    mavenCentral()
+    mavenLocal()
 }
 
 configurations {
-    localRuntimeOnly
-    buildtoolsImplementation.extendsFrom(compileClasspath)
-    // Dependencies only used for the guide export, but not shipped
-    guideExportOnly
-    configurations.compileClasspath.extendsFrom(guideExportOnly)
-    configurations.runtimeClasspath.extendsFrom(guideExportOnly)
-
-    runtimeClasspath.extendsFrom localRuntimeOnly
+    contain
+    implementation.extendsFrom(contain)
+    modCompileOnly
+    compileOnly.extendsFrom(modCompileOnly)
+    modRuntimeOnly
+    runtimeOnly.extendsFrom(modRuntimeOnly)
 }
 
-import appengbuild.*
-import com.diffplug.gradle.spotless.JsonExtension
+String remapTaskName = propertyBool('enable_shadow') ? "remapShadowJar" : "remapJar"
+
+unimined.minecraft {
+    version "1.12.2"
+
+    mappings {
+        mcp("stable", "39-1.12")
+    }
+
+    cleanroom {
+        if (propertyBool('use_access_transformer')) {
+            accessTransformer "${rootProject.projectDir}/src/main/resources/${propertyString('access_transformer_locations')}"
+        }
+        loader "0.5.6-alpha"
+        runs.auth.username = minecraft_username
+        runs.all {
+            systemProperty('crl.dev.mixin', 'ae2.mod.mixins.json')
+            def extraArgs = propertyString('extra_jvm_args')
+            if (extraArgs != null && !extraArgs.trim().isEmpty()) {
+                jvmArgs += extraArgs.split { "\\s+" }.toList()
+            }
+            if (propertyBool('enable_foundation_debug')) {
+                systemProperty("foundation.dump", "true")
+                systemProperty("foundation.verbose", "true")
+            }
+            if (propertyBool('is_coremod')) {
+                systemProperty("fml.coreMods.load", propertyString('coremod_plugin_class_name'))
+            }
+            return
+        }
+    }
+
+    defaultRemapJar = false
+
+    String jarTaskName = propertyBool('enable_shadow') ? "shadowJar" : "jar"
+
+    remap(tasks.named(jarTaskName).get()) {
+        mixinRemap {
+            enableBaseMixin()
+            enableMixinExtra()
+            disableRefmap()
+        }
+    }
+
+    mods {
+        remap(configurations.modCompileOnly)
+        remap(configurations.modRuntimeOnly)
+    }
+}
 
 dependencies {
-    // Used for the guide export
-    guideExportOnly("org.bytedeco:ffmpeg-platform:${ffmpeg_version}")
+    if (propertyBool('use_lombok_ap')) {
+        compileOnly "org.projectlombok:lombok:${propertyString('lombok_version')}"
+        annotationProcessor "org.projectlombok:lombok:${propertyString('lombok_version')}"
 
-    implementation("org.appliedenergistics:guideme:${guideme_version}")
+        testCompileOnly "org.projectlombok:lombok:${propertyString('lombok_version')}"
+        testAnnotationProcessor "org.projectlombok:lombok:${propertyString('lombok_version')}"
+    }
+    if (propertyBool('use_asset_mover')) {
+        implementation "com.cleanroommc:assetmover:${propertyString('asset_mover_version')}"
+    }
+    if (propertyBool('enable_junit_testing')) {
+        testImplementation 'org.junit.jupiter:junit-jupiter:6.0.3'
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+    compileOnly 'com.google.code.findbugs:jsr305:3.0.2'
+}
 
-    // compile against provided APIs
-    compileOnly "dev.emi:emi-neoforge:${emi_version}:api"
-    compileOnly "me.shedaniel:RoughlyEnoughItems-neoforge:${project.rei_version}"
-    compileOnly "mcp.mobius.waila:wthit-api:neo-${project.wthit_version}"
-    compileOnly "curse.maven:jade-324717:${project.jade_file_id}"
-    compileOnly "mcjty.theoneprobe:theoneprobe:${project.top_version}"
+apply from: 'gradle/scripts/dependencies.gradle'
 
-    switch (project.runtime_itemlist_mod) {
-        case "emi":
-            localRuntimeOnly "dev.emi:emi-neoforge:${emi_version}"
-            break
-        case "rei":
-            localRuntimeOnly "me.shedaniel:RoughlyEnoughItems-neoforge:${project.rei_version}"
-            break
+def generatedTagsSourceDir = layout.buildDirectory.dir('generated/sources/tags/java')
+def generateTagsSource = tasks.register('generateTagsSource') {
+    def outputFile = generatedTagsSourceDir.map { it.file("${propertyString('root_package').replace('.', '/')}/core/Tags.java") }
+
+    inputs.property('mod_id', propertyString('mod_id'))
+    inputs.property('mod_name', propertyString('mod_name'))
+    inputs.property('mod_version', propertyString('mod_version'))
+    outputs.file(outputFile)
+
+    doLast {
+        def file = outputFile.get().asFile
+        file.parentFile.mkdirs()
+        file.text = """package ${propertyString('root_package')}.core;
+
+public final class Tags {
+
+    public static final String MOD_ID = "${propertyString('mod_id')}";
+    public static final String MOD_NAME = "${propertyString('mod_name')}";
+    public static final String VERSION = "${propertyString('mod_version')}";
+
+    private Tags() {
+    }
+}
+"""
+    }
+}
+
+processResources {
+    rename '(.+_at.cfg)', 'META-INF/$1'
+    def resourceProps = [
+        mod_id               : propertyString('mod_id'),
+        mod_name             : propertyString('mod_name'),
+        mod_version          : propertyString('mod_version'),
+        mod_description      : propertyString('mod_description'),
+        mod_authors          : propertyStringList('mod_authors', ',').collect { it.strip() }.join('", "'),
+        mod_credits          : propertyString('mod_credits'),
+        mod_license          : propertyString('mod_license'),
+        mod_url              : propertyString('mod_url'),
+        mod_issue_tracker_url: propertyString('mod_issue_tracker_url'),
+        mod_update_json      : propertyString('mod_update_json'),
+        mod_icon_item        : propertyString('mod_icon_item'),
+        mod_logo_path        : propertyString('mod_logo_path'),
+        mod_icon_path        : propertyString('mod_icon_path'),
+        mod_background_path  : propertyString('mod_background_path')
+    ]
+    inputs.properties(resourceProps)
+    filesMatching(['mcmod.info', 'pack.mcmeta']) {
+        expand(resourceProps)
+    }
+}
+
+sourceSets {
+    stubApi {
+        java {
+            srcDir 'src/api/java'
+        }
+        compileClasspath += sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath
     }
 
-    switch (project.runtime_tooltip_mod) {
-        case "wthit":
-            localRuntimeOnly "mcp.mobius.waila:wthit:neo-${project.wthit_version}"
-            break
-        case "jade":
-            localRuntimeOnly "curse.maven:jade-324717:${project.jade_file_id}"
-            break
-        case "top":
-            localRuntimeOnly "mcjty.theoneprobe:theoneprobe:${project.top_version}"
-            break
-    }
+    main {
+        java {
+            srcDir generatedTagsSourceDir
+        }
+        compileClasspath += sourceSets.stubApi.output
+        runtimeClasspath += sourceSets.stubApi.output
 
-    if (project.runtime_curio == "true") {
-        localRuntimeOnly("top.theillusivec4.curios:curios-neoforge:${project.curios_version}")
+        blossom {
+            javaSources {
+                property('mod_id', propertyString('mod_id'))
+                property('mod_name', propertyString('mod_name'))
+                property('mod_version', propertyString('mod_version'))
+                property('package', "${root_package}")
+            }
+            resources {
+                property('mod_id', propertyString('mod_id'))
+                property('mod_name', propertyString('mod_name'))
+                property('mod_version', propertyString('mod_version'))
+                property('mod_description', propertyString('mod_description'))
+                property('mod_authors', propertyStringList('mod_authors', ',').collect {it.strip()}.join('", "'))
+                property('mod_credits', propertyString('mod_credits'))
+                property('mod_license', propertyString('mod_license'))
+                property('mod_url', propertyString('mod_url'))
+                property('mod_issue_tracker_url', propertyString('mod_issue_tracker_url'))
+                property('mod_update_json', propertyString('mod_update_json'))
+                property('mod_icon_item', propertyString('mod_icon_item'))
+                property('mod_logo_path', propertyString('mod_logo_path'))
+                property('mod_icon_path', propertyString('mod_icon_path'))
+                property('mod_background_path', propertyString('mod_background_path'))
+            }
+        }
     }
+}
 
-    // Athena
-    if (project.runtime_athena == "true") {
-        localRuntimeOnly("curse.maven:athena-841890:${project.athena_file_id}")
+configurations.named('stubApiImplementation').configure {
+    extendsFrom(configurations.implementation)
+}
+configurations.named('stubApiCompileOnly').configure {
+    extendsFrom(configurations.compileOnly)
+}
+configurations.named('stubApiAnnotationProcessor').configure {
+    extendsFrom(configurations.annotationProcessor)
+}
+configurations.named('stubApiRuntimeOnly').configure {
+    extendsFrom(configurations.runtimeOnly)
+}
+
+if (!propertyBool('enable_shadow')) {
+    shadowJar.enabled = false
+}
+
+def syncDevResourcesToClasses = tasks.register('syncDevResourcesToClasses', Copy) {
+    dependsOn(tasks.named('processResources'))
+    doFirst {
+        delete(fileTree(layout.buildDirectory.dir('classes/java/main')) {
+            exclude('**/*.class')
+        })
     }
+    from(layout.buildDirectory.dir('resources/main')) {
+        exclude('**/*.class')
+    }
+    into(layout.buildDirectory.dir('classes/java/main'))
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
 
-    // unit test dependencies
-    testImplementation(platform("org.junit:junit-bom:${project.junit_version}"))
-    testImplementation(platform("org.assertj:assertj-bom:${project.assertj_version}"))
-    testImplementation("org.junit.jupiter:junit-jupiter-api")
-    testImplementation("org.junit.jupiter:junit-jupiter-params")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
-    testImplementation("org.junit.platform:junit-platform-launcher")
-    testImplementation("org.assertj:assertj-core")
-    testImplementation("com.google.guava:guava-testlib:21.0")
-    testImplementation("org.mockito:mockito-junit-jupiter:5.12.0")
-    testImplementation("net.neoforged:testframework:${project.neoforge_version}")
+def purgeStubApiFromMainOutput = tasks.register('purgeStubApiFromMainOutput') {
+    dependsOn(tasks.named('compileStubApiJava'))
+    doLast {
+        def mainClassesDir = layout.buildDirectory.dir('classes/java/main').get().asFile
+        def stubApiClassesDir = layout.buildDirectory.dir('classes/java/stubApi').get().asFile
+        if (!mainClassesDir.exists() || !stubApiClassesDir.exists()) {
+            return
+        }
+
+        fileTree(stubApiClassesDir).matching {
+            include('**/*.class')
+        }.visit { details ->
+            if (!details.directory) {
+                delete(new File(mainClassesDir, details.relativePath.pathString))
+            }
+        }
+    }
+}
+
+def stageDevClassFiles = tasks.register('stageDevClassFiles', Sync) {
+    dependsOn(tasks.named('compileJava'), syncDevResourcesToClasses, purgeStubApiFromMainOutput)
+    from(layout.buildDirectory.dir('classes/java/main')) {
+        include('**/*.class')
+    }
+    into(layout.buildDirectory.dir('tmp/devmod-classes'))
+}
+
+def syncDevClassesToResources = tasks.register('syncDevClassesToResources', Copy) {
+    dependsOn(stageDevClassFiles, tasks.named('processResources'))
+    doFirst {
+        delete(fileTree(layout.buildDirectory.dir('resources/main')) {
+            include('**/*.class')
+        })
+    }
+    from(layout.buildDirectory.dir('tmp/devmod-classes'))
+    into(layout.buildDirectory.dir('resources/main'))
+}
+
+tasks.named('classes').configure {
+    finalizedBy(syncDevResourcesToClasses)
+    finalizedBy(syncDevClassesToResources)
+}
+
+tasks.matching { it.name.startsWith('preRun') }.configureEach {
+    dependsOn(syncDevResourcesToClasses)
+    dependsOn(syncDevClassesToResources)
+}
+
+compileJava {
+    dependsOn(generateTagsSource)
+    dependsOn(tasks.named('compileStubApiJava'))
+    sourceCompatibility = targetCompatibility = JavaVersion.VERSION_25
+}
+
+tasks.named('sourcesJar').configure {
+    dependsOn(generateTagsSource)
+}
+
+jar {
+    dependsOn(purgeStubApiFromMainOutput)
+    dependsOn(syncDevResourcesToClasses)
+    dependsOn(syncDevClassesToResources)
+    archiveClassifier = 'dev'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    if (configurations.contain.size() > 0) {
+        into('/') {
+            from configurations.contain
+        }
+    }
+    doFirst {
+        manifest {
+            def attribute_map = [:]
+            attribute_map['ModType'] = "CRL"
+            if (configurations.contain.size() > 0) {
+                attribute_map['ContainedDeps'] = configurations.contain.collect { it.name }.join(' ')
+                attribute_map['NonModDeps'] = true
+            }
+            if (propertyBool('is_coremod')) {
+                attribute_map['FMLCorePlugin'] = propertyString('coremod_plugin_class_name')
+                if (propertyBool('coremod_includes_mod')) {
+                    attribute_map['FMLCorePluginContainsFMLMod'] = true
+                }
+            }
+            if (propertyBool('use_access_transformer')) {
+                attribute_map['FMLAT'] = propertyString('access_transformer_locations')
+            }
+            attribute_map['MixinConfigs'] = 'ae2.mod.mixins.json'
+            attributes(attribute_map)
+        }
+    }
+    finalizedBy(tasks.named(remapTaskName).get())
+}
+
+
+shadowJar {
+    configurations = [project.configurations.shadow]
+    archiveClassifier = "shadow"
+}
+
+
+tasks.named(remapTaskName).configure {
+    doFirst {
+        logging.captureStandardOutput LogLevel.INFO
+    }
+    doLast {
+        logging.captureStandardOutput LogLevel.QUIET
+    }
+}
+
+compileTestJava {
+    dependsOn(syncDevResourcesToClasses)
+    dependsOn(syncDevClassesToResources)
+    sourceCompatibility = targetCompatibility = JavaVersion.VERSION_25
 }
 
 test {
     useJUnitPlatform()
-
-    // Might not need this anymore...
-    systemProperty "guideme.ae2.guide.sources", file("guidebook").absolutePath
-}
-
-dependencies {
-    buildtoolsImplementation 'de.siegmar:fastcsv:2.1.0'
-    buildtoolsImplementation 'com.google.code.gson:gson:2.8.9'
-}
-
-neoForge {
-    validateAccessTransformers = true
-
-    mods {
-        ae2 {
-            sourceSet sourceSets.main
+    javaLauncher.set(javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    })
+    if (propertyBool('show_testing_output')) {
+        testLogging {
+            showStandardStreams = true
         }
     }
-
-    runs {
-        configureEach {
-            gameDirectory = project.file('run')
-            systemProperty('appeng.tests', 'true')
-            // systemProperty('mixin.debug.export', 'true')
-            logLevel = org.slf4j.event.Level.INFO
-            systemProperty('guideme.ae2.guide.sources', file('guidebook').absolutePath)
-        }
-        client {
-            client()
-            systemProperty('appeng.tests', 'true')
-        }
-        gametestWorld {
-            client()
-            programArguments = [
-                    '--username', 'AE2Dev', '--quickPlaySingleplayer', 'GametestWorld'
-            ]
-            systemProperty('appeng.tests', 'true')
-        }
-        guide {
-            client()
-
-            systemProperty('guideme.showOnStartup', 'ae2:guide')
-        }
-        server {
-            server()
-        }
-        data {
-            data()
-            programArguments = [
-                    '--mod', 'ae2',
-                    '--all',
-                    '--output', file('src/generated/resources/').absolutePath,
-                    '--existing', file('src/main/resources').absolutePath
-            ]
-        }
-        guideexport {
-            client()
-            systemProperty('appeng.runGuideExportAndExit', 'true')
-            systemProperty('appeng.guideExportFolder', file('build/guide').absolutePath)
-        }
-        // Use to run the tests
-        gametest {
-            type = 'gameTestServer'
-            gameDirectory = project.file('build/gametest')
-        }
-    }
-
-    unitTest {
-        enable()
-        testedMod = mods.ae2
-    }
 }
 
-configurations.additionalRuntimeClasspath.extendsFrom configurations.guideExportOnly
-
-//////////////
-// Artifacts
-final generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
-    group = 'build'
-    from('src/main/neoforge.mods.toml') {
-        rename '(.*)', 'META-INF/$1'
-    }
-    into 'build/generated/modMetadata'
-
-    // Exposed project properties
-    Map<String, String> projectProperties = [
-            'version',
-            'minecraft_version',
-            'neoforge_version_range',
-            'top_version_range',
-            'jade_version_range',
-            'guideme_version'
-    ].collectEntries { [it, project[it]] }
-
-    // Ensure the resources get re-evaluate when the version changes
-    inputs.properties projectProperties
-    expand projectProperties
-}
-sourceSets.main.resources.srcDir generateModMetadata
-neoForge.ideSyncTask generateModMetadata
-
-tasks.named('jar', Jar) {
-    exclude '/.cache'
-    from('guidebook') {
-        into 'assets/ae2/ae2guide'
-    }
-}
-
-static void publicApiIncludePatterns(PatternFilterable spec) {
-    spec.exclude "**/*Internal.*"
-    spec.exclude "**/*Internal\$*.*"
-    spec.include "appeng/api/**"
-}
-
-tasks.named('javadoc', Javadoc) {
-    source = sourceSets.main.allJava
-    classpath = sourceSets.main.compileClasspath + sourceSets.main.output
-
-    options.addStringOption('Xdoclint:none', '-quiet')
+tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    options.charSet = 'UTF-8'
-    publicApiIncludePatterns(it)
+    options.compilerArgs += ['-Xlint:deprecation', '-Xlint:unchecked']
 }
 
-tasks.register('apiJar', Jar) {
-    archiveClassifier = "api"
-    // api jar ist just a development aid and serves as both a binary and source jar simultaneously
-    from sourceSets.main.output
-    from sourceSets.main.allJava
-    publicApiIncludePatterns(it)
-}
-
-artifacts {
-    archives javadocJar
-    archives sourcesJar
-    archives apiJar
-}
-
-//////////////////
-// Maven publish
-publishing {
-    publications {
-        maven(MavenPublication) {
-            artifactId = "appliedenergistics2"
-            version = project.version
-            pom {
-                name = "Applied Energistics 2"
-                description = "A Minecraft mod about Matter, Energy and using them to conquer the world..."
-                url = "https://appliedenergistics.org"
-                scm {
-                    connection = "scm:git:git://github.com/AppliedEnergistics/Applied-Energistics-2.git"
-                    developerConnection = "scm:git:ssh://github.com:AppliedEnergistics/Applied-Energistics-2.git"
-                    url = "https://github.com/AppliedEnergistics/Applied-Energistics-2/tree/main"
-                }
-                licenses {
-                    license {
-                        name = "LGPLv3, MIT, CC BY-NC-SA 3.0"
-                        url = "https://github.com/AppliedEnergistics/Applied-Energistics-2?tab=readme-ov-file#license"
-                    }
-                }
-                developers {
-                    developer {
-                        name = "Technici4n"
-                        email = "team@appliedenergistics.org"
-                        organization = "Applied Energistics"
-                        organizationUrl = "https://github.com/AppliedEnergistics/"
-                    }
-                    developer {
-                        name = "shartte"
-                        email = "team@appliedenergistics.org"
-                        organization = "Applied Energistics"
-                        organizationUrl = "https://github.com/AppliedEnergistics/"
-                    }
-                }
-            }
-
-            from(components.java)
-            artifact apiJar
-        }
-    }
-    repositories {
-        maven {
-            name = "Local"
-            url = file("build/repo").toURI()
-        }
-    }
-}
-
-/////////////
-// Spotless
-spotless {
-
-    java {
-        target 'src/*/java/appeng/**/*.java'
-
-        endWithNewline()
-        indentWithSpaces()
-        removeUnusedImports()
-        toggleOffOn()
-        eclipse().configFile 'codeformat/codeformat.xml'
-        importOrderFile 'codeformat/ae2.importorder'
-
-        // courtesy of diffplug/spotless#240
-        // https://github.com/diffplug/spotless/issues/240#issuecomment-385206606
-        custom 'noWildcardImports', {
-            if (it.contains('*;\n')) {
-                throw new Error('No wildcard imports allowed')
-            }
-
-            it
-        }
-        bumpThisNumberIfACustomStepChanges(1)
-    }
-
-   json {
-        target 'src/*/resources/**/*.json'
-        targetExclude 'src/generated/resources/**'
-        var biomeConfig = it.new JsonExtension.BiomeJson(null)
-        try {
-            biomeConfig.downloadDir(new File(rootDir, ".gradle/biome").absolutePath)
-        } catch (Exception ignored) {
-        }
-        addStep(biomeConfig.createStep())
-        indentWithSpaces(2)
-        endWithNewline()
-    }
-}
-
-////////////////
-check.dependsOn tasks.register('validateResources', JavaExec) {
-    group = "verification"
-    classpath = sourceSets.buildtools.runtimeClasspath
-    mainClass = 'ValidateResourceIds'
-    workingDir "."
-    args "guidebook"
-    javaLauncher.set(javaToolchains.launcherFor(java.toolchain))
-}
-
-signing {
-    String signingKey = findProperty("signingKey")
-    String signingPassword = findProperty("signingPassword")
-    if (signingKey && signingPassword) {
-        useInMemoryPgpKeys(signingKey, signingPassword)
-        sign publishing.publications.maven
-    }
-}
+apply from: 'gradle/scripts/publishing.gradle'
+apply from: 'gradle/scripts/extra.gradle'

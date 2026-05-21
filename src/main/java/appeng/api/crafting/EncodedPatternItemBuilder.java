@@ -1,17 +1,15 @@
 package appeng.api.crafting;
 
-import java.util.Objects;
-
+import appeng.crafting.pattern.EncodedPatternItem;
+import net.minecraft.item.Item;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.world.item.Item;
-
-import appeng.crafting.pattern.EncodedPatternItem;
+import java.util.Objects;
 
 public final class EncodedPatternItemBuilder<T extends IPatternDetails> {
     private final EncodedPatternDecoder<? extends T> decoder;
     private @Nullable InvalidPatternTooltipStrategy invalidPatternDescription;
-    private Item.Properties properties = new Item.Properties().stacksTo(1);
+    private Properties properties = new Properties().stacksTo(1);
 
     EncodedPatternItemBuilder(EncodedPatternDecoder<? extends T> decoder) {
         this.decoder = Objects.requireNonNull(decoder, "decoder");
@@ -29,7 +27,7 @@ public final class EncodedPatternItemBuilder<T extends IPatternDetails> {
     /**
      * Overrides the item properties of the generated item. The default properties simply make them unstackable.
      */
-    public EncodedPatternItemBuilder<T> itemProperties(Item.Properties properties) {
+    public EncodedPatternItemBuilder<T> itemProperties(Properties properties) {
         this.properties = properties;
         return this;
     }
@@ -44,8 +42,17 @@ public final class EncodedPatternItemBuilder<T extends IPatternDetails> {
      */
     public Item build() {
         return new EncodedPatternItem<>(
-                properties,
-                decoder,
-                invalidPatternDescription);
+            decoder,
+            invalidPatternDescription,
+            properties.maxStackSize);
+    }
+
+    public static final class Properties {
+        private int maxStackSize = 1;
+
+        public Properties stacksTo(int maxStackSize) {
+            this.maxStackSize = maxStackSize;
+            return this;
+        }
     }
 }

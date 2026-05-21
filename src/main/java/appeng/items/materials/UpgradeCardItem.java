@@ -18,67 +18,71 @@
 
 package appeng.items.materials;
 
-import java.util.List;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.SelectedPart;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.Upgrades;
-import appeng.core.localization.ButtonToolTips;
-import appeng.core.localization.PlayerMessages;
 import appeng.items.AEBaseItem;
-import appeng.util.InteractionUtil;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
+import java.util.List;
 
 public class UpgradeCardItem extends AEBaseItem {
+    private static final String SUPPORTED_BY = "ae2.tooltip.supported_by";
+    private static final String MAX_UPGRADES_INSTALLED = "ae2.message.max_upgrades_installed";
+    private static final String UNSUPPORTED_UPGRADE = "ae2.message.unsupported_upgrade";
+    private static final String MAX_UPGRADES_OF_TYPE_INSTALLED = "ae2.message.max_upgrades_of_type_installed";
 
-    public UpgradeCardItem(Properties properties) {
-        super(properties);
+    public UpgradeCardItem() {
+        super();
     }
 
-    @OnlyIn(Dist.CLIENT)
+    @SideOnly(Side.CLIENT)
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        super.appendHoverText(stack, context, lines, advancedTooltips);
+    protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
         var supportedBy = Upgrades.getTooltipLinesForCard(this);
         if (!supportedBy.isEmpty()) {
-            lines.add(ButtonToolTips.SupportedBy.text());
-            lines.addAll(supportedBy);
+            lines.add(I18n.format(SUPPORTED_BY));
+            for (var line : supportedBy) {
+                lines.add(line.getFormattedText());
+            }
         }
     }
 
     @Override
-    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        Player player = context.getPlayer();
-        InteractionHand hand = context.getHand();
-        if (player != null && InteractionUtil.isInAlternateUseMode(player)) {
-            final BlockEntity te = context.getLevel().getBlockEntity(context.getClickedPos());
+    public EnumActionResult onItemUseFirst(EntityPlayer player, World world, BlockPos pos, EnumFacing side, float hitX,
+                                           float hitY, float hitZ, EnumHand hand) {
+        if (player.isSneaking()) {
+            TileEntity tileEntity = world.getTileEntity(pos);
             IUpgradeInventory upgrades = null;
 
-            if (te instanceof IPartHost) {
-                final SelectedPart sp = ((IPartHost) te).selectPartWorld(context.getClickLocation());
-                if (sp.part instanceof IUpgradeableObject) {
-                    upgrades = ((IUpgradeableObject) sp.part).getUpgrades();
+            if (tileEntity instanceof IPartHost partHost) {
+                SelectedPart selectedPart = partHost.selectPartLocal(new Vec3d(hitX, hitY, hitZ));
+                if (selectedPart.part instanceof IUpgradeableObject upgradeableObject) {
+                    upgrades = upgradeableObject.getUpgrades();
                 }
-            } else if (te instanceof IUpgradeableObject) {
-                upgrades = ((IUpgradeableObject) te).getUpgrades();
+            } else if (tileEntity instanceof IUpgradeableObject upgradeableObject) {
+                upgrades = upgradeableObject.getUpgrades();
             }
 
             if (upgrades != null && upgrades.size() > 0) {
-                var heldStack = player.getItemInHand(hand);
+                ItemStack heldStack = player.getHeldItem(hand);
 
                 boolean isFull = true;
                 for (int i = 0; i < upgrades.size(); i++) {
@@ -87,30 +91,31 @@ public class UpgradeCardItem extends AEBaseItem {
                         break;
                     }
                 }
+
                 if (isFull) {
-                    player.displayClientMessage(PlayerMessages.MaxUpgradesInstalled.text(), true);
-                    return InteractionResult.FAIL;
+                    player.sendStatusMessage(new TextComponentTranslation(MAX_UPGRADES_INSTALLED), true);
+                    return EnumActionResult.FAIL;
                 }
 
-                var maxInstalled = upgrades.getMaxInstalled(heldStack.getItem());
-                var installed = upgrades.getInstalledUpgrades(heldStack.getItem());
+                int maxInstalled = upgrades.getMaxInstalled(heldStack.getItem());
+                int installed = upgrades.getInstalledUpgrades(heldStack.getItem());
                 if (maxInstalled <= 0) {
-                    player.displayClientMessage(PlayerMessages.UnsupportedUpgrade.text(), true);
-                    return InteractionResult.FAIL;
+                    player.sendStatusMessage(new TextComponentTranslation(UNSUPPORTED_UPGRADE), true);
+                    return EnumActionResult.FAIL;
                 } else if (installed >= maxInstalled) {
-                    player.displayClientMessage(PlayerMessages.MaxUpgradesOfTypeInstalled.text(), true);
-                    return InteractionResult.FAIL;
+                    player.sendStatusMessage(new TextComponentTranslation(MAX_UPGRADES_OF_TYPE_INSTALLED), true);
+                    return EnumActionResult.FAIL;
                 }
 
-                if (player.getCommandSenderWorld().isClientSide()) {
-                    return InteractionResult.PASS;
+                if (world.isRemote) {
+                    return EnumActionResult.PASS;
                 }
 
-                player.setItemInHand(hand, upgrades.addItems(heldStack));
-                return InteractionResult.sidedSuccess(player.getCommandSenderWorld().isClientSide());
+                player.setHeldItem(hand, upgrades.addItems(heldStack));
+                return EnumActionResult.SUCCESS;
             }
         }
 
-        return super.onItemUseFirst(stack, context);
+        return super.onItemUseFirst(player, world, pos, side, hitX, hitY, hitZ, hand);
     }
 }

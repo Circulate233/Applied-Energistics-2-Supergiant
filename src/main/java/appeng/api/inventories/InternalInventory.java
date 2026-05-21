@@ -23,34 +23,37 @@
 
 package appeng.api.inventories;
 
+import appeng.api.config.FuzzyMode;
+import appeng.util.helpers.ItemComparisonHelper;
+import com.google.common.base.Preconditions;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.items.CapabilityItemHandler;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
+
 import java.util.Iterator;
 import java.util.function.Predicate;
 
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.Container;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.items.IItemHandler;
-
-import appeng.api.config.FuzzyMode;
-import appeng.util.helpers.ItemComparisonHelper;
-
 public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
 
+    int DEFAULT_SLOT_LIMIT = 64;
+
     @Nullable
-    static ItemTransfer wrapExternal(Level level, BlockPos pos, Direction side) {
-        var handler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, side);
-        if (handler != null) {
-            return new PlatformInventoryWrapper(handler);
+    static ItemTransfer wrapExternal(World world, BlockPos pos, EnumFacing side) {
+        TileEntity tileEntity = world.getTileEntity(pos);
+        if (tileEntity != null && tileEntity.hasCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, side)) {
+            IItemHandler handler = tileEntity.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, side);
+            if (handler != null) {
+                return new PlatformInventoryWrapper(handler);
+            }
         }
         return null;
     }
@@ -73,14 +76,14 @@ public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
         return new InternalInventoryItemHandler(this);
     }
 
-    default Container toContainer() {
+    default IInventory toContainer() {
         return new ContainerAdapter(this);
     }
 
     int size();
 
     default int getSlotLimit(int slot) {
-        return Item.ABSOLUTE_MAX_STACK_SIZE;
+        return DEFAULT_SLOT_LIMIT;
     }
 
     ItemStack getStackInSlot(int slotIndex);
@@ -107,12 +110,11 @@ public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
      * @return The redstone signal indicating how full this container is in the [0-15] range.
      */
     default int getRedstoneSignal() {
-        var adapter = new ContainerAdapter(this);
-        return AbstractContainerMenu.getRedstoneSignalFromContainer(adapter);
+        return ItemHandlerHelper.calcRedstoneFromInventory(toItemHandler());
     }
 
     @Override
-    default Iterator<ItemStack> iterator() {
+    default @NonNull Iterator<ItemStack> iterator() {
         return new InternalInventoryIterator(this);
     }
 
@@ -196,7 +198,8 @@ public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
 
         for (int slot = 0; slot < slots && amount > 0; slot++) {
             final ItemStack is = getStackInSlot(slot);
-            if (is.isEmpty() || !filter.isEmpty() && !ItemStack.isSameItemSameComponents(is, filter)) {
+            if (is.isEmpty() || !filter.isEmpty()
+                && !(ItemStack.areItemsEqual(is, filter) && ItemStack.areItemStackTagsEqual(is, filter))) {
                 continue;
             }
 
@@ -238,7 +241,8 @@ public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
 
         for (int slot = 0; slot < slots && amount > 0; slot++) {
             final ItemStack is = getStackInSlot(slot);
-            if (!is.isEmpty() && (filter.isEmpty() || ItemStack.isSameItemSameComponents(is, filter))) {
+            if (!is.isEmpty() && (filter.isEmpty()
+                || ItemStack.areItemsEqual(is, filter) && ItemStack.areItemStackTagsEqual(is, filter))) {
                 ItemStack extracted = extractItem(slot, amount, true);
 
                 if (extracted.isEmpty()) {
@@ -269,7 +273,7 @@ public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
      * different damage values.
      */
     default ItemStack removeSimilarItems(int amount, ItemStack filter, FuzzyMode fuzzyMode,
-            Predicate<ItemStack> destination) {
+                                         Predicate<ItemStack> destination) {
         int slots = size();
         ItemStack extracted = ItemStack.EMPTY;
 
@@ -298,8 +302,8 @@ public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
     }
 
     default ItemStack simulateSimilarRemove(int amount, ItemStack filter,
-            FuzzyMode fuzzyMode,
-            Predicate<ItemStack> destination) {
+                                            FuzzyMode fuzzyMode,
+                                            Predicate<ItemStack> destination) {
         int slots = size();
         ItemStack extracted = ItemStack.EMPTY;
 
@@ -343,7 +347,8 @@ public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
 
         // Check merging stacks after checking if the slot is full, as NBT comparisons are expensive and cap comparisons
         // even more so.
-        if (!inSlot.isEmpty() && !ItemStack.isSameItemSameComponents(inSlot, stack)) {
+        if (!inSlot.isEmpty()
+            && !(ItemStack.areItemsEqual(inSlot, stack) && ItemStack.areItemStackTagsEqual(inSlot, stack))) {
             return stack;
         }
 
@@ -397,3 +402,4 @@ public interface InternalInventory extends Iterable<ItemStack>, ItemTransfer {
     default void sendChangeNotification(int slot) {
     }
 }
+

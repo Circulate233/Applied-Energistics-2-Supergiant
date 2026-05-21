@@ -23,89 +23,45 @@
 
 package appeng.api.client;
 
-import java.util.HashMap;
-import java.util.IdentityHashMap;
+import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.item.Item;
+import net.minecraft.util.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Map;
 import java.util.Objects;
 
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.resources.model.ModelBakery;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.level.ItemLike;
-
-/**
- * A registry for 3D models used to render storage cells in the world, when they are inserted into a drive or similar
- * machines.
- */
 public final class StorageCellModels {
 
-    private static final ResourceLocation MODEL_CELL_DEFAULT = ResourceLocation.parse(
-            "ae2:block/drive/drive_cell");
+    private static final ResourceLocation MODEL_CELL_DEFAULT = new ResourceLocation("ae2", "block/drive/drive_cell");
 
-    private static final Map<Item, ResourceLocation> registry = new IdentityHashMap<>();
+    private static final Reference2ObjectMap<Item, ResourceLocation> registry = new Reference2ObjectOpenHashMap<>();
 
     private StorageCellModels() {
     }
 
-    /**
-     * Register a new model for a storage cell item.
-     * 
-     * <p>
-     * You are responsible for ensuring that the given model is actually loaded by the game. See
-     * {@link net.neoforged.neoforge.client.event.ModelEvent.RegisterAdditional}.
-     * 
-     * This method only maps an {@link Item} to a {@link ResourceLocation} which can be looked up from the
-     * {@link ModelBakery}. No validation about missing models will be done.
-     * 
-     * Will throw an exception in case a model is already registered for an item.
-     * 
-     * For examples look at our cell part models within the drive model directory.
-     * 
-     * @param itemLike The cell item
-     * @param model    The {@link ResourceLocation} representing the model.
-     */
-    public synchronized static void registerModel(ItemLike itemLike, ResourceLocation model) {
-        Objects.requireNonNull(itemLike, "itemLike");
-        var item = Objects.requireNonNull(itemLike.asItem(), "item.asItem()");
+    public static synchronized void registerModel(Item item, ResourceLocation model) {
+        Objects.requireNonNull(item, "item");
         Objects.requireNonNull(model, "model");
         Preconditions.checkArgument(!registry.containsKey(item), "Cannot register an item twice.");
 
         registry.put(item, model);
     }
 
-    /**
-     * The {@link ResourceLocation} of the model used to render the given storage cell {@link Item} when inserted into a
-     * drive or similar.
-     * 
-     * @param itemLike
-     * @return null, if no model is registered.
-     */
     @Nullable
-    public synchronized static ResourceLocation model(ItemLike itemLike) {
-        Objects.requireNonNull(itemLike, "itemLike");
-        var item = Objects.requireNonNull(itemLike.asItem(), "itemLike.asItem()");
+    public static synchronized ResourceLocation model(Item item) {
+        Objects.requireNonNull(item, "item");
 
         return registry.get(item);
     }
 
-    /**
-     * A copy of all registered mappings.
-     */
-
-    public synchronized static Map<Item, ResourceLocation> models() {
-        return new HashMap<>(registry);
+    public static synchronized Map<Item, ResourceLocation> models() {
+        return new Reference2ObjectOpenHashMap<>(registry);
     }
-
-    /**
-     * Returns the default model, which can be used when no explicit model is registered.
-     */
 
     public static ResourceLocation getDefaultModel() {
         return MODEL_CELL_DEFAULT;
     }
-
 }

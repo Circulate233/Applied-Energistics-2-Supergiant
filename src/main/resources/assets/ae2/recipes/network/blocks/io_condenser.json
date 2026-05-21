@@ -1,0 +1,26 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "bcb",
+    "aba"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "blockGlass"
+    },
+    "c": {
+      "type": "forge:ore_dict",
+      "ore": "dustFluix"
+    }
+  },
+  "result": {
+    "item": "ae2:condenser",
+    "count": 1
+  }
+}

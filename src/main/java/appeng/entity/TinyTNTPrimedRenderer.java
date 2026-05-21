@@ -18,38 +18,33 @@
 
 package appeng.entity;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.joml.Quaternionf;
-
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
-import net.minecraft.client.renderer.entity.EntityRenderer;
-import net.minecraft.client.renderer.entity.EntityRendererProvider;
-import net.minecraft.client.renderer.entity.TntMinecartRenderer;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.core.definitions.AEBlocks;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BlockRendererDispatcher;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.entity.Render;
+import net.minecraft.client.renderer.entity.RenderManager;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-@OnlyIn(Dist.CLIENT)
-public class TinyTNTPrimedRenderer extends EntityRenderer<TinyTNTPrimedEntity> {
-    private final BlockRenderDispatcher blockRenderer;
+@SideOnly(Side.CLIENT)
+public class TinyTNTPrimedRenderer extends Render<TinyTNTPrimedEntity> {
 
-    public TinyTNTPrimedRenderer(EntityRendererProvider.Context context) {
-        super(context);
-        this.shadowRadius = 0.25F;
-        this.blockRenderer = context.getBlockRenderDispatcher();
+    private static final net.minecraft.block.state.IBlockState TINY_TNT_STATE = AEBlocks.TINY_TNT.block().getDefaultState();
+
+    public TinyTNTPrimedRenderer(final RenderManager renderManager) {
+        super(renderManager);
+        this.shadowSize = 0.25F;
     }
 
     @Override
-    public void render(TinyTNTPrimedEntity tnt, float entityYaw, float partialTicks, PoseStack mStack,
-            MultiBufferSource buffers, int packedLight) {
-        mStack.pushPose();
-        mStack.translate(0, 0.5F, 0);
+    public void doRender(final TinyTNTPrimedEntity tnt, final double x, final double y, final double z,
+                         final float entityYaw, final float partialTicks) {
+        final BlockRendererDispatcher blockRenderer = Minecraft.getMinecraft().getBlockRendererDispatcher();
+        GlStateManager.pushMatrix();
+        GlStateManager.translate((float) x, (float) y + 0.5F, (float) z);
         float f2;
 
         if (tnt.getFuse() - partialTicks + 1.0F < 10.0F) {
@@ -66,22 +61,38 @@ public class TinyTNTPrimedRenderer extends EntityRenderer<TinyTNTPrimedEntity> {
             f2 *= f2;
             f2 *= f2;
             final float f3 = 1.0F + f2 * 0.3F;
-            mStack.scale(f3, f3, f3);
+            GlStateManager.scale(f3, f3, f3);
         }
 
-        mStack.mulPose(new Quaternionf().rotationY(Mth.DEG_TO_RAD * -90.0F));
-        mStack.translate(-0.5D, -0.5D, 0.5D);
-        mStack.mulPose(new Quaternionf().rotationY(Mth.DEG_TO_RAD * 90.0F));
-        TntMinecartRenderer.renderWhiteSolidBlock(this.blockRenderer, AEBlocks.TINY_TNT.block().defaultBlockState(),
-                mStack, buffers,
-                packedLight,
-                tnt.getFuse() / 5 % 2 == 0);
-        mStack.popPose();
-        super.render(tnt, entityYaw, partialTicks, mStack, buffers, packedLight);
+        f2 = (1.0F - (tnt.getFuse() - partialTicks + 1.0F) / 100.0F) * 0.8F;
+        this.bindEntityTexture(tnt);
+        GlStateManager.translate(-0.5F, -0.5F, 0.5F);
+        blockRenderer.renderBlockBrightness(TINY_TNT_STATE, tnt.getBrightness());
+        GlStateManager.translate(0.0F, 0.0F, 1.0F);
+
+        if (tnt.getFuse() / 5 % 2 == 0) {
+            GlStateManager.disableTexture2D();
+            GlStateManager.disableLighting();
+            GlStateManager.enableBlend();
+            GlStateManager.blendFunc(770, 772);
+            GlStateManager.color(1.0F, 1.0F, 1.0F, f2);
+            GlStateManager.doPolygonOffset(-3.0F, -3.0F);
+            GlStateManager.enablePolygonOffset();
+            blockRenderer.renderBlockBrightness(TINY_TNT_STATE, 1.0F);
+            GlStateManager.doPolygonOffset(0.0F, 0.0F);
+            GlStateManager.disablePolygonOffset();
+            GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+            GlStateManager.disableBlend();
+            GlStateManager.enableLighting();
+            GlStateManager.enableTexture2D();
+        }
+
+        GlStateManager.popMatrix();
+        super.doRender(tnt, x, y, z, entityYaw, partialTicks);
     }
 
     @Override
-    public ResourceLocation getTextureLocation(TinyTNTPrimedEntity entity) {
-        return TextureAtlas.LOCATION_BLOCKS;
+    protected ResourceLocation getEntityTexture(final TinyTNTPrimedEntity entity) {
+        return TextureMap.LOCATION_BLOCKS_TEXTURE;
     }
 }

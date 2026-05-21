@@ -1,12 +1,12 @@
 package appeng.client.gui.me.search;
 
+import appeng.api.stacks.AEKey;
+import appeng.container.me.common.GridInventoryEntry;
+import appeng.util.Platform;
+
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Predicate;
-
-import appeng.api.stacks.AEKey;
-import appeng.menu.me.common.GridInventoryEntry;
-import appeng.util.Platform;
 
 final class ModSearchPredicate implements Predicate<GridInventoryEntry> {
     private final String term;
@@ -15,9 +15,13 @@ final class ModSearchPredicate implements Predicate<GridInventoryEntry> {
         this.term = normalize(term);
     }
 
+    private static String normalize(String input) {
+        return input.toLowerCase(Locale.ROOT);
+    }
+
     @Override
     public boolean test(GridInventoryEntry gridInventoryEntry) {
-        AEKey entryInfo = Objects.requireNonNull(gridInventoryEntry.getWhat());
+        AEKey entryInfo = Objects.requireNonNull(gridInventoryEntry.what());
         String modId = entryInfo.getModId();
 
         if (modId != null) {
@@ -32,8 +36,5 @@ final class ModSearchPredicate implements Predicate<GridInventoryEntry> {
 
         return false;
     }
-
-    private static String normalize(String input) {
-        return input.toLowerCase(Locale.ROOT);
-    }
 }
+

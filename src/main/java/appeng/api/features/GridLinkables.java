@@ -23,16 +23,13 @@
 
 package appeng.api.features;
 
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Objects;
-
 import com.google.common.base.Preconditions;
-
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.item.Item;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.world.item.Item;
-import net.minecraft.world.level.ItemLike;
+import java.util.Objects;
 
 /**
  * A registry for items that can be linked to a specific network using for example the security station's user
@@ -43,7 +40,7 @@ import net.minecraft.world.level.ItemLike;
  */
 public final class GridLinkables {
 
-    private static final Map<Item, IGridLinkableHandler> registry = new IdentityHashMap<>();
+    private static final Reference2ObjectMap<Item, IGridLinkableHandler> registry = new Reference2ObjectOpenHashMap<>();
 
     private GridLinkables() {
     }
@@ -51,14 +48,12 @@ public final class GridLinkables {
     /**
      * Register a handler to link or unlink stacks of a given item with a network.
      *
-     * @param itemLike The type of item to register a handler for.
-     * @param handler  The handler that handles linking and unlinking for the item stacks.
+     * @param item    The type of item to register a handler for.
+     * @param handler The handler that handles linking and unlinking for the item stacks.
      */
-    public synchronized static void register(ItemLike itemLike, IGridLinkableHandler handler) {
-        Objects.requireNonNull(itemLike, "itemLike");
-        Objects.requireNonNull(itemLike.asItem(), "itemLike.asItem()");
+    public synchronized static void register(Item item, IGridLinkableHandler handler) {
+        Objects.requireNonNull(item, "item");
         Objects.requireNonNull(handler, "handler");
-        var item = itemLike.asItem();
         Preconditions.checkState(!registry.containsKey(item), "Handler for %s already registered", item);
         registry.put(item, handler);
     }
@@ -67,10 +62,9 @@ public final class GridLinkables {
      * Gets the registered handler for a given item.
      */
     @Nullable
-    public static synchronized IGridLinkableHandler get(ItemLike itemLike) {
-        Objects.requireNonNull(itemLike, "itemLike");
-        Objects.requireNonNull(itemLike.asItem(), "itemLike.asItem()");
-        return registry.get(itemLike.asItem());
+    public static synchronized IGridLinkableHandler get(Item item) {
+        Objects.requireNonNull(item, "item");
+        return registry.get(item);
     }
 
 }

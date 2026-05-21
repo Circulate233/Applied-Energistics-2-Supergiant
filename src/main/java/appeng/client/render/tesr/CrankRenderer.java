@@ -18,92 +18,113 @@
 
 package appeng.client.render.tesr;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.joml.Quaternionf;
-
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.BlockRenderDispatcher;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
-import net.minecraft.client.resources.model.ModelManager;
-import net.minecraft.client.resources.model.ModelResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.orientation.BlockOrientation;
-import appeng.blockentity.misc.CrankBlockEntity;
+import appeng.client.render.BlockEntityRenderHelper;
+import appeng.core.AELog;
 import appeng.core.AppEng;
+import appeng.tile.misc.TileCrank;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BlockRendererDispatcher;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.ModelLoaderRegistry;
+import net.minecraftforge.common.model.TRSRTransformation;
+import org.jspecify.annotations.Nullable;
+import org.lwjgl.opengl.GL11;
 
-@OnlyIn(Dist.CLIENT)
-public class CrankRenderer implements BlockEntityRenderer<CrankBlockEntity> {
+public class CrankRenderer extends TileEntitySpecialRenderer<TileCrank> {
+    private static final ResourceLocation BASE_MODEL = AppEng.makeId("block/crank_base");
+    private static final ResourceLocation HANDLE_MODEL = AppEng.makeId("block/crank_handle");
 
-    public static final ModelResourceLocation BASE_MODEL = ModelResourceLocation
-            .standalone(AppEng.makeId("block/crank_base"));
-    public static final ModelResourceLocation HANDLE_MODEL = ModelResourceLocation
-            .standalone(AppEng.makeId("block/crank_handle"));
+    private IBakedModel baseModel;
+    private IBakedModel handleModel;
 
-    private final BlockRenderDispatcher blockRenderer;
-
-    private final ModelManager modelManager;
-
-    public CrankRenderer(BlockEntityRendererProvider.Context context) {
-        this.modelManager = context.getBlockRenderDispatcher().getBlockModelShaper().getModelManager();
-        this.blockRenderer = context.getBlockRenderDispatcher();
+    private static @Nullable IBakedModel bake(ResourceLocation modelId) {
+        try {
+            return ModelLoaderRegistry.getModel(modelId)
+                                      .bake(TRSRTransformation.identity(), DefaultVertexFormats.BLOCK,
+                                          texture -> Minecraft.getMinecraft().getTextureMapBlocks().getAtlasSprite(
+                                              texture.toString()));
+        } catch (Exception e) {
+            AELog.error(e, String.format("Failed to bake crank model %s", modelId));
+            return null;
+        }
     }
 
     @Override
-    public void render(CrankBlockEntity crank, float partialTick, PoseStack stack, MultiBufferSource buffers,
-            int packedLight, int packedOverlay) {
+    public void render(TileCrank crank, double x, double y, double z, float partialTicks, int destroyStage,
+                       float alpha) {
+        IBakedModel base = this.getBaseModel();
+        IBakedModel handle = this.getHandleModel();
+        if (base == null || handle == null) {
+            return;
+        }
 
-        var baseModel = modelManager.getModel(BASE_MODEL);
-        var handleModel = modelManager.getModel(HANDLE_MODEL);
+        Tessellator tessellator = Tessellator.getInstance();
+        this.bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
+        RenderHelper.disableStandardItemLighting();
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager.enableBlend();
+        GlStateManager.disableCull();
 
-        var blockState = crank.getBlockState();
-        var buffer = buffers.getBuffer(RenderType.cutout());
-        var pos = crank.getBlockPos();
+        if (Minecraft.isAmbientOcclusionEnabled()) {
+            GlStateManager.shadeModel(GL11.GL_SMOOTH);
+        } else {
+            GlStateManager.shadeModel(GL11.GL_FLAT);
+        }
 
-        // Apply GL transformations relative to the center of the block:
-        // 1) Block orientation. The cranks top faces NORTH by default
-        // and 2) crank rotation
-        stack.pushPose();
-        stack.translate(0.5, 0.5, 0.5);
-        stack.mulPose(BlockOrientation.get(crank).getQuaternion());
-        stack.translate(-0.5, -0.5, -0.5);
+        IBlockState blockState = crank.getWorld().getBlockState(crank.getPos());
+        BlockRendererDispatcher dispatcher = Minecraft.getMinecraft().getBlockRendererDispatcher();
+        BufferBuilder buffer = tessellator.getBuffer();
 
-        // Render the base model followed by the actual crank model
-        blockRenderer.getModelRenderer().tesselateWithAO(
-                crank.getLevel(),
-                baseModel,
-                blockState,
-                pos,
-                stack,
-                buffer,
-                false,
-                RandomSource.create(),
-                blockState.getSeed(pos),
-                packedOverlay);
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x, y, z);
+        GlStateManager.translate(0.5F, 0.5F, 0.5F);
+        BlockOrientation orientation = BlockOrientation.get(crank);
+        BlockEntityRenderHelper.applyOrientation(orientation);
+        GlStateManager.translate(-0.5F, -0.5F, -0.5F);
 
-        // The unrotated cranks orientation is towards NORTH (negative Z axis)
-        stack.translate(0.5, 0.5, 0.5);
-        stack.mulPose(new Quaternionf().rotationZ(-Mth.DEG_TO_RAD * crank.getVisibleRotation()));
-        stack.translate(-0.5, -0.5, -0.5);
+        buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.BLOCK);
+        buffer.setTranslation(-crank.getPos().getX(), -crank.getPos().getY(), -crank.getPos().getZ());
+        dispatcher.getBlockModelRenderer().renderModel(crank.getWorld(), base, blockState, crank.getPos(), buffer,
+            false);
+        buffer.setTranslation(0, 0, 0);
+        tessellator.draw();
 
-        blockRenderer.getModelRenderer().tesselateWithAO(
-                crank.getLevel(),
-                handleModel,
-                blockState,
-                pos,
-                stack,
-                buffer,
-                false,
-                RandomSource.create(),
-                blockState.getSeed(pos),
-                packedOverlay);
-        stack.popPose();
+        GlStateManager.translate(0.5F, 0.5F, 0.5F);
+        GlStateManager.rotate(-crank.getVisibleRotation(), 0, 0, 1);
+        GlStateManager.translate(-0.5F, -0.5F, -0.5F);
+
+        buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.BLOCK);
+        buffer.setTranslation(-crank.getPos().getX(), -crank.getPos().getY(), -crank.getPos().getZ());
+        dispatcher.getBlockModelRenderer().renderModel(crank.getWorld(), handle, blockState, crank.getPos(), buffer,
+            false);
+        buffer.setTranslation(0, 0, 0);
+        tessellator.draw();
+
+        GlStateManager.popMatrix();
+        RenderHelper.enableStandardItemLighting();
     }
 
+    private IBakedModel getBaseModel() {
+        if (this.baseModel == null) {
+            this.baseModel = bake(BASE_MODEL);
+        }
+        return this.baseModel;
+    }
+
+    private IBakedModel getHandleModel() {
+        if (this.handleModel == null) {
+            this.handleModel = bake(HANDLE_MODEL);
+        }
+        return this.handleModel;
+    }
 }

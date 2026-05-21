@@ -18,45 +18,11 @@
 
 package appeng.client.render.model;
 
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.EnumFacing;
 
-/**
- * Used as the cache key for caching automatically rotated baked models.
- */
-final class AutoRotatingCacheKey {
-    private final BlockState blockState;
-    private final ModelData modelData;
+import javax.annotation.Nullable;
 
-    AutoRotatingCacheKey(BlockState blockState, ModelData modelData) {
-        this.blockState = blockState;
-        this.modelData = modelData;
-    }
+record AutoRotatingCacheKey(IBlockState blockState, EnumFacing forward, EnumFacing up, @Nullable EnumFacing side) {
 
-    public BlockState getBlockState() {
-        return this.blockState;
-    }
-
-    public ModelData getModelData() {
-        return modelData;
-    }
-
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || this.getClass() != o.getClass()) {
-            return false;
-        }
-
-        AutoRotatingCacheKey cacheKey = (AutoRotatingCacheKey) o;
-        return this.blockState.equals(cacheKey.blockState) && this.modelData.equals(cacheKey.modelData);
-    }
-
-    @Override
-    public int hashCode() {
-        int result = this.blockState.hashCode();
-        result = 31 * result + this.modelData.hashCode();
-        return result;
-    }
 }

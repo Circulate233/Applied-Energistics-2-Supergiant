@@ -23,15 +23,15 @@
 
 package appeng.api.networking;
 
-import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.tileentity.TileEntity;
 
 /**
- * Interface that allows a grid node to notify it's host about various events.
+ * Interface that allows a grid node to notify its host about various events.
  */
 public interface IGridNodeListener<T> {
     /**
      * Called by the {@link IGridNode} when it's persistent state has changed and the host needs to ensure it is saved.
-     * Can be implemented on block entities by delegating to {@link BlockEntity#setChanged()} for example.
+     * Can be implemented on block entities by delegating to {@link TileEntity#markDirty()} for example.
      */
     void onSaveChanges(T nodeOwner, IGridNode node);
 

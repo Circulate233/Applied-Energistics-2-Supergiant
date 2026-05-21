@@ -1,0 +1,26 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:io_port"
+    },
+    "title": {
+      "translate": "achievement.ae2.IOPort"
+    },
+    "description": {
+      "translate": "achievement.ae2.IOPort.desc"
+    }
+  },
+  "parent": "ae2:main/storage_cell",
+  "criteria": {
+    "certus": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:io_port"
+          }
+        ]
+      }
+    }
+  }
+}

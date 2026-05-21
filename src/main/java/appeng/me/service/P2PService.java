@@ -18,17 +18,6 @@
 
 package appeng.me.service;
 
-import java.util.HashMap;
-import java.util.Random;
-import java.util.stream.Stream;
-
-import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.nbt.CompoundTag;
-
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGrid;
@@ -37,30 +26,34 @@ import appeng.api.networking.IGridService;
 import appeng.api.networking.IGridServiceProvider;
 import appeng.api.networking.events.GridBootingStatusChange;
 import appeng.api.networking.events.GridPowerStatusChange;
+import appeng.api.networking.ticking.ITickManager;
 import appeng.core.AELog;
 import appeng.parts.p2p.MEP2PTunnelPart;
 import appeng.parts.p2p.P2PTunnelPart;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimap;
+import it.unimi.dsi.fastutil.shorts.Short2ObjectMap;
+import it.unimi.dsi.fastutil.shorts.Short2ObjectOpenHashMap;
+import net.minecraft.nbt.NBTTagCompound;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Random;
+import java.util.stream.Stream;
 
 public class P2PService implements IGridService, IGridServiceProvider {
     static {
         GridHelper.addGridServiceEventHandler(GridBootingStatusChange.class, P2PService.class,
-                (service, evt) -> {
-                    if (!evt.isBooting()) {
-                        service.wakeInputTunnels();
-                    }
-                });
-        GridHelper.addGridServiceEventHandler(GridPowerStatusChange.class, P2PService.class,
-                (service, evt) -> {
+            (service, evt) -> {
+                if (!evt.isBooting()) {
                     service.wakeInputTunnels();
-                });
-    }
-
-    public static P2PService get(IGrid grid) {
-        return grid.getService(P2PService.class);
+                }
+            });
+        GridHelper.addGridServiceEventHandler(GridPowerStatusChange.class, P2PService.class,
+            (service, evt) -> service.wakeInputTunnels());
     }
 
     private final IGrid myGrid;
-    private final HashMap<Short, P2PTunnelPart<?>> inputs = new HashMap<>();
+    private final Short2ObjectMap<P2PTunnelPart<?>> inputs = new Short2ObjectOpenHashMap<>();
     private final Multimap<Short, P2PTunnelPart<?>> outputs = LinkedHashMultimap.create();
     private final Random frequencyGenerator;
 
@@ -69,9 +62,13 @@ public class P2PService implements IGridService, IGridServiceProvider {
         this.frequencyGenerator = new Random(g.hashCode());
     }
 
+    public static P2PService get(IGrid grid) {
+        return grid.getService(P2PService.class);
+    }
+
     public void wakeInputTunnels() {
-        var tm = this.myGrid.getTickManager();
-        for (var tunnel : this.inputs.values()) {
+        final ITickManager tm = this.myGrid.getTickManager();
+        for (P2PTunnelPart<?> tunnel : this.inputs.values()) {
             if (tunnel instanceof MEP2PTunnelPart) {
                 tm.wakeDevice(tunnel.getGridNode());
             }
@@ -96,7 +93,7 @@ public class P2PService implements IGridService, IGridServiceProvider {
     }
 
     @Override
-    public void addNode(IGridNode node, @Nullable CompoundTag savedData) {
+    public void addNode(IGridNode node, @Nullable NBTTagCompound savedData) {
         if (node.getOwner() instanceof P2PTunnelPart<?> tunnel) {
             if (tunnel instanceof MEP2PTunnelPart && !node.hasFlag(GridFlags.REQUIRE_CHANNEL)) {
                 return;
@@ -116,7 +113,7 @@ public class P2PService implements IGridService, IGridServiceProvider {
 
     private void updateTunnel(short freq, boolean updateOutputs, boolean configChange) {
         if (updateOutputs) {
-            for (P2PTunnelPart p : this.outputs.get(freq)) {
+            for (P2PTunnelPart<?> p : this.outputs.get(freq)) {
                 if (configChange) {
                     p.onTunnelConfigChange();
                 }
@@ -124,7 +121,7 @@ public class P2PService implements IGridService, IGridServiceProvider {
             }
         }
         if (!updateOutputs) {
-            final P2PTunnelPart in = this.inputs.get(freq);
+            final P2PTunnelPart<?> in = this.inputs.get(freq);
             if (in != null) {
                 if (configChange) {
                     in.onTunnelConfigChange();
@@ -134,7 +131,7 @@ public class P2PService implements IGridService, IGridServiceProvider {
         }
     }
 
-    public void updateFreq(P2PTunnelPart t, short newFrequency) {
+    public void updateFreq(P2PTunnelPart<?> t, short newFrequency) {
         if (this.outputs.containsValue(t)) {
             this.outputs.remove(t.getFrequency(), t);
         }
@@ -143,7 +140,7 @@ public class P2PService implements IGridService, IGridServiceProvider {
             this.inputs.remove(t.getFrequency());
         }
 
-        var oldFrequency = t.getFrequency();
+        final short oldFrequency = t.getFrequency();
         t.setFrequency(newFrequency);
 
         if (t.isOutput()) {
@@ -178,18 +175,18 @@ public class P2PService implements IGridService, IGridServiceProvider {
 
     public <T extends P2PTunnelPart<T>> Stream<T> getOutputs(short freq, Class<T> c) {
         // Check that a matching input exists for the requested type
-        var input = this.inputs.get(freq);
+        final P2PTunnelPart<?> input = this.inputs.get(freq);
         if (!c.isInstance(input)) {
             return Stream.empty();
         }
 
         return this.outputs.get(freq)
-                .stream()
-                .filter(c::isInstance)
-                .map(c::cast);
+                           .stream()
+                           .filter(c::isInstance)
+                           .map(c::cast);
     }
 
-    public P2PTunnelPart getInput(short freq) {
+    public P2PTunnelPart<?> getInput(short freq) {
         return this.inputs.get(freq);
     }
 }

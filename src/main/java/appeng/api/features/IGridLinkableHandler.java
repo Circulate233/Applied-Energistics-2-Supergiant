@@ -23,8 +23,9 @@
 
 package appeng.api.features;
 
-import net.minecraft.core.GlobalPos;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 /**
  * Handles the linking of items to specific grids when they're put into the wireless access point linking slot.
@@ -41,7 +42,7 @@ public interface IGridLinkableHandler {
     /**
      * Link the given stack to the access point at the given position.
      */
-    void link(ItemStack itemStack, GlobalPos pos);
+    void link(ItemStack itemStack, World world, BlockPos pos);
 
     /**
      * Unlink the given stack from any previously linked grid.

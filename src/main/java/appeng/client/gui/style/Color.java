@@ -18,29 +18,15 @@
 
 package appeng.client.gui.style;
 
-import java.util.Objects;
+import org.jspecify.annotations.NonNull;
+
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public final class Color {
+public record Color(int r, int g, int b, int a) {
 
     private static final Pattern PATTERN = Pattern.compile("^#([0-9a-fA-F]{2}){3,4}$");
 
-    private final int r;
-    private final int g;
-    private final int b;
-    private final int a;
-
-    public Color(int r, int g, int b, int a) {
-        this.r = r;
-        this.g = g;
-        this.b = b;
-        this.a = a;
-    }
-
-    /**
-     * Parse a pseudo-HTML color string (#rrggbb or #aarrggbb).
-     */
     public static Color parse(String string) {
         Matcher m = PATTERN.matcher(string);
         if (!m.matches()) {
@@ -62,41 +48,8 @@ public final class Color {
         return new Color(r, g, b, a);
     }
 
-    public int getR() {
-        return r;
-    }
-
-    public int getG() {
-        return g;
-    }
-
-    public int getB() {
-        return b;
-    }
-
-    public int getA() {
-        return a;
-    }
-
     @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-        Color color = (Color) o;
-        return r == color.r && g == color.g && b == color.b && a == color.a;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(r, g, b, a);
-    }
-
-    @Override
-    public String toString() {
+    public @NonNull String toString() {
         StringBuilder result = new StringBuilder(9);
         result.append('#');
         if (a <= 0xF) {
@@ -123,3 +76,4 @@ public final class Color {
         return a << 24 | r << 16 | g << 8 | b;
     }
 }
+

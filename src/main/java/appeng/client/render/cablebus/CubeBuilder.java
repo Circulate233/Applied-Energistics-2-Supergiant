@@ -18,23 +18,21 @@
 
 package appeng.client.render.cablebus;
 
-import java.util.ArrayList;
+import appeng.client.render.VertexFormats;
+import com.google.common.base.Preconditions;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.client.renderer.vertex.VertexFormatElement;
+import net.minecraft.util.EnumFacing;
+import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
+
+import javax.vecmath.Vector4f;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
-
-import com.google.common.base.Preconditions;
-
-import org.joml.Vector4f;
-
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.core.Direction;
-
-import appeng.thirdparty.fabric.EncodingFormat;
-import appeng.thirdparty.fabric.MutableQuadViewImpl;
-import appeng.thirdparty.fabric.QuadEmitter;
 
 /**
  * Builds the quads for a cube.
@@ -42,29 +40,33 @@ import appeng.thirdparty.fabric.QuadEmitter;
 public class CubeBuilder {
 
     private final List<BakedQuad> output;
-
-    private final EnumMap<Direction, TextureAtlasSprite> textures = new EnumMap<>(Direction.class);
-
-    private EnumSet<Direction> drawFaces = EnumSet.allOf(Direction.class);
-
-    private final EnumMap<Direction, Vector4f> customUv = new EnumMap<>(Direction.class);
-
-    private byte[] uvRotations = new byte[Direction.values().length];
-
-    private final boolean[] flipU = new boolean[Direction.values().length];
-
-    private final boolean[] flipV = new boolean[Direction.values().length];
-
+    private final EnumMap<EnumFacing, TextureAtlasSprite> textures = new EnumMap<>(
+        EnumFacing.class);
+    private final EnumMap<EnumFacing, Vector4f> customUv = new EnumMap<>(EnumFacing.class);
+    private final byte[] uvRotations = new byte[EnumFacing.values().length];
+    private final boolean[] flipU = new boolean[EnumFacing.values().length];
+    private final boolean[] flipV = new boolean[EnumFacing.values().length];
+    private VertexFormat format;
+    private EnumSet<EnumFacing> drawFaces = EnumSet.allOf(EnumFacing.class);
     private int color = 0xFFFFFFFF;
+    private boolean useStandardUV;
+    private boolean renderFullBright;
 
-    private boolean emissiveMaterial;
+    public CubeBuilder(VertexFormat format, List<BakedQuad> output) {
+        this.output = output;
+        this.format = format;
+    }
+
+    public CubeBuilder(VertexFormat format) {
+        this(format, new ObjectArrayList<>(6));
+    }
 
     public CubeBuilder(List<BakedQuad> output) {
-        this.output = output;
+        this(DefaultVertexFormats.BLOCK, output);
     }
 
     public CubeBuilder() {
-        this(new ArrayList<>(6));
+        this(DefaultVertexFormats.BLOCK);
     }
 
     public void addCube(float x1, float y1, float z1, float x2, float y2, float z2) {
@@ -75,172 +77,357 @@ public class CubeBuilder {
         y2 /= 16.0f;
         z2 /= 16.0f;
 
-        for (Direction face : this.drawFaces) {
+        VertexFormat savedFormat = null;
+        if (this.renderFullBright) {
+            savedFormat = this.format;
+            this.format = VertexFormats.getFormatWithLightMap(this.format);
+        }
+
+        for (EnumFacing face : this.drawFaces) {
             this.putFace(face, x1, y1, z1, x2, y2, z2);
         }
+
+        if (savedFormat != null) {
+            this.format = savedFormat;
+        }
     }
 
-    public void addQuad(Direction face, float x1, float y1, float z1, float x2, float y2, float z2) {
+    public void addQuad(EnumFacing face, float x1, float y1, float z1, float x2, float y2, float z2) {
+        VertexFormat savedFormat = null;
+        if (this.renderFullBright) {
+            savedFormat = this.format;
+            this.format = new VertexFormat(savedFormat);
+            if (!this.format.getElements().contains(DefaultVertexFormats.TEX_2S)) {
+                this.format.addElement(DefaultVertexFormats.TEX_2S);
+            }
+        }
+
         this.putFace(face, x1, y1, z1, x2, y2, z2);
+
+        if (savedFormat != null) {
+            this.format = savedFormat;
+        }
     }
 
-    public void setFlipU(Direction side, boolean enable) {
-        flipU[side.ordinal()] = enable;
-    }
+    private void putFace(EnumFacing face, float x1, float y1, float z1, float x2, float y2, float z2) {
+        TextureAtlasSprite texture = this.textures.get(face);
 
-    public void setFlipV(Direction side, boolean enable) {
-        flipV[side.ordinal()] = enable;
-    }
+        UnpackedBakedQuad.Builder builder = new UnpackedBakedQuad.Builder(this.format);
+        builder.setTexture(texture);
+        builder.setQuadOrientation(face);
+        builder.setQuadTint(-1);
+        builder.setApplyDiffuseLighting(true);
 
-    private static final class UvVector {
-        float u1;
-        float u2;
-        float v1;
-        float v2;
-    }
-
-    private void putFace(Direction face, float x1, float y1, float z1, float x2, float y2, float z2) {
-
-        var texture = this.textures.get(face);
-
-        var emitter = new MutableQuadViewImpl() {
-            {
-                begin(new int[EncodingFormat.TOTAL_STRIDE], 0);
-            }
-
-            @Override
-            public QuadEmitter emit() {
-                output.add(toBakedQuad(texture));
-                return this;
-            }
-        };
-        emitter.colorIndex(-1);
-
-        var uv = new UvVector();
-
-        // The user might have set specific UV coordinates for this face
-        var customUv = this.customUv.get(face);
+        UvVector uv = new UvVector();
+        Vector4f customUv = this.customUv.get(face);
         if (customUv != null) {
-            uv.u1 = texture.getU(customUv.x());
-            uv.v1 = texture.getV(customUv.y());
-            uv.u2 = texture.getU(customUv.z());
-            uv.v2 = texture.getV(customUv.w());
-        } else {
+            uv.u1 = texture.getInterpolatedU(customUv.x);
+            uv.v1 = texture.getInterpolatedV(customUv.y);
+            uv.u2 = texture.getInterpolatedU(customUv.z);
+            uv.v2 = texture.getInterpolatedV(customUv.w);
+        } else if (this.useStandardUV) {
             uv = this.getStandardUv(face, texture, x1, y1, z1, x2, y2, z2);
+        } else {
+            uv = this.getDefaultUv(face, texture, x1, y1, z1, x2, y2, z2);
         }
 
-        emitter.color(color, color, color, color);
-        emitter.normal(0, face.getStepX(), face.getStepY(), face.getStepZ());
-        emitter.normal(1, face.getStepX(), face.getStepY(), face.getStepZ());
-        emitter.normal(2, face.getStepX(), face.getStepY(), face.getStepZ());
-        emitter.normal(3, face.getStepX(), face.getStepY(), face.getStepZ());
-
-        setFaceUV(face, emitter, uv);
-
-        switch (face) {
-            case DOWN -> emitter.square(face, x1, z1, x2, z2, y1);
-            case UP -> emitter.square(face, x1, 1 - z2, x2, 1 - z1, 1 - y2);
-            case NORTH -> emitter.square(face, 1 - x2, y1, 1 - x1, y2, z1);
-            case SOUTH -> emitter.square(face, x1, y1, x2, y2, 1 - z2);
-            case WEST -> emitter.square(face, z1, y1, z2, y2, x1);
-            case EAST -> emitter.square(face, 1 - z2, y1, 1 - z1, y2, 1 - x2);
-        }
-
-        if (emissiveMaterial) {
-            // Force Brightness to 15, this is for full bright mode
-            // this vertex element will only be present in that case
-            int lightmap = LightTexture.pack(15, 15);
-            emitter.lightmap(lightmap, lightmap, lightmap, lightmap);
-        }
-
-        emitter.emit();
-    }
-
-    private void setFaceUV(Direction face, QuadEmitter emitter, UvVector uv) {
-        var rotation = uvRotations[face.ordinal()];
-
-        if (flipU[face.ordinal()]) {
-            var tmp = uv.u1;
-            uv.u1 = uv.u2;
-            uv.u2 = tmp;
-        }
-        if (flipV[face.ordinal()]) {
-            var tmp = uv.v1;
+        if (this.flipV[face.ordinal()]) {
+            float tmp = uv.v1;
             uv.v1 = uv.v2;
             uv.v2 = tmp;
         }
 
-        switch (face) {
-            case DOWN, UP -> {
-                emitter.uv((0 + 4 - rotation) % 4, uv.u1, uv.v1);
-                emitter.uv((1 + 4 - rotation) % 4, uv.u1, uv.v2);
-                emitter.uv((2 + 4 - rotation) % 4, uv.u2, uv.v2);
-                emitter.uv((3 + 4 - rotation) % 4, uv.u2, uv.v1);
-            }
-            case NORTH, SOUTH, WEST, EAST -> {
-                emitter.uv((0 + 4 - rotation) % 4, uv.u1, uv.v2);
-                emitter.uv((1 + 4 - rotation) % 4, uv.u1, uv.v1);
-                emitter.uv((2 + 4 - rotation) % 4, uv.u2, uv.v1);
-                emitter.uv((3 + 4 - rotation) % 4, uv.u2, uv.v2);
-            }
+        if (this.flipU[face.ordinal()]) {
+            float tmp = uv.u1;
+            uv.u1 = uv.u2;
+            uv.u2 = tmp;
         }
+
+        switch (face) {
+            case DOWN:
+                this.putVertexTR(builder, face, x2, y1, z1, uv);
+                this.putVertexBR(builder, face, x2, y1, z2, uv);
+                this.putVertexBL(builder, face, x1, y1, z2, uv);
+                this.putVertexTL(builder, face, x1, y1, z1, uv);
+                break;
+            case UP:
+                this.putVertexTL(builder, face, x1, y2, z1, uv);
+                this.putVertexBL(builder, face, x1, y2, z2, uv);
+                this.putVertexBR(builder, face, x2, y2, z2, uv);
+                this.putVertexTR(builder, face, x2, y2, z1, uv);
+                break;
+            case NORTH:
+                this.putVertexBR(builder, face, x2, y2, z1, uv);
+                this.putVertexTR(builder, face, x2, y1, z1, uv);
+                this.putVertexTL(builder, face, x1, y1, z1, uv);
+                this.putVertexBL(builder, face, x1, y2, z1, uv);
+                break;
+            case SOUTH:
+                this.putVertexBL(builder, face, x1, y2, z2, uv);
+                this.putVertexTL(builder, face, x1, y1, z2, uv);
+                this.putVertexTR(builder, face, x2, y1, z2, uv);
+                this.putVertexBR(builder, face, x2, y2, z2, uv);
+                break;
+            case WEST:
+                this.putVertexTL(builder, face, x1, y1, z1, uv);
+                this.putVertexTR(builder, face, x1, y1, z2, uv);
+                this.putVertexBR(builder, face, x1, y2, z2, uv);
+                this.putVertexBL(builder, face, x1, y2, z1, uv);
+                break;
+            case EAST:
+                this.putVertexBR(builder, face, x2, y2, z1, uv);
+                this.putVertexBL(builder, face, x2, y2, z2, uv);
+                this.putVertexTL(builder, face, x2, y1, z2, uv);
+                this.putVertexTR(builder, face, x2, y1, z1, uv);
+                break;
+            default:
+                break;
+        }
+
+        this.output.add(builder.build());
     }
 
-    private UvVector getStandardUv(Direction face, TextureAtlasSprite texture, float x1, float y1, float z1, float x2,
-            float y2, float z2) {
+    private UvVector getDefaultUv(EnumFacing face, TextureAtlasSprite texture, float x1, float y1, float z1, float x2,
+                                  float y2, float z2) {
         UvVector uv = new UvVector();
 
-        if (face.getAxis() != Direction.Axis.Y) {
-            uv.v1 = texture.getV(1 - y1);
-            uv.v2 = texture.getV(1 - y2);
-        } else {
-            uv.v1 = texture.getV(z1);
-            uv.v2 = texture.getV(z2);
-        }
-
         switch (face) {
-            case DOWN, UP, SOUTH -> {
-                uv.u1 = texture.getU(x1);
-                uv.u2 = texture.getU(x2);
-            }
-            case NORTH -> {
-                uv.u1 = texture.getU(1 - x2);
-                uv.u2 = texture.getU(1 - x1);
-            }
-            case WEST -> {
-                uv.u1 = texture.getU(z1);
-                uv.u2 = texture.getU(z2);
-            }
-            case EAST -> {
-                uv.u1 = texture.getU(1 - z2);
-                uv.u2 = texture.getU(1 - z1);
-            }
+            case DOWN:
+            case UP:
+                uv.u1 = texture.getInterpolatedU(x1 * 16);
+                uv.v1 = texture.getInterpolatedV(z1 * 16);
+                uv.u2 = texture.getInterpolatedU(x2 * 16);
+                uv.v2 = texture.getInterpolatedV(z2 * 16);
+                break;
+            case NORTH:
+            case SOUTH:
+                uv.u1 = texture.getInterpolatedU(x1 * 16);
+                uv.v1 = texture.getInterpolatedV(16 - y1 * 16);
+                uv.u2 = texture.getInterpolatedU(x2 * 16);
+                uv.v2 = texture.getInterpolatedV(16 - y2 * 16);
+                break;
+            case WEST:
+                uv.u1 = texture.getInterpolatedU(z1 * 16);
+                uv.v1 = texture.getInterpolatedV(16 - y1 * 16);
+                uv.u2 = texture.getInterpolatedU(z2 * 16);
+                uv.v2 = texture.getInterpolatedV(16 - y2 * 16);
+                break;
+            case EAST:
+                uv.u1 = texture.getInterpolatedU(z2 * 16);
+                uv.v1 = texture.getInterpolatedV(16 - y1 * 16);
+                uv.u2 = texture.getInterpolatedU(z1 * 16);
+                uv.v2 = texture.getInterpolatedV(16 - y2 * 16);
+                break;
+            default:
+                break;
         }
 
         return uv;
     }
 
+    private UvVector getStandardUv(EnumFacing face, TextureAtlasSprite texture, float x1, float y1, float z1, float x2,
+                                   float y2, float z2) {
+        UvVector uv = new UvVector();
+        switch (face) {
+            case DOWN:
+                uv.u1 = texture.getInterpolatedU(x1 * 16);
+                uv.v1 = texture.getInterpolatedV(16 - z1 * 16);
+                uv.u2 = texture.getInterpolatedU(x2 * 16);
+                uv.v2 = texture.getInterpolatedV(16 - z2 * 16);
+                break;
+            case UP:
+                uv.u1 = texture.getInterpolatedU(x1 * 16);
+                uv.v1 = texture.getInterpolatedV(z1 * 16);
+                uv.u2 = texture.getInterpolatedU(x2 * 16);
+                uv.v2 = texture.getInterpolatedV(z2 * 16);
+                break;
+            case NORTH:
+                uv.u1 = texture.getInterpolatedU(16 - x1 * 16);
+                uv.v1 = texture.getInterpolatedV(16 - y1 * 16);
+                uv.u2 = texture.getInterpolatedU(16 - x2 * 16);
+                uv.v2 = texture.getInterpolatedV(16 - y2 * 16);
+                break;
+            case SOUTH:
+                uv.u1 = texture.getInterpolatedU(x1 * 16);
+                uv.v1 = texture.getInterpolatedV(16 - y1 * 16);
+                uv.u2 = texture.getInterpolatedU(x2 * 16);
+                uv.v2 = texture.getInterpolatedV(16 - y2 * 16);
+                break;
+            case WEST:
+                uv.u1 = texture.getInterpolatedU(z1 * 16);
+                uv.v1 = texture.getInterpolatedV(16 - y1 * 16);
+                uv.u2 = texture.getInterpolatedU(z2 * 16);
+                uv.v2 = texture.getInterpolatedV(16 - y2 * 16);
+                break;
+            case EAST:
+                uv.u1 = texture.getInterpolatedU(16 - z2 * 16);
+                uv.v1 = texture.getInterpolatedV(16 - y1 * 16);
+                uv.u2 = texture.getInterpolatedU(16 - z1 * 16);
+                uv.v2 = texture.getInterpolatedV(16 - y2 * 16);
+                break;
+            default:
+                break;
+        }
+        return uv;
+    }
+
+    private void putVertexTL(UnpackedBakedQuad.Builder builder, EnumFacing face, float x, float y, float z,
+                             UvVector uv) {
+        float u;
+        float v = switch (this.uvRotations[face.ordinal()]) {
+            case 1 -> {
+                u = uv.u1;
+                yield uv.v2;
+            }
+            case 2 -> {
+                u = uv.u2;
+                yield uv.v2;
+            }
+            case 3 -> {
+                u = uv.u2;
+                yield uv.v1;
+            }
+            default -> {
+                u = uv.u1;
+                yield uv.v1;
+            }
+        };
+
+        this.putVertex(builder, face, x, y, z, u, v);
+    }
+
+    private void putVertexTR(UnpackedBakedQuad.Builder builder, EnumFacing face, float x, float y, float z,
+                             UvVector uv) {
+        float u;
+        float v = switch (this.uvRotations[face.ordinal()]) {
+            case 1 -> {
+                u = uv.u1;
+                yield uv.v1;
+            }
+            case 2 -> {
+                u = uv.u1;
+                yield uv.v2;
+            }
+            case 3 -> {
+                u = uv.u2;
+                yield uv.v2;
+            }
+            default -> {
+                u = uv.u2;
+                yield uv.v1;
+            }
+        };
+
+        this.putVertex(builder, face, x, y, z, u, v);
+    }
+
+    private void putVertexBR(UnpackedBakedQuad.Builder builder, EnumFacing face, float x, float y, float z,
+                             UvVector uv) {
+        float u;
+        float v = switch (this.uvRotations[face.ordinal()]) {
+            case 1 -> {
+                u = uv.u2;
+                yield uv.v1;
+            }
+            case 2 -> {
+                u = uv.u1;
+                yield uv.v1;
+            }
+            case 3 -> {
+                u = uv.u1;
+                yield uv.v2;
+            }
+            default -> {
+                u = uv.u2;
+                yield uv.v2;
+            }
+        };
+
+        this.putVertex(builder, face, x, y, z, u, v);
+    }
+
+    private void putVertexBL(UnpackedBakedQuad.Builder builder, EnumFacing face, float x, float y, float z,
+                             UvVector uv) {
+        float u;
+        float v = switch (this.uvRotations[face.ordinal()]) {
+            case 1 -> {
+                u = uv.u2;
+                yield uv.v2;
+            }
+            case 2 -> {
+                u = uv.u2;
+                yield uv.v1;
+            }
+            case 3 -> {
+                u = uv.u1;
+                yield uv.v1;
+            }
+            default -> {
+                u = uv.u1;
+                yield uv.v2;
+            }
+        };
+
+        this.putVertex(builder, face, x, y, z, u, v);
+    }
+
+    private void putVertex(UnpackedBakedQuad.Builder builder, EnumFacing face, float x, float y, float z, float u,
+                           float v) {
+        VertexFormat currentFormat = builder.getVertexFormat();
+
+        for (int i = 0; i < currentFormat.getElementCount(); i++) {
+            VertexFormatElement element = currentFormat.getElement(i);
+            switch (element.getUsage()) {
+                case POSITION:
+                    builder.put(i, x, y, z);
+                    break;
+                case NORMAL:
+                    builder.put(i, face.getXOffset(), face.getYOffset(), face.getZOffset());
+                    break;
+                case COLOR:
+                    float r = (this.color >> 16 & 0xFF) / 255f;
+                    float g = (this.color >> 8 & 0xFF) / 255f;
+                    float b = (this.color & 0xFF) / 255f;
+                    float a = (this.color >> 24 & 0xFF) / 255f;
+                    builder.put(i, r, g, b, a);
+                    break;
+                case UV:
+                    if (element.getIndex() == 0) {
+                        builder.put(i, u, v);
+                    } else {
+                        final float lightMapU = (float) (15 * 0x20) / 0xFFFF;
+                        final float lightMapV = (float) (15 * 0x20) / 0xFFFF;
+                        builder.put(i, lightMapU, lightMapV);
+                    }
+                    break;
+                default:
+                    builder.put(i);
+                    break;
+            }
+        }
+    }
+
     public void setTexture(TextureAtlasSprite texture) {
-        for (Direction face : Direction.values()) {
+        for (EnumFacing face : EnumFacing.values()) {
             this.textures.put(face, texture);
         }
     }
 
     public void setTextures(TextureAtlasSprite up, TextureAtlasSprite down, TextureAtlasSprite north,
-            TextureAtlasSprite south, TextureAtlasSprite east, TextureAtlasSprite west) {
-        this.textures.put(Direction.UP, up);
-        this.textures.put(Direction.DOWN, down);
-        this.textures.put(Direction.NORTH, north);
-        this.textures.put(Direction.SOUTH, south);
-        this.textures.put(Direction.EAST, east);
-        this.textures.put(Direction.WEST, west);
+                            TextureAtlasSprite south, TextureAtlasSprite east, TextureAtlasSprite west) {
+        this.textures.put(EnumFacing.UP, up);
+        this.textures.put(EnumFacing.DOWN, down);
+        this.textures.put(EnumFacing.NORTH, north);
+        this.textures.put(EnumFacing.SOUTH, south);
+        this.textures.put(EnumFacing.EAST, east);
+        this.textures.put(EnumFacing.WEST, west);
     }
 
-    public void setTexture(Direction facing, TextureAtlasSprite sprite) {
+    public void setTexture(EnumFacing facing, TextureAtlasSprite sprite) {
         this.textures.put(facing, sprite);
     }
 
-    public void setDrawFaces(EnumSet<Direction> drawFaces) {
+    public void setDrawFaces(EnumSet<EnumFacing> drawFaces) {
         this.drawFaces = drawFaces;
     }
 
@@ -259,20 +446,52 @@ public class CubeBuilder {
         this.setColorRGB((int) (r * 255) << 16 | (int) (g * 255) << 8 | (int) (b * 255));
     }
 
-    public void setEmissiveMaterial(boolean renderFullBright) {
-        this.emissiveMaterial = renderFullBright;
+    public void setRenderFullBright(boolean renderFullBright) {
+        this.renderFullBright = renderFullBright;
     }
 
-    public void setCustomUv(Direction facing, float u1, float v1, float u2, float v2) {
+    public void setEmissiveMaterial(boolean renderFullBright) {
+        this.setRenderFullBright(renderFullBright);
+    }
+
+    public void setCustomUv(EnumFacing facing, float u1, float v1, float u2, float v2) {
         this.customUv.put(facing, new Vector4f(u1, v1, u2, v2));
     }
 
-    public void setUvRotation(Direction facing, int rotation) {
+    public void setFlipV(EnumFacing facing, boolean enable) {
+        this.flipV[facing.ordinal()] = enable;
+    }
+
+    public void setFlipU(EnumFacing facing, boolean enable) {
+        this.flipU[facing.ordinal()] = enable;
+    }
+
+    public void setUvRotation(EnumFacing facing, int rotation) {
+        if (rotation == 2) {
+            rotation = 3;
+        } else if (rotation == 3) {
+            rotation = 2;
+        }
         Preconditions.checkArgument(rotation >= 0 && rotation <= 3, "rotation");
         this.uvRotations[facing.ordinal()] = (byte) rotation;
     }
 
+    /**
+     * CubeBuilder uses UV optimized for cables by default.
+     * This switches to standard UV coordinates.
+     */
+    public void useStandardUV() {
+        this.useStandardUV = true;
+    }
+
     public List<BakedQuad> getOutput() {
         return this.output;
+    }
+
+    private static final class UvVector {
+        float u1;
+        float u2;
+        float v1;
+        float v2;
     }
 }

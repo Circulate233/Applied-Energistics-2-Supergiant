@@ -1,0 +1,6 @@
+{
+  "parent": "builtin/generated",
+  "textures": {
+    "layer0": "ae2:part/p2p_tunnel_frequency"
+  }
+}

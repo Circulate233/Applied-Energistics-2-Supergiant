@@ -29,7 +29,7 @@ public enum PowerMultiplier {
     /**
      * please do not edit this value, it is set when AE loads its config files.
      */
-    public double multiplier = 1.0;
+    public final double multiplier = 1.0;
 
     public double multiply(double in) {
         return in * this.multiplier;

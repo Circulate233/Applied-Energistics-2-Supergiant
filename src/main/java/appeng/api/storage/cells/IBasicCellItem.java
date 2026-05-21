@@ -23,18 +23,14 @@
 
 package appeng.api.storage.cells;
 
-import java.util.List;
-import java.util.Optional;
-
-import com.google.common.base.Preconditions;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.items.storage.StorageCellTooltipComponent;
 import appeng.me.cells.BasicCellHandler;
+import com.google.common.base.Preconditions;
+import net.minecraft.item.ItemStack;
+
+import java.util.List;
 
 /**
  * Implement this on any item to register a "basic cell", which is a cell that works similarly to AE2's own item and
@@ -43,7 +39,7 @@ import appeng.me.cells.BasicCellHandler;
  * <p/>
  * The standard AE implementation also only provides 1-63 Types.
  */
-public interface IBasicCellItem extends ICellWorkbenchItem {
+public interface IBasicCellItem extends ICellWorkbenchItem, IStackTooltipDataProvider {
     /**
      * Basic cell items are limited to a single {@link AEKeyType}.
      */
@@ -52,7 +48,7 @@ public interface IBasicCellItem extends ICellWorkbenchItem {
     /**
      * The number of bytes that can be stored on this type of storage cell.
      * <p/>
-     * It wont work if the return is not a multiple of 8. The limit is ({@link Integer#MAX_VALUE} + 1) / 8.
+     * It won't work if the return is not a multiple of 8. The limit is ({@link Integer#MAX_VALUE} + 1) / 8.
      *
      * @param cellItem item
      * @return number of bytes
@@ -92,7 +88,7 @@ public interface IBasicCellItem extends ICellWorkbenchItem {
      * items like the matter cannon that are not general purpose storage.
      *
      * @return true if the storage cell can be stored inside other storage cells, this is generally false, except for
-     *         certain situations such as the matter cannon.
+     * certain situations such as the matter cannon.
      */
     default boolean storableInStorageCell() {
         return false;
@@ -105,6 +101,7 @@ public interface IBasicCellItem extends ICellWorkbenchItem {
      * @return if the ItemStack should currently be usable as a storage cell.
      */
     default boolean isStorageCell(ItemStack i) {
+        Preconditions.checkNotNull(i);
         return true;
     }
 
@@ -116,16 +113,19 @@ public interface IBasicCellItem extends ICellWorkbenchItem {
     /**
      * Convenient helper to append useful tooltip information.
      */
-    default void addCellInformationToTooltip(ItemStack is, List<Component> lines) {
+    default void addCellInformationToTooltip(ItemStack is, List<String> lines) {
         Preconditions.checkArgument(is.getItem() == this);
         BasicCellHandler.INSTANCE.addCellInformationToTooltip(is, lines);
     }
 
-    /**
-     * Helper to get the additional tooltip image line showing the content/filter/upgrades.
-     */
-    default Optional<TooltipComponent> getCellTooltipImage(ItemStack is) {
+    @Override
+    default void addToTooltip(ItemStack is, List<String> lines) {
+        addCellInformationToTooltip(is, lines);
+    }
+
+    @Override
+    default java.util.Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack is) {
         Preconditions.checkArgument(is.getItem() == this);
-        return BasicCellHandler.INSTANCE.getTooltipImage(is);
+        return BasicCellHandler.INSTANCE.getTooltipData(is);
     }
 }

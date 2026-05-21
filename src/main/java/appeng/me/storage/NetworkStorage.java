@@ -18,151 +18,178 @@
 
 package appeng.me.storage;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.NavigableMap;
-import java.util.TreeMap;
-
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.network.chat.Component;
-
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.localization.GuiText;
+import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.util.text.ITextComponent;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Manages all available {@link MEStorage} on the network.
- */
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.SortedMap;
+
 public class NetworkStorage implements MEStorage {
-    private static final Comparator<Integer> PRIORITY_SORTER = (o1, o2) -> Integer.compare(o2, o1);
-
-    // This flag prevents both concurrent modifications of the mounted storage while
-    // they're being iterated, and recursive extract/insert/list operations.
+    private static final Comparator<Integer> PRIORITY_SORTER = (first, second) -> Integer.compare(second, first);
+    private final SortedMap<Integer, List<MEStorage>> priorityInventory = new Object2ObjectRBTreeMap<>(PRIORITY_SORTER);
+    private final ObjectList<MEStorage> secondPassInventories = new ObjectArrayList<>();
     private boolean mountsInUse;
-
-    private final NavigableMap<Integer, List<MEStorage>> priorityInventory;
-    private final List<MEStorage> secondPassInventories = new ArrayList<>();
-
-    // Queued mount/unmount operations that occurred while an insert/extract was ongoing
-    // Is only non-null if something is queued
     @Nullable
     private List<QueuedOperation> queuedOperations;
 
-    public NetworkStorage() {
-        this.priorityInventory = new TreeMap<>(PRIORITY_SORTER);
-    }
-
     public void mount(int priority, MEStorage inventory) {
-        if (mountsInUse) {
-            if (queuedOperations == null) {
-                queuedOperations = new ArrayList<>();
+        if (this.mountsInUse) {
+            if (this.queuedOperations == null) {
+                this.queuedOperations = new ObjectArrayList<>();
             }
-            queuedOperations.add(new MountOperation(priority, inventory));
-        } else {
-            this.priorityInventory.computeIfAbsent(priority, k -> new ArrayList<>())
-                    .add(inventory);
+            this.queuedOperations.add(new QueuedOperation(true, priority, inventory));
+            return;
         }
+
+        this.priorityInventory.computeIfAbsent(priority, ignored -> new ObjectArrayList<>()).add(inventory);
     }
 
     public void unmount(MEStorage inventory) {
-        if (mountsInUse) {
-            if (queuedOperations == null) {
-                queuedOperations = new ArrayList<>();
+        if (this.mountsInUse) {
+            if (this.queuedOperations == null) {
+                this.queuedOperations = new ObjectArrayList<>();
             }
-            queuedOperations.add(new UnmountOperation(inventory));
-        } else {
-            var prioIt = this.priorityInventory.entrySet().iterator();
-            while (prioIt.hasNext()) {
-                var prioEntry = prioIt.next();
+            this.queuedOperations.add(new QueuedOperation(false, 0, inventory));
+            return;
+        }
 
-                var inventories = prioEntry.getValue();
-                if (inventories.remove(inventory) && inventories.isEmpty()) {
-                    prioIt.remove();
-                }
+        Iterator<Map.Entry<Integer, List<MEStorage>>> iterator = this.priorityInventory.entrySet().iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<Integer, List<MEStorage>> entry = iterator.next();
+            List<MEStorage> inventories = entry.getValue();
+            if (inventories.remove(inventory) && inventories.isEmpty()) {
+                iterator.remove();
             }
         }
     }
 
-    public long insert(AEKey what, long amount, Actionable type, IActionSource src) {
-        if (mountsInUse) {
-            return 0; // Prevent recursive use
+    @Override
+    public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (this.mountsInUse) {
+            return 0;
         }
 
-        var remaining = amount;
+        long remaining = amount;
 
-        mountsInUse = true;
+        this.mountsInUse = true;
         try {
-            for (var invList : this.priorityInventory.values()) {
-                secondPassInventories.clear();
-
-                // First give every inventory a chance to accept the item if it's preferential storage for the given
-                // stack
-                var ii = invList.iterator();
-                while (ii.hasNext() && remaining > 0) {
-                    var inv = ii.next();
-
-                    if (isQueuedForRemoval(inv)) {
-                        continue;
-                    }
-
-                    if (inv.isPreferredStorageFor(what, src)) {
-                        remaining -= inv.insert(what, remaining, type, src);
-                    } else {
-                        secondPassInventories.add(inv);
-                    }
-                }
-
-                // Then give every remaining inventory a chance
-                for (var inv : secondPassInventories) {
+            for (List<MEStorage> inventories : this.priorityInventory.values()) {
+                this.secondPassInventories.clear();
+                for (MEStorage inventory : inventories) {
                     if (remaining <= 0) {
                         break;
                     }
-
-                    if (isQueuedForRemoval(inv)) {
+                    if (isQueuedForRemoval(inventory)) {
                         continue;
                     }
+                    if (inventory.isPreferredStorageFor(what, source)) {
+                        remaining -= inventory.insert(what, remaining, mode, source);
+                    } else {
+                        this.secondPassInventories.add(inventory);
+                    }
+                }
 
-                    remaining -= inv.insert(what, remaining, type, src);
+                for (MEStorage inventory : this.secondPassInventories) {
+                    if (remaining <= 0) {
+                        break;
+                    }
+                    if (isQueuedForRemoval(inventory)) {
+                        continue;
+                    }
+                    remaining -= inventory.insert(what, remaining, mode, source);
                 }
             }
-
         } finally {
-            mountsInUse = false;
+            this.mountsInUse = false;
         }
 
-        flushQueuedOperations();
-
+        flushQueued();
         return amount - remaining;
     }
 
-    private void flushQueuedOperations() {
-        Preconditions.checkState(!this.mountsInUse);
-        var queuedOperations = this.queuedOperations;
-        if (queuedOperations != null) {
-            this.queuedOperations = null;
-            for (var op : queuedOperations) {
-                if (op instanceof MountOperation mountOp) {
-                    mount(mountOp.priority, mountOp.storage);
-                } else if (op instanceof UnmountOperation unmountOp) {
-                    unmount(unmountOp.storage);
-                } else {
-                    throw new IllegalStateException("Unknown operation: " + op);
+    @Override
+    public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (this.mountsInUse) {
+            return 0;
+        }
+
+        long extracted = 0;
+
+        this.mountsInUse = true;
+        try {
+            for (List<MEStorage> inventories : this.priorityInventory.values()) {
+                for (MEStorage inventory : inventories) {
+                    if (extracted >= amount) {
+                        break;
+                    }
+                    if (isQueuedForRemoval(inventory)) {
+                        continue;
+                    }
+                    extracted += inventory.extract(what, amount - extracted, mode, source);
                 }
+            }
+        } finally {
+            this.mountsInUse = false;
+        }
+
+        flushQueued();
+        return extracted;
+    }
+
+    @Override
+    public void getAvailableStacks(KeyCounter out) {
+        this.mountsInUse = true;
+        try {
+            for (List<MEStorage> inventories : this.priorityInventory.values()) {
+                for (MEStorage inventory : inventories) {
+                    inventory.getAvailableStacks(out);
+                }
+            }
+        } finally {
+            this.mountsInUse = false;
+            flushQueued();
+        }
+    }
+
+    @Override
+    public ITextComponent getDescription() {
+        return GuiText.MENetworkStorage.text();
+    }
+
+    private void flushQueued() {
+        Preconditions.checkState(!this.mountsInUse);
+        if (this.queuedOperations == null) {
+            return;
+        }
+
+        List<QueuedOperation> queued = this.queuedOperations;
+        this.queuedOperations = null;
+        for (QueuedOperation operation : queued) {
+            if (operation.mount()) {
+                mount(operation.priority(), operation.inventory());
+            } else {
+                unmount(operation.inventory());
             }
         }
     }
 
-    private boolean isQueuedForRemoval(MEStorage inv) {
-        if (queuedOperations != null) {
-            for (var queuedOperation : queuedOperations) {
-                if (queuedOperation instanceof UnmountOperation unmountOperation && unmountOperation.storage == inv) {
+    private boolean isQueuedForRemoval(MEStorage inventory) {
+        if (this.queuedOperations != null) {
+            for (QueuedOperation operation : this.queuedOperations) {
+                if (!operation.mount() && operation.inventory() == inventory) {
                     return true;
                 }
             }
@@ -170,65 +197,6 @@ public class NetworkStorage implements MEStorage {
         return false;
     }
 
-    public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (mountsInUse) {
-            return 0; // Prevent recursive use
-        }
-
-        var extracted = 0L;
-
-        mountsInUse = true;
-        try {
-            for (var invList : this.priorityInventory.descendingMap().values()) {
-                var ii = invList.iterator();
-                while (ii.hasNext() && extracted < amount) {
-                    var inv = ii.next();
-
-                    if (isQueuedForRemoval(inv)) {
-                        continue;
-                    }
-
-                    extracted += inv.extract(what, amount - extracted, mode, source);
-                }
-            }
-        } finally {
-            mountsInUse = false;
-        }
-
-        flushQueuedOperations();
-
-        return extracted;
-    }
-
-    @Override
-    public void getAvailableStacks(KeyCounter out) {
-        if (mountsInUse) {
-            return; // Prevent recursive use
-        }
-
-        mountsInUse = true;
-        try {
-            for (var i : this.priorityInventory.values()) {
-                for (var j : i) {
-                    j.getAvailableStacks(out);
-                }
-            }
-        } finally {
-            mountsInUse = false;
-        }
-    }
-
-    @Override
-    public Component getDescription() {
-        return GuiText.MENetworkStorage.text();
-    }
-
-    sealed interface QueuedOperation permits MountOperation, UnmountOperation {
-    }
-
-    private record MountOperation(int priority, MEStorage storage) implements QueuedOperation {
-    }
-
-    private record UnmountOperation(MEStorage storage) implements QueuedOperation {
+    private record QueuedOperation(boolean mount, int priority, MEStorage inventory) {
     }
 }

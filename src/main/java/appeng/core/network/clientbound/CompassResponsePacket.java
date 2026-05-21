@@ -1,41 +1,49 @@
-
 package appeng.core.network.clientbound;
+
+import appeng.core.network.ClientboundPacket;
+import appeng.hooks.CompassManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 
 import java.util.Optional;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.ChunkPos;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
+public class CompassResponsePacket extends ClientboundPacket {
+    private ChunkPos pos;
+    private Optional<BlockPos> closestMeteorite = Optional.empty();
 
-import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
-import appeng.hooks.CompassManager;
+    public CompassResponsePacket() {
+    }
 
-public record CompassResponsePacket(ChunkPos requestedPos,
-        Optional<BlockPos> closestMeteorite) implements ClientboundPacket {
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, CompassResponsePacket> STREAM_CODEC = StreamCodec
-            .composite(
-                    NeoForgeStreamCodecs.CHUNK_POS, CompassResponsePacket::requestedPos,
-                    ByteBufCodecs.optional(BlockPos.STREAM_CODEC), CompassResponsePacket::closestMeteorite,
-                    CompassResponsePacket::new);
-
-    public static final Type<CompassResponsePacket> TYPE = CustomAppEngPayload.createType("compass_response");
-
-    @Override
-    public Type<CompassResponsePacket> type() {
-        return TYPE;
+    public CompassResponsePacket(ChunkPos pos, Optional<BlockPos> closestMeteorite) {
+        this.pos = pos;
+        this.closestMeteorite = closestMeteorite;
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        CompassManager.INSTANCE.postResult(requestedPos, closestMeteorite.orElse(null));
+    protected void read(io.netty.buffer.ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.pos = new ChunkPos(packetBuffer.readInt(), packetBuffer.readInt());
+        this.closestMeteorite = packetBuffer.readBoolean() ? Optional.of(new BlockPos(packetBuffer.readInt(),
+            packetBuffer.readInt(), packetBuffer.readInt())) : Optional.empty();
+    }
+
+    @Override
+    protected void write(io.netty.buffer.ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeInt(this.pos.x);
+        packetBuffer.writeInt(this.pos.z);
+        packetBuffer.writeBoolean(this.closestMeteorite.isPresent());
+        this.closestMeteorite.ifPresent(blockPos -> {
+            packetBuffer.writeInt(blockPos.getX());
+            packetBuffer.writeInt(blockPos.getY());
+            packetBuffer.writeInt(blockPos.getZ());
+        });
+    }
+
+    @Override
+    public void handleClient(Minecraft minecraft) {
+        CompassManager.INSTANCE.postResult(this.pos, this.closestMeteorite.orElse(null));
     }
 }

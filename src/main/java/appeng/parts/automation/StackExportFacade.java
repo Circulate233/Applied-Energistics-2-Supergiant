@@ -1,15 +1,15 @@
 package appeng.parts.automation;
 
-import java.util.List;
-
 import appeng.api.behaviors.StackExportStrategy;
 import appeng.api.behaviors.StackTransferContext;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 
+import java.util.List;
+
 /**
  * Simply iterates over a list of {@link StackExportStrategy} and exposes them as a single strategy. First come, first
- * serve.
+ * served.
  */
 public class StackExportFacade implements StackExportStrategy {
     private final List<StackExportStrategy> strategies;

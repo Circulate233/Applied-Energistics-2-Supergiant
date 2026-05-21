@@ -18,21 +18,18 @@
 
 package appeng.me;
 
-import java.util.Objects;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridConnection;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.pathing.ChannelMode;
 import appeng.me.pathfinding.IPathItem;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import net.minecraft.util.EnumFacing;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Objects;
 
 public class GridConnection implements IGridConnection, IPathItem {
 
@@ -51,13 +48,95 @@ public class GridConnection implements IGridConnection, IPathItem {
      */
     private GridNode sideA;
     @Nullable
-    private Direction fromAtoB;
+    private EnumFacing fromAtoB;
     private GridNode sideB;
 
-    private GridConnection(GridNode aNode, GridNode bNode, @Nullable Direction fromAtoB) {
+    private GridConnection(GridNode aNode, GridNode bNode, @Nullable EnumFacing fromAtoB) {
         this.sideA = aNode;
         this.fromAtoB = fromAtoB;
         this.sideB = bNode;
+    }
+
+    /**
+     * @throws IllegalStateException If the nodes are already connected.
+     */
+    public static GridConnection create(IGridNode aNode, IGridNode bNode,
+                                        @Nullable EnumFacing fromAtoB) {
+        Objects.requireNonNull(aNode, "aNode");
+        Objects.requireNonNull(bNode, "bNode");
+        Preconditions.checkArgument(aNode != bNode, "Cannot connect node to itself");
+
+        var a = (GridNode) aNode;
+        var b = (GridNode) bNode;
+
+        if (a.hasConnection(b) || b.hasConnection(a)) {
+            throw new IllegalStateException(String.format(
+                "Connection between node [%s] and [%s] on [%s] already exists.", a, b, fromAtoB));
+        }
+
+        // Create the actual connection
+        var connection = new GridConnection(a, b, fromAtoB);
+
+        mergeGrids(a, b);
+
+        // a connection was destroyed RE-PATH!!
+        var p = connection.sideA.getInternalGrid().getPathingService();
+        p.repath();
+
+        connection.sideA.addConnection(connection);
+        connection.sideB.addConnection(connection);
+
+        return connection;
+    }
+
+    /**
+     * Merge the grids of two grid nodes based on both becoming connected. This method assumes that the new connection
+     * is NOT yet created, otherwise grid propagation will do more work than needed.
+     */
+    private static void mergeGrids(GridNode a, GridNode b) {
+        // Update both nodes with the new connection.
+        var gridA = a.getMyGrid();
+        var gridB = b.getMyGrid();
+        if (gridA == null && gridB == null) {
+            // Neither A nor B has a grid, create a new grid spanning both
+            assertNodeIsStandalone(a);
+            assertNodeIsStandalone(b);
+            var grid = Grid.create(a);
+            a.setGrid(grid);
+            b.setGrid(grid);
+        } else if (gridA == null) {
+            // Only node B has a grid, propagate it to A
+            assertNodeIsStandalone(a);
+            a.setGrid(gridB);
+        } else if (gridB == null) {
+            // Only node A has a grid, propagate it to B
+            assertNodeIsStandalone(b);
+            b.setGrid(gridA);
+        } else if (gridA != gridB) {
+            if (isGridABetterThanGridB(gridA, gridB)) {
+                // Both A and B have grids, but A's grid is "better" -> propagate it to B and all its connected nodes
+                var gp = new GridPropagator(a.getInternalGrid());
+                b.beginVisit(gp);
+            } else {
+                // Both A and B have grids, but B's grid is "better" -> propagate it to A and all its connected nodes
+                var gp = new GridPropagator(b.getInternalGrid());
+                a.beginVisit(gp);
+            }
+        }
+    }
+
+    private static boolean isGridABetterThanGridB(Grid gridA, Grid gridB) {
+        if (gridA.getPriority() != gridB.getPriority()) {
+            return gridA.getPriority() > gridB.getPriority();
+        }
+        return gridA.size() >= gridB.size();
+    }
+
+    private static void assertNodeIsStandalone(GridNode node) {
+        if (!node.hasNoConnections()) {
+            throw new IllegalStateException("Grid node " + node + " has no grid, but is connected: "
+                + node.getConnections());
+        }
     }
 
     @Override
@@ -73,7 +152,7 @@ public class GridConnection implements IGridConnection, IPathItem {
     }
 
     @Override
-    public Direction getDirection(IGridNode side) {
+    public EnumFacing getDirection(IGridNode side) {
         if (this.fromAtoB == null) {
             return null;
         }
@@ -193,87 +272,5 @@ public class GridConnection implements IGridConnection, IPathItem {
 
     void setVisitorIterationNumber(Object visitorIterationNumber) {
         this.visitorIterationNumber = visitorIterationNumber;
-    }
-
-    /**
-     * @throws IllegalStateException If the nodes are already connected.
-     */
-    public static GridConnection create(IGridNode aNode, IGridNode bNode,
-            @Nullable Direction fromAtoB) {
-        Objects.requireNonNull(aNode, "aNode");
-        Objects.requireNonNull(bNode, "bNode");
-        Preconditions.checkArgument(aNode != bNode, "Cannot connect node to itself");
-
-        var a = (GridNode) aNode;
-        var b = (GridNode) bNode;
-
-        if (a.hasConnection(b) || b.hasConnection(a)) {
-            throw new IllegalStateException("Connection between node [%s] and [%s] on [%s] already exists.".formatted(
-                    a, b, fromAtoB));
-        }
-
-        // Create the actual connection
-        var connection = new GridConnection(a, b, fromAtoB);
-
-        mergeGrids(a, b);
-
-        // a connection was destroyed RE-PATH!!
-        var p = connection.sideA.getInternalGrid().getPathingService();
-        p.repath();
-
-        connection.sideA.addConnection(connection);
-        connection.sideB.addConnection(connection);
-
-        return connection;
-    }
-
-    /**
-     * Merge the grids of two grid nodes based on both becoming connected. This method assumes that the new connection
-     * is NOT yet created, otherwise grid propagation will do more work than needed.
-     */
-    private static void mergeGrids(GridNode a, GridNode b) {
-        // Update both nodes with the new connection.
-        var gridA = a.getMyGrid();
-        var gridB = b.getMyGrid();
-        if (gridA == null && gridB == null) {
-            // Neither A nor B has a grid, create a new grid spanning both
-            assertNodeIsStandalone(a);
-            assertNodeIsStandalone(b);
-            var grid = Grid.create(a);
-            a.setGrid(grid);
-            b.setGrid(grid);
-        } else if (gridA == null) {
-            // Only node B has a grid, propagate it to A
-            assertNodeIsStandalone(a);
-            a.setGrid(gridB);
-        } else if (gridB == null) {
-            // Only node A has a grid, propagate it to B
-            assertNodeIsStandalone(b);
-            b.setGrid(gridA);
-        } else if (gridA != gridB) {
-            if (isGridABetterThanGridB(gridA, gridB)) {
-                // Both A and B have grids, but A's grid is "better" -> propagate it to B and all its connected nodes
-                var gp = new GridPropagator(a.getInternalGrid());
-                b.beginVisit(gp);
-            } else {
-                // Both A and B have grids, but B's grid is "better" -> propagate it to A and all its connected nodes
-                var gp = new GridPropagator(b.getInternalGrid());
-                a.beginVisit(gp);
-            }
-        }
-    }
-
-    private static boolean isGridABetterThanGridB(Grid gridA, Grid gridB) {
-        if (gridA.getPriority() != gridB.getPriority()) {
-            return gridA.getPriority() > gridB.getPriority();
-        }
-        return gridA.size() >= gridB.size();
-    }
-
-    private static void assertNodeIsStandalone(GridNode node) {
-        if (!node.hasNoConnections()) {
-            throw new IllegalStateException("Grid node " + node + " has no grid, but is connected: "
-                    + node.getConnections());
-        }
     }
 }

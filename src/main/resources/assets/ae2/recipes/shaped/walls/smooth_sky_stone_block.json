@@ -1,0 +1,16 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "item": "ae2:smooth_sky_stone_block"
+    }
+  },
+  "result": {
+    "item": "ae2:smooth_sky_stone_wall",
+    "count": 6
+  }
+}

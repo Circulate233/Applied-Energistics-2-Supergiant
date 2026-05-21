@@ -20,49 +20,24 @@ package appeng.client.gui.style;
 
 import appeng.client.Point;
 
-/**
- * Describes the appearance of terminal screens.
- */
 public class TerminalStyle {
 
-    /**
-     * The top of the terminal background right up to the first row of content.
-     */
     private Blitter header;
 
-    /**
-     * The area to draw for the first row in the terminal. Usually this includes the top of the scrollbar.
-     */
     private Blitter firstRow;
 
-    /**
-     * The area to repeat for every row in the terminal. Should be 16px for the item + 2px for the border in size.
-     */
     private Blitter row;
 
-    /**
-     * The area to draw for the last row in the terminal. Usually this includes the top of the scrollbar.
-     */
     private Blitter lastRow;
 
-    /**
-     * The area to draw at the bottom of the terminal (i.e. includes the player inventory)
-     */
     private Blitter bottom;
 
-    /**
-     * Currently only 9 is supported here.
-     */
     private int slotsPerRow;
 
     private boolean sortable = true;
 
     private boolean supportsAutoCrafting = false;
 
-    /**
-     * Should the terminal show item tooltips for the network inventory even if the player has an item in their hand?
-     * Useful for showing fluid tooltips when the player has a bucket in hand.
-     */
     private boolean showTooltipsWithItemInHand;
 
     public Blitter getHeader() {
@@ -122,7 +97,6 @@ public class TerminalStyle {
     }
 
     public int getScreenWidth() {
-        // Calculate a bounding box for the screen
         int screenWidth = header.getSrcWidth();
         screenWidth = Math.max(screenWidth, firstRow.getSrcWidth());
         screenWidth = Math.max(screenWidth, row.getSrcWidth());
@@ -135,9 +109,6 @@ public class TerminalStyle {
         return (availableHeight - header.getSrcHeight() - bottom.getSrcHeight()) / row.getSrcHeight();
     }
 
-    /**
-     * Gets the position of one of the network grid slots. The returned position is within the slots 1px border.
-     */
     public Point getSlotPos(int row, int col) {
         int x = 7 + col * 18;
 
@@ -147,13 +118,9 @@ public class TerminalStyle {
             y += (row - 1) * this.row.getSrcHeight();
         }
 
-        // +1 is the margin between the bounding box of the slot and the real minecraft slot. this is due to the border
         return new Point(x, y).move(1, 1);
     }
 
-    /**
-     * Calculates the height of the screen given a number of rows to display.
-     */
     public int getScreenHeight(int rows) {
         int result = header.getSrcHeight();
         result += firstRow.getSrcHeight();
@@ -197,3 +164,4 @@ public class TerminalStyle {
         }
     }
 }
+

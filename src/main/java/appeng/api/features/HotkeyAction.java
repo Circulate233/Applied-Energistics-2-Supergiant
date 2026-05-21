@@ -1,9 +1,8 @@
 package appeng.api.features;
 
-import net.minecraft.world.entity.player.Player;
-
 import appeng.core.network.serverbound.HotkeyPacket;
 import appeng.hotkeys.HotkeyActions;
+import net.minecraft.entity.player.EntityPlayerMP;
 
 /**
  * Hotkey actions are server-side actions, that are triggered by customizable hotkeys on the client.
@@ -11,12 +10,6 @@ import appeng.hotkeys.HotkeyActions;
  * Actions are transferred via {@link HotkeyPacket} to the server.
  */
 public interface HotkeyAction {
-
-    /**
-     * Handles the hotkey action on the server-side. Return true to indicate the action was triggered, false to allow
-     * other handlers for the hotkey to process the event.
-     */
-    boolean run(Player player);
 
     String WIRELESS_TERMINAL = "wireless_terminal";
     String PORTABLE_ITEM_CELL = "portable_item_cell";
@@ -32,4 +25,10 @@ public interface HotkeyAction {
     static void register(HotkeyAction hotkeyAction, String id) {
         HotkeyActions.register(hotkeyAction, id);
     }
+
+    /**
+     * Handles the hotkey action on the server-side. Return true to indicate the action was triggered, false to allow
+     * other handlers for the hotkey to process the event.
+     */
+    boolean run(EntityPlayerMP player);
 }

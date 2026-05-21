@@ -35,6 +35,7 @@ import appeng.me.service.StorageService;
 import appeng.me.service.TickManagerService;
 
 public final class InitGridServices {
+
     private InitGridServices() {
     }
 

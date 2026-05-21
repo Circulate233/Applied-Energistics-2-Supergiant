@@ -1,0 +1,35 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    [
+      {
+        "item": "ae2:monitor"
+      },
+      {
+        "item": "ae2:semi_dark_monitor"
+      },
+      {
+        "item": "ae2:dark_monitor"
+      }
+    ],
+    {
+      "type": "forge:ore_dict",
+      "ore": "chestWood"
+    },
+    [
+      {
+        "item": "ae2:certus_quartz_wrench"
+      },
+      {
+        "item": "ae2:nether_quartz_wrench"
+      }
+    ],
+    {
+      "item": "ae2:calculation_processor"
+    }
+  ],
+  "result": {
+    "item": "ae2:network_tool",
+    "count": 1
+  }
+}

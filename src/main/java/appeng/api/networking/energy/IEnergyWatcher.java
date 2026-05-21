@@ -25,18 +25,14 @@ package appeng.api.networking.energy;
 
 /**
  * DO NOT IMPLEMENT.
- *
  * Will be injected when adding an {@link IEnergyWatcherNode} to a grid.
  */
 public interface IEnergyWatcher {
     /**
      * Add a specific threshold to watch.
-     *
      * Supports multiple values, duplicate ones will not be added.
-     *
-     * @return true, if successfully added.
      */
-    boolean add(double amount);
+    void add(double amount);
 
     /**
      * Remove a specific threshold from the watcher.

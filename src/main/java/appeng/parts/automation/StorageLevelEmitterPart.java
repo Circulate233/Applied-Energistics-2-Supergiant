@@ -18,17 +18,6 @@
 
 package appeng.parts.automation;
 
-import java.util.List;
-import java.util.Set;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
@@ -43,94 +32,100 @@ import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.util.IConfigManagerBuilder;
+import appeng.container.GuiIds;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
+import appeng.core.gui.GuiOpener;
 import appeng.helpers.IConfigInvHost;
 import appeng.hooks.ticking.TickHandler;
 import appeng.items.parts.PartModels;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.StorageLevelEmitterMenu;
-import appeng.menu.locator.MenuLocators;
 import appeng.parts.PartModel;
 import appeng.util.ConfigInventory;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Set;
 
 /**
  * Abstract level emitter logic for storage-based level emitters (item and fluid).
  */
 public class StorageLevelEmitterPart extends AbstractLevelEmitterPart
-        implements IConfigInvHost, ICraftingProvider {
+    implements IConfigInvHost, ICraftingProvider {
     @PartModels
     public static final ResourceLocation MODEL_BASE_OFF = AppEng.makeId(
-            "part/level_emitter_base_off");
+        "part/level_emitter_base_off");
     @PartModels
     public static final ResourceLocation MODEL_BASE_ON = AppEng.makeId(
-            "part/level_emitter_base_on");
+        "part/level_emitter_base_on");
     @PartModels
     public static final ResourceLocation MODEL_STATUS_OFF = AppEng.makeId(
-            "part/level_emitter_status_off");
+        "part/level_emitter_status_off");
     @PartModels
     public static final ResourceLocation MODEL_STATUS_ON = AppEng.makeId(
-            "part/level_emitter_status_on");
+        "part/level_emitter_status_on");
     @PartModels
     public static final ResourceLocation MODEL_STATUS_HAS_CHANNEL = AppEng.makeId(
-            "part/level_emitter_status_has_channel");
+        "part/level_emitter_status_has_channel");
     public static final PartModel MODEL_OFF_OFF = new PartModel(MODEL_BASE_OFF, MODEL_STATUS_OFF);
     public static final PartModel MODEL_OFF_ON = new PartModel(MODEL_BASE_OFF, MODEL_STATUS_ON);
     public static final PartModel MODEL_OFF_HAS_CHANNEL = new PartModel(MODEL_BASE_OFF, MODEL_STATUS_HAS_CHANNEL);
     public static final PartModel MODEL_ON_OFF = new PartModel(MODEL_BASE_ON, MODEL_STATUS_OFF);
     public static final PartModel MODEL_ON_ON = new PartModel(MODEL_BASE_ON, MODEL_STATUS_ON);
     public static final PartModel MODEL_ON_HAS_CHANNEL = new PartModel(MODEL_BASE_ON, MODEL_STATUS_HAS_CHANNEL);
-
-    private final ConfigInventory config = ConfigInventory.configTypes(1).changeListener(this::configureWatchers)
-            .build();
     private IStackWatcher storageWatcher;
-    private IStackWatcher craftingWatcher;
+    private IStackWatcher craftingWatcher;    private final ConfigInventory config = ConfigInventory.configTypes(1).changeListener(this::configureWatchers)
+                                                          .build();
     private long lastUpdateTick = -1;
-
-    private final IStorageWatcherNode stackWatcherNode = new IStorageWatcherNode() {
-        @Override
-        public void updateWatcher(IStackWatcher newWatcher) {
-            storageWatcher = newWatcher;
-            configureWatchers();
-        }
-
-        @Override
-        public void onStackChange(AEKey what, long amount) {
-            if (what.equals(getConfiguredKey()) && !isUpgradedWith(AEItems.FUZZY_CARD)) {
-                lastReportedValue = amount;
-                updateState();
-            } else { // either fuzzy upgrade or null filter
-                // When using a fuzzy upgrade or no filter at all, the level emitter will actively scan the grid
-                // We need to ensure we only do this once per tick in case any stack has changed.
-                long currentTick = TickHandler.instance().getCurrentTick();
-                if (currentTick != lastUpdateTick) {
-                    lastUpdateTick = currentTick;
-                    updateReportingValue(getGridNode().getGrid());
-                }
-            }
-        }
-    };
-    private final ICraftingWatcherNode craftingWatcherNode = new ICraftingWatcherNode() {
-        @Override
-        public void updateWatcher(IStackWatcher newWatcher) {
-            craftingWatcher = newWatcher;
-            configureWatchers();
-        }
-
-        @Override
-        public void onRequestChange(AEKey what) {
-            updateState();
-        }
-
-        @Override
-        public void onCraftableChange(AEKey what) {
-        }
-    };
-
     public StorageLevelEmitterPart(IPartItem<?> partItem) {
         super(partItem);
 
+        // either fuzzy upgrade or null filter
+        // When using a fuzzy upgrade or no filter at all, the level emitter will actively scan the grid
+        // We need to ensure we only do this once per tick in case any stack has changed.
+        IStorageWatcherNode stackWatcherNode = new IStorageWatcherNode() {
+            @Override
+            public void updateWatcher(IStackWatcher newWatcher) {
+                storageWatcher = newWatcher;
+                configureWatchers();
+            }
+
+            @Override
+            public void onStackChange(AEKey what, long amount) {
+                if (what.equals(getConfiguredKey()) && !isUpgradedWith(AEItems.FUZZY_CARD)) {
+                    lastReportedValue = amount;
+                    updateState();
+                } else { // either fuzzy upgrade or null filter
+                    // When using a fuzzy upgrade or no filter at all, the level emitter will actively scan the grid
+                    // We need to ensure we only do this once per tick in case any stack has changed.
+                    long currentTick = TickHandler.instance().getCurrentTick();
+                    if (currentTick != lastUpdateTick) {
+                        lastUpdateTick = currentTick;
+                        updateReportingValue(getGridNode().getGrid());
+                    }
+                }
+            }
+        };
         getMainNode().addService(IStorageWatcherNode.class, stackWatcherNode);
+        ICraftingWatcherNode craftingWatcherNode = new ICraftingWatcherNode() {
+            @Override
+            public void updateWatcher(IStackWatcher newWatcher) {
+                craftingWatcher = newWatcher;
+                configureWatchers();
+            }
+
+            @Override
+            public void onRequestChange(AEKey what) {
+                updateState();
+            }
+
+            @Override
+            public void onCraftableChange(AEKey what) {
+            }
+        };
         getMainNode().addService(ICraftingWatcherNode.class, craftingWatcherNode);
         getMainNode().addService(ICraftingProvider.class, this);
     }
@@ -194,7 +189,7 @@ public class StorageLevelEmitterPart extends AbstractLevelEmitterPart
     @Override
     public Set<AEKey> getEmitableItems() {
         if (isUpgradedWith(AEItems.CRAFTING_CARD)
-                && getConfigManager().getSetting(Settings.CRAFT_VIA_REDSTONE) == YesNo.YES) {
+            && getConfigManager().getSetting(Settings.CRAFT_VIA_REDSTONE) == YesNo.YES) {
             if (getConfiguredKey() != null) {
                 return Set.of(getConfiguredKey());
             }
@@ -278,21 +273,21 @@ public class StorageLevelEmitterPart extends AbstractLevelEmitterPart
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.readFromNBT(data, registries);
-        config.readFromChildTag(data, "config", registries);
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
+        config.readFromChildTag(data, "config");
     }
 
     @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.writeToNBT(data, registries);
-        config.writeToChildTag(data, "config", registries);
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+        config.writeToChildTag(data, "config");
     }
 
     @Override
-    public boolean onUseWithoutItem(Player player, Vec3 pos) {
+    public boolean onUseWithoutItem(EntityPlayer player, Vec3d pos) {
         if (!isClientSide()) {
-            MenuOpener.open(StorageLevelEmitterMenu.TYPE, player, MenuLocators.forPart(this));
+            GuiOpener.openPartGui(player, GuiIds.GuiKey.STORAGE_LEVEL_EMITTER, this);
         }
         return true;
     }
@@ -311,4 +306,8 @@ public class StorageLevelEmitterPart extends AbstractLevelEmitterPart
             return this.isLevelEmitterOn() ? MODEL_ON_OFF : MODEL_OFF_OFF;
         }
     }
+
+
+
+
 }

@@ -18,37 +18,33 @@
 
 package appeng.util;
 
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.Map;
-import java.util.Set;
-
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-
 import appeng.api.config.Setting;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigManagerListener;
 import appeng.api.util.UnsupportedSettingException;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.nbt.NBTTagCompound;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.Map;
+import java.util.Set;
 
 public final class ConfigManager implements IConfigManager {
     private static final Logger LOG = LoggerFactory.getLogger(ConfigManager.class);
 
-    private final Map<Setting<?>, Enum<?>> settings = new IdentityHashMap<>();
+    private final Map<Setting<?>, Enum<?>> settings = new Reference2ObjectOpenHashMap<>();
     @Nullable
     private final IConfigManagerListener listener;
 
-    public ConfigManager(IConfigManagerListener listener) {
+    public ConfigManager(@Nullable IConfigManagerListener listener) {
         this.listener = listener;
     }
 
     public ConfigManager(Runnable changeListener) {
-        this.listener = (manager, setting) -> changeListener.run();
+        this.listener = (ignoredManager, ignoredSetting) -> changeListener.run();
     }
 
     @Override
@@ -63,11 +59,9 @@ public final class ConfigManager implements IConfigManager {
     @Override
     public <T extends Enum<T>> T getSetting(Setting<T> setting) {
         var oldValue = this.settings.get(setting);
-
         if (oldValue == null) {
             throw new UnsupportedSettingException("Setting " + setting.getName() + " is not supported.");
         }
-
         return setting.getEnumClass().cast(oldValue);
     }
 
@@ -82,40 +76,25 @@ public final class ConfigManager implements IConfigManager {
         }
     }
 
-    /**
-     * save all settings using config manager.
-     *
-     * @param tagCompound to be written to compound
-     * @param registries
-     */
     @Override
-    public void writeToNBT(CompoundTag tagCompound, HolderLookup.Provider registries) {
+    public void writeToNBT(NBTTagCompound destination) {
         for (var entry : this.settings.entrySet()) {
-            tagCompound.putString(entry.getKey().getName(), this.settings.get(entry.getKey()).toString());
+            destination.setString(entry.getKey().getName(), entry.getValue().name());
         }
     }
 
-    /**
-     * read all settings using config manager.
-     *
-     * @param tagCompound to be read from compound
-     * @param registries
-     */
     @Override
-    public boolean readFromNBT(CompoundTag tagCompound, HolderLookup.Provider registries) {
-        boolean anythingRead = false;
+    public void readFromNBT(NBTTagCompound src) {
         for (var setting : this.settings.keySet()) {
-            if (tagCompound.contains(setting.getName(), Tag.TAG_STRING)) {
-                String value = tagCompound.getString(setting.getName());
+            if (src.hasKey(setting.getName(), 8)) {
+                String value = src.getString(setting.getName());
                 try {
                     setting.setFromString(this, value);
-                    anythingRead = true;
                 } catch (IllegalArgumentException e) {
                     LOG.warn("Failed to load setting {} from value '{}': {}", setting, value, e.getMessage());
                 }
             }
         }
-        return anythingRead;
     }
 
     @Override
@@ -137,13 +116,10 @@ public final class ConfigManager implements IConfigManager {
 
     @Override
     public Map<String, String> exportSettings() {
-        Map<String, String> result = null;
+        Map<String, String> result = new Object2ObjectOpenHashMap<>();
         for (var entry : this.settings.entrySet()) {
-            if (result == null) {
-                result = new HashMap<>();
-            }
-            result.put(entry.getKey().getName(), this.settings.get(entry.getKey()).toString());
+            result.put(entry.getKey().getName(), entry.getValue().name());
         }
-        return result == null ? Map.of() : Map.copyOf(result);
+        return Map.copyOf(result);
     }
 }

@@ -1,47 +1,42 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.server.services.compass;
 
-import com.mojang.brigadier.context.CommandContext;
-
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.SectionPos;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.world.level.ChunkPos;
-
-import appeng.core.localization.PlayerMessages;
 import appeng.server.ISubCommand;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.entity.Entity;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
 
 public class TestCompassCommand implements ISubCommand {
     @Override
-    public void call(MinecraftServer srv, CommandContext<CommandSourceStack> ctx, CommandSourceStack sender) {
-        var level = sender.getLevel();
-        var chunkPos = new ChunkPos(BlockPos.containing(sender.getPosition()));
-        var compassRegion = CompassRegion.get(level, chunkPos);
+    public String getHelp(MinecraftServer srv) {
+        return "commands.ae2.compass";
+    }
 
-        for (var i = 0; i <= level.getSectionsCount(); i++) {
-            var hasSkyStone = compassRegion.hasCompassTarget(chunkPos.x, chunkPos.z, i);
-            var yMin = i * SectionPos.SECTION_SIZE;
-            var yMax = (i + 1) * SectionPos.SECTION_SIZE - 1;
-            var iFinal = i;
-            sender.sendSuccess(() -> PlayerMessages.CompassTestSection.text(yMin, yMax, iFinal, hasSkyStone), false);
+    @Override
+    public void call(MinecraftServer srv, String[] args, ICommandSender sender) {
+        World world = sender.getEntityWorld();
+        if (!(world instanceof WorldServer)) {
+            sender.sendMessage(new TextComponentString("This command requires a server world."));
+            return;
+        }
+
+        ChunkPos chunkPos = new ChunkPos(sender.getPosition());
+        Entity entity = sender.getCommandSenderEntity();
+        if (entity != null) {
+            chunkPos = new ChunkPos(entity.chunkCoordX, entity.chunkCoordZ);
+        }
+
+        CompassRegion compassRegion = CompassRegion.get((WorldServer) world, chunkPos);
+        int sections = world.getHeight() >> 4;
+        for (int i = 0; i < sections; i++) {
+            boolean hasSkyStone = compassRegion.hasCompassTarget(chunkPos.x, chunkPos.z, i);
+            int yMin = i << 4;
+            int yMax = yMin + 15;
+            sender.sendMessage(new TextComponentString("Section " + i + " [" + yMin + "-" + yMax + "]: "
+                + hasSkyStone));
         }
     }
 }

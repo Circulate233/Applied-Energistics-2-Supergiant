@@ -1,47 +1,34 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021 TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.server.subcommands;
-
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
-
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.server.MinecraftServer;
 
 import appeng.me.service.TickManagerService;
 import appeng.server.ISubCommand;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.text.TextComponentString;
 
 public class TickMonitoring implements ISubCommand {
-
     @Override
-    public void addArguments(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.argument("enable", BoolArgumentType.bool()).executes(ctx -> {
-            var enable = ctx.getArgument("enable", Boolean.class);
-            TickManagerService.MONITORING_ENABLED = enable;
-            return 1;
-        }));
+    public String getHelp(MinecraftServer srv) {
+        return "commands.ae2.tickmonitor";
     }
 
     @Override
-    public void call(MinecraftServer srv, CommandContext<CommandSourceStack> data,
-            CommandSourceStack sender) {
+    public void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException {
+        if (args.length != 2) {
+            throw new WrongUsageException("commands.ae2.tickmonitor");
+        }
+
+        if ("true".equalsIgnoreCase(args[1]) || "on".equalsIgnoreCase(args[1])) {
+            TickManagerService.MONITORING_ENABLED = true;
+        } else if ("false".equalsIgnoreCase(args[1]) || "off".equalsIgnoreCase(args[1])) {
+            TickManagerService.MONITORING_ENABLED = false;
+        } else {
+            throw new WrongUsageException("commands.ae2.tickmonitor");
+        }
+
+        sender.sendMessage(new TextComponentString("AE2 tick monitoring "
+            + (TickManagerService.MONITORING_ENABLED ? "enabled." : "disabled.")));
     }
 }

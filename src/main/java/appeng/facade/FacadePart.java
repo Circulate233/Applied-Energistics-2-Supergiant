@@ -18,132 +18,219 @@
 
 package appeng.facade;
 
-import java.util.Objects;
-
-import net.minecraft.Util;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.ids.AEComponents;
 import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPartCollisionHelper;
-import appeng.core.definitions.AEItems;
 import appeng.core.localization.PlayerMessages;
 import appeng.util.InteractionUtil;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.Objects;
 
 public class FacadePart implements IFacadePart {
 
-    private final Direction side;
-    private BlockState facade;
+    private final EnumFacing side;
+    private IBlockState facade;
 
-    public FacadePart(BlockState facade, Direction side) {
-        this.side = Objects.requireNonNull(side, "side");
-        this.facade = Objects.requireNonNull(facade, "facade");
+    public FacadePart(IBlockState facade, EnumFacing side) {
+        this.facade = facade;
+        this.side = side;
+    }
+
+    private static String getCyclePropertyName(ItemStack heldItem, String defaultValue) {
+        NBTTagCompound tag = heldItem.getTagCompound();
+        if (tag == null) {
+            return defaultValue;
+        }
+
+        NBTTagString value = AEComponents.FACADE_CYCLE_PROPERTY_COMPONENT.readFrom(tag);
+        return value != null ? value.getString() : defaultValue;
+    }
+
+    private static void setCyclePropertyName(ItemStack heldItem, String propertyName) {
+        NBTTagCompound tag = heldItem.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            heldItem.setTagCompound(tag);
+        }
+
+        AEComponents.FACADE_CYCLE_PROPERTY_COMPONENT.writeTo(tag, new NBTTagString(propertyName));
+    }
+
+    private static void clearCyclePropertyName(ItemStack heldItem) {
+        NBTTagCompound tag = heldItem.getTagCompound();
+        if (tag == null) {
+            return;
+        }
+
+        tag.removeTag(AEComponents.FACADE_CYCLE_PROPERTY_COMPONENT.name());
+        if (tag.getKeySet().isEmpty()) {
+            heldItem.setTagCompound(null);
+        }
+    }
+
+    private static @Nullable IProperty<?> getProperty(Collection<IProperty<?>> properties, String name) {
+        for (IProperty<?> property : properties) {
+            if (property.getName().equals(name)) {
+                return property;
+            }
+        }
+
+        return null;
+    }
+
+    private static IProperty<?> getNextProperty(Collection<IProperty<?>> properties, IProperty<?> currentProperty) {
+        boolean returnNext = false;
+        for (IProperty<?> property : properties) {
+            if (returnNext) {
+                return property;
+            }
+
+            if (property == currentProperty) {
+                returnNext = true;
+            }
+        }
+
+        return properties.iterator().next();
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static IBlockState cyclePropertyUnchecked(IBlockState blockState, IProperty<?> property) {
+        Comparable currentValue = blockState.getValue((IProperty) property);
+        Comparable nextValue = getNextValueRaw(property.getAllowedValues(), currentValue);
+        return blockState.withProperty((IProperty) property, nextValue);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static Comparable getNextValueRaw(Collection values, Comparable currentValue) {
+        boolean returnNext = false;
+        for (Object value : values) {
+            if (returnNext) {
+                return (Comparable) value;
+            }
+
+            if (Objects.equals(value, currentValue)) {
+                returnNext = true;
+            }
+        }
+
+        return (Comparable) values.iterator().next();
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Object getPropertyValue(IBlockState blockState, IProperty<?> property) {
+        return blockState.getValue((IProperty) property);
+    }
+
+    private static void message(EntityPlayer player, ITextComponent message) {
+        if (!player.world.isRemote) {
+            player.sendStatusMessage(message, true);
+        }
     }
 
     @Override
     public ItemStack getItemStack() {
-        return AEItems.FACADE.get().createFacadeForItemUnchecked(getTextureItem());
+        return appeng.core.definitions.AEItems.FACADE.get().createFacadeForItemUnchecked(getTextureItem());
     }
 
     @Override
     public void getBoxes(IPartCollisionHelper ch, boolean itemEntity) {
         if (itemEntity) {
-            // the box is 15.9 for annihilation planes to pick up collision events.
-            ch.addBox(0.0, 0.0, 15, 16.0, 16.0, 15.9);
+            ch.addBox(0.0, 0.0, 14.0, 16.0, 16.0, 15.9);
         } else {
-            // prevent weird snag behavior
-            ch.addBox(0.0, 0.0, 15, 16.0, 16.0, 16.0);
+            ch.addBox(0.0, 0.0, 14.0, 16.0, 16.0, 16.0);
         }
     }
 
     @Override
-    public Direction getSide() {
+    public EnumFacing getSide() {
         return this.side;
     }
 
     @Override
     public Item getItem() {
-        return facade.getBlock().asItem();
+        return Item.getItemFromBlock(this.facade.getBlock());
     }
 
     @Override
     public ItemStack getTextureItem() {
-        return new ItemStack(getItem());
+        Item item = getItem();
+        return item == Items.AIR ? ItemStack.EMPTY
+            : new ItemStack(item, 1, this.facade.getBlock().damageDropped(this.facade));
     }
 
     @Override
-    public BlockState getBlockState() {
-        return facade;
+    public IBlockState getBlockState() {
+        return this.facade;
     }
 
-    private void setBlockState(BlockState blockState) {
-        facade = blockState;
+    private void setBlockState(IBlockState blockState) {
+        this.facade = blockState;
     }
 
-    public boolean onUseItemOn(ItemStack heldItem, Player player, InteractionHand hand, Vec3 pos) {
-        if (!InteractionUtil.canWrenchRotate(heldItem))
+    @Override
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
+        if (!InteractionUtil.canWrenchRotate(heldItem)) {
             return false;
+        }
 
         return handleInteraction(player, true, heldItem);
     }
 
-    public boolean onClicked(Player player, Vec3 pos) {
-        ItemStack heldItem = player.getMainHandItem();
-        if (!InteractionUtil.canWrenchRotate(heldItem))
+    @Override
+    public boolean onClicked(EntityPlayer player, Vec3d pos) {
+        ItemStack heldItem = player.getHeldItemMainhand();
+        if (!InteractionUtil.canWrenchRotate(heldItem)) {
             return false;
+        }
 
         return handleInteraction(player, false, heldItem);
     }
 
-    private boolean handleInteraction(Player player, boolean shouldCycleState, ItemStack heldItem) {
-        var holder = getBlockState().getBlockHolder();
-        var statedefinition = holder.value().getStateDefinition();
-        var properties = statedefinition.getProperties();
+    private boolean handleInteraction(EntityPlayer player, boolean shouldCycleState, ItemStack heldItem) {
+        Collection<IProperty<?>> properties = getBlockState().getPropertyKeys();
         if (properties.isEmpty()) {
             return false;
         }
 
-        var firstProperty = properties.iterator().next();
-        var cyclePropertyName = heldItem.getOrDefault(AEComponents.FACADE_CYCLE_PROPERTY, firstProperty.getName());
-        var property = statedefinition.getProperty(cyclePropertyName);
+        IProperty<?> firstProperty = properties.iterator().next();
+        String cyclePropertyName = getCyclePropertyName(heldItem, firstProperty.getName());
+        IProperty<?> property = getProperty(properties, cyclePropertyName);
         if (property == null) {
-            // Fall back to the first property if the wrench was set to a property that does not exist on this facade
             property = firstProperty;
         }
 
         if (shouldCycleState) {
-            var newState = getBlockState().cycle(property);
+            IBlockState newState = cyclePropertyUnchecked(getBlockState(), property);
             setBlockState(newState);
 
-            // If we reached the default value of the property, we consider that wrapping and show
-            // a message indicating to the player that they can left-click to change which property is cycled
-            var defaultValue = getBlockState().getBlock().defaultBlockState().getValue(property);
-            if (Objects.equals(newState.getValue(property), defaultValue)) {
+            Object defaultValue = getPropertyValue(newState.getBlock().getDefaultState(), property);
+            if (Objects.equals(getPropertyValue(newState, property), defaultValue)) {
                 message(player, PlayerMessages.FacadePropertyWrapped.text(property.getName()));
             }
         } else {
-            property = Util.findNextInIterable(properties, property);
+            property = getNextProperty(properties, property);
             if (property == firstProperty) {
-                heldItem.remove(AEComponents.FACADE_CYCLE_PROPERTY);
+                clearCyclePropertyName(heldItem);
             } else {
-                heldItem.set(AEComponents.FACADE_CYCLE_PROPERTY, property.getName());
+                setCyclePropertyName(heldItem, property.getName());
             }
             message(player, PlayerMessages.FacadePropertySelected.text(property.getName()));
         }
-        return true;
-    }
 
-    private static void message(Player player, Component messageComponent) {
-        if (player instanceof ServerPlayer serverPlayer) {
-            serverPlayer.sendSystemMessage(messageComponent, true);
-        }
+        return true;
     }
 }

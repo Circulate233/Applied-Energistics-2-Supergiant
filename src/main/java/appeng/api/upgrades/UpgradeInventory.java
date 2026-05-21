@@ -18,21 +18,16 @@
 
 package appeng.api.upgrades;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ItemLike;
-
-import it.unimi.dsi.fastutil.objects.Reference2IntArrayMap;
-import it.unimi.dsi.fastutil.objects.Reference2IntMap;
-
 import appeng.api.inventories.InternalInventory;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
+import it.unimi.dsi.fastutil.objects.Reference2IntArrayMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import org.jetbrains.annotations.Nullable;
 
 abstract class UpgradeInventory extends AppEngInternalInventory implements InternalInventoryHost, IUpgradeInventory {
     private final Item item;
@@ -59,22 +54,22 @@ abstract class UpgradeInventory extends AppEngInternalInventory implements Inter
     }
 
     @Override
-    public int getMaxInstalled(ItemLike upgradeCard) {
+    public int getMaxInstalled(Item upgradeCard) {
         return Upgrades.getMaxInstallable(upgradeCard, item);
     }
 
     @Override
-    public ItemLike getUpgradableItem() {
+    public Item getUpgradableItem() {
         return item;
     }
 
     @Override
-    public int getInstalledUpgrades(ItemLike upgradeCard) {
+    public int getInstalledUpgrades(Item upgradeCard) {
         if (installed == null) {
             this.updateUpgradeInfo();
         }
 
-        return installed.getOrDefault(upgradeCard.asItem(), 0);
+        return installed.getOrDefault(upgradeCard, 0);
     }
 
     private void updateUpgradeInfo() {
@@ -89,8 +84,8 @@ abstract class UpgradeInventory extends AppEngInternalInventory implements Inter
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, String name, HolderLookup.Provider registries) {
-        super.readFromNBT(data, name, registries);
+    public void readFromNBT(NBTTagCompound data, String name) {
+        super.readFromNBT(data, name);
         this.updateUpgradeInfo();
     }
 
@@ -113,7 +108,7 @@ abstract class UpgradeInventory extends AppEngInternalInventory implements Inter
 
         @Override
         public boolean allowExtract(InternalInventory inv, int slot, int amount) {
-            return true;
+            return IAEItemFilter.super.allowExtract(inv, slot, amount);
         }
 
         @Override

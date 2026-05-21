@@ -18,9 +18,9 @@
 
 package appeng.integration.modules.theoneprobe;
 
-import java.util.function.Function;
-
 import mcjty.theoneprobe.api.ITheOneProbe;
+
+import java.util.function.Function;
 
 public class TheOneProbeModule implements Function<ITheOneProbe, Void> {
 
@@ -30,7 +30,6 @@ public class TheOneProbeModule implements Function<ITheOneProbe, Void> {
         var provider = new BlockEntityInfoProvider();
         input.registerProvider(provider);
         input.registerBlockDisplayOverride(provider);
-
         return null;
     }
 }

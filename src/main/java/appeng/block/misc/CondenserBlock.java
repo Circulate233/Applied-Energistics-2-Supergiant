@@ -15,39 +15,45 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.misc;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.misc.CondenserBlockEntity;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.CondenserMenu;
-import appeng.menu.locator.MenuLocators;
+import appeng.block.AEBaseTileBlock;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.tile.misc.TileCondenser;
 import appeng.util.InteractionUtil;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-public class CondenserBlock extends AEBaseEntityBlock<CondenserBlockEntity> {
+public class CondenserBlock extends AEBaseTileBlock<TileCondenser> {
 
     public CondenserBlock() {
-        super(metalProps());
+        super(Material.IRON);
+        setHardness(2.2F);
+        setResistance(11.0F);
+        setTileEntity(TileCondenser.class);
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (!level.isClientSide()) {
-            final CondenserBlockEntity tc = this.getBlockEntity(level, pos);
-            if (tc != null && !InteractionUtil.isInAlternateUseMode(player)) {
-                MenuOpener.open(CondenserMenu.TYPE, player, MenuLocators.forBlockEntity(tc));
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
+        }
+
+        if (!world.isRemote) {
+            TileCondenser tile = this.getTileEntity(world, pos);
+            if (tile != null && !InteractionUtil.isInAlternateUseMode(player)) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.CONDENSER, tile);
             }
         }
 
-        return InteractionResult.sidedSuccess(level.isClientSide());
+        return true;
     }
+
 }

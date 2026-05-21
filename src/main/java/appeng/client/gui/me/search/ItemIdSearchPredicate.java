@@ -1,11 +1,11 @@
 package appeng.client.gui.me.search;
 
+import appeng.api.stacks.AEKey;
+import appeng.container.me.common.GridInventoryEntry;
+
 import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Predicate;
-
-import appeng.api.stacks.AEKey;
-import appeng.menu.me.common.GridInventoryEntry;
 
 final class ItemIdSearchPredicate implements Predicate<GridInventoryEntry> {
     private final String term;
@@ -16,8 +16,9 @@ final class ItemIdSearchPredicate implements Predicate<GridInventoryEntry> {
 
     @Override
     public boolean test(GridInventoryEntry gridInventoryEntry) {
-        AEKey what = Objects.requireNonNull(gridInventoryEntry.getWhat());
+        AEKey what = Objects.requireNonNull(gridInventoryEntry.what());
         var id = what.getId().toString();
         return id.toLowerCase(Locale.ROOT).contains(term);
     }
 }
+

@@ -18,244 +18,144 @@
 
 package appeng.worldgen.meteorite;
 
-import java.util.Optional;
-
-import com.google.common.math.StatsAccumulator;
-import com.mojang.serialization.MapCodec;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.levelgen.Heightmap;
-import net.minecraft.world.level.levelgen.LegacyRandomSource;
-import net.minecraft.world.level.levelgen.WorldgenRandom;
-import net.minecraft.world.level.levelgen.structure.Structure;
-import net.minecraft.world.level.levelgen.structure.Structure.GenerationContext;
-import net.minecraft.world.level.levelgen.structure.Structure.GenerationStub;
-import net.minecraft.world.level.levelgen.structure.Structure.StructureSettings;
-import net.minecraft.world.level.levelgen.structure.StructureSet;
-import net.minecraft.world.level.levelgen.structure.StructureType;
-import net.minecraft.world.level.levelgen.structure.pieces.StructurePiecesBuilder;
-
-import appeng.core.AppEng;
-import appeng.datagen.providers.tags.ConventionTags;
+import appeng.core.AEConfig;
 import appeng.worldgen.meteorite.fallout.FalloutMode;
+import com.google.common.math.StatsAccumulator;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraft.world.biome.Biome;
+import net.minecraftforge.common.BiomeDictionary;
+import net.minecraftforge.common.BiomeDictionary.Type;
 
-public class MeteoriteStructure extends Structure {
+public class MeteoriteStructure {
 
-    public static final ResourceLocation ID = AppEng.makeId("meteorite");
-    public static final ResourceKey<StructureSet> STRUCTURE_SET_KEY = ResourceKey
-            .create(Registries.STRUCTURE_SET, ID);
-
-    public static final MapCodec<MeteoriteStructure> CODEC = simpleCodec(MeteoriteStructure::new);
-
-    public static final ResourceKey<Structure> KEY = ResourceKey
-            .create(Registries.STRUCTURE, ID);
-
-    public static final TagKey<Biome> BIOME_TAG_KEY = TagKey.create(Registries.BIOME,
-            AppEng.makeId("has_meteorites"));
-
-    public static StructureType<MeteoriteStructure> TYPE = () -> MeteoriteStructure.CODEC;
-
-    public MeteoriteStructure(StructureSettings settings) {
-        super(settings);
-    }
-
-    @Override
-    public StructureType<?> type() {
-        return TYPE;
-    }
-
-    @Override
-    public Optional<GenerationStub> findGenerationPoint(GenerationContext context) {
-        var worldgenRandom = new WorldgenRandom(new LegacyRandomSource(0L));
-        worldgenRandom.setLargeFeatureSeed(context.seed(), context.chunkPos().x, context.chunkPos().z);
-        if (!worldgenRandom.nextBoolean()) {
-            return Optional.empty();
+    public static boolean trySpawn(World world, int chunkX, int chunkZ, java.util.Random random,
+                                   MeteoritesWorldData worldData) {
+        if (!isDimensionAllowed(world)) {
+            return false;
         }
 
-        return onTopOfChunkCenter(context, Heightmap.Types.OCEAN_FLOOR_WG, (structurePiecesBuilder) -> {
-            generatePieces(structurePiecesBuilder, context);
-        });
+        if (!random.nextBoolean()) {
+            return false;
+        }
+
+        return forceSpawn(world, chunkX, chunkZ, random, worldData);
     }
 
-    private static void generatePieces(StructurePiecesBuilder piecesBuilder, GenerationContext context) {
-        var chunkPos = context.chunkPos();
-        var random = context.random();
-        var heightAccessor = context.heightAccessor();
-        var generator = context.chunkGenerator();
+    public static boolean forceSpawn(World world, int chunkX, int chunkZ, java.util.Random random,
+                                     MeteoritesWorldData worldData) {
+        if (!isDimensionAllowed(world)) {
+            return false;
+        }
 
-        final int centerX = chunkPos.getMinBlockX() + random.nextInt(16);
-        final int centerZ = chunkPos.getMinBlockZ() + random.nextInt(16);
-        final float meteoriteRadius = random.nextFloat() * 6.0f + 2;
-        final int yOffset = (int) Math.ceil(meteoriteRadius) + 1;
+        int centerX = (chunkX << 4) + random.nextInt(16);
+        int centerZ = (chunkZ << 4) + random.nextInt(16);
+        float radius = 2.0f + random.nextFloat() * 6.0f;
+        int yOffset = (int) Math.ceil(radius) + 1;
+        Biome spawnBiome = world.getBiome(new BlockPos(centerX, world.getSeaLevel(), centerZ));
+        int centerY = getMeteoriteCenterY(world, centerX, centerZ, radius, yOffset, spawnBiome);
 
-        var t2 = generator.getBiomeSource().getBiomesWithin(centerX, generator.getSeaLevel(), centerZ, 0,
-                context.randomState().sampler());
-        var spawnBiome = t2.stream().findFirst().orElseThrow();
+        BlockPos pos = new BlockPos(centerX, centerY, centerZ);
+        boolean craterLake = locateWaterAroundTheCrater(world, pos, radius);
+        CraterType craterType = determineCraterType(pos, spawnBiome, random);
+        boolean pureCrater = random.nextFloat() > 0.9f;
+        FalloutMode fallout = FalloutMode.fromBiome(spawnBiome);
 
-        final boolean isOcean = spawnBiome.is(ConventionTags.METEORITE_OCEAN);
-        final Heightmap.Types heightmapType = isOcean ? Heightmap.Types.OCEAN_FLOOR_WG
-                : Heightmap.Types.WORLD_SURFACE_WG;
+        PlacedMeteoriteSettings settings = new PlacedMeteoriteSettings(pos, radius, craterType, fallout, pureCrater,
+            craterLake);
+        worldData.addMeteorite(settings);
+        worldData.completeChunk(world, chunkX, chunkZ, createChunkRandom(world, chunkX, chunkZ));
+        return true;
+    }
 
-        // Accumulate stats about the surrounding heightmap
-        StatsAccumulator stats = new StatsAccumulator();
-        int scanRadius = (int) Math.max(1, meteoriteRadius * 2);
-        for (int x = -scanRadius; x <= scanRadius; x++) {
-            for (int z = -scanRadius; z <= scanRadius; z++) {
-                int h = generator.getBaseHeight(centerX + x, centerZ + z, heightmapType, heightAccessor,
-                        context.randomState());
-                stats.add(h);
+    private static java.util.Random createChunkRandom(World world, int chunkX, int chunkZ) {
+        long seed = world.getSeed() ^ ((long) chunkX * 341873128712L) ^ ((long) chunkZ * 132897987541L);
+        return new java.util.Random(seed);
+    }
+
+    public static boolean isDimensionAllowed(World world) {
+        int dim = world.provider.getDimension();
+        int[] whitelist = getMeteoriteDimensionWhitelist();
+        for (int allowed : whitelist) {
+            if (allowed == dim) {
+                return true;
             }
         }
-
-        int centerY = (int) stats.mean();
-        // Spawn it down a bit further with a high variance.
-        if (stats.populationVariance() > 5) {
-            centerY -= (stats.mean() - stats.min()) * .75;
-        }
-
-        // Offset caused by the meteorsize
-        centerY -= yOffset;
-
-        // If we seemingly don't have enough space to spawn (as can happen in flat chunks generators)
-        // we snugly generate it on bedrock.
-        centerY = Math.max(heightAccessor.getMinBuildHeight() + yOffset, centerY);
-
-        BlockPos actualPos = new BlockPos(centerX, centerY, centerZ);
-        boolean craterLake = locateWaterAroundTheCrater(actualPos, meteoriteRadius, context);
-        CraterType craterType = determineCraterType(actualPos, spawnBiome, random);
-        boolean pureCrater = random.nextFloat() > .9f;
-
-        var fallout = FalloutMode.fromBiome(spawnBiome);
-
-        piecesBuilder.addPiece(
-                new MeteoriteStructurePiece(actualPos, meteoriteRadius, craterType, fallout, pureCrater, craterLake));
+        return false;
     }
 
-    /**
-     * Scan for water about 1 block further than the crater radius 333 1174
-     *
-     * @return true, if it found a single block of water
-     */
-    private static boolean locateWaterAroundTheCrater(BlockPos pos, float radius, GenerationContext context) {
-        var generator = context.chunkGenerator();
-        var heightAccessor = context.heightAccessor();
-
-        final int seaLevel = generator.getSeaLevel();
-        final int maxY = seaLevel - 1;
-        BlockPos.MutableBlockPos blockPos = new BlockPos.MutableBlockPos();
-
-        blockPos.setY(maxY);
-        for (int i = pos.getX() - 32; i <= pos.getX() + 32; i++) {
-            blockPos.setX(i);
-
-            for (int k = pos.getZ() - 32; k <= pos.getZ() + 32; k++) {
-                blockPos.setZ(k);
-                final double dx = i - pos.getX();
-                final double dz = k - pos.getZ();
-                final double h = pos.getY() - radius + 1;
-
-                final double distanceFrom = dx * dx + dz * dz;
-
+    private static boolean locateWaterAroundTheCrater(World world, BlockPos pos, float radius) {
+        int seaLevel = world.getSeaLevel();
+        int maxY = seaLevel - 1;
+        for (int x = pos.getX() - 32; x <= pos.getX() + 32; x++) {
+            for (int z = pos.getZ() - 32; z <= pos.getZ() + 32; z++) {
+                double dx = x - pos.getX();
+                double dz = z - pos.getZ();
+                double h = pos.getY() - radius + 1;
+                double distanceFrom = dx * dx + dz * dz;
                 if (maxY > h + distanceFrom * 0.0175 && maxY < h + distanceFrom * 0.02) {
-                    int heigth = generator.getBaseHeight(blockPos.getX(), blockPos.getZ(), Heightmap.Types.OCEAN_FLOOR,
-                            heightAccessor, context.randomState());
-                    if (heigth < seaLevel) {
+                    int height = findOceanFloor(world, x, z);
+                    if (height < seaLevel) {
                         return true;
                     }
                 }
             }
         }
-
         return false;
     }
 
-    private static CraterType determineCraterType(BlockPos pos, Holder<Biome> biomeHolder, WorldgenRandom random) {
-        // The temperature thresholds below are taken from older Vanilla code
-        // (temperature categories)
-        var biome = biomeHolder.value();
-        final float temp = biome.getBaseTemperature();
-
-        // No craters in oceans
-        if (biomeHolder.is(ConventionTags.METEORITE_OCEAN)) {
+    private static CraterType determineCraterType(BlockPos pos, Biome biome, java.util.Random random) {
+        float temp = biome.getDefaultTemperature();
+        if (BiomeDictionary.hasType(biome, Type.OCEAN)) {
             return CraterType.NONE;
         }
 
-        // 50% chance for a special meteor
-        final boolean specialMeteor = random.nextFloat() > .5f;
-
-        // Just a normal one
+        boolean specialMeteor = random.nextFloat() > 0.5f;
         if (!specialMeteor) {
             return CraterType.NORMAL;
         }
 
-        boolean canSnow = biome.coldEnoughToSnow(pos);
-
-        // Warm biomes, higher chance for lava
-        if (temp >= 1) {
-
-            // 50% chance to actually spawn as lava
-            final boolean lava = random.nextFloat() > .5f;
-
-            if (!biome.hasPrecipitation()) {
+        boolean canSnow = biome.getEnableSnow();
+        if (temp >= 1.0f) {
+            boolean lava = random.nextFloat() > 0.5f;
+            if (!biome.canRain()) {
                 return lava ? CraterType.LAVA : CraterType.NORMAL;
             } else if (!canSnow) {
-                // 25% chance to convert a lava to obsidian
-                final boolean obsidian = random.nextFloat() > .75f;
-                final CraterType alternativObsidian = obsidian ? CraterType.OBSIDIAN : CraterType.LAVA;
-                return lava ? alternativObsidian : CraterType.NORMAL;
-            } else {
-                // Nothing for now.
+                boolean obsidian = random.nextFloat() > 0.75f;
+                CraterType alternativeObsidian = obsidian ? CraterType.OBSIDIAN : CraterType.LAVA;
+                return lava ? alternativeObsidian : CraterType.NORMAL;
             }
         }
 
-        // Temperate biomes. Water or maybe lava
-        if (temp < 1 && temp >= 0.2) {
-            // 75% chance to actually spawn with a crater lake
-            final boolean lake = random.nextFloat() > .25f;
-            // 20% to spawn with lava
-            final boolean lava = random.nextFloat() > .8f;
-
-            if (!biome.hasPrecipitation()) {
-                // No rainfall, water how?
+        if (temp < 1.0f && temp >= 0.2f) {
+            boolean lake = random.nextFloat() > 0.25f;
+            boolean lava = random.nextFloat() > 0.8f;
+            if (!biome.canRain()) {
                 return lava ? CraterType.LAVA : CraterType.NORMAL;
             } else if (!canSnow) {
-                // Rainfall, can also turn lava to obsidian
-                final boolean obsidian = random.nextFloat() > .75f;
-                final CraterType alternativObsidian = obsidian ? CraterType.OBSIDIAN : CraterType.LAVA;
-                final CraterType craterLake = lake ? CraterType.WATER : CraterType.NORMAL;
-                return lava ? alternativObsidian : craterLake;
+                boolean obsidian = random.nextFloat() > 0.75f;
+                CraterType alternativeObsidian = obsidian ? CraterType.OBSIDIAN : CraterType.LAVA;
+                CraterType craterLake = lake ? CraterType.WATER : CraterType.NORMAL;
+                return lava ? alternativeObsidian : craterLake;
             } else {
-                // No lava, but snow
-                final boolean snow = random.nextFloat() > .75f;
-                final CraterType water = lake ? CraterType.WATER : CraterType.NORMAL;
+                boolean snow = random.nextFloat() > 0.75f;
+                CraterType water = lake ? CraterType.WATER : CraterType.NORMAL;
                 return snow ? CraterType.SNOW : water;
             }
         }
 
-        // Cold biomes, Snow or Ice, maybe water and very rarely lava.
-        if (temp < 0.2) {
-            // 75% chance to actually spawn with a crater lake
-            final boolean lake = random.nextFloat() > .25f;
-            // 5% to spawn with lava
-            final boolean lava = random.nextFloat() > .95f;
-            // 75% chance to freeze
-            final boolean frozen = random.nextFloat() > .25f;
-
-            if (!biome.hasPrecipitation()) {
-                // No rainfall, water how?
+        if (temp < 0.2f) {
+            boolean lake = random.nextFloat() > 0.25f;
+            boolean lava = random.nextFloat() > 0.95f;
+            boolean frozen = random.nextFloat() > 0.25f;
+            if (!biome.canRain()) {
                 return lava ? CraterType.LAVA : CraterType.NORMAL;
             } else if (!canSnow) {
-                final CraterType frozenLake = frozen ? CraterType.ICE : CraterType.WATER;
-                final CraterType craterLake = lake ? frozenLake : CraterType.NORMAL;
+                CraterType frozenLake = frozen ? CraterType.ICE : CraterType.WATER;
+                CraterType craterLake = lake ? frozenLake : CraterType.NORMAL;
                 return lava ? CraterType.LAVA : craterLake;
             } else {
-                final CraterType snowCovered = lake ? CraterType.SNOW : CraterType.NORMAL;
+                CraterType snowCovered = lake ? CraterType.SNOW : CraterType.NORMAL;
                 return lava ? CraterType.LAVA : snowCovered;
             }
         }
@@ -263,4 +163,44 @@ public class MeteoriteStructure extends Structure {
         return CraterType.NORMAL;
     }
 
+    private static int getMeteoriteCenterY(World world, int centerX, int centerZ, float radius, int yOffset,
+                                           Biome spawnBiome) {
+        boolean ocean = BiomeDictionary.hasType(spawnBiome, Type.OCEAN);
+        StatsAccumulator stats = new StatsAccumulator();
+        int scanRadius = Math.max(1, (int) (radius * 2.0f));
+        for (int x = -scanRadius; x <= scanRadius; x++) {
+            for (int z = -scanRadius; z <= scanRadius; z++) {
+                int height = ocean ? findOceanFloor(world, centerX + x, centerZ + z)
+                    : findWorldSurface(world, centerX + x, centerZ + z);
+                stats.add(height);
+            }
+        }
+
+        int centerY = (int) stats.mean();
+        if (stats.populationVariance() > 5.0d) {
+            centerY -= (int) Math.round((stats.mean() - stats.min()) * 0.75d);
+        }
+
+        centerY -= yOffset;
+        return Math.max(yOffset, centerY);
+    }
+
+    private static int findWorldSurface(World world, int x, int z) {
+        return world.getTopSolidOrLiquidBlock(new BlockPos(x, 0, z)).getY();
+    }
+
+    private static int findOceanFloor(World world, int x, int z) {
+        BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos(x, world.getSeaLevel(), z);
+        while (mutablePos.getY() > 1) {
+            if (world.getBlockState(mutablePos).getMaterial().blocksMovement()) {
+                return mutablePos.getY();
+            }
+            mutablePos.setPos(mutablePos.getX(), mutablePos.getY() - 1, mutablePos.getZ());
+        }
+        return 1;
+    }
+
+    private static int[] getMeteoriteDimensionWhitelist() {
+        return AEConfig.instance().getMeteoriteDimensionWhitelist();
+    }
 }

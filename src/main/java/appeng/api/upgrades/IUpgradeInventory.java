@@ -23,11 +23,9 @@
 
 package appeng.api.upgrades;
 
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.ItemLike;
-
 import appeng.api.inventories.InternalInventory;
+import net.minecraft.item.Item;
+import net.minecraft.nbt.NBTTagCompound;
 
 /**
  * This specialized inventory can be used to insert and extract upgrade cards into AE2 machines. Only upgrades supported
@@ -37,32 +35,32 @@ public interface IUpgradeInventory extends InternalInventory {
     /**
      * Item representation of the upgradable object this inventory is managing upgrades for.
      */
-    ItemLike getUpgradableItem();
+    Item getUpgradableItem();
 
     /**
      * @return Checks if the given upgrade card is installed in this inventory.
      */
-    default boolean isInstalled(ItemLike upgradeCard) {
+    default boolean isInstalled(Item upgradeCard) {
         return getInstalledUpgrades(upgradeCard) > 0;
     }
 
     /**
      * determine how many of an upgrade are installed.
      */
-    int getInstalledUpgrades(ItemLike u);
+    int getInstalledUpgrades(Item u);
 
     /**
      * determine how many of an upgrade can be installed.
      */
-    int getMaxInstalled(ItemLike u);
+    int getMaxInstalled(Item u);
 
     /**
      * Reads the contents of this upgrade inventory from a subtag of the given compound tag.
      */
-    void readFromNBT(CompoundTag data, String subtag, HolderLookup.Provider registries);
+    void readFromNBT(NBTTagCompound data, String subtag);
 
     /**
      * Reads the contents of this upgrade inventory from a subtag of the given compound tag.
      */
-    void writeToNBT(CompoundTag data, String subtag, HolderLookup.Provider registries);
+    void writeToNBT(NBTTagCompound data, String subtag);
 }

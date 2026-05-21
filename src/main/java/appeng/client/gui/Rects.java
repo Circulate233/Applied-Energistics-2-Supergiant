@@ -18,8 +18,6 @@
 
 package appeng.client.gui;
 
-import net.minecraft.client.renderer.Rect2i;
-
 /**
  * Utility class for dealing with immutable {@link Rect2i}.
  */
@@ -32,18 +30,18 @@ public final class Rects {
 
     public static Rect2i expand(Rect2i rect, int amount) {
         return new Rect2i(
-                rect.getX() - amount,
-                rect.getY() - amount,
-                rect.getWidth() + 2 * amount,
-                rect.getHeight() + 2 * amount);
+            rect.x() - amount,
+            rect.y() - amount,
+            rect.width() + 2 * amount,
+            rect.height() + 2 * amount);
     }
 
     public static Rect2i move(Rect2i rect, int x, int y) {
         return new Rect2i(
-                rect.getX() + x,
-                rect.getY() + y,
-                rect.getWidth(),
-                rect.getHeight());
+            rect.x() + x,
+            rect.y() + y,
+            rect.width(),
+            rect.height());
     }
-
 }
+

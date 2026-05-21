@@ -23,54 +23,50 @@
 
 package appeng.api.movable;
 
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.entity.BlockEntityType;
-import net.minecraft.world.level.block.state.BlockState;
-
 /**
- * A strategy for moving block entities in and out of spatial storage.
+ * A strategy for moving tile entities in and out of spatial storage.
  */
 public interface IBlockEntityMoveStrategy {
 
     /**
-     * Tests if this strategy is capable of moving the given block entity type.
+     * Tests if this strategy is capable of moving the given tile entity type.
      */
-    boolean canHandle(BlockEntityType<?> type);
+    boolean canHandle(Class<? extends TileEntity> type);
 
     /**
-     * Called to begin moving a block entity.
+     * Called to begin moving a tile entity.
      *
-     * @param blockEntity The block entity to move.
-     * @param registries
-     * @return The saved representation of the block entity that can be used by this strategy to restore the block
-     *         entity at the target position. Return null to prevent the block entity from being moved.
+     * @param tileEntity The tile entity to move.
+     * @return The saved representation of the tile entity that can be used by this strategy to restore the tile
+     * entity at the target position. Return null to prevent the tile entity from being moved.
      */
     @Nullable
-    CompoundTag beginMove(BlockEntity blockEntity, HolderLookup.Provider registries);
+    NBTTagCompound beginMove(TileEntity tileEntity);
 
     /**
-     * Complete moving a block entity for which a move was initiated successfully with
-     * {@link #beginMove(BlockEntity, HolderLookup.Provider)}. The block entity has already been invalidated, and the
+     * Complete moving a tile entity for which a move was initiated successfully with
+     * {@link #beginMove(TileEntity)}. The tile entity has already been invalidated, and the
      * blocks have already been fully moved.
      * <p/>
-     * You are responsible for adding the new block entity to the target level, i.e. using
-     * {@link Level#setBlockEntity(BlockEntity)}.
+     * You are responsible for adding the new tile entity to the target level, i.e. using
+     * {@link World#setTileEntity(BlockPos, TileEntity)}.
      *
-     * @param entity      The block entity being moved, which has already been removed from the original chunk and
+     * @param entity      The tile entity being moved, which has already been removed from the original chunk and
      *                    should not be reused.
-     * @param state       The original block state of the block entity being moved.
-     * @param savedData   Data saved by this strategy in {@link #beginMove(BlockEntity, HolderLookup.Provider)}.
+     * @param state       The original block state of the tile entity being moved.
+     * @param savedData   Data saved by this strategy in {@link #beginMove(TileEntity)}.
      * @param newLevel    Level to moved to
      * @param newPosition Position to move to
      * @return True if moving succeeded. If false is returned, AE2 will attempt to recover the original entity.
      */
-    boolean completeMove(BlockEntity entity, BlockState state, CompoundTag savedData, Level newLevel,
-            BlockPos newPosition);
+    boolean completeMove(TileEntity entity, IBlockState state, NBTTagCompound savedData, World newLevel,
+                         BlockPos newPosition);
 
 }

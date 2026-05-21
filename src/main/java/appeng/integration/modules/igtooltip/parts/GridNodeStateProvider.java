@@ -1,16 +1,16 @@
 package appeng.integration.modules.igtooltip.parts;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.world.entity.player.Player;
-
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.api.parts.IPart;
 import appeng.integration.modules.igtooltip.GridNodeState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraftforge.common.util.Constants;
 
 /**
  * Provide info about the grid connection status of a part.
@@ -21,15 +21,15 @@ public final class GridNodeStateProvider implements BodyProvider<IPart>, ServerD
     @Override
     public void buildTooltip(IPart object, TooltipContext context, TooltipBuilder tooltip) {
         var serverData = context.serverData();
-        if (serverData.contains(TAG_STATE, Tag.TAG_BYTE)) {
+        if (serverData.hasKey(TAG_STATE, Constants.NBT.TAG_BYTE)) {
             var state = GridNodeState.values()[serverData.getByte(TAG_STATE)];
-            tooltip.addLine(state.textComponent().withStyle(ChatFormatting.GRAY));
+            tooltip.addLine(state.textComponent().setStyle(new Style().setColor(TextFormatting.GRAY)));
         }
     }
 
     @Override
-    public void provideServerData(Player player, IPart part, CompoundTag serverData) {
+    public void provideServerData(EntityPlayer player, IPart part, NBTTagCompound serverData) {
         var state = GridNodeState.fromNode(part.getGridNode());
-        serverData.putByte(TAG_STATE, (byte) state.ordinal());
+        serverData.setByte(TAG_STATE, (byte) state.ordinal());
     }
 }

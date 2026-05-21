@@ -1,0 +1,13 @@
+{
+  "type": "minecraft:smelting",
+  "ingredient": {
+    "type": "forge:ore_dict",
+    "ore": "dustCertusQuartz"
+  },
+  "result": {
+    "item": "ae2:silicon",
+    "count": 1
+  },
+  "experience": 0.35,
+  "cookingtime": 200
+}

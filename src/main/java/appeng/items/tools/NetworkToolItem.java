@@ -18,247 +18,239 @@
 
 package appeng.items.tools;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Optional;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.SlotAccess;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ClickAction;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.ItemContainerContents;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.BlockHitResult;
-
-import appeng.api.implementations.menuobjects.IMenuItem;
+import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.GridHelper;
+import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.parts.IPartHost;
-import appeng.api.stacks.AEItemKey;
-import appeng.api.stacks.GenericStack;
+import appeng.api.parts.SelectedPart;
+import appeng.api.storage.cells.IStackTooltipDataProvider;
 import appeng.api.upgrades.Upgrades;
 import appeng.api.util.DimensionalBlockPos;
 import appeng.api.util.INetworkToolAware;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.core.gui.locator.GuiHostLocators;
+import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.items.AEBaseItem;
-import appeng.items.contents.NetworkToolMenuHost;
+import appeng.items.contents.NetworkToolGuiHost;
 import appeng.items.storage.StorageCellTooltipComponent;
-import appeng.menu.MenuOpener;
-import appeng.menu.locator.ItemMenuHostLocator;
-import appeng.menu.locator.MenuLocators;
-import appeng.menu.me.networktool.NetworkStatusMenu;
-import appeng.menu.me.networktool.NetworkToolMenu;
 import appeng.util.Platform;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
 
-public class NetworkToolItem extends AEBaseItem implements IMenuItem {
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
-    public NetworkToolItem(Properties properties) {
-        super(properties);
-    }
+public class NetworkToolItem extends AEBaseItem implements IGuiItem, IStackTooltipDataProvider {
+    private static final String INVENTORY_TAG = "inv";
 
-    @Override
-    public NetworkToolMenuHost<?> getMenuHost(Player player, ItemMenuHostLocator locator,
-            @Nullable BlockHitResult hitResult) {
-        var level = player.level();
-        if (hitResult == null) {
-            return new NetworkToolMenuHost<>(this, player, locator, null);
-        }
-        var host = GridHelper.getNodeHost(level, hitResult.getBlockPos());
-        return new NetworkToolMenuHost<>(this, player, locator, host);
-    }
-
-    @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player p, InteractionHand hand) {
-        if (!level.isClientSide()) {
-            MenuOpener.open(NetworkToolMenu.TYPE, p, MenuLocators.forHand(p, hand));
-        }
-
-        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()),
-                p.getItemInHand(hand));
-    }
-
-    @Override
-    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        // Disassembly is handled by the generic wrench handler
-        if (context.isSecondaryUseActive()) {
-            return InteractionResult.PASS;
-        }
-
-        Level level = context.getLevel();
-
-        // Suppress the network tool's own behavior in case the block wants to allow normal operations to work
-        // (i.e. putting a network tool into a conversion or storage monitor).
-        var te = level.getBlockEntity(context.getClickedPos());
-        if (te instanceof IPartHost partHost) {
-            var part = partHost.selectPartWorld(context.getClickLocation());
-
-            if (part.part != null || part.facade != null) {
-                if (part.part instanceof INetworkToolAware toolAgent && !toolAgent.showNetworkInfo(context)) {
-                    return InteractionResult.PASS;
-                }
-            }
-        } else if (te instanceof INetworkToolAware toolAgent && !toolAgent.showNetworkInfo(context)) {
-            return InteractionResult.PASS;
-        }
-
-        if (!level.isClientSide()) {
-            if (!showNetworkToolGui(context)) {
-                return InteractionResult.FAIL;
-            }
-        }
-
-        return InteractionResult.sidedSuccess(level.isClientSide());
-    }
-
-    private boolean showNetworkToolGui(UseOnContext useContext) {
-        if (useContext.getPlayer() == null) {
-            return false;
-        }
-
-        BlockPos pos = useContext.getClickedPos();
-        Player p = useContext.getPlayer();
-        Level level = useContext.getLevel();
-        InteractionHand hand = useContext.getHand();
-
-        if (!Platform.hasPermissions(new DimensionalBlockPos(level, pos), p)) {
-            return false;
-        }
-
-        // The network tool has special behavior for machines hosting world-accessible nodes
-        var nodeHost = GridHelper.getNodeHost(level, pos);
-
-        if (nodeHost != null) {
-            MenuOpener.open(NetworkStatusMenu.NETWORK_TOOL_TYPE, p, MenuLocators.forItemUseContext(useContext));
-        } else {
-            MenuOpener.open(NetworkToolMenu.TYPE, p, MenuLocators.forHand(p, hand));
-        }
-
-        return true;
+    public NetworkToolItem() {
+        this.setMaxStackSize(1);
     }
 
     @Nullable
-    public static NetworkToolMenuHost findNetworkToolInv(Player player) {
-        var pi = player.getInventory();
-        for (int x = 0; x < pi.getContainerSize(); x++) {
-            var pii = pi.getItem(x);
-            if (!pii.isEmpty() && pii.getItem() instanceof NetworkToolItem networkToolItem) {
-                return networkToolItem.getMenuHost(pi.player, MenuLocators.forInventorySlot(x), null);
+    public static NetworkToolGuiHost<?> findNetworkToolInv(EntityPlayer player) {
+        InventoryPlayer inventory = player.inventory;
+        for (int slot = 0; slot < inventory.getSizeInventory(); slot++) {
+            ItemStack stack = inventory.getStackInSlot(slot);
+            if (!stack.isEmpty() && stack.getItem() instanceof NetworkToolItem networkToolItem) {
+                return networkToolItem.getGuiHost(player, GuiHostLocators.forInventorySlot(slot), null);
             }
         }
         return null;
     }
 
-    @Override
-    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
-        var toolHost = new NetworkToolMenuHost<>(this, null, MenuLocators.forStack(stack), null);
-
-        if (toolHost.getInventory().isEmpty()) {
-            return Optional.empty();
-        }
-
-        var upgradeCards = new LinkedHashMap<AEItemKey, Integer>();
-        for (var card : toolHost.getInventory()) {
-            upgradeCards.merge(AEItemKey.of(card), card.getCount(), Integer::sum);
-        }
-        var stacks = new ArrayList<GenericStack>(upgradeCards.size());
-        for (var entry : upgradeCards.entrySet()) {
-            stacks.add(new GenericStack(entry.getKey(), entry.getValue()));
-        }
-
-        // Sort ascending by amount
-        stacks.sort(Comparator.comparingLong(GenericStack::amount).reversed());
-
-        return Optional.of(new StorageCellTooltipComponent(List.of(), stacks, false, true));
-    }
-
-    /**
-     * Gets the internal inventory of the network tool. Changes to the inventory will be persisted to the stack.
-     */
     public static InternalInventory getInventory(ItemStack stack) {
-        var inv = new AppEngInternalInventory(new InternalInventoryHost() {
+        AppEngInternalInventory inventory = new AppEngInternalInventory(new InternalInventoryHost() {
             @Override
             public void saveChangedInventory(AppEngInternalInventory inv) {
-                stack.set(DataComponents.CONTAINER, inv.toItemContainerContents());
+                NBTTagCompound tag = stack.getTagCompound();
+                if (tag == null) {
+                    tag = new NBTTagCompound();
+                    stack.setTagCompound(tag);
+                }
+                inv.writeToNBT(tag, INVENTORY_TAG);
             }
 
             @Override
             public boolean isClientSide() {
-                return false; // We always want events anyway
+                return false;
             }
         }, 9);
-        inv.setEnableClientEvents(true); // Also write to NBT on the client to prevent desyncs
-        inv.setFilter(new NetworkToolInventoryFilter());
-        inv.fromItemContainerContents(stack.getOrDefault(DataComponents.CONTAINER, ItemContainerContents.EMPTY));
-        return inv;
+        inventory.setEnableClientEvents(true);
+        inventory.setFilter(new NetworkToolInventoryFilter());
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag != null) {
+            inventory.readFromNBT(tag, INVENTORY_TAG);
+        }
+        return inventory;
     }
 
-    private static class NetworkToolInventoryFilter implements IAEItemFilter {
-        @Override
-        public boolean allowExtract(InternalInventory inv, int slot, int amount) {
+    private static Object2IntLinkedOpenHashMap<net.minecraft.item.Item> getUpgradeCounts(ItemStack stack) {
+        var result = new Object2IntLinkedOpenHashMap<net.minecraft.item.Item>();
+        for (var upgrade : getInventory(stack)) {
+            if (!upgrade.isEmpty()) {
+                result.addTo(upgrade.getItem(), upgrade.getCount());
+            }
+        }
+        return result;
+    }
+
+    private static List<Map.Entry<net.minecraft.item.Item, Integer>> getSortedUpgradeEntries(ItemStack stack) {
+        var result = new ObjectArrayList<Map.Entry<net.minecraft.item.Item, Integer>>();
+        result.addAll(getUpgradeCounts(stack).object2IntEntrySet());
+        result.sort(Comparator.<Map.Entry<net.minecraft.item.Item, Integer>>comparingInt(Map.Entry::getValue)
+                              .reversed()
+                              .thenComparing(entry -> new ItemStack(entry.getKey()).getDisplayName()));
+        return result;
+    }
+
+    @Override
+    public NetworkToolGuiHost<?> getGuiHost(EntityPlayer player, ItemGuiHostLocator locator,
+                                            @Nullable RayTraceResult hitResult) {
+        if (hitResult == null || hitResult.getBlockPos() == null) {
+            return new NetworkToolGuiHost<>(this, player, locator, null);
+        }
+
+        IInWorldGridNodeHost host = GridHelper.getNodeHost(player.world, hitResult.getBlockPos());
+        return new NetworkToolGuiHost<>(this, player, locator, host);
+    }
+
+    @Override
+    public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
+        var held = player.getHeldItem(hand);
+        if (!world.isRemote) {
+            GuiOpener.openItemGui(player, GuiIds.GuiKey.NETWORK_TOOL, GuiHostLocators.forHand(player, hand));
+        }
+
+        return new ActionResult<>(EnumActionResult.SUCCESS, held);
+    }
+
+    @Override
+    public EnumActionResult onItemUseFirst(EntityPlayer player, World world, BlockPos pos, EnumFacing side, float hitX,
+                                           float hitY, float hitZ, EnumHand hand) {
+        if (player.isSneaking()) {
+            return EnumActionResult.PASS;
+        }
+
+        RayTraceResult hitResult = GuiHostLocators.createItemUseHitResult(pos, side, hitX, hitY, hitZ);
+        TileEntity tileEntity = world.getTileEntity(pos);
+
+        if (tileEntity instanceof IPartHost partHost) {
+            SelectedPart selectedPart = partHost.selectPartLocal(new Vec3d(hitX, hitY, hitZ));
+            if ((selectedPart.part != null || selectedPart.facade != null)
+                && selectedPart.part instanceof INetworkToolAware
+                && !((INetworkToolAware) selectedPart.part).showNetworkInfo(player, world, pos, hand,
+                player.getHeldItem(hand), hitResult)) {
+                return EnumActionResult.PASS;
+            }
+        } else if (tileEntity instanceof INetworkToolAware toolAgent) {
+            if (!toolAgent.showNetworkInfo(player, world, pos, hand, player.getHeldItem(hand), hitResult)) {
+                return EnumActionResult.PASS;
+            }
+        }
+
+        if (!world.isRemote && !showNetworkToolGui(player, world, pos, side, hitX, hitY, hitZ, hand)) {
+            return EnumActionResult.FAIL;
+        }
+
+        return EnumActionResult.SUCCESS;
+    }
+
+    private boolean showNetworkToolGui(EntityPlayer player, World world, BlockPos pos, EnumFacing side, float hitX,
+                                       float hitY, float hitZ, EnumHand hand) {
+        if (!Platform.hasPermissions(new DimensionalBlockPos(world, pos), player)) {
+            return false;
+        }
+
+        IInWorldGridNodeHost nodeHost = GridHelper.getNodeHost(world, pos);
+        if (nodeHost != null) {
+            return GuiOpener.openItemGui(player, GuiIds.GuiKey.NETWORK_STATUS,
+                GuiHostLocators.forItemUseContext(player, hand, pos, side, hitX, hitY, hitZ));
+        }
+
+        return GuiOpener.openItemGui(player, GuiIds.GuiKey.NETWORK_TOOL, GuiHostLocators.forHand(player, hand));
+    }
+
+    @Override
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+    }
+
+    @Override
+    public boolean onStackedOnOther(ItemStack toolStack, Slot slot, EntityPlayer player) {
+        if (!slot.canTakeStack(player)) {
+            return false;
+        }
+
+        var other = slot.getStack();
+        if (other.isEmpty()) {
             return true;
         }
 
+        insertIntoTool(toolStack, other, player);
+        return true;
+    }
+
+    @Override
+    public boolean onOtherStackedOnMe(ItemStack toolStack, ItemStack otherStack, Slot slot, EntityPlayer player) {
+        if (!slot.canTakeStack(player)) {
+            return false;
+        }
+
+        if (otherStack.isEmpty()) {
+            return false;
+        }
+
+        insertIntoTool(toolStack, otherStack, player);
+        return true;
+    }
+
+    private void insertIntoTool(ItemStack tool, ItemStack upgrade, EntityPlayer player) {
+        NetworkToolGuiHost<?> toolHost = new NetworkToolGuiHost<>(this, player, GuiHostLocators.forStack(tool), null);
+        int amount = upgrade.getCount();
+        ItemStack overflow = toolHost.getInventory().addItems(upgrade);
+        upgrade.shrink(amount - overflow.getCount());
+    }
+
+    @Override
+    public java.util.Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack stack) {
+        var upgrades = new ObjectArrayList<appeng.api.stacks.GenericStack>();
+        for (Map.Entry<net.minecraft.item.Item, Integer> entry : getSortedUpgradeEntries(stack)) {
+            upgrades.add(new appeng.api.stacks.GenericStack(appeng.api.stacks.AEItemKey.of(new ItemStack(entry.getKey())),
+                entry.getValue()));
+        }
+        return upgrades.isEmpty() ? java.util.Optional.empty()
+            : java.util.Optional.of(new StorageCellTooltipComponent(java.util.Collections.emptyList(), upgrades,
+            false, true));
+    }
+
+    private static class NetworkToolInventoryFilter implements IAEItemFilter {
         @Override
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
             return Upgrades.isUpgradeCardItem(stack.getItem());
         }
     }
-
-    /**
-     * Allows vacuuming up upgrade cards by right-clicking on them with the network tool in hand.
-     */
-    @Override
-    public boolean overrideStackedOnOther(ItemStack stack, Slot slot, ClickAction action, Player player) {
-        if (action != ClickAction.SECONDARY || !slot.allowModification(player)) {
-            return false;
-        }
-
-        var other = slot.getItem();
-        if (other.isEmpty()) {
-            return true;
-        }
-
-        insertIntoTool(stack, other, player);
-        return true;
-    }
-
-    /**
-     * Allows directly inserting upgrade cards into the network tool by right-clicking it with the item in hand.
-     */
-    @Override
-    public boolean overrideOtherStackedOnMe(ItemStack stack, ItemStack other, Slot slot, ClickAction action,
-            Player player, SlotAccess access) {
-        if (action != ClickAction.SECONDARY || !slot.allowModification(player)) {
-            return false;
-        }
-
-        if (other.isEmpty()) {
-            return false;
-        }
-
-        insertIntoTool(stack, other, player);
-        return true;
-    }
-
-    private void insertIntoTool(ItemStack tool, ItemStack upgrade, Player player) {
-        var toolHost = new NetworkToolMenuHost<>(this, player, MenuLocators.forStack(tool), null);
-        var amount = upgrade.getCount();
-        var overflow = toolHost.getInventory().addItems(upgrade);
-        upgrade.shrink(amount - overflow.getCount());
-    }
-
 }

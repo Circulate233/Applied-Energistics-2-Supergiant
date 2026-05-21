@@ -26,8 +26,7 @@ package appeng.api.integrations.igtooltip;
 import org.jetbrains.annotations.ApiStatus;
 
 /**
- * Implement this in your addon to register additional block entity tooltips using AE2's abstraction over
- * Jade/WTHIT/TOP.
+ * Implement this in your addon to register additional tile entity tooltips using AE2's in-game tooltip abstraction.
  * <p/>
  * AE2 uses the Java Service Loader mechanism to find your implementations.
  * <p/>
@@ -53,7 +52,7 @@ public interface TooltipProvider {
     }
 
     /**
-     * Allows an addon to register additional block entity base-classes that benefit from default AE2 tooltip providers.
+     * Allows an addon to register additional tile entity base classes that benefit from default AE2 tooltip providers.
      */
     default void registerBlockEntityBaseClasses(BaseClassRegistration registration) {
     }

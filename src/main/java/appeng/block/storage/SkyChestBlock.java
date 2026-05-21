@@ -15,83 +15,44 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.storage;
-
-import java.util.EnumMap;
-import java.util.Map;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.SimpleWaterloggedBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.storage.SkyChestBlockEntity;
-import appeng.core.definitions.AEBlockEntities;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.SkyChestMenu;
-import appeng.menu.locator.MenuLocators;
+import appeng.api.orientation.RelativeSide;
+import appeng.block.AEBaseTileBlock;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.helpers.ICustomCollision;
+import appeng.tile.storage.TileSkyChest;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumBlockRenderType;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-public class SkyChestBlock extends AEBaseEntityBlock<SkyChestBlockEntity> implements SimpleWaterloggedBlock {
+import java.util.Collections;
 
+@SuppressWarnings("deprecation")
+public class SkyChestBlock extends AEBaseTileBlock<TileSkyChest> implements ICustomCollision {
     private static final double AABB_OFFSET_BOTTOM = 0.00;
     private static final double AABB_OFFSET_SIDES = 0.06;
-    private static final double AABB_OFFSET_TOP = 0.0625;
-
-    // Precomputed bounding boxes of the chest, sorted into the map by the UP
-    // direction
-    private static final Map<Direction, VoxelShape> SHAPES = new EnumMap<>(Direction.class);
-
-    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
-
-    static {
-        for (Direction up : Direction.values()) {
-            AABB aabb = computeAABB(up);
-            SHAPES.put(up, Shapes.create(aabb));
-        }
-    }
-
-    public enum SkyChestType {
-        STONE, BLOCK
-    }
-
+    private static final double AABB_OFFSET_TOP = 0.125;
     public final SkyChestType type;
 
-    public SkyChestBlock(SkyChestType type, Properties props) {
-        super(props);
+    public SkyChestBlock(SkyChestType type) {
+        super(Material.ROCK);
         this.type = type;
-        registerDefaultState(defaultBlockState().setValue(WATERLOGGED, false));
-    }
-
-    @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(WATERLOGGED);
+        setOpaque();
+        setFullSize();
+        setHardness(50);
+        setResistance(150.0f);
+        setTileEntity(TileSkyChest.class);
     }
 
     @Override
@@ -99,90 +60,66 @@ public class SkyChestBlock extends AEBaseEntityBlock<SkyChestBlockEntity> implem
         return OrientationStrategies.horizontalFacing();
     }
 
-    @SuppressWarnings("deprecation")
     @Override
-    public RenderShape getRenderShape(BlockState state) {
-        return RenderShape.ENTITYBLOCK_ANIMATED;
+    public EnumBlockRenderType getRenderType(IBlockState state) {
+        return EnumBlockRenderType.ENTITYBLOCK_ANIMATED;
     }
 
     @Override
-    public boolean propagatesSkylightDown(BlockState state, BlockGetter reader, BlockPos pos) {
-        return true;
-    }
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
+        }
 
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof SkyChestBlockEntity be) {
-            if (!level.isClientSide()) {
-                MenuOpener.open(SkyChestMenu.TYPE, player, MenuLocators.forBlockEntity(be));
+        TileSkyChest tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            if (!world.isRemote) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.SKY_CHEST, tile);
             }
-            return InteractionResult.sidedSuccess(level.isClientSide());
+            return true;
         }
-
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        return false;
     }
 
     @Override
-    public void tick(BlockState state, ServerLevel level, BlockPos pos, RandomSource random) {
-        var chest = AEBlockEntities.SKY_CHEST.getBlockEntity(level, pos);
-        if (chest != null) {
-            chest.recheckOpen();
-        }
+    public Iterable<AxisAlignedBB> getSelectedBoundingBoxesFromPool(World world, BlockPos pos, Entity entity,
+                                                                    boolean hitFluids) {
+        return Collections.singletonList(computeAABB(world, pos));
     }
 
     @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        final SkyChestBlockEntity sk = this.getBlockEntity(level, pos);
-        Direction up = sk != null ? sk.getTop() : Direction.UP;
-        return SHAPES.get(up);
+    public void addCollidingBlockToList(World world, BlockPos pos, AxisAlignedBB bb, java.util.List<AxisAlignedBB> out,
+                                        Entity entity) {
+        out.add(computeAABB(world, pos));
     }
 
-    private static AABB computeAABB(Direction up) {
-        final double offsetX = up.getStepX() == 0 ? AABB_OFFSET_SIDES : 0.0;
-        final double offsetY = up.getStepY() == 0 ? AABB_OFFSET_SIDES : 0.0;
-        final double offsetZ = up.getStepZ() == 0 ? AABB_OFFSET_SIDES : 0.0;
+    private AxisAlignedBB computeAABB(World world, BlockPos pos) {
+        TileSkyChest chest = this.getTileEntity(world, pos);
+        EnumFacing up = chest != null ? chest.getOrientation().getSide(RelativeSide.TOP) : EnumFacing.UP;
 
-        // for x/z top and bottom is swapped
-        final double minX = Math.max(0.0,
-                offsetX + (up.getStepX() < 0 ? AABB_OFFSET_BOTTOM : up.getStepX() * AABB_OFFSET_TOP));
-        final double minY = Math.max(0.0,
-                offsetY + (up.getStepY() < 0 ? AABB_OFFSET_TOP : up.getStepY() * AABB_OFFSET_BOTTOM));
-        final double minZ = Math.max(0.0,
-                offsetZ + (up.getStepZ() < 0 ? AABB_OFFSET_BOTTOM : up.getStepZ() * AABB_OFFSET_TOP));
+        double offsetX = up.getXOffset() == 0 ? AABB_OFFSET_SIDES : 0.0;
+        double offsetY = up.getYOffset() == 0 ? AABB_OFFSET_SIDES : 0.0;
+        double offsetZ = up.getZOffset() == 0 ? AABB_OFFSET_SIDES : 0.0;
 
-        final double maxX = Math.min(1.0,
-                1.0 - offsetX - (up.getStepX() < 0 ? AABB_OFFSET_TOP : up.getStepX() * AABB_OFFSET_BOTTOM));
-        final double maxY = Math.min(1.0,
-                1.0 - offsetY - (up.getStepY() < 0 ? AABB_OFFSET_BOTTOM : up.getStepY() * AABB_OFFSET_TOP));
-        final double maxZ = Math.min(1.0,
-                1.0 - offsetZ - (up.getStepZ() < 0 ? AABB_OFFSET_TOP : up.getStepZ() * AABB_OFFSET_BOTTOM));
+        double minX = Math.max(0.0,
+            offsetX + (up.getXOffset() < 0 ? AABB_OFFSET_BOTTOM : up.getXOffset() * AABB_OFFSET_TOP));
+        double minY = Math.max(0.0,
+            offsetY + (up.getYOffset() < 0 ? AABB_OFFSET_TOP : up.getYOffset() * AABB_OFFSET_BOTTOM));
+        double minZ = Math.max(0.0,
+            offsetZ + (up.getZOffset() < 0 ? AABB_OFFSET_BOTTOM : up.getZOffset() * AABB_OFFSET_TOP));
 
-        return new AABB(minX, minY, minZ, maxX, maxY, maxZ);
+        double maxX = Math.min(1.0,
+            1.0 - offsetX - (up.getXOffset() < 0 ? AABB_OFFSET_TOP : up.getXOffset() * AABB_OFFSET_BOTTOM));
+        double maxY = Math.min(1.0,
+            1.0 - offsetY - (up.getYOffset() < 0 ? AABB_OFFSET_BOTTOM : up.getYOffset() * AABB_OFFSET_TOP));
+        double maxZ = Math.min(1.0,
+            1.0 - offsetZ - (up.getZOffset() < 0 ? AABB_OFFSET_TOP : up.getZOffset() * AABB_OFFSET_BOTTOM));
+
+        return new AxisAlignedBB(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
-    @Override
-    @Nullable
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        var fluidState = context.getLevel().getFluidState(context.getClickedPos());
-        return super.getStateForPlacement(context)
-                .setValue(WATERLOGGED, fluidState.getType() == Fluids.WATER);
-    }
-
-    @Override
-    public FluidState getFluidState(BlockState blockState) {
-        return blockState.getValue(WATERLOGGED).booleanValue()
-                ? Fluids.WATER.getSource(false)
-                : super.getFluidState(blockState);
-    }
-
-    @Override
-    public BlockState updateShape(BlockState blockState, Direction facing, BlockState facingState, LevelAccessor level,
-            BlockPos currentPos, BlockPos facingPos) {
-        if (blockState.getValue(WATERLOGGED)) {
-            level.scheduleTick(currentPos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
-        }
-
-        return super.updateShape(blockState, facing, facingState, level, currentPos, facingPos);
+    public enum SkyChestType {
+        STONE, BLOCK
     }
 }

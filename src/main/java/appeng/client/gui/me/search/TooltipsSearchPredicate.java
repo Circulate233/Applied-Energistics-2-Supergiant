@@ -1,79 +1,63 @@
 package appeng.client.gui.me.search;
 
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.function.Predicate;
-
-import net.minecraft.ChatFormatting;
-
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
+import appeng.container.me.common.GridInventoryEntry;
 import appeng.core.AEConfig;
-import appeng.menu.me.common.GridInventoryEntry;
 import appeng.util.Platform;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextFormatting;
+
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
+import java.util.function.Predicate;
 
 final class TooltipsSearchPredicate implements Predicate<GridInventoryEntry> {
     private final String tooltip;
     private final Map<AEKey, String> tooltipCache;
 
     public TooltipsSearchPredicate(String tooltip, Map<AEKey, String> tooltipCache) {
-        this.tooltip = normalize(tooltip.toLowerCase());
+        this.tooltip = normalize(tooltip);
         this.tooltipCache = tooltipCache;
+    }
+
+    private static String normalize(String input) {
+        return input.toLowerCase(Locale.ROOT).replace(" ", "");
     }
 
     @Override
     public boolean test(GridInventoryEntry gridInventoryEntry) {
-        AEKey entryInfo = Objects.requireNonNull(gridInventoryEntry.getWhat());
-        var tooltipText = getTooltipText(entryInfo);
+        AEKey entryInfo = Objects.requireNonNull(gridInventoryEntry.what());
+        String tooltipText = getTooltipText(entryInfo);
 
         return tooltipText.contains(tooltip);
     }
 
-    /**
-     * Gets the concatenated text of a keys tooltip for search purposes.
-     */
     private String getTooltipText(AEKey what) {
         return tooltipCache.computeIfAbsent(what, key -> {
-            var lines = AEKeyRendering.getTooltip(key);
+            List<ITextComponent> lines = AEKeyRendering.getTooltip(key);
+            StringBuilder tooltipText = new StringBuilder();
 
-            var tooltipText = new StringBuilder();
             for (int i = 0; i < lines.size(); i++) {
-                var line = lines.get(i);
+                ITextComponent line = lines.get(i);
+                String text = TextFormatting.getTextWithoutFormattingCodes(line.getFormattedText());
 
-                // Process last line and skip mod name if our heuristic detects it
                 if (i > 0 && i >= lines.size() - 1 && !AEConfig.instance().isSearchModNameInTooltips()) {
-                    var text = line.getString();
-                    boolean hadFormatting = false;
-                    if (text.indexOf(ChatFormatting.PREFIX_CODE) != -1) {
-                        text = ChatFormatting.stripFormatting(text);
-                        hadFormatting = true;
-                    } else {
-                        hadFormatting = !line.getStyle().isEmpty();
+                    String modName = Platform.getModName(key.getModId());
+                    if (Objects.equals(text, modName) || Objects.equals(text, key.getModId())) {
+                        continue;
                     }
-
-                    if (!hadFormatting || !Objects.equals(text, Platform.getModName(what.getModId()))) {
-                        tooltipText.append('\n').append(text);
-                    }
-                } else {
-                    if (i > 0) {
-                        tooltipText.append('\n');
-                    }
-                    line.visit(text -> {
-                        if (text.indexOf(ChatFormatting.PREFIX_CODE) != -1) {
-                            text = ChatFormatting.stripFormatting(text);
-                        }
-                        tooltipText.append(text);
-                        return Optional.empty();
-                    });
                 }
+
+                if (!tooltipText.isEmpty()) {
+                    tooltipText.append('\n');
+                }
+                tooltipText.append(text);
             }
 
             return normalize(tooltipText.toString());
         });
-    }
-
-    private static String normalize(String input) {
-        return input.toLowerCase().replace(" ", "");
     }
 }

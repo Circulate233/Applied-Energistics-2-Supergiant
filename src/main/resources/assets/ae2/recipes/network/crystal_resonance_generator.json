@@ -1,0 +1,29 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "cfc",
+    "cqc",
+    "iii"
+  ],
+  "key": {
+    "c": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "f": {
+      "item": "ae2:fluix_block"
+    },
+    "i": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "q": {
+      "item": "ae2:charged_certus_quartz_crystal"
+    }
+  },
+  "result": {
+    "item": "ae2:crystal_resonance_generator",
+    "count": 1
+  }
+}
+

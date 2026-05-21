@@ -5,8 +5,7 @@
     "sides": "ae2:part/p2p_tunnel_sides",
     "particle": "ae2:part/p2p_tunnel_back",
     "back": "ae2:part/p2p_tunnel_back",
-    "back2": "ae2:part/p2p_tunnel_back2",
-    "type": "_type_"
+    "back2": "ae2:part/p2p_tunnel_back2"
   },
   "elements": [
     {

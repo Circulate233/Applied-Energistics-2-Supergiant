@@ -18,15 +18,14 @@
 
 package appeng.crafting;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
-
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.CraftingSimulationState;
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
 /**
  * A crafting tree process is what represents a pattern in the crafting process. It has a parent node (its output), and
@@ -34,11 +33,11 @@ import appeng.crafting.inv.CraftingSimulationState;
  */
 public class CraftingTreeProcess {
 
-    private final CraftingTreeNode parent;
     final IPatternDetails details;
+    private final CraftingTreeNode parent;
     private final CraftingCalculation job;
     // Use linked hashmap to ensure deterministic ordering of subcrafts
-    private final Map<CraftingTreeNode, Long> nodes = new LinkedHashMap<>();
+    private final Object2LongLinkedOpenHashMap<CraftingTreeNode> nodes = new Object2LongLinkedOpenHashMap<>();
     boolean possible = true;
     private boolean containerItems;
     /**
@@ -48,8 +47,8 @@ public class CraftingTreeProcess {
     private boolean limitQty;
 
     public CraftingTreeProcess(ICraftingService cc, CraftingCalculation job,
-            IPatternDetails details,
-            CraftingTreeNode craftingTreeNode) {
+                               IPatternDetails details,
+                               CraftingTreeNode craftingTreeNode) {
         this.parent = craftingTreeNode;
         this.details = details;
         this.job = job;
@@ -59,9 +58,9 @@ public class CraftingTreeProcess {
         final IPatternDetails.IInput[] inputs = this.details.getInputs();
         for (int x = 0; x < inputs.length; ++x) {
             var input = inputs[x];
-            var firstInput = input.getPossibleInputs()[0];
+            var firstInput = input.possibleInputs()[0];
             this.nodes.put(new CraftingTreeNode(cc, job, firstInput.what(), firstInput.amount(), this, x),
-                    input.getMultiplier());
+                input.getMultiplier());
         }
     }
 
@@ -79,7 +78,7 @@ public class CraftingTreeProcess {
     private void updateLimitQty() {
         // TODO: consider checking substitute inputs as well?
         for (IPatternDetails.IInput input : details.getInputs()) {
-            var primaryInput = input.getPossibleInputs()[0];
+            var primaryInput = input.possibleInputs()[0];
             boolean isAnInput = false;
 
             for (var output : details.getOutputs()) {
@@ -104,14 +103,14 @@ public class CraftingTreeProcess {
     }
 
     void request(CraftingSimulationState inv, long times)
-            throws CraftBranchFailure, InterruptedException {
+        throws CraftBranchFailure, InterruptedException {
         this.job.handlePausing();
 
         var containerItems = this.containerItems ? new KeyCounter() : null;
 
         // request and remove inputs...
-        for (var entry : this.nodes.entrySet()) {
-            entry.getKey().request(inv, entry.getValue() * times, containerItems);
+        for (Object2LongMap.Entry<CraftingTreeNode> entry : this.nodes.object2LongEntrySet()) {
+            entry.getKey().request(inv, entry.getLongValue() * times, containerItems);
         }
 
         // by now we must have succeeded, otherwise an exception would have been thrown by request() above
@@ -124,7 +123,7 @@ public class CraftingTreeProcess {
             }
         }
 
-        // add crafting results..
+        // add crafting results.
         for (var out : this.details.getOutputs()) {
             inv.insert(out.what(), out.amount() * times, Actionable.MODULATE);
         }
@@ -156,7 +155,7 @@ public class CraftingTreeProcess {
     }
 
     boolean hasMultiplePaths() {
-        for (var entry : nodes.entrySet()) {
+        for (Object2LongMap.Entry<CraftingTreeNode> entry : nodes.object2LongEntrySet()) {
             if (entry.getKey().hasMultiplePaths()) {
                 return true;
             }

@@ -17,20 +17,6 @@
  */
 package appeng.crafting.execution;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
-import java.util.function.Consumer;
-
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
-
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.features.IPlayerRegistry;
@@ -45,13 +31,24 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.core.AELog;
-import appeng.core.network.ClientboundPacket;
+import appeng.core.network.InitNetwork;
 import appeng.core.network.clientbound.CraftingJobStatusPacket;
 import appeng.crafting.CraftingLink;
 import appeng.crafting.inv.ListCraftingInventory;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.me.service.CraftingService;
+import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.Constants;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * Stores the crafting logic of a crafting CPU.
@@ -59,31 +56,30 @@ import appeng.me.service.CraftingService;
 public class CraftingCpuLogic {
     final CraftingCPUCluster cluster;
     /**
+     * Used crafting operations over the last 3 ticks.
+     */
+    private final int[] usedOps = new int[3];
+    private final Set<Consumer<AEKey>> listeners = new ReferenceOpenHashSet<>();
+    /**
      * Current job.
      */
     private ExecutingCraftingJob job = null;
     /**
-     * Inventory.
-     */
-    private final ListCraftingInventory inventory = new ListCraftingInventory(CraftingCpuLogic.this::postChange);
-    /**
-     * Used crafting operations over the last 3 ticks.
-     */
-    private final int[] usedOps = new int[3];
-    private final Set<Consumer<AEKey>> listeners = new HashSet<>();
-    /**
      * True if the CPU is currently trying to clear its inventory but is not able to.
      */
     private boolean cantStoreItems = false;
-
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+    /**
+     * Inventory.
+     */
+    private final ListCraftingInventory inventory = new ListCraftingInventory(CraftingCpuLogic.this::postChange);
 
     public CraftingCpuLogic(CraftingCPUCluster cluster) {
         this.cluster = cluster;
     }
 
     public ICraftingSubmitResult trySubmitJob(IGrid grid, ICraftingPlan plan, IActionSource src,
-            @Nullable ICraftingRequester requester) {
+                                              @Nullable ICraftingRequester requester) {
         // Already have a job.
         if (this.job != null)
             return CraftingSubmitResult.CPU_BUSY;
@@ -104,8 +100,8 @@ public class CraftingCpuLogic {
 
         // Set CPU link and job.
         var playerId = src.player()
-                .map(p -> p instanceof ServerPlayer serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
-                .orElse(null);
+                          .map(p -> p instanceof EntityPlayerMP serverPlayer ? IPlayerRegistry.getPlayerId(serverPlayer) : null)
+                          .orElse(null);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cluster);
         this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId);
@@ -179,7 +175,7 @@ public class CraftingCpuLogic {
      * @return How many patterns were successfully pushed.
      */
     public int executeCrafting(int maxPatterns, CraftingService craftingService, IEnergyService energyService,
-            Level level) {
+                               World level) {
         var job = this.job;
         if (job == null)
             return 0;
@@ -187,7 +183,8 @@ public class CraftingCpuLogic {
         var pushedPatterns = 0;
 
         var it = job.tasks.entrySet().iterator();
-        taskLoop: while (it.hasNext()) {
+        taskLoop:
+        while (it.hasNext()) {
             var task = it.next();
             if (task.getValue().value <= 0) {
                 it.remove();
@@ -200,7 +197,7 @@ public class CraftingCpuLogic {
             // Contains the inputs for the pattern.
             @Nullable
             var craftingContainer = CraftingCpuHelper.extractPatternInputs(
-                    details, inventory, level, expectedOutputs, expectedContainerItems);
+                details, inventory, level, expectedOutputs, expectedContainerItems);
 
             // Try to push to each provider.
             for (var provider : craftingService.getProviders(details)) {
@@ -212,7 +209,7 @@ public class CraftingCpuLogic {
                 var patternPower = CraftingCpuHelper.calculatePatternPower(craftingContainer);
 
                 if (energyService.extractAEPower(patternPower, Actionable.SIMULATE,
-                        PowerMultiplier.CONFIG) < patternPower - 0.01)
+                    PowerMultiplier.CONFIG) < patternPower - 0.01)
                     break;
 
                 if (provider.pushPattern(details, craftingContainer)) {
@@ -221,13 +218,13 @@ public class CraftingCpuLogic {
 
                     for (var expectedOutput : expectedOutputs) {
                         job.waitingFor.insert(expectedOutput.getKey(), expectedOutput.getLongValue(),
-                                Actionable.MODULATE);
+                            Actionable.MODULATE);
                     }
                     for (var expectedContainerItem : expectedContainerItems) {
                         job.waitingFor.insert(expectedContainerItem.getKey(), expectedContainerItem.getLongValue(),
-                                Actionable.MODULATE);
+                            Actionable.MODULATE);
                         job.timeTracker.addMaxItems(expectedContainerItem.getLongValue(),
-                                expectedContainerItem.getKey().getType());
+                            expectedContainerItem.getKey().getType());
                     }
 
                     cluster.markDirty();
@@ -246,7 +243,7 @@ public class CraftingCpuLogic {
                     expectedOutputs.reset();
                     expectedContainerItems.reset();
                     craftingContainer = CraftingCpuHelper.extractPatternInputs(details, inventory,
-                            level, expectedOutputs, expectedContainerItems);
+                        level, expectedOutputs, expectedContainerItems);
                 }
             }
 
@@ -347,7 +344,7 @@ public class CraftingCpuLogic {
         }
 
         notifyJobOwner(job,
-                success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
+            success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
 
         // Finish job.
         this.job = null;
@@ -388,7 +385,7 @@ public class CraftingCpuLogic {
         for (var entry : this.inventory.list) {
             this.postChange(entry.getKey());
             var inserted = storage.insert(entry.getKey(), entry.getLongValue(),
-                    Actionable.MODULATE, cluster.getSrc());
+                Actionable.MODULATE, cluster.getSrc());
 
             // The network was unable to receive all of the items, i.e. no or not enough storage space left
             entry.setValue(entry.getLongValue() - inserted);
@@ -426,10 +423,10 @@ public class CraftingCpuLogic {
         }
     }
 
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        this.inventory.readFromNBT(data.getList("inventory", 10), registries);
-        if (data.contains("job")) {
-            this.job = new ExecutingCraftingJob(data.getCompound("job"), registries, this::postChange, this);
+    public void readFromNBT(NBTTagCompound data) {
+        this.inventory.readFromNBT(data.getTagList("inventory", Constants.NBT.TAG_COMPOUND));
+        if (data.hasKey("job", Constants.NBT.TAG_COMPOUND)) {
+            this.job = new ExecutingCraftingJob(data.getCompoundTag("job"), this::postChange, this);
             if (this.job.finalOutput == null) {
                 finishJob(false);
             } else {
@@ -440,13 +437,14 @@ public class CraftingCpuLogic {
         }
     }
 
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        data.put("inventory", this.inventory.writeToNBT(registries));
+    public void writeToNBT(NBTTagCompound data) {
+        data.setTag("inventory", this.inventory.writeToNBT());
         if (this.job != null) {
-            data.put("job", this.job.writeToNBT(registries));
+            data.setTag("job", this.job.writeToNBT());
         }
     }
 
+    @Nullable
     public ICraftingLink getLastLink() {
         if (this.job != null) {
             return this.job.link;
@@ -460,7 +458,7 @@ public class CraftingCpuLogic {
 
     /**
      * Register a listener that will receive stacks when either the stored items, await items or pending outputs change.
-     * This is only used by the menu. Make sure to remove it by calling {@link #removeListener}.
+     * This is only used by the container. Make sure to remove it by calling {@link #removeListener}.
      */
     public void addListener(Consumer<AEKey> listener) {
         listeners.add(listener);
@@ -504,7 +502,7 @@ public class CraftingCpuLogic {
     }
 
     /**
-     * Used by the menu to gather all the kinds of stored items.
+     * Used by the container to gather all the kinds of stored items.
      */
     public void getAllItems(KeyCounter out) {
         out.addAll(this.inventory.list);
@@ -540,17 +538,29 @@ public class CraftingCpuLogic {
             return;
         }
 
-        var server = cluster.getLevel().getServer();
+        var level = cluster.getLevel();
+        if (level == null) {
+            return;
+        }
+        var server = level.getMinecraftServer();
+        var finalOutput = java.util.Objects.requireNonNull(job.finalOutput);
+        if (server == null) {
+            return;
+        }
+        var finalOutputKey = finalOutput.what();
+        if (finalOutputKey == null) {
+            return;
+        }
+        var finalOutputAmount = finalOutput.amount();
         var connectedPlayer = IPlayerRegistry.getConnected(server, playerId);
         if (connectedPlayer != null) {
             var jobId = job.link.getCraftingID();
-            ClientboundPacket message = new CraftingJobStatusPacket(
-                    jobId,
-                    job.finalOutput.what(),
-                    job.finalOutput.amount(),
-                    job.remainingAmount,
-                    status);
-            connectedPlayer.connection.send(message);
+            InitNetwork.CHANNEL.sendTo(new CraftingJobStatusPacket(
+                jobId,
+                finalOutputKey,
+                finalOutputAmount,
+                job.remainingAmount,
+                status), connectedPlayer);
         }
     }
 }

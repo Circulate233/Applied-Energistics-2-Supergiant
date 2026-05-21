@@ -1,53 +1,58 @@
-
 package appeng.core.network.serverbound;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-
-import appeng.core.network.CustomAppEngPayload;
+import appeng.container.AEBaseContainer;
+import appeng.container.me.common.IMEInteractionHandler;
 import appeng.core.network.ServerboundPacket;
 import appeng.helpers.InventoryAction;
-import appeng.menu.me.common.IMEInteractionHandler;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.inventory.Container;
+import net.minecraft.network.PacketBuffer;
 
 /**
  * Packet sent by clients to interact with an ME inventory such as an item terminal.
  */
-public record MEInteractionPacket(int containerId, long serial, InventoryAction action) implements ServerboundPacket {
+public class MEInteractionPacket extends ServerboundPacket {
+    private int windowId;
+    private long serial;
+    private InventoryAction action;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, MEInteractionPacket> STREAM_CODEC = StreamCodec.ofMember(
-            MEInteractionPacket::write,
-            MEInteractionPacket::decode);
-
-    public static final Type<MEInteractionPacket> TYPE = CustomAppEngPayload.createType("me_interaction");
-
-    @Override
-    public Type<MEInteractionPacket> type() {
-        return TYPE;
+    public MEInteractionPacket() {
     }
 
-    public static MEInteractionPacket decode(RegistryFriendlyByteBuf buffer) {
-        var containerId = buffer.readInt();
-        var serial = buffer.readVarLong();
-        var action = buffer.readEnum(InventoryAction.class);
-        return new MEInteractionPacket(containerId, serial, action);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeInt(containerId);
-        data.writeVarLong(serial);
-        data.writeEnum(action);
+    public MEInteractionPacket(int windowId, long serial, InventoryAction action) {
+        this.windowId = windowId;
+        this.serial = serial;
+        this.action = action;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (player.containerMenu instanceof IMEInteractionHandler handler) {
-            // The open screen has changed since the client sent the packet
-            if (player.containerMenu.containerId != containerId) {
-                return;
+    protected void read(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.windowId = packetBuffer.readInt();
+        this.serial = packetBuffer.readVarLong();
+        this.action = packetBuffer.readEnumValue(InventoryAction.class);
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeInt(this.windowId);
+        packetBuffer.writeVarLong(this.serial);
+        packetBuffer.writeEnumValue(this.action);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if (player.openContainer.windowId != this.windowId) {
+            return;
+        }
+        if (player.openContainer instanceof IMEInteractionHandler handler) {
+            Container openContainer = player.openContainer;
+            handler.handleInteraction(this.serial, this.action);
+            if (player.openContainer == openContainer && openContainer instanceof AEBaseContainer container) {
+                container.syncInventoryActionState(player);
             }
-
-            handler.handleInteraction(serial, action);
         }
     }
 }

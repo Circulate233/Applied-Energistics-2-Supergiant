@@ -18,60 +18,58 @@
 
 package appeng.items.storage;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Locale;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.ISpatialStorageCell;
 import appeng.core.AELog;
-import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
 import appeng.items.AEBaseItem;
 import appeng.spatial.SpatialStorageHelper;
 import appeng.spatial.SpatialStoragePlot;
 import appeng.spatial.SpatialStoragePlotManager;
 import appeng.spatial.TransitionInfo;
+import appeng.util.Platform;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import org.jspecify.annotations.Nullable;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Locale;
 
 public class SpatialStorageCellItem extends AEBaseItem implements ISpatialStorageCell {
-    private static final Logger LOG = LoggerFactory.getLogger(SpatialStorageCellItem.class);
+
+    private static final String KEY_UNFORMATTED = "gui.ae2.SpatialCellEmpty";
+    private static final String KEY_CAPACITY = "gui.ae2.SpatialCapacity";
+    private static final String KEY_SERIAL = "gui.ae2.SpatialSerialNumber";
+    private static final String KEY_STORED_SIZE = "gui.ae2.SpatialStoredSize";
 
     private final int maxRegion;
 
-    public SpatialStorageCellItem(Properties props, int spatialScale) {
-        super(props);
+    public SpatialStorageCellItem(int spatialScale) {
         this.maxRegion = spatialScale;
+        this.setMaxStackSize(1);
     }
 
-    @OnlyIn(Dist.CLIENT)
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        var plotInfo = stack.get(AEComponents.SPATIAL_PLOT_INFO);
+    protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+
+        SpatialPlotInfo plotInfo = getPlotInfo(stack);
         if (plotInfo == null) {
-            lines.add(Tooltips.of(GuiText.Unformatted).withStyle(ChatFormatting.ITALIC));
-            lines.add(Tooltips.of(GuiText.SpatialCapacity, maxRegion, maxRegion, maxRegion));
+            lines.add(TextFormatting.ITALIC + I18n.format(KEY_UNFORMATTED));
+            lines.add(I18n.format(KEY_CAPACITY, this.maxRegion, this.maxRegion, this.maxRegion));
             return;
         }
 
-        // Add a serial number to allows players to keep different cells apart
-        // Try to make this a little more flavorful.
         String serialNumber = String.format(Locale.ROOT, "SP-%04d", plotInfo.id());
-        var size = plotInfo.size();
-        lines.add(Tooltips.of(GuiText.SerialNumber, serialNumber));
-        lines.add(Tooltips.of(GuiText.StoredSize, size.getX(), size.getY(), size.getZ()));
+        BlockPos size = plotInfo.size();
+        lines.add(I18n.format(KEY_SERIAL, serialNumber));
+        lines.add(I18n.format(KEY_STORED_SIZE, size.getX(), size.getY(), size.getZ()));
     }
 
     @Override
@@ -86,7 +84,7 @@ public class SpatialStorageCellItem extends AEBaseItem implements ISpatialStorag
 
     @Override
     public int getAllocatedPlotId(ItemStack stack) {
-        var plotInfo = stack.get(AEComponents.SPATIAL_PLOT_INFO);
+        SpatialPlotInfo plotInfo = getPlotInfo(stack);
         if (plotInfo != null) {
             try {
                 if (SpatialStoragePlotManager.INSTANCE.getPlot(plotInfo.id()) == null) {
@@ -94,69 +92,93 @@ public class SpatialStorageCellItem extends AEBaseItem implements ISpatialStorag
                 }
                 return plotInfo.id();
             } catch (Exception e) {
-                LOG.warn("Failed to retrieve spatial storage dimension for plot {}: {}", plotInfo, e);
+                AELog.warn(e, String.format("Failed to retrieve spatial storage plot %s", plotInfo.id()));
             }
         }
         return -1;
     }
 
     @Override
-    public boolean doSpatialTransition(ItemStack is, ServerLevel level, BlockPos min,
-            BlockPos max, int playerId) {
+    public boolean doSpatialTransition(ItemStack is, WorldServer level, BlockPos min, BlockPos max, int playerId) {
         final int targetX = max.getX() - min.getX() - 1;
         final int targetY = max.getY() - min.getY() - 1;
         final int targetZ = max.getZ() - min.getZ() - 1;
         final int maxSize = this.getMaxStoredDim(is);
         if (targetX > maxSize || targetY > maxSize || targetZ > maxSize) {
             AELog.info(
-                    "Failing spatial transition because the transfer area (%dx%dx%d) exceeds the cell capacity (%s).",
-                    targetX, targetY, targetZ, maxSize);
+                "Failing spatial transition because the transfer area (%dx%dx%d) exceeds the cell capacity (%s).",
+                targetX, targetY, targetZ, maxSize);
             return false;
         }
 
         final BlockPos targetSize = new BlockPos(targetX, targetY, targetZ);
-
         SpatialStoragePlotManager manager = SpatialStoragePlotManager.INSTANCE;
 
-        SpatialStoragePlot plot = SpatialStoragePlotManager.INSTANCE.getPlot(this.getAllocatedPlotId(is));
+        int originalPlotId = this.getAllocatedPlotId(is);
+        SpatialStoragePlot plot = manager.getPlot(originalPlotId);
+        boolean createdPlot = false;
+
         if (plot != null) {
-            // Check that the existing plot has the right size
             if (!plot.getSize().equals(targetSize)) {
                 AELog.info(
-                        "Failing spatial transition because the transfer area (%dx%dx%d) does not match the spatial storage plot's size (%s).",
-                        targetX, targetY, targetZ, plot.getSize());
+                    "Failing spatial transition because the transfer area (%dx%dx%d) does not match the spatial storage plot's size (%s).",
+                    targetX, targetY, targetZ, plot.getSize());
                 return false;
             }
         } else {
-            // Otherwise allocate a new one
             plot = manager.allocatePlot(targetSize, playerId);
+            createdPlot = true;
         }
 
-        // Store some information about this transition in the plot
-        TransitionInfo info = new TransitionInfo(level.dimension().location(), min, max, Instant.now());
-        manager.setLastTransition(plot.getId(), info);
+        manager.setLastTransition(plot.getId(),
+            new TransitionInfo(level.provider.getDimensionType().getName(),
+                level.provider.getDimension(),
+                min, max, Instant.now()));
 
         try {
-            ServerLevel cellLevel = manager.getLevel();
-
+            WorldServer cellLevel = manager.getLevel();
             BlockPos offset = plot.getOrigin();
-
-            this.setStoredDimension(is, plot.getId(), plot.getSize());
+            setStoredDimension(is, plot.getId(), plot.getSize());
             SpatialStorageHelper.getInstance().swapRegions(level, min.getX() + 1, min.getY() + 1, min.getZ() + 1,
-                    cellLevel,
-                    offset.getX(), offset.getY(), offset.getZ(), targetX - 1, targetY - 1, targetZ - 1);
-
+                cellLevel,
+                offset.getX(), offset.getY(), offset.getZ(), targetX - 1, targetY - 1, targetZ - 1);
             return true;
-        } finally {
-            // clean up newly created dimensions that failed transfer
-            if (this.getAllocatedPlotId(is) == -1) {
+        } catch (Exception e) {
+            if (createdPlot) {
                 manager.freePlot(plot.getId(), true);
+                clearStoredDimension(is);
+            }
+            throw e;
+        }
+    }
+
+    public void setStoredDimension(ItemStack stack, int plotId, BlockPos size) {
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            stack.setTagCompound(tag);
+        }
+        AEComponents.SPATIAL_PLOT_INFO_COMPONENT.writeTo(tag, new SpatialPlotInfo(plotId, size).writeToNBT());
+    }
+
+    private void clearStoredDimension(ItemStack stack) {
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag != null) {
+            tag.removeTag(AEComponents.SPATIAL_PLOT_INFO_COMPONENT.name());
+            if (Platform.isNbtEmpty(tag)) {
+                stack.setTagCompound(null);
             }
         }
     }
 
-    public void setStoredDimension(ItemStack is, int plotId, BlockPos size) {
-        is.set(AEComponents.SPATIAL_PLOT_INFO, new SpatialPlotInfo(
-                plotId, size.immutable()));
+    private @Nullable SpatialPlotInfo getPlotInfo(ItemStack stack) {
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag != null) {
+            NBTTagCompound plotInfo = AEComponents.SPATIAL_PLOT_INFO_COMPONENT.readFrom(tag);
+            if (plotInfo != null) {
+                return SpatialPlotInfo.fromNBT(plotInfo);
+            }
+        }
+        return null;
     }
 }

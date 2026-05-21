@@ -18,12 +18,16 @@
 
 package appeng.util.prioritylist;
 
-import java.util.Collections;
-
+import appeng.api.config.IncludeExclude;
 import appeng.api.stacks.AEKey;
 
-public class DefaultPriorityList implements IPartitionList {
-    public static final DefaultPriorityList INSTANCE = new DefaultPriorityList();
+import java.util.Collections;
+
+/**
+ *
+ */
+public enum DefaultPriorityList implements IPartitionList {
+    INSTANCE;
 
     @Override
     public boolean isListed(AEKey input) {
@@ -32,6 +36,11 @@ public class DefaultPriorityList implements IPartitionList {
 
     @Override
     public boolean isEmpty() {
+        return true;
+    }
+
+    @Override
+    public boolean matchesFilter(AEKey input, IncludeExclude mode) {
         return true;
     }
 

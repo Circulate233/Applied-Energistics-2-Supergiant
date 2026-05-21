@@ -23,12 +23,11 @@
 
 package appeng.api.networking.crafting;
 
-import com.google.common.collect.ImmutableSet;
-
 import appeng.api.config.Actionable;
 import appeng.api.networking.IGridNodeService;
 import appeng.api.networking.security.IActionHost;
 import appeng.api.stacks.AEKey;
+import com.google.common.collect.ImmutableSet;
 
 public interface ICraftingRequester extends IActionHost, IGridNodeService {
 

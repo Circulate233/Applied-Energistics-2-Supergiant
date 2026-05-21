@@ -18,8 +18,6 @@
 
 package appeng.me.service.helpers;
 
-import net.minecraft.network.chat.Component;
-
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
@@ -28,6 +26,7 @@ import appeng.api.storage.IStorageProvider;
 import appeng.api.storage.MEStorage;
 import appeng.core.localization.GuiText;
 import appeng.me.service.CraftingService;
+import net.minecraft.util.text.ITextComponent;
 
 /**
  * The storage exposed by the crafting service. It does two things:
@@ -51,7 +50,7 @@ public class CraftingServiceStorage implements IStorageProvider {
         }
 
         @Override
-        public Component getDescription() {
+        public ITextComponent getDescription() {
             return GuiText.AutoCrafting.text();
         }
     };

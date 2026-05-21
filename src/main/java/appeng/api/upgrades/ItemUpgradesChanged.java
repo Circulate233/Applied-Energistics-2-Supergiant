@@ -1,9 +1,9 @@
 package appeng.api.upgrades;
 
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.ItemStack;
 
 /**
- * Callback for upgrade inventories crated through {@link UpgradeInventories#forItem}.
+ * Callback for upgrade inventories created through {@link UpgradeInventories#forItem}.
  */
 @FunctionalInterface
 public interface ItemUpgradesChanged {

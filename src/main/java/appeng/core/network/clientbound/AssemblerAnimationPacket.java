@@ -1,52 +1,58 @@
 package appeng.core.network.clientbound;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.stacks.AEKey;
-import appeng.blockentity.crafting.MolecularAssemblerBlockEntity;
 import appeng.client.render.crafting.AssemblerAnimationStatus;
 import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
+import appeng.tile.crafting.TileMolecularAssembler;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public record AssemblerAnimationPacket(BlockPos pos, byte rate, AEKey what) implements ClientboundPacket {
+public class AssemblerAnimationPacket extends ClientboundPacket {
+    private BlockPos pos = BlockPos.ORIGIN;
+    private byte speed;
+    private AEKey what;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, AssemblerAnimationPacket> STREAM_CODEC = StreamCodec
-            .ofMember(
-                    AssemblerAnimationPacket::write,
-                    AssemblerAnimationPacket::decode);
-
-    public static final Type<AssemblerAnimationPacket> TYPE = CustomAppEngPayload.createType("assembler_animation");
-
-    @Override
-    public Type<AssemblerAnimationPacket> type() {
-        return TYPE;
+    public AssemblerAnimationPacket() {
     }
 
-    public static AssemblerAnimationPacket decode(RegistryFriendlyByteBuf data) {
-        var pos = data.readBlockPos();
-        var rate = data.readByte();
-        var what = AEKey.readKey(data);
-        return new AssemblerAnimationPacket(pos, rate, what);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeBlockPos(pos);
-        data.writeByte(rate);
-        AEKey.writeKey(data, what);
+    public AssemblerAnimationPacket(BlockPos pos, byte speed, AEKey what) {
+        this.pos = pos;
+        this.speed = speed;
+        this.what = what;
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        BlockEntity te = player.getCommandSenderWorld().getBlockEntity(pos);
-        if (te instanceof MolecularAssemblerBlockEntity ma) {
-            ma.setAnimationStatus(new AssemblerAnimationStatus(rate, what.wrapForDisplayOrFilter()));
+    protected void read(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.pos = packetBuffer.readBlockPos();
+        this.speed = packetBuffer.readByte();
+        this.what = AEKey.readKey(packetBuffer);
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeBlockPos(this.pos);
+        packetBuffer.writeByte(this.speed);
+        AEKey.writeKey(packetBuffer, this.what);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.world == null || this.what == null) {
+            return;
+        }
+
+        TileEntity te = minecraft.world.getTileEntity(this.pos);
+        if (te instanceof TileMolecularAssembler molecularAssembler) {
+            molecularAssembler.setAnimationStatus(new AssemblerAnimationStatus(this.speed,
+                this.what.wrapForDisplayOrFilter()));
         }
     }
 }

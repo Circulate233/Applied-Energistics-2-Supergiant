@@ -18,27 +18,24 @@
 
 package appeng.client.gui.widgets;
 
-import java.util.Collections;
+import appeng.client.gui.Icon;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
+import net.minecraft.util.text.ITextComponent;
+
 import java.util.List;
 
-import net.minecraft.network.chat.Component;
-
-import appeng.client.gui.Icon;
-
-public class ToggleButton extends IconButton implements ITooltip {
+public class ToggleButton extends IconButton {
 
     private final Listener listener;
-
     private final Icon iconOn;
     private final Icon iconOff;
 
-    private List<Component> tooltipOn = Collections.emptyList();
-    private List<Component> tooltipOff = Collections.emptyList();
+    private List<ITextComponent> tooltipOn = ObjectLists.emptyList();
+    private List<ITextComponent> tooltipOff = ObjectLists.emptyList();
 
     private boolean state;
 
-    public ToggleButton(Icon on, Icon off, Component displayName,
-            Component displayHint, Listener listener) {
+    public ToggleButton(Icon on, Icon off, ITextComponent displayName, ITextComponent displayHint, Listener listener) {
         this(on, off, listener);
         setTooltipOn(List.of(displayName, displayHint));
         setTooltipOff(List.of(displayName, displayHint));
@@ -51,35 +48,39 @@ public class ToggleButton extends IconButton implements ITooltip {
         this.listener = listener;
     }
 
-    public void setTooltipOn(List<Component> lines) {
+    public void setTooltipOn(List<ITextComponent> lines) {
         this.tooltipOn = lines;
     }
 
-    public void setTooltipOff(List<Component> lines) {
+    public void setTooltipOff(List<ITextComponent> lines) {
         this.tooltipOff = lines;
     }
 
     @Override
-    public void onPress() {
-        this.listener.onChange(!state);
+    public void mouseReleased(int mouseX, int mouseY) {
+        boolean releasedInside = this.enabled && this.visible
+            && mouseX >= this.x
+            && mouseY >= this.y
+            && mouseX < this.x + this.width
+            && mouseY < this.y + this.height;
+        super.mouseReleased(mouseX, mouseY);
+        if (releasedInside) {
+            this.listener.onChange(!this.state);
+        }
     }
 
     public void setState(boolean isOn) {
         this.state = isOn;
     }
 
+    @Override
     protected Icon getIcon() {
         return this.state ? this.iconOn : this.iconOff;
     }
 
     @Override
-    public List<Component> getTooltipMessage() {
-        return state ? tooltipOn : tooltipOff;
-    }
-
-    @Override
-    public boolean isTooltipAreaVisible() {
-        return super.isTooltipAreaVisible() && !getTooltipMessage().isEmpty();
+    public List<ITextComponent> getTooltipMessage() {
+        return this.state ? this.tooltipOn : this.tooltipOff;
     }
 
     @FunctionalInterface
@@ -87,3 +88,4 @@ public class ToggleButton extends IconButton implements ITooltip {
         void onChange(boolean state);
     }
 }
+

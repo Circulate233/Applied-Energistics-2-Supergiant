@@ -29,8 +29,8 @@ public class ChildCraftingSimulationState extends CraftingSimulationState {
     }
 
     @Override
-    protected long simulateExtractParent(AEKey what, long amount) {
-        return parent.extract(what, amount, Actionable.SIMULATE);
+    protected long simulateExtractParent(AEKey what) {
+        return parent.extract(what, Long.MAX_VALUE, Actionable.SIMULATE);
     }
 
     @Override

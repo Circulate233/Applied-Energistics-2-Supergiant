@@ -18,12 +18,11 @@
 
 package appeng.block.paint;
 
-import java.util.Collection;
-import java.util.List;
-
+import appeng.helpers.Splotch;
 import com.google.common.collect.ImmutableList;
 
-import appeng.helpers.Splotch;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * Used to transfer the state about paint splotches from the game thread to the render thread.
@@ -39,5 +38,5 @@ public class PaintSplotches {
     List<Splotch> getSplotches() {
         return this.splotches;
     }
-
 }
+

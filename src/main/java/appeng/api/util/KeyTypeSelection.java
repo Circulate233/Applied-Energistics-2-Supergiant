@@ -1,27 +1,27 @@
 package appeng.api.util;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Predicate;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
+import it.unimi.dsi.fastutil.objects.Object2BooleanLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2BooleanMap;
+import it.unimi.dsi.fastutil.objects.Object2BooleanOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.util.ResourceLocation;
+
+import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Helper class to store the selection of key types.
  */
 public class KeyTypeSelection {
     private final Listener listener;
-    private final Map<AEKeyType, Boolean> keyTypes = new LinkedHashMap<>();
+    private final Object2BooleanLinkedOpenHashMap<AEKeyType> keyTypes = new Object2BooleanLinkedOpenHashMap<>();
 
     public KeyTypeSelection(Runnable listener, Predicate<AEKeyType> allowKeyType) {
         this(selection -> listener.run(), allowKeyType);
@@ -38,11 +38,16 @@ public class KeyTypeSelection {
 
     public static KeyTypeSelection forStack(ItemStack stack, Predicate<AEKeyType> allowKeyType) {
         var out = new KeyTypeSelection(selection -> {
-            stack.set(AEComponents.ENABLED_KEY_TYPES, selection.enabledSet());
+            var tag = stack.getTagCompound();
+            if (tag == null) {
+                tag = new NBTTagCompound();
+                stack.setTagCompound(tag);
+            }
+            selection.writeToNBT(tag);
         }, allowKeyType);
-        var selected = stack.get(AEComponents.ENABLED_KEY_TYPES);
-        if (selected != null) {
-            out.setEnabledSet(selected);
+        var tag = stack.getTagCompound();
+        if (tag != null) {
+            out.readFromNBT(tag);
         }
         return out;
     }
@@ -66,45 +71,59 @@ public class KeyTypeSelection {
             throw new IllegalArgumentException("Key type " + type + " is not allowed.");
         }
 
-        return keyTypes.get(type);
+        return keyTypes.getBoolean(type);
     }
 
-    public Map<AEKeyType, Boolean> enabled() {
-        return new LinkedHashMap<>(keyTypes);
+    public Object2BooleanMap<AEKeyType> enabled() {
+        return new Object2BooleanLinkedOpenHashMap<>(keyTypes);
     }
 
     public List<AEKeyType> enabledSet() {
-        return keyTypes.entrySet().stream().filter(Map.Entry::getValue).map(Map.Entry::getKey).toList();
+        List<AEKeyType> out = new ObjectArrayList<>(keyTypes.size());
+        for (Object2BooleanMap.Entry<AEKeyType> entry : keyTypes.object2BooleanEntrySet()) {
+            if (entry.getBooleanValue()) {
+                out.add(entry.getKey());
+            }
+        }
+        return out;
     }
 
     public void setEnabledSet(List<AEKeyType> selected) {
-        for (var entry : keyTypes.entrySet()) {
+        for (Object2BooleanMap.Entry<AEKeyType> entry : keyTypes.object2BooleanEntrySet()) {
             entry.setValue(selected.contains(entry.getKey()));
         }
     }
 
     public Predicate<AEKeyType> enabledPredicate() {
-        return keyType -> keyTypes.getOrDefault(keyType, Boolean.FALSE);
+        Object2BooleanMap<AEKeyType> snapshot = new Object2BooleanOpenHashMap<>(keyTypes);
+        snapshot.defaultReturnValue(false);
+        return snapshot::getBoolean;
     }
 
-    public void writeToNBT(CompoundTag tag) {
-        ListTag enabledKeyTypesTag = new ListTag();
-        for (var entry : keyTypes.entrySet()) {
-            if (entry.getValue()) {
-                enabledKeyTypesTag.add(StringTag.valueOf(entry.getKey().getId().toString()));
+    public void writeToNBT(NBTTagCompound tag) {
+        NBTTagList enabledKeyTypesTag = new NBTTagList();
+        for (Object2BooleanMap.Entry<AEKeyType> entry : keyTypes.object2BooleanEntrySet()) {
+            if (entry.getBooleanValue()) {
+                enabledKeyTypesTag.appendTag(new NBTTagString(entry.getKey().getId().toString()));
             }
         }
-        tag.put("enabledKeyTypes", enabledKeyTypesTag);
+        AEComponents.ENABLED_KEY_TYPES_COMPONENT.writeTo(tag, enabledKeyTypesTag);
     }
 
-    public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        for (var entry : keyTypes.entrySet()) {
+    public void readFromNBT(NBTTagCompound tag) {
+        for (Object2BooleanMap.Entry<AEKeyType> entry : keyTypes.object2BooleanEntrySet()) {
             entry.setValue(false);
         }
-        ListTag enabledKeyTypesTag = tag.getList("enabledKeyTypes", 8);
-        for (int i = 0; i < enabledKeyTypesTag.size(); i++) {
+        NBTTagList enabledKeyTypesTag = AEComponents.ENABLED_KEY_TYPES_COMPONENT.readFrom(tag);
+        if (enabledKeyTypesTag == null) {
+            enabledKeyTypesTag = new NBTTagList();
+        }
+        if (enabledKeyTypesTag.tagCount() == 0 && tag.hasKey("enabledKeyTypes", 9)) {
+            enabledKeyTypesTag = tag.getTagList("enabledKeyTypes", 8);
+        }
+        for (int i = 0; i < enabledKeyTypesTag.tagCount(); i++) {
             try {
-                var keyType = AEKeyTypes.get(ResourceLocation.parse(enabledKeyTypesTag.getString(i)));
+                var keyType = AEKeyTypes.get(new ResourceLocation(enabledKeyTypesTag.getStringTagAt(i)));
                 if (keyTypes.containsKey(keyType)) {
                     keyTypes.put(keyType, true);
                 }
@@ -115,7 +134,7 @@ public class KeyTypeSelection {
 
         // Make sure that one type is always enabled
         if (enabledSet().isEmpty()) {
-            for (var entry : keyTypes.entrySet()) {
+            for (Object2BooleanMap.Entry<AEKeyType> entry : keyTypes.object2BooleanEntrySet()) {
                 entry.setValue(true);
                 break;
             }

@@ -18,11 +18,6 @@
 
 package appeng.client.gui.style;
 
-/**
- * Defines rather generic properties of widgets (i.e. buttons) that can be used by screens to style widgets.
- *
- * @see appeng.client.gui.WidgetContainer
- */
 public class WidgetStyle extends Position {
 
     private int width;
@@ -56,3 +51,4 @@ public class WidgetStyle extends Position {
     }
 
 }
+

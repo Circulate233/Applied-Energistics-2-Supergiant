@@ -57,11 +57,6 @@
       "top": 124,
       "width": 75
     },
-    "searchTooltipsCheckbox": {
-      "left": 10,
-      "top": 144,
-      "width": 150
-    },
     "rememberCheckbox": {
       "left": 10,
       "top": 160,
@@ -80,7 +75,7 @@
     "clearExternalCheckbox": {
       "left": 10,
       "top": 160,
-      "width": 150
+      "width": 180
     }
   }
 }

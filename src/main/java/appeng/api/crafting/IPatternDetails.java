@@ -23,69 +23,31 @@
 
 package appeng.api.crafting;
 
-import java.util.List;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.level.Level;
-
-import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Information about a pattern for use by the autocrafting system.
- * <p/>
- * <strong>Implementing classes need to properly implement equals/hashCode for crafting jobs to resume properly after
- * world or chunk reloads.</strong>
- */
+import java.util.List;
+
 public interface IPatternDetails {
-    /**
-     * Return the type of the encoded item of this pattern, containing all the data to retrieve the pattern later from
-     * {@link PatternDetailsHelper#decodePattern}.
-     */
     AEItemKey getDefinition();
 
-    /**
-     * The inputs of this pattern. <b>The return array must never be edited</b>.
-     */
     IInput[] getInputs();
 
-    /**
-     * The primary output of this pattern. The pattern will only be used to craft the primary output; the others are
-     * just byproducts.
-     */
     default GenericStack getPrimaryOutput() {
-        return getOutputs().get(0);
+        return getOutputs().getFirst();
     }
 
-    /**
-     * The outputs of this pattern.
-     */
     List<GenericStack> getOutputs();
 
-    /**
-     * @return True if this pattern allows its inputs to be pushed to generic external inventories that would accept
-     *         those inputs. This would usually be true for custom processing patterns, but not true for patterns that
-     *         require custom machines or molecular assemblers (since those are pushed via
-     *         {@link ICraftingMachine#pushPattern}).
-     */
     default boolean supportsPushInputsToExternalInventory() {
         return true;
     }
 
-    /**
-     * Gives the pattern a chance to reorder its inputs for pushing to external inventories (i.e. NOT to
-     * {@link ICraftingMachine}s).
-     *
-     * @param inputHolder For each {@link IInput}, the relevant items. The ownership is given to the pattern, do
-     *                    whatever with the key counters as long as all of their contents end up in the input sink.
-     * @param inputSink   Where to push the inputs to.
-     */
     default void pushInputsToExternalInventory(KeyCounter[] inputHolder, PatternInputSink inputSink) {
         for (var inputList : inputHolder) {
             for (var input : inputList) {
@@ -94,39 +56,19 @@ public interface IPatternDetails {
         }
     }
 
-    /**
-     * Gets a tooltip describing the details of this crafting pattern.
-     */
-    default PatternDetailsTooltip getTooltip(Level level, TooltipFlag flags) {
+    default PatternDetailsTooltip getTooltip(World level, ITooltipFlag flags) {
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_PRODUCES);
         tooltip.addInputsAndOutputs(this);
         return tooltip;
     }
 
     interface IInput {
-        /**
-         * A list of possible inputs for this pattern: the first input is the primary input, others are just substitutes
-         * that will be used if available but won't be autocrafted. For example you can return [1000 mb of water fluid,
-         * 1 bucket of water item] to use water if possible, but use stored buckets otherwise.
-         * <p>
-         * <b>The return array or any of its stacks must never be edited</b>.
-         */
-        GenericStack[] getPossibleInputs();
+        GenericStack[] possibleInputs();
 
-        /**
-         * Multiplier for the inputs: how many possible inputs are necessary to craft this pattern.
-         */
         long getMultiplier();
 
-        /**
-         * Check if the passed stack is a valid input.
-         */
-        boolean isValid(AEKey input, Level level);
+        boolean isValid(AEKey input, World level);
 
-        /**
-         * Optionally return a remaining key. This will generally be null for processing patterns, and return the
-         * corresponding slot of {@link Recipe#getRemainingItems} for crafting patterns.
-         */
         @Nullable
         AEKey getRemainingKey(AEKey template);
     }

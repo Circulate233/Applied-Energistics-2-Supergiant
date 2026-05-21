@@ -20,23 +20,12 @@ package appeng.client.gui.widgets;
 
 import java.time.Duration;
 
-/**
- * This class can be used to implement repeating events such as holding down a button to fire an event repeatedly while
- * the button is still being held, or repeatedly scrolling down a page, while the mouse is held down on the scrollbar.
- */
 public class EventRepeater {
 
-    /**
-     * -1 if no repeat event is scheduled. Otherwise contains the {@link System#nanoTime()} at which the next event
-     * should occur.
-     */
+    private final long eventDelay;
+    private final long eventInterval;
     private long nextEventTime = -1;
-
     private EventCallback eventCallback = null;
-
-    private final long eventDelay; // In nanoseconds
-
-    private final long eventInterval; // In nanoseconds
 
     public EventRepeater(Duration delay, Duration interval) {
         this.eventDelay = delay.toNanos();
@@ -45,30 +34,18 @@ public class EventRepeater {
 
     public void tick() {
         if (this.eventCallback == null) {
-            return; // No event scheduled
+            return;
         }
 
-        // Use nanoTime here because it is monotonically increasing, while
-        // System.currentTimeMillis is not
         long nanoTime = System.nanoTime();
         if (nanoTime < this.nextEventTime) {
-            return; // Event time not reached
+            return;
         }
 
-        // Before triggering, recompute the next event, since
-        // the event callback itself may reschedule/cancel, and
-        // we should not overwrite that
         this.nextEventTime = nanoTime + this.eventInterval;
         this.eventCallback.trigger();
     }
 
-    /**
-     * Schedule the given callback to be called after a given initial delay, and then after the given interval
-     * repeatedly.
-     *
-     * <p>
-     * Replaces any previously queued callback.
-     */
     public void repeat(EventCallback callback) {
         long time = System.nanoTime();
         this.eventCallback = callback;
@@ -79,9 +56,6 @@ public class EventRepeater {
         return this.eventCallback != null;
     }
 
-    /**
-     * Stop repeating the event.
-     */
     public void stop() {
         this.eventCallback = null;
     }
@@ -92,3 +66,4 @@ public class EventRepeater {
     }
 
 }
+

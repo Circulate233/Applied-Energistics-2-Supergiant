@@ -18,35 +18,115 @@
 
 package appeng.core;
 
-import net.minecraft.world.level.Level;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.common.Mod;
-
+import appeng.api.parts.CableRenderMode;
 import appeng.client.EffectType;
+import appeng.core.definitions.AEItems;
+import appeng.core.network.ClientboundPacket;
+import appeng.core.network.InitNetwork;
+import appeng.core.stats.AdvancementTriggers;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.EnumHand;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Contains mod functionality specific to a dedicated server.
- */
-@Mod(value = AppEng.MOD_ID, dist = Dist.DEDICATED_SERVER)
-public class AppEngServer extends AppEngBase {
-    public AppEngServer(IEventBus modEventBus, ModContainer container) {
-        super(modEventBus, container);
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Random;
+
+public class AppEngServer implements AppEng {
+
+    private final ThreadLocal<EntityPlayer> partInteractionPlayer = new ThreadLocal<>();
+    private AdvancementTriggers advancementTriggers;
+
+    public void preInit(FMLPreInitializationEvent event) {
+    }
+
+    public void init(FMLInitializationEvent event) {
+    }
+
+    public void postInit(FMLPostInitializationEvent event) {
     }
 
     @Override
-    public Level getClientLevel() {
+    public Collection<EntityPlayerMP> getPlayers() {
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server == null) {
+            return Collections.emptyList();
+        }
+        return server.getPlayerList().getPlayers();
+    }
+
+    @Override
+    public void sendToAllNearExcept(@Nullable EntityPlayer excluded, double x, double y, double z, double distance,
+                                    World world, ClientboundPacket packet) {
+        InitNetwork.sendToAllNearExcept(excluded, x, y, z, distance, world, packet);
+    }
+
+    @Override
+    public void setPartInteractionPlayer(@Nullable EntityPlayer player) {
+        this.partInteractionPlayer.set(player);
+    }
+
+    @Override
+    public CableRenderMode getCableRenderMode() {
+        return this.getCableRenderModeForPlayer(this.partInteractionPlayer.get());
+    }
+
+    protected CableRenderMode getCableRenderModeForPlayer(@Nullable EntityPlayer player) {
+        if (player != null) {
+            if (AEItems.NETWORK_TOOL.is(player.getHeldItem(EnumHand.MAIN_HAND))
+                || AEItems.NETWORK_TOOL.is(player.getHeldItem(EnumHand.OFF_HAND))) {
+                return CableRenderMode.CABLE_VIEW;
+            }
+        }
+
+        return CableRenderMode.STANDARD;
+    }
+
+    @Override
+    public AdvancementTriggers getAdvancementTriggers() {
+        if (this.advancementTriggers == null) {
+            throw new IllegalStateException("Advancement triggers have not been initialized");
+        }
+        return this.advancementTriggers;
+    }
+
+    public void setAdvancementTriggers(AdvancementTriggers advancementTriggers) {
+        this.advancementTriggers = advancementTriggers;
+    }
+
+    @Override
+    public void spawnEffect(EffectType effect, World world, double posX, double posY, double posZ, Object data) {
+    }
+
+    @Nullable
+    @Override
+    public World getClientWorld() {
         return null;
+    }
+
+    @Nullable
+    @Override
+    public WorldServer getCurrentServerWorld() {
+        return AppEng.super.getCurrentServerWorld();
     }
 
     @Override
     public void registerHotkey(String id) {
-        // don't register any Hotkeys
     }
 
-    @Override
-    public void spawnEffect(EffectType effect, Level level, double posX, double posY, double posZ, Object o) {
-        // Spawning client-side effects on a server is impossible
+    public boolean shouldAddParticles(Random rand) {
+        return false;
+    }
+
+    public boolean shouldSpawnParticleEffects(World world) {
+        return false;
     }
 }

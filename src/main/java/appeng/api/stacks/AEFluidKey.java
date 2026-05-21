@@ -1,49 +1,26 @@
 package appeng.api.stacks;
 
-import java.util.List;
-
-import com.google.common.base.Preconditions;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentPatch;
-import net.minecraft.core.component.DataComponentType;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.Fluids;
-import net.neoforged.neoforge.fluids.FluidStack;
-
 import appeng.api.storage.AEKeyFilter;
 import appeng.core.AELog;
+import com.google.common.base.Preconditions;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.World;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidRegistry;
+import net.minecraftforge.fluids.FluidStack;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Objects;
 
 public final class AEFluidKey extends AEKey {
-    public static final MapCodec<AEFluidKey> MAP_CODEC = RecordCodecBuilder.mapCodec(
-            instance -> instance.group(
-                    BuiltInRegistries.FLUID.holderByNameCodec().validate(
-                            holder -> holder.is(Fluids.EMPTY.builtInRegistryHolder())
-                                    ? DataResult.error(() -> "Fluid must not be minecraft:empty")
-                                    : DataResult.success(holder))
-                            .fieldOf("id").forGetter(key -> key.stack.getFluidHolder()),
-                    DataComponentPatch.CODEC.optionalFieldOf("components", DataComponentPatch.EMPTY)
-                            .forGetter(key -> key.stack.getComponentsPatch()))
-                    .apply(instance, (fluidHolder,
-                            dataComponentPatch) -> new AEFluidKey(new FluidStack(fluidHolder, 1, dataComponentPatch))));
-    public static final Codec<AEFluidKey> CODEC = MAP_CODEC.codec();
-
     public static final int AMOUNT_BUCKET = 1000;
     public static final int AMOUNT_BLOCK = 1000;
 
@@ -51,21 +28,23 @@ public final class AEFluidKey extends AEKey {
     private final int hashCode;
 
     private AEFluidKey(FluidStack stack) {
-        Preconditions.checkArgument(!stack.isEmpty(), "stack was empty");
-        this.stack = stack;
-        this.hashCode = FluidStack.hashFluidAndComponents(stack);
+        Preconditions.checkArgument(stack != null && stack.getFluid() != null && stack.amount > 0, "stack was empty");
+        this.stack = stack.copy();
+        this.stack.amount = 1;
+        this.hashCode = hashStack(this.stack);
     }
 
+    @Nullable
     public static AEFluidKey of(Fluid fluid) {
-        return of(new FluidStack(fluid, 1));
+        return fluid == null ? null : of(new FluidStack(fluid, 1));
     }
 
     @Nullable
     public static AEFluidKey of(FluidStack fluidVariant) {
-        if (fluidVariant.isEmpty()) {
+        if (fluidVariant == null || fluidVariant.getFluid() == null || fluidVariant.amount <= 0) {
             return null;
         }
-        return new AEFluidKey(fluidVariant.copyWithAmount(1));
+        return new AEFluidKey(fluidVariant);
     }
 
     public static boolean matches(AEKey what, FluidStack fluid) {
@@ -80,8 +59,36 @@ public final class AEFluidKey extends AEKey {
         return AEFluidKey::is;
     }
 
+    @Nullable
+    public static AEFluidKey fromTag(NBTTagCompound tag) {
+        try {
+            return of(FluidStack.loadFluidStackFromNBT(tag));
+        } catch (Exception e) {
+            AELog.debug("Tried to load an invalid fluid key from NBT: %s", tag, e);
+            return null;
+        }
+    }
+
+    public static AEFluidKey fromPacket(PacketBuffer data) {
+        try {
+            return fromTag(data.readCompoundTag());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Could not read fluid key", e);
+        }
+    }
+
+    public static boolean is(@Nullable GenericStack stack) {
+        return stack != null && stack.what() instanceof AEFluidKey;
+    }
+
+    private static int hashStack(FluidStack stack) {
+        int result = stack.getFluid().hashCode();
+        result = 31 * result + (stack.tag == null ? 0 : stack.tag.hashCode());
+        return result;
+    }
+
     public boolean matches(FluidStack variant) {
-        return FluidStack.isSameFluidSameComponents(this.stack, variant);
+        return variant != null && stack.isFluidEqual(variant) && Objects.equals(stack.tag, variant.tag);
     }
 
     @Override
@@ -96,13 +103,14 @@ public final class AEFluidKey extends AEKey {
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (o == null || getClass() != o.getClass())
+        }
+        if (o == null || getClass() != o.getClass()) {
             return false;
+        }
         AEFluidKey aeFluidKey = (AEFluidKey) o;
-        // The hash code comparison is a fast-fail cheap check
-        return hashCode == aeFluidKey.hashCode && FluidStack.isSameFluidSameComponents(this.stack, aeFluidKey.stack);
+        return hashCode == aeFluidKey.hashCode && matches(aeFluidKey.stack);
     }
 
     @Override
@@ -110,20 +118,9 @@ public final class AEFluidKey extends AEKey {
         return hashCode;
     }
 
-    public static AEFluidKey fromTag(HolderLookup.Provider registries, CompoundTag tag) {
-        var ops = registries.createSerializationContext(NbtOps.INSTANCE);
-        try {
-            return CODEC.decode(ops, tag).getOrThrow().getFirst();
-        } catch (Exception e) {
-            AELog.debug("Tried to load an invalid fluid key from NBT: %s", tag, e);
-            return null;
-        }
-    }
-
     @Override
-    public CompoundTag toTag(HolderLookup.Provider registries) {
-        var ops = registries.createSerializationContext(NbtOps.INSTANCE);
-        return (CompoundTag) CODEC.encodeStart(ops, this).getOrThrow();
+    public NBTTagCompound toTag() {
+        return stack.writeToNBT(new NBTTagCompound());
     }
 
     @Override
@@ -132,39 +129,51 @@ public final class AEFluidKey extends AEKey {
     }
 
     @Override
+    @Nullable
     public ResourceLocation getId() {
-        return BuiltInRegistries.FLUID.getKey(getFluid());
+        return FluidRegistry.getFluidName(getFluid()) != null
+            ? new ResourceLocation(FluidRegistry.getFluidName(getFluid()))
+            : null;
     }
 
     @Override
-    public void addDrops(long amount, List<ItemStack> drops, Level level, BlockPos pos) {
+    public void addDrops(long amount, List<ItemStack> drops, World level, BlockPos pos) {
         // Fluids are voided
     }
 
     @Override
-    protected Component computeDisplayName() {
-        return stack.getHoverName();
-    }
-
-    @SuppressWarnings("unchecked")
-    @Override
-    public boolean isTagged(TagKey<?> tag) {
-        // This will just return false for incorrectly cast tags
-        return stack.is((TagKey<Fluid>) tag);
-    }
-
-    @Override
-    public <T> @Nullable T get(DataComponentType<T> type) {
-        return stack.get(type);
+    protected ITextComponent computeDisplayName() {
+        return new TextComponentString(stack.getLocalizedName());
     }
 
     @Override
     public boolean hasComponents() {
-        return stack.getComponents().isEmpty();
+        var tag = stack.tag;
+        return tag != null && !tag.isEmpty();
+    }
+
+    @Override
+    public boolean isTagged(String tag) {
+        return false;
+    }
+
+    @Override
+    @Nullable
+    public NBTBase get(String componentId) {
+        var tag = stack.tag;
+        var value = tag == null ? null : tag.getTag(componentId);
+        return value == null ? null : value.copy();
+    }
+
+    @Override
+    public FluidStack getReadOnlyStack() {
+        return stack;
     }
 
     public FluidStack toStack(int amount) {
-        return stack.copyWithAmount(amount);
+        FluidStack result = stack.copy();
+        result.amount = amount;
+        return result;
     }
 
     public Fluid getFluid() {
@@ -172,24 +181,15 @@ public final class AEFluidKey extends AEKey {
     }
 
     @Override
-    public void writeToPacket(RegistryFriendlyByteBuf data) {
-        FluidStack.STREAM_CODEC.encode(data, stack);
-    }
-
-    public static AEFluidKey fromPacket(RegistryFriendlyByteBuf data) {
-        var stack = FluidStack.STREAM_CODEC.decode(data);
-        return new AEFluidKey(stack);
-    }
-
-    public static boolean is(@Nullable GenericStack stack) {
-        return stack != null && stack.what() instanceof AEFluidKey;
+    public void writeToPacket(PacketBuffer data) {
+        NBTTagCompound tag = toTag();
+        data.writeCompoundTag(tag);
     }
 
     @Override
     public String toString() {
-        var id = BuiltInRegistries.FLUID.getKey(getFluid());
-        String idString = id != BuiltInRegistries.FLUID.getDefaultKey() ? id.toString()
-                : getFluid().getClass().getName() + "(unregistered)";
-        return stack.getComponents().isEmpty() ? idString : idString + " (+components)";
+        var id = getId();
+        String idString = id != null ? id.toString() : getFluid().getClass().getName() + "(unregistered)";
+        return hasComponents() ? idString + " (+components)" : idString;
     }
 }

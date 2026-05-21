@@ -18,66 +18,43 @@
 
 package appeng.worldgen.meteorite.fallout;
 
-import java.util.List;
-
-import com.google.common.collect.ImmutableList;
-
-import net.minecraft.core.Holder;
-import net.minecraft.tags.BiomeTags;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.level.biome.Biome;
-import net.neoforged.neoforge.common.Tags;
+import net.minecraft.world.biome.Biome;
+import net.minecraftforge.common.BiomeDictionary;
+import net.minecraftforge.common.BiomeDictionary.Type;
 
 public enum FalloutMode {
-
-    /**
-     * No fallout, e.g. when without a crater.
-     */
     NONE,
-
-    /**
-     * Default
-     */
     DEFAULT,
+    SAND,
+    TERRACOTTA,
+    ICE_SNOW;
 
-    /**
-     * For sandy terrain
-     */
-    SAND(Tags.Biomes.IS_SANDY, BiomeTags.IS_BEACH),
-
-    /**
-     * For terracotta (mesa)
-     */
-    TERRACOTTA(BiomeTags.IS_BADLANDS),
-
-    /**
-     * Icy/snowy terrain
-     */
-    ICE_SNOW(Tags.Biomes.IS_COLD);
-
-    private final List<TagKey<Biome>> biomeTags;
-
-    @SafeVarargs
-    FalloutMode(TagKey<Biome>... biomeTags) {
-        this.biomeTags = ImmutableList.copyOf(biomeTags);
-    }
-
-    public boolean matches(Holder<Biome> biome) {
-        for (var biomeTag : biomeTags) {
-            if (biome.is(biomeTag)) {
-                return true;
-            }
+    public static FalloutMode fromBiome(Biome biome) {
+        if (biome == null) {
+            return DEFAULT;
         }
-        return false;
-    }
-
-    public static FalloutMode fromBiome(Holder<Biome> biome) {
-        for (var mode : FalloutMode.values()) {
-            if (mode.matches(biome)) {
-                return mode;
-            }
+        if (BiomeDictionary.hasType(biome, Type.SANDY) || BiomeDictionary.hasType(biome, Type.BEACH)) {
+            return SAND;
         }
-
+        if (BiomeDictionary.hasType(biome, Type.MESA)) {
+            return TERRACOTTA;
+        }
+        if (BiomeDictionary.hasType(biome, Type.SNOWY) || BiomeDictionary.hasType(biome, Type.COLD)) {
+            return ICE_SNOW;
+        }
         return DEFAULT;
+    }
+
+    public static FalloutMode fromOrdinal(byte ordinal) {
+        final FalloutMode[] values = values();
+        final int index = Byte.toUnsignedInt(ordinal);
+        if (index < values.length) {
+            return values[index];
+        }
+        return DEFAULT;
+    }
+
+    public int adjustCrater() {
+        return this == SAND || this == ICE_SNOW ? 2 : 0;
     }
 }

@@ -18,49 +18,53 @@
 
 package appeng.block.networking;
 
-import java.util.List;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.block.Block;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.block.AEBaseBlockItem;
-import appeng.core.localization.Tooltips;
+import appeng.core.localization.ItemModText;
+import appeng.util.Platform;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagDouble;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
+import java.util.List;
 
 public class EnergyCellBlockItem extends AEBaseBlockItem implements IAEItemPowerStorage {
 
-    public EnergyCellBlockItem(Block block, Properties props) {
-        super(block, props);
+    public EnergyCellBlockItem(EnergyCellBlock block) {
+        super(block);
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void addCheckedInformation(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        var storedEnergy = getAECurrentPower(stack);
-        var maxEnergy = getAEMaxPower(stack);
-        lines.add(Tooltips.energyStorageComponent(storedEnergy, maxEnergy));
+    public void addCheckedInformation(ItemStack itemStack, World worldIn, List<String> toolTip,
+                                      ITooltipFlag advancedTooltips) {
+        toolTip.add(ItemModText.StoredEnergy.text((int) getAECurrentPower(itemStack), (int) getAEMaxPower(itemStack))
+                                            .getFormattedText());
+    }
+
+    @Override
+    public boolean placeBlockAt(ItemStack stack, EntityPlayer player, World world, BlockPos pos, EnumFacing side,
+                                float hitX, float hitY, float hitZ, net.minecraft.block.state.IBlockState newState) {
+        syncBlockEntityTag(stack);
+        return super.placeBlockAt(stack, player, world, pos, side, hitX, hitY, hitZ, newState);
     }
 
     @Override
     public double injectAEPower(ItemStack is, double amount, Actionable mode) {
-        final double internalCurrentPower = getAECurrentPower(is);
-        final double internalMaxPower = this.getAEMaxPower(is);
-        final double required = internalMaxPower - internalCurrentPower;
-        final double overflow = Math.max(0, Math.min(amount - required, amount));
+        double currentPower = getAECurrentPower(is);
+        double required = getAEMaxPower(is) - currentPower;
+        double overflow = Math.clamp(amount - required, 0.0, amount);
 
         if (mode == Actionable.MODULATE) {
-            final double toAdd = Math.min(required, amount);
-            final double newPowerStored = internalCurrentPower + toAdd;
-
-            setAECurrentPower(is, newPowerStored);
+            setStoredEnergy(is, currentPower + Math.min(required, amount));
         }
 
         return overflow;
@@ -68,13 +72,11 @@ public class EnergyCellBlockItem extends AEBaseBlockItem implements IAEItemPower
 
     @Override
     public double extractAEPower(ItemStack is, double amount, Actionable mode) {
-        final double internalCurrentPower = getAECurrentPower(is);
-        final double fulfillable = Math.min(amount, internalCurrentPower);
+        double currentPower = getAECurrentPower(is);
+        double fulfillable = Math.min(amount, currentPower);
 
         if (mode == Actionable.MODULATE) {
-            final double newPowerStored = internalCurrentPower - fulfillable;
-
-            setAECurrentPower(is, newPowerStored);
+            setStoredEnergy(is, currentPower - fulfillable);
         }
 
         return fulfillable;
@@ -82,12 +84,23 @@ public class EnergyCellBlockItem extends AEBaseBlockItem implements IAEItemPower
 
     @Override
     public double getAEMaxPower(ItemStack is) {
-        return this.getMaxEnergyCapacity();
+        NBTTagCompound blockEntityTag = getBlockEntityTag(is);
+        if (blockEntityTag.hasKey("internalMaxPower")) {
+            return blockEntityTag.getDouble("internalMaxPower");
+        }
+        return getBlock().getMaxPower();
     }
 
     @Override
     public double getAECurrentPower(ItemStack is) {
-        return is.getOrDefault(AEComponents.STORED_ENERGY, 0.0);
+        NBTTagCompound tag = is.getTagCompound();
+        if (AEComponents.STORED_ENERGY_COMPONENT.isPresentIn(tag)) {
+            NBTBase storedEnergy = AEComponents.STORED_ENERGY_COMPONENT.readFrom(tag);
+            if (storedEnergy instanceof NBTTagDouble) {
+                return ((NBTTagDouble) storedEnergy).getDouble();
+            }
+        }
+        return getBlockEntityTag(is).getDouble("internalCurrentPower");
     }
 
     @Override
@@ -97,19 +110,49 @@ public class EnergyCellBlockItem extends AEBaseBlockItem implements IAEItemPower
 
     @Override
     public double getChargeRate(ItemStack stack) {
-        return ((EnergyCellBlock) getBlock()).getChargeRate();
+        return getBlock().getChargeRate();
     }
 
-    private double getMaxEnergyCapacity() {
-        return ((EnergyCellBlock) getBlock()).getMaxPower();
+    public EnergyCellBlock getBlock() {
+        return (EnergyCellBlock) getBlockType();
     }
 
-    private void setAECurrentPower(ItemStack is, double amt) {
-        if (amt < 0.00001) {
-            is.remove(AEComponents.STORED_ENERGY);
+    private void setStoredEnergy(ItemStack stack, double amount) {
+        NBTTagCompound tag = Platform.openNbtData(stack);
+        if (amount < 0.00001) {
+            tag.removeTag(AEComponents.STORED_ENERGY_COMPONENT.name());
         } else {
-            is.set(AEComponents.STORED_ENERGY, amt);
+            AEComponents.STORED_ENERGY_COMPONENT.writeTo(tag, new NBTTagDouble(amount));
         }
+
+        NBTTagCompound blockEntityTag = getBlockEntityTag(stack);
+        if (amount < 0.00001) {
+            blockEntityTag.removeTag("internalCurrentPower");
+        } else {
+            blockEntityTag.setDouble("internalCurrentPower", amount);
+        }
+        blockEntityTag.setDouble("internalMaxPower", getBlock().getMaxPower());
+        tag.setTag("BlockEntityTag", blockEntityTag);
     }
 
+    private void syncBlockEntityTag(ItemStack stack) {
+        double storedEnergy = getAECurrentPower(stack);
+        NBTTagCompound tag = Platform.openNbtData(stack);
+        NBTTagCompound blockEntityTag = getBlockEntityTag(stack);
+        if (storedEnergy < 0.00001) {
+            blockEntityTag.removeTag("internalCurrentPower");
+        } else {
+            blockEntityTag.setDouble("internalCurrentPower", storedEnergy);
+        }
+        blockEntityTag.setDouble("internalMaxPower", getAEMaxPower(stack));
+        tag.setTag("BlockEntityTag", blockEntityTag);
+    }
+
+    private NBTTagCompound getBlockEntityTag(ItemStack stack) {
+        NBTTagCompound tag = Platform.openNbtData(stack);
+        if (tag.hasKey("BlockEntityTag", 10)) {
+            return tag.getCompoundTag("BlockEntityTag");
+        }
+        return new NBTTagCompound();
+    }
 }

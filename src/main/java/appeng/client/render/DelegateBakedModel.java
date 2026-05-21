@@ -18,73 +18,36 @@
 
 package appeng.client.render;
 
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.util.EnumFacing;
+import net.minecraftforge.common.model.TRSRTransformation;
+import org.apache.commons.lang3.tuple.Pair;
+
+import javax.annotation.Nullable;
+import javax.vecmath.Matrix4f;
 import java.util.List;
 
-import com.mojang.blaze3d.vertex.PoseStack;
+@SuppressWarnings("deprecation")
+public abstract class DelegateBakedModel implements IBakedModel {
+    private final IBakedModel baseModel;
 
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.renderer.block.model.ItemTransforms;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
-public abstract class DelegateBakedModel implements BakedModel {
-    private final BakedModel baseModel;
-
-    protected DelegateBakedModel(BakedModel base) {
+    protected DelegateBakedModel(IBakedModel base) {
         this.baseModel = base;
     }
 
     @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction direction, RandomSource rand) {
-        return baseModel.getQuads(state, direction, rand);
+    public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
+        return this.baseModel.getQuads(state, side, rand);
     }
 
     @Override
-    public @NotNull List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side,
-            @NotNull RandomSource rand, @NotNull ModelData data, @Nullable RenderType renderType) {
-        return baseModel.getQuads(state, side, rand, data, renderType);
-    }
-
-    @Override
-    public boolean usesBlockLight() {
-        return baseModel.usesBlockLight();
-    }
-
-    @Override
-    public ItemOverrides getOverrides() {
-        return baseModel.getOverrides();
-    }
-
-    @Override
-    public BakedModel applyTransform(ItemDisplayContext transformType, PoseStack poseStack,
-            boolean applyLeftHandTransform) {
-        baseModel.applyTransform(transformType, poseStack, applyLeftHandTransform);
-        return this;
-    }
-
-    @Override
-    public TextureAtlasSprite getParticleIcon() {
-        return this.baseModel.getParticleIcon();
-    }
-
-    @Override
-    public ItemTransforms getTransforms() {
-        return this.baseModel.getTransforms();
-    }
-
-    @Override
-    public boolean useAmbientOcclusion() {
-        return this.baseModel.useAmbientOcclusion();
+    public boolean isAmbientOcclusion() {
+        return this.baseModel.isAmbientOcclusion();
     }
 
     @Override
@@ -93,11 +56,35 @@ public abstract class DelegateBakedModel implements BakedModel {
     }
 
     @Override
-    public boolean isCustomRenderer() {
-        return this.baseModel.isCustomRenderer();
+    public boolean isBuiltInRenderer() {
+        return this.baseModel.isBuiltInRenderer();
     }
 
-    public BakedModel getBaseModel() {
+    @Override
+    public TextureAtlasSprite getParticleTexture() {
+        return this.baseModel.getParticleTexture();
+    }
+
+    @Override
+    public ItemCameraTransforms getItemCameraTransforms() {
+        return this.baseModel.getItemCameraTransforms();
+    }
+
+    @Override
+    public ItemOverrideList getOverrides() {
+        return this.baseModel.getOverrides();
+    }
+
+    @Override
+    public Pair<? extends IBakedModel, Matrix4f> handlePerspective(ItemCameraTransforms.TransformType cameraTransformType) {
+        Pair<? extends IBakedModel, Matrix4f> pair = this.baseModel.handlePerspective(cameraTransformType);
+        if (pair != null) {
+            return Pair.of(this, pair.getValue());
+        }
+        return Pair.of(this, TRSRTransformation.identity().getMatrix());
+    }
+
+    public IBakedModel getBaseModel() {
         return this.baseModel;
     }
 }

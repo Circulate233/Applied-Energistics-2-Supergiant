@@ -1,0 +1,24 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "ab",
+    "cb",
+    "ab"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "b": {
+      "item": "ae2:fluix_crystal"
+    },
+    "c": {
+      "item": "ae2:formation_core"
+    }
+  },
+  "result": {
+    "item": "ae2:formation_plane",
+    "count": 1
+  }
+}

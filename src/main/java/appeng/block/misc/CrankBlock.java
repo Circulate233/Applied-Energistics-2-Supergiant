@@ -18,94 +18,52 @@
 
 package appeng.block.misc;
 
-import java.util.Arrays;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.common.util.FakePlayer;
-
 import appeng.api.implementations.blockentities.ICrankable;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.api.orientation.RelativeSide;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.misc.CrankBlockEntity;
+import appeng.block.AEBaseTileBlock;
+import appeng.tile.misc.TileCrank;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockDirectional;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumBlockRenderType;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.FakePlayer;
 
-public class CrankBlock extends AEBaseEntityBlock<CrankBlockEntity> {
+@SuppressWarnings("deprecation")
+public class CrankBlock extends AEBaseTileBlock<TileCrank> {
+    private static final AxisAlignedBB DOWN_AABB = createAabb(EnumFacing.DOWN);
+    private static final AxisAlignedBB UP_AABB = createAabb(EnumFacing.UP);
+    private static final AxisAlignedBB NORTH_AABB = createAabb(EnumFacing.NORTH);
+    private static final AxisAlignedBB SOUTH_AABB = createAabb(EnumFacing.SOUTH);
+    private static final AxisAlignedBB WEST_AABB = createAabb(EnumFacing.WEST);
+    private static final AxisAlignedBB EAST_AABB = createAabb(EnumFacing.EAST);
 
-    private static final VoxelShape[] SHAPES = Arrays.stream(Direction.values())
-            .map(CrankBlock::createShape)
-            .toArray(VoxelShape[]::new);
-
-    public CrankBlock(Properties props) {
-        super(props);
+    public CrankBlock() {
+        super(Material.WOOD);
+        this.setOpaque();
+        this.setFullSize();
+        this.setHardness(0.5F);
+        this.setResistance(2.5F);
+        this.setTileEntity(TileCrank.class);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(BlockDirectional.FACING, EnumFacing.UP));
     }
 
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (player instanceof FakePlayer) {
-            this.dropCrank(level, pos);
-            return InteractionResult.sidedSuccess(level.isClientSide());
-        }
-
-        var crank = this.getBlockEntity(level, pos);
-        if (crank != null) {
-            crank.power();
-            return InteractionResult.sidedSuccess(level.isClientSide());
-        }
-
-        return super.useWithoutItem(state, level, pos, player, hitResult);
-    }
-
-    private void dropCrank(Level level, BlockPos pos) {
-        level.destroyBlock(pos, true);
-        level.sendBlockUpdated(pos, defaultBlockState(), level.getBlockState(pos), 3);
-    }
-
-    @SuppressWarnings("deprecation")
-    @Override
-    public RenderShape getRenderShape(BlockState state) {
-        return RenderShape.ENTITYBLOCK_ANIMATED;
-    }
-
-    @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block blockIn, BlockPos fromPos,
-            boolean isMoving) {
-        // Does the change originate from the block we're attached to?
-        if (getAttachedToPos(state, pos).equals(fromPos)) {
-            if (getCrankable(state, level, pos) == null) {
-                dropCrank(level, pos);
-            }
-        }
-    }
-
-    @Override
-    public boolean canSurvive(BlockState state, LevelReader levelReader, BlockPos pos) {
-        if (levelReader instanceof Level level) {
-            return getCrankable(state, level, pos) != null;
-        } else {
-            // We'll allow it for worldgen purposes...
-            return true;
-        }
-    }
-
-    @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        var top = getOrientationStrategy().getSide(state, RelativeSide.FRONT);
-        return SHAPES[top.ordinal()];
+    private static AxisAlignedBB createAabb(EnumFacing facing) {
+        double xOff = -0.15D * facing.getXOffset();
+        double yOff = -0.15D * facing.getYOffset();
+        double zOff = -0.15D * facing.getZOffset();
+        return new AxisAlignedBB(xOff + 0.15D, yOff + 0.15D, zOff + 0.15D,
+            xOff + 0.85D, yOff + 0.85D, zOff + 0.85D);
     }
 
     @Override
@@ -113,23 +71,100 @@ public class CrankBlock extends AEBaseEntityBlock<CrankBlockEntity> {
         return OrientationStrategies.facing();
     }
 
-    public ICrankable getCrankable(BlockState state, Level level, BlockPos pos) {
-        // This is facing away from the block the crank is attached to
-        var facing = getOrientationStrategy().getFacing(state);
-        var attachedToPos = getAttachedToPos(state, pos);
-        return ICrankable.get(level, attachedToPos, facing);
+    @Override
+    protected BlockStateContainer createBlockState() {
+        return this.createBlockState(new IProperty<?>[0]);
     }
 
-    private BlockPos getAttachedToPos(BlockState state, BlockPos pos) {
-        var attachedToSide = getOrientationStrategy().getFacing(state).getOpposite();
-        return pos.relative(attachedToSide);
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return state.getValue(BlockDirectional.FACING).getIndex();
     }
 
-    private static VoxelShape createShape(Direction forward) {
-        var xOff = -0.15 * forward.getStepX();
-        var yOff = -0.15 * forward.getStepY();
-        var zOff = -0.15 * forward.getStepZ();
-        return Shapes.create(xOff + 0.15, yOff + 0.15, zOff + 0.15,
-                xOff + 0.85, yOff + 0.85, zOff + 0.85);
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        int facingIndex = meta & 7;
+        if (facingIndex > 5) {
+            facingIndex = 0;
+        }
+        return this.getDefaultState().withProperty(BlockDirectional.FACING, EnumFacing.byIndex(facingIndex));
+    }
+
+    @Override
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing side, float hitX, float hitY, float hitZ) {
+        if (player instanceof FakePlayer) {
+            this.dropCrank(world, pos, state);
+            return true;
+        }
+
+        TileCrank tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            tile.power();
+            return true;
+        }
+
+        return super.onBlockActivated(world, pos, state, player, hand, side, hitX, hitY, hitZ);
+    }
+
+    @Override
+    public void neighborChanged(IBlockState state, World world, BlockPos pos, Block blockIn, BlockPos fromPos) {
+        if (this.getAttachedToPos(state, pos).equals(fromPos) && this.getCrankable(state, world, pos) == null) {
+            this.dropCrank(world, pos, state);
+        }
+    }
+
+    @Override
+    public boolean canPlaceBlockAt(World world, BlockPos pos) {
+        for (EnumFacing facing : EnumFacing.values()) {
+            if (this.canBlockStay(world, pos, this.getDefaultState().withProperty(BlockDirectional.FACING, facing))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public boolean canPlaceBlockOnSide(World world, BlockPos pos, EnumFacing side) {
+        return this.canBlockStay(world, pos, this.getDefaultState().withProperty(BlockDirectional.FACING, side));
+    }
+
+    public boolean canBlockStay(World world, BlockPos pos, IBlockState state) {
+        return this.getCrankable(state, world, pos) != null;
+    }
+
+    @Override
+    public AxisAlignedBB getBoundingBox(IBlockState state, IBlockAccess source, BlockPos pos) {
+        return switch (state.getValue(BlockDirectional.FACING)) {
+            case DOWN -> DOWN_AABB;
+            case NORTH -> NORTH_AABB;
+            case SOUTH -> SOUTH_AABB;
+            case WEST -> WEST_AABB;
+            case EAST -> EAST_AABB;
+            default -> UP_AABB;
+        };
+    }
+
+    @Override
+    public EnumBlockRenderType getRenderType(IBlockState state) {
+        return EnumBlockRenderType.ENTITYBLOCK_ANIMATED;
+    }
+
+    public ICrankable getCrankable(IBlockState state, World world, BlockPos pos) {
+        EnumFacing facing = this.getOrientationStrategy().getFacing(state);
+        BlockPos attachedToPos = this.getAttachedToPos(state, pos);
+        return ICrankable.get(world, attachedToPos, facing);
+    }
+
+    private BlockPos getAttachedToPos(IBlockState state, BlockPos pos) {
+        EnumFacing attachedToSide = this.getOrientationStrategy().getFacing(state).getOpposite();
+        return pos.offset(attachedToSide);
+    }
+
+    private void dropCrank(World world, BlockPos pos, IBlockState state) {
+        if (!world.isRemote) {
+            this.dropBlockAsItem(world, pos, state, 0);
+            world.setBlockToAir(pos);
+        }
     }
 }

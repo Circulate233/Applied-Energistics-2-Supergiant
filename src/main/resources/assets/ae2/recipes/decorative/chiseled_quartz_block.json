@@ -1,0 +1,17 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "a",
+    "a"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:cut_quartz_slab",
+      "data": 0
+    }
+  },
+  "result": {
+    "item": "ae2:chiseled_quartz_block",
+    "count": 1
+  }
+}

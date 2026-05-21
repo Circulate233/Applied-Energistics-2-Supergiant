@@ -1,0 +1,27 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:facade",
+      "nbt": "{facade_item:\"minecraft:stone\",damage:0}"
+    },
+    "title": {
+      "translate": "achievement.ae2.Facade"
+    },
+    "description": {
+      "translate": "achievement.ae2.Facade.desc"
+    }
+  },
+  "parent": "ae2:main/glass_cable",
+  "criteria": {
+    "facade": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:facade"
+          }
+        ]
+      }
+    }
+  }
+}

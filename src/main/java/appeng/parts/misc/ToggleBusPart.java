@@ -18,18 +18,6 @@
 
 package appeng.parts.misc;
 
-import java.util.EnumSet;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridConnection;
@@ -44,76 +32,79 @@ import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.parts.AEBasePart;
 import appeng.parts.PartModel;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+
+import java.util.EnumSet;
 
 public class ToggleBusPart extends AEBasePart {
 
     @PartModels
     public static final ResourceLocation MODEL_BASE = AppEng.makeId("part/toggle_bus_base");
     @PartModels
-    public static final ResourceLocation MODEL_STATUS_OFF = AppEng.makeId(
-            "part/toggle_bus_status_off");
+    public static final ResourceLocation MODEL_STATUS_OFF = AppEng.makeId("part/toggle_bus_status_off");
     @PartModels
-    public static final ResourceLocation MODEL_STATUS_ON = AppEng.makeId(
-            "part/toggle_bus_status_on");
+    public static final ResourceLocation MODEL_STATUS_ON = AppEng.makeId("part/toggle_bus_status_on");
     @PartModels
-    public static final ResourceLocation MODEL_STATUS_HAS_CHANNEL = AppEng.makeId(
-            "part/toggle_bus_status_has_channel");
+    public static final ResourceLocation MODEL_STATUS_HAS_CHANNEL = AppEng.makeId("part/toggle_bus_status_has_channel");
 
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_STATUS_ON);
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_STATUS_HAS_CHANNEL);
 
-    private final IManagedGridNode outerNode = GridHelper
-            .createManagedNode(this, NodeListener.INSTANCE)
-            .setTagName("outer")
-            .setInWorldNode(true)
-            .setIdlePowerUsage(0.0)
-            .setFlags(GridFlags.PREFERRED);
+    private final IManagedGridNode outerNode = GridHelper.createManagedNode(this, NodeListener.INSTANCE)
+                                                         .setTagName("outer")
+                                                         .setInWorldNode(true)
+                                                         .setIdlePowerUsage(0.0)
+                                                         .setFlags(GridFlags.PREFERRED);
 
     private IGridConnection connection;
-    private boolean hasRedstone = false;
-
+    private boolean hasRedstone;
     private boolean clientSideEnabled;
 
     public ToggleBusPart(IPartItem<?> partItem) {
         super(partItem);
-
         this.getMainNode().setIdlePowerUsage(0.0);
         this.getMainNode().setFlags(GridFlags.PREFERRED);
     }
 
     @Override
-    public void writeToStream(RegistryFriendlyByteBuf data) {
+    public void writeToStream(PacketBuffer data) {
         super.writeToStream(data);
         data.writeBoolean(isEnabled());
     }
 
     @Override
-    public boolean readFromStream(RegistryFriendlyByteBuf data) {
-        var changed = super.readFromStream(data);
-        var wasEnabled = this.clientSideEnabled;
+    public boolean readFromStream(PacketBuffer data) {
+        boolean changed = super.readFromStream(data);
+        boolean wasEnabled = this.clientSideEnabled;
         this.clientSideEnabled = data.readBoolean();
-        return changed || wasEnabled != clientSideEnabled;
+        return changed || wasEnabled != this.clientSideEnabled;
     }
 
     @Override
-    public void writeVisualStateToNBT(CompoundTag data) {
+    public void writeVisualStateToNBT(NBTTagCompound data) {
         super.writeVisualStateToNBT(data);
-        data.putBoolean("on", isEnabled());
+        data.setBoolean("on", isEnabled());
     }
 
     @Override
-    public void readVisualStateFromNBT(CompoundTag data) {
+    public void readVisualStateFromNBT(NBTTagCompound data) {
         super.readVisualStateFromNBT(data);
         this.clientSideEnabled = data.getBoolean("on");
     }
 
     protected boolean isEnabled() {
         if (isClientSide()) {
-            return clientSideEnabled;
-        } else {
-            return this.getHost().hasRedstone();
+            return this.clientSideEnabled;
         }
+        return this.getHost().hasRedstone();
     }
 
     @Override
@@ -122,8 +113,8 @@ public class ToggleBusPart extends AEBasePart {
     }
 
     @Override
-    public void onNeighborChanged(BlockGetter level, BlockPos pos, BlockPos neighbor) {
-        final boolean oldHasRedstone = this.hasRedstone;
+    public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
+        boolean oldHasRedstone = this.hasRedstone;
         this.hasRedstone = this.getHost().hasRedstone();
 
         if (this.hasRedstone != oldHasRedstone) {
@@ -133,14 +124,14 @@ public class ToggleBusPart extends AEBasePart {
     }
 
     @Override
-    public void readFromNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.readFromNBT(extra, registries);
+    public void readFromNBT(NBTTagCompound extra) {
+        super.readFromNBT(extra);
         this.getOuterNode().loadFromNBT(extra);
     }
 
     @Override
-    public void writeToNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.writeToNBT(extra, registries);
+    public void writeToNBT(NBTTagCompound extra) {
+        super.writeToNBT(extra);
         this.getOuterNode().saveToNBT(extra);
     }
 
@@ -153,13 +144,13 @@ public class ToggleBusPart extends AEBasePart {
     @Override
     public void addToWorld() {
         super.addToWorld();
-        this.getOuterNode().create(getLevel(), getBlockEntity().getBlockPos());
+        this.getOuterNode().create(getLevel(), getTileEntity().getPos());
         this.hasRedstone = this.getHost().hasRedstone();
         this.updateInternalState();
     }
 
     @Override
-    public void setPartHostInfo(Direction side, IPartHost host, BlockEntity blockEntity) {
+    public void setPartHostInfo(EnumFacing side, IPartHost host, TileEntity blockEntity) {
         super.setPartHostInfo(side, host, blockEntity);
         this.outerNode.setExposedOnSides(EnumSet.of(side));
     }
@@ -175,18 +166,18 @@ public class ToggleBusPart extends AEBasePart {
     }
 
     @Override
-    public void onPlacement(Player player) {
+    public void onPlacement(EntityPlayer player) {
         super.onPlacement(player);
         this.getOuterNode().setOwningPlayer(player);
     }
 
     private void updateInternalState() {
-        final boolean intention = this.isEnabled();
-        if (intention == (this.connection == null)
-                && this.getMainNode().getNode() != null && this.getOuterNode().getNode() != null) {
-            if (intention) {
-                this.connection = GridHelper.createConnection(this.getMainNode().getNode(),
-                        this.getOuterNode().getNode());
+        boolean enabled = this.isEnabled();
+        if (enabled == (this.connection == null)
+            && this.getMainNode().getNode() != null
+            && this.getOuterNode().getNode() != null) {
+            if (enabled) {
+                this.connection = GridHelper.createConnection(this.getMainNode().getNode(), this.getOuterNode().getNode());
             } else {
                 this.connection.destroy();
                 this.connection = null;
@@ -209,3 +200,5 @@ public class ToggleBusPart extends AEBasePart {
         }
     }
 }
+
+

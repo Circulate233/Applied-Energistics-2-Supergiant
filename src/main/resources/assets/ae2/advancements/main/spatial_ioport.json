@@ -1,0 +1,26 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:spatial_io_port"
+    },
+    "title": {
+      "translate": "achievement.ae2.SpatialIO"
+    },
+    "description": {
+      "translate": "achievement.ae2.SpatialIO.desc"
+    }
+  },
+  "parent": "ae2:main/ioport",
+  "criteria": {
+    "certus": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:spatial_io_port"
+          }
+        ]
+      }
+    }
+  }
+}

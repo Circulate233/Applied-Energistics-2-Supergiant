@@ -18,27 +18,23 @@
 
 package appeng.parts.networking;
 
-import java.util.function.Predicate;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.util.AECableType;
 import appeng.items.parts.ColoredPartItem;
+import net.minecraft.util.EnumFacing;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.function.Predicate;
 
 public class SmartCablePart extends CablePart implements IUsedChannelProvider {
     public SmartCablePart(ColoredPartItem<?> partItem) {
         super(partItem);
     }
 
-    /**
-     * Send info about changed channels/power to client to update the on-cable display of channels/power.
-     */
     @Override
     protected void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.getHost().markForUpdate();
         }
@@ -50,9 +46,8 @@ public class SmartCablePart extends CablePart implements IUsedChannelProvider {
     }
 
     @Override
-    public void getBoxes(IPartCollisionHelper bch, Predicate<@Nullable Direction> filterConnections) {
+    public void getBoxes(IPartCollisionHelper bch, Predicate<@Nullable EnumFacing> filterConnections) {
         updateConnections();
-
         addNonDenseBoxes(bch, filterConnections, 5.0, 11.0);
     }
 }

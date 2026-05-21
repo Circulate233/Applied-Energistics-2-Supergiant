@@ -1,55 +1,65 @@
 package appeng.core.network.serverbound;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-
+import appeng.api.features.HotkeyAction;
 import appeng.client.Hotkey;
 import appeng.core.AELog;
-import appeng.core.localization.PlayerMessages;
-import appeng.core.network.CustomAppEngPayload;
 import appeng.core.network.ServerboundPacket;
 import appeng.hotkeys.HotkeyActions;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
+import org.jspecify.annotations.Nullable;
 
-public record HotkeyPacket(String hotkey) implements ServerboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, HotkeyPacket> STREAM_CODEC = StreamCodec.ofMember(
-            HotkeyPacket::write,
-            HotkeyPacket::decode);
+import java.util.List;
 
-    public static final Type<HotkeyPacket> TYPE = CustomAppEngPayload.createType("hotkey");
+public class HotkeyPacket extends ServerboundPacket {
+    private String hotkey;
 
-    @Override
-    public Type<HotkeyPacket> type() {
-        return TYPE;
+    public HotkeyPacket() {
+    }
+
+    public HotkeyPacket(String hotkey) {
+        this.hotkey = hotkey;
     }
 
     public HotkeyPacket(Hotkey hotkey) {
         this(hotkey.name());
     }
 
-    public static HotkeyPacket decode(RegistryFriendlyByteBuf stream) {
-        var hotkey = stream.readUtf();
-        return new HotkeyPacket(hotkey);
+    @Override
+    protected void read(ByteBuf buf) {
+        this.hotkey = ByteBufUtils.readUTF8String(buf);
     }
 
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeUtf(this.hotkey);
+    @Override
+    protected void write(ByteBuf buf) {
+        ByteBufUtils.writeUTF8String(buf, this.hotkey);
     }
 
-    public void handleOnServer(ServerPlayer player) {
-        var actions = HotkeyActions.REGISTRY.get(hotkey);
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        List<HotkeyAction> actions = HotkeyActions.REGISTRY.get(this.hotkey);
         if (actions == null) {
-            player.sendSystemMessage(
-                    PlayerMessages.UnknownHotkey.text().copy().append(Component.translatable("key.ae2." + hotkey)));
-            AELog.warn("Player %s tried using unknown hotkey \"%s\"", player, hotkey);
+            AELog.warn("Player %s tried using unknown hotkey \"%s\"", player, this.hotkey);
             return;
         }
 
-        for (var action : actions) {
+        for (HotkeyAction action : actions) {
             if (action.run(player)) {
                 break;
             }
+        }
+    }
+
+    public static final class Handler implements IMessageHandler<HotkeyPacket, IMessage> {
+        @Override
+        public @Nullable IMessage onMessage(HotkeyPacket message, MessageContext ctx) {
+            EntityPlayerMP player = ctx.getServerHandler().player;
+            player.getServerWorld().addScheduledTask(() -> message.handleServer(player));
+            return null;
         }
     }
 }

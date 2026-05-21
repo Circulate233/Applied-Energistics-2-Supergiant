@@ -18,11 +18,11 @@
 
 package appeng.util;
 
+import com.google.common.base.Preconditions;
+
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
-
-import com.google.common.base.Preconditions;
 
 /**
  * Converter class to convert a large number into a SI system.

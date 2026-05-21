@@ -18,78 +18,35 @@
 
 package appeng.items.storage;
 
-import java.util.List;
-import java.util.Optional;
-
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.ItemLike;
-import net.minecraft.world.level.material.Fluid;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
-import appeng.api.client.AEKeyRendering;
 import appeng.api.config.FuzzyMode;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ICellWorkbenchItem;
+import appeng.api.storage.cells.IStackTooltipDataProvider;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import appeng.me.cells.CreativeCellHandler;
+import appeng.me.cells.CreativeCellInventory;
 import appeng.util.ConfigInventory;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.world.World;
+import net.minecraftforge.fluids.Fluid;
 
-public class CreativeCellItem extends AEBaseItem implements ICellWorkbenchItem {
-    public CreativeCellItem(Properties props) {
-        super(props);
+import java.util.List;
+
+public class CreativeCellItem extends AEBaseItem implements ICellWorkbenchItem, IStackTooltipDataProvider {
+    public CreativeCellItem() {
+        this.setMaxStackSize(1);
     }
 
-    @Override
-    public ConfigInventory getConfigInventory(ItemStack is) {
-        return CellConfig.create(is);
-    }
-
-    @Override
-    public FuzzyMode getFuzzyMode(ItemStack is) {
-        return FuzzyMode.IGNORE_ALL;
-    }
-
-    @Override
-    public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        var inventory = StorageCells.getCellInventory(stack, null);
-
-        if (inventory != null) {
-            var cc = getConfigInventory(stack);
-            if (!cc.isEmpty()) {
-                if (Screen.hasShiftDown()) {
-                    for (var key : cc.keySet()) {
-                        lines.add(Tooltips.of(AEKeyRendering.getDisplayName(key)));
-                    }
-                } else {
-                    lines.add(Tooltips.of(GuiText.PressShiftForFullList));
-                }
-            }
-        }
-    }
-
-    @Override
-    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
-        return CreativeCellHandler.INSTANCE.getTooltipImage(stack);
-    }
-
-    public static ItemStack ofItems(ItemLike... items) {
+    public static ItemStack ofItems(Item... items) {
         var cell = AEItems.CREATIVE_CELL.stack();
         var configInv = AEItems.CREATIVE_CELL.get().getConfigInventory(cell);
         for (int i = 0; i < items.length; i++) {
@@ -106,4 +63,54 @@ public class CreativeCellItem extends AEBaseItem implements ICellWorkbenchItem {
         }
         return cell;
     }
+
+    @Override
+    public ConfigInventory getConfigInventory(ItemStack is) {
+        return CellConfig.create(is);
+    }
+
+    @Override
+    public FuzzyMode getFuzzyMode(ItemStack is) {
+        return FuzzyMode.IGNORE_ALL;
+    }
+
+    @Override
+    public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
+    }
+
+    @Override
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        addToTooltip(stack, lines);
+    }
+
+    @Override
+    public java.util.Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack stack) {
+        return CreativeCellHandler.INSTANCE.getTooltipData(stack);
+    }
+
+    @Override
+    public void addToTooltip(ItemStack stack, List<String> lines) {
+        var inventory = StorageCells.getCellInventory(stack, null);
+        if (!(inventory instanceof CreativeCellInventory)) {
+            return;
+        }
+
+        var cc = getConfigInventory(stack);
+        if (cc.isEmpty()) {
+            return;
+        }
+
+        if (GuiScreen.isShiftKeyDown()) {
+            for (var key : cc.keySet()) {
+                lines.add(key.getDisplayName().getFormattedText());
+            }
+        } else {
+            lines.add(Tooltips.of(GuiText.PressShiftForFullList).getFormattedText());
+        }
+    }
 }
+
+
+
+

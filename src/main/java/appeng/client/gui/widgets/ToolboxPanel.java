@@ -18,46 +18,37 @@
 
 package appeng.client.gui.widgets;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
+import appeng.client.gui.Rect2i;
 import appeng.client.gui.Tooltip;
 import appeng.client.gui.style.Blitter;
-import appeng.client.gui.style.ScreenStyle;
+import appeng.client.gui.style.GuiStyle;
 import appeng.core.localization.GuiText;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextFormatting;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * A 3x3 toolbox panel attached to the player inventory.
- */
 public class ToolboxPanel implements ICompositeWidget {
 
-    // Backdrop for the 3x3 toolbox offered by the network-tool
     private final Blitter background;
-
-    private final Component toolbeltName;
-
-    // Relative to the origin of the current screen (not window)
+    private final ITextComponent toolbeltName;
     private Rect2i bounds = new Rect2i(0, 0, 0, 0);
 
-    public ToolboxPanel(ScreenStyle style, Component toolbeltName) {
+    public ToolboxPanel(GuiStyle style, ITextComponent toolbeltName) {
         this.background = style.getImage("toolbox");
         this.toolbeltName = toolbeltName;
     }
 
     @Override
     public void setPosition(Point position) {
-        this.bounds = new Rect2i(position.getX(), position.getY(), bounds.getWidth(), bounds.getHeight());
+        this.bounds = new Rect2i(position.x(), position.y(), bounds.width(), bounds.height());
     }
 
     @Override
     public void setSize(int width, int height) {
-        this.bounds = new Rect2i(bounds.getX(), bounds.getY(), width, height);
+        this.bounds = new Rect2i(bounds.x(), bounds.y(), width, height);
     }
 
     @Override
@@ -66,20 +57,20 @@ public class ToolboxPanel implements ICompositeWidget {
     }
 
     @Override
-    public void drawBackgroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
+    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
         background.dest(
-                bounds.getX() + this.bounds.getX(),
-                bounds.getY() + this.bounds.getY(),
-                this.bounds.getWidth(),
-                this.bounds.getHeight()).blit(guiGraphics);
+            bounds.x() + this.bounds.x(),
+            bounds.y() + this.bounds.y(),
+            this.bounds.width(),
+            this.bounds.height()).blit();
     }
 
     @Nullable
     @Override
     public Tooltip getTooltip(int mouseX, int mouseY) {
-        return new Tooltip(
-                this.toolbeltName,
-                GuiText.UpgradeToolbelt.text().plainCopy().withStyle(ChatFormatting.GRAY));
+        var hint = GuiText.UpgradeToolbelt.text();
+        hint.setStyle(new Style().setColor(TextFormatting.GRAY));
+        return new Tooltip(this.toolbeltName, hint);
     }
-
 }
+

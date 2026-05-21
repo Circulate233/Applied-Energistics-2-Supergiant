@@ -37,14 +37,14 @@ public interface IPassiveEnergyGenerator extends IGridNodeService {
     double getRate();
 
     /**
-     * Set to true to indicate this generator is suppressed by another on the same energy grid.
-     */
-    void setSuppressed(boolean suppressed);
-
-    /**
      * @return Whether this generator is currently suppressed.
      * @see #setSuppressed(boolean)
      */
     boolean isSuppressed();
+
+    /**
+     * Set to true to indicate this generator is suppressed by another on the same energy grid.
+     */
+    void setSuppressed(boolean suppressed);
 
 }

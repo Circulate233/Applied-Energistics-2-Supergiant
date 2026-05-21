@@ -1,0 +1,16 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "###",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "item": "ae2:quartz_pillar"
+    }
+  },
+  "result": {
+    "item": "ae2:quartz_pillar_wall",
+    "count": 6
+  }
+}

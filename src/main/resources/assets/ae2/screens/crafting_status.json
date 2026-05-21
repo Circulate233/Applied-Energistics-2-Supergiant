@@ -1,14 +1,54 @@
 {
   "$schema": "schema.json",
-  "includes": ["crafting_cpu.json"],
+  "includes": ["common/common.json"],
+  "background": {
+    "texture": "guis/craftingcpu.png",
+    "srcRect": [0, 0, 238, 185]
+  },
+  "text": {
+    "dialog_title": {
+      "position": {
+        "left": 8,
+        "top": 7
+      }
+    },
+    "cpuListTitle": {
+      "position": {
+        "top": 7,
+        "left": -81
+      },
+      "text": {
+        "translate": "gui.ae2.CraftingCPUs"
+      }
+    }
+  },
   "widgets": {
+    "suspend": {
+      "left": 103,
+      "bottom": 25,
+      "width": 50,
+      "height": 20
+    },
+    "cancel": {
+      "left": 163,
+      "bottom": 25,
+      "width": 50,
+      "height": 20
+    },
+    "scrollbar": {
+      "left": 218,
+      "top": 19,
+      "width": 12,
+      "height": 137
+    },
     "back": {
       "left": 214,
       "top": -5,
-      "hideEdge": false
+      "hideEdge": false,
+      "width": 20,
+      "height": 20
     },
     "selectCpuList": {
-      "$comment": "List of available crafting CPU and their status",
       "left": -88,
       "top": 0,
       "width": 94,
@@ -21,19 +61,8 @@
       "height": 137
     },
     "verticalToolbar": {
-      "left": -85,
+      "left": 3,
       "top": 1
-    }
-  },
-  "text": {
-    "cpuListTitle": {
-      "position": {
-        "top": 7,
-        "left": -81
-      },
-      "text": {
-        "translate": "gui.ae2.CraftingCPUs"
-      }
     }
   },
   "images": {

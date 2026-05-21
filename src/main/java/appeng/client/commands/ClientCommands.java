@@ -1,36 +1,76 @@
 package appeng.client.commands;
 
-import java.util.List;
-
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.network.chat.Component;
-
 import appeng.core.AEConfig;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraftforge.client.ClientCommandHandler;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
 public final class ClientCommands {
-
-    public static final List<CommandBuilder> DEBUG_COMMANDS = List.of(
-            ClientCommands::highlightGuiAreas);
+    private static final List<String> DEBUG_COMMANDS = ObjectLists.singleton("highlight_gui_areas");
 
     private ClientCommands() {
     }
 
-    @FunctionalInterface
-    public interface CommandBuilder {
-        void build(LiteralArgumentBuilder<CommandSourceStack> builder);
+    public static void register() {
+        ClientCommandHandler.instance.registerCommand(new AE2ClientCommand());
     }
 
-    private static void highlightGuiAreas(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.literal("highlight_gui_areas").executes(context -> {
-            var src = context.getSource();
-            var toggle = !AEConfig.instance().isShowDebugGuiOverlays();
-            AEConfig.instance().setShowDebugGuiOverlays(toggle);
-            AEConfig.instance().save();
-            src.sendSystemMessage(Component.literal("GUI Overlays: " + toggle));
+    private static final class AE2ClientCommand extends CommandBase {
+        @Override
+        public String getName() {
+            return "ae2client";
+        }
+
+        @Override
+        public String getUsage(ICommandSender sender) {
+            return "commands.ae2client.usage";
+        }
+
+        @Override
+        public int getRequiredPermissionLevel() {
             return 0;
-        }));
+        }
+
+        @Override
+        public boolean checkPermission(MinecraftServer server, ICommandSender sender) {
+            return true;
+        }
+
+        @Override
+        public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+            if (args.length != 1) {
+                throw new WrongUsageException(getUsage(sender));
+            }
+
+            String action = args[0].toLowerCase(Locale.ROOT);
+            if ("highlight_gui_areas".equals(action) && AEConfig.instance().isDebugToolsEnabled()) {
+                boolean enabled = !AEConfig.instance().isShowDebugGuiOverlays();
+                AEConfig.instance().setShowDebugGuiOverlays(enabled);
+                sender.sendMessage(new TextComponentString("GUI Overlays: " + enabled));
+                return;
+            }
+
+            throw new WrongUsageException(getUsage(sender));
+        }
+
+        @Override
+        public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args,
+                                              BlockPos targetPos) {
+            if (args.length == 1 && AEConfig.instance().isDebugToolsEnabled()) {
+                return getListOfStringsMatchingLastWord(args, DEBUG_COMMANDS);
+            }
+
+            return Collections.emptyList();
+        }
     }
 }

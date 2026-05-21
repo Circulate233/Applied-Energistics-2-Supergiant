@@ -18,28 +18,23 @@
 
 package appeng.client.gui.style;
 
-import java.lang.reflect.Type;
-
+import appeng.client.gui.Rect2i;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import net.minecraft.util.JsonUtils;
 
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.util.GsonHelper;
+import java.lang.reflect.Type;
 
-/**
- * Deserializes a {@link Rect2i} either from an Array <code>[x,y,width,height]</code> or a JSON object with the
- * properties x, y, width, height (where x and y default to 0).
- */
 public enum Rectangle2dDeserializer implements JsonDeserializer<Rect2i> {
     INSTANCE;
 
     @Override
     public Rect2i deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-            throws JsonParseException {
+        throws JsonParseException {
         if (json.isJsonArray()) {
             JsonArray arr = json.getAsJsonArray();
             if (arr.size() != 4) {
@@ -53,11 +48,12 @@ public enum Rectangle2dDeserializer implements JsonDeserializer<Rect2i> {
             return new Rect2i(x, y, width, height);
         } else {
             JsonObject obj = json.getAsJsonObject();
-            int x = GsonHelper.getAsInt(obj, "x", 0);
-            int y = GsonHelper.getAsInt(obj, "y", 0);
-            int width = GsonHelper.getAsInt(obj, "width");
-            int height = GsonHelper.getAsInt(obj, "height");
+            int x = JsonUtils.getInt(obj, "x", 0);
+            int y = JsonUtils.getInt(obj, "y", 0);
+            int width = JsonUtils.getInt(obj, "width");
+            int height = JsonUtils.getInt(obj, "height");
             return new Rect2i(x, y, width, height);
         }
     }
 }
+

@@ -1,0 +1,23 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "abc"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "gemQuartz"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "dustFluix"
+    },
+    "c": {
+      "item": "ae2:logic_processor"
+    }
+  },
+  "result": {
+    "item": "ae2:annihilation_core",
+    "count": 2
+  }
+}

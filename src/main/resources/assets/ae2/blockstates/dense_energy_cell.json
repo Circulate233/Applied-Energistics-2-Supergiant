@@ -1,0 +1,28 @@
+{
+  "variants": {
+    "fullness=0": {
+      "model": "ae2:dense_energy_cell_0"
+    },
+    "fullness=1": {
+      "model": "ae2:dense_energy_cell_1"
+    },
+    "fullness=2": {
+      "model": "ae2:dense_energy_cell_2"
+    },
+    "fullness=3": {
+      "model": "ae2:dense_energy_cell_3"
+    },
+    "fullness=4": {
+      "model": "ae2:dense_energy_cell_4"
+    },
+    "fullness=5": {
+      "model": "ae2:dense_energy_cell_5"
+    },
+    "fullness=6": {
+      "model": "ae2:dense_energy_cell_6"
+    },
+    "fullness=7": {
+      "model": "ae2:dense_energy_cell_7"
+    }
+  }
+}

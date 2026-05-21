@@ -1,51 +1,27 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.parts.encoding;
-
-import java.util.List;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
 
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
+import appeng.container.GuiIds;
 import appeng.core.AppEng;
+import appeng.helpers.IPatternTerminalGuiHost;
 import appeng.helpers.IPatternTerminalLogicHost;
-import appeng.helpers.IPatternTerminalMenuHost;
 import appeng.items.parts.PartModels;
-import appeng.menu.me.items.PatternEncodingTermMenu;
 import appeng.parts.PartModel;
 import appeng.parts.reporting.AbstractTerminalPart;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
+
+import java.util.List;
 
 public class PatternEncodingTerminalPart extends AbstractTerminalPart
-        implements IPatternTerminalLogicHost, IPatternTerminalMenuHost {
-
+    implements IPatternTerminalLogicHost, IPatternTerminalGuiHost {
     @PartModels
-    public static final ResourceLocation MODEL_OFF = AppEng.makeId(
-            "part/pattern_encoding_terminal_off");
+    public static final ResourceLocation MODEL_OFF = AppEng.makeId("part/pattern_encoding_terminal_off");
     @PartModels
-    public static final ResourceLocation MODEL_ON = AppEng.makeId(
-            "part/pattern_encoding_terminal_on");
+    public static final ResourceLocation MODEL_ON = AppEng.makeId("part/pattern_encoding_terminal_on");
 
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_ON);
@@ -60,11 +36,15 @@ public class PatternEncodingTerminalPart extends AbstractTerminalPart
     @Override
     public void addAdditionalDrops(List<ItemStack> drops, boolean wrenched) {
         super.addAdditionalDrops(drops, wrenched);
-        for (var is : this.logic.getBlankPatternInv()) {
-            drops.add(is);
+        for (var stack : this.logic.getBlankPatternInv()) {
+            if (!stack.isEmpty()) {
+                drops.add(stack);
+            }
         }
-        for (var is : this.logic.getEncodedPatternInv()) {
-            drops.add(is);
+        for (var stack : this.logic.getEncodedPatternInv()) {
+            if (!stack.isEmpty()) {
+                drops.add(stack);
+            }
         }
     }
 
@@ -76,21 +56,20 @@ public class PatternEncodingTerminalPart extends AbstractTerminalPart
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.readFromNBT(data, registries);
-
-        logic.readFromNBT(data, registries);
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
+        this.logic.readFromNBT(data);
     }
 
     @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.writeToNBT(data, registries);
-        logic.writeToNBT(data, registries);
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+        this.logic.writeToNBT(data);
     }
 
     @Override
-    public MenuType<?> getMenuType(Player p) {
-        return PatternEncodingTermMenu.TYPE;
+    public GuiIds.GuiKey getGuiKey(EntityPlayer player) {
+        return GuiIds.GuiKey.PATTERN_ENCODING_TERMINAL;
     }
 
     @Override
@@ -100,7 +79,7 @@ public class PatternEncodingTerminalPart extends AbstractTerminalPart
 
     @Override
     public PatternEncodingLogic getLogic() {
-        return logic;
+        return this.logic;
     }
 
     @Override

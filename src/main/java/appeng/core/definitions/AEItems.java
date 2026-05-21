@@ -18,39 +18,17 @@
 
 package appeng.core.definitions;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.CreativeModeTabs;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Rarity;
-import net.neoforged.neoforge.registries.DeferredRegister;
-
 import appeng.api.crafting.PatternDetailsHelper;
-import appeng.api.ids.AECreativeTabIds;
+import appeng.api.crafting.EncodedPatternItemBuilder;
 import appeng.api.ids.AEItemIds;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.upgrades.Upgrades;
 import appeng.api.util.AEColor;
 import appeng.core.AEConfig;
-import appeng.core.AppEng;
-import appeng.core.MainCreativeTab;
+import appeng.core.DebugCreativeTab;
+import appeng.core.FacadeCreativeTab;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AEProcessingPattern;
-import appeng.crafting.pattern.AESmithingTablePattern;
-import appeng.crafting.pattern.AEStonecuttingPattern;
 import appeng.debug.DebugCardItem;
 import appeng.debug.EraserItem;
 import appeng.debug.MeteoritePlacerItem;
@@ -58,6 +36,7 @@ import appeng.debug.ReplicatorCardItem;
 import appeng.items.materials.EnergyCardItem;
 import appeng.items.materials.MaterialItem;
 import appeng.items.materials.NamePressItem;
+import appeng.items.materials.QuantumEntangledSingularityItem;
 import appeng.items.materials.StorageComponentItem;
 import appeng.items.misc.MeteoriteCompassItem;
 import appeng.items.misc.MissingContentItem;
@@ -69,13 +48,11 @@ import appeng.items.storage.CreativeCellItem;
 import appeng.items.storage.SpatialStorageCellItem;
 import appeng.items.storage.StorageTier;
 import appeng.items.storage.ViewCellItem;
-import appeng.items.tools.GuideItem;
 import appeng.items.tools.MemoryCardItem;
 import appeng.items.tools.NetworkToolItem;
 import appeng.items.tools.fluix.FluixAxeItem;
 import appeng.items.tools.fluix.FluixHoeItem;
 import appeng.items.tools.fluix.FluixPickaxeItem;
-import appeng.items.tools.fluix.FluixSmithingTemplateItem;
 import appeng.items.tools.fluix.FluixSpadeItem;
 import appeng.items.tools.fluix.FluixSwordItem;
 import appeng.items.tools.powered.ChargedStaffItem;
@@ -93,244 +70,440 @@ import appeng.items.tools.quartz.QuartzSpadeItem;
 import appeng.items.tools.quartz.QuartzSwordItem;
 import appeng.items.tools.quartz.QuartzToolType;
 import appeng.items.tools.quartz.QuartzWrenchItem;
-import appeng.menu.me.common.MEStorageMenu;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
+import net.minecraftforge.event.RegistryEvent;
+
+import java.util.function.IntSupplier;
 
 /**
  * Internal implementation for the API items
  */
 public final class AEItems {
-    public static final DeferredRegister.Items DR = DeferredRegister.createItems(AppEng.MOD_ID);
+    public static final ItemDefinition<WrappedGenericStack> WRAPPED_GENERIC_STACK = new ItemDefinition<>(
+        AEItemIds.WRAPPED_GENERIC_STACK, new WrappedGenericStack(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<FacadeItem> FACADE = new ItemDefinition<>(AEItemIds.FACADE, new FacadeItem(),
+        FacadeCreativeTab.INSTANCE);
+    public static final ItemDefinition<MaterialItem> BLANK_PATTERN = new ItemDefinition<>(AEItemIds.BLANK_PATTERN,
+        new MaterialItem());
+    public static final ItemDefinition<Item> CRAFTING_PATTERN = new ItemDefinition<>(AEItemIds.CRAFTING_PATTERN,
+        PatternDetailsHelper.encodedPatternItemBuilder(AECraftingPattern::new)
+                            .invalidPatternTooltip(AECraftingPattern::getInvalidPatternTooltip)
+                            .itemProperties(new EncodedPatternItemBuilder.Properties().stacksTo(64))
+                            .build(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<Item> PROCESSING_PATTERN = new ItemDefinition<>(AEItemIds.PROCESSING_PATTERN,
+        PatternDetailsHelper.encodedPatternItemBuilder(AEProcessingPattern::new)
+                            .invalidPatternTooltip(AEProcessingPattern::getInvalidPatternTooltip)
+                            .itemProperties(new EncodedPatternItemBuilder.Properties().stacksTo(64))
+                            .build(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<MaterialItem> CERTUS_QUARTZ_CRYSTAL = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_CRYSTAL, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> CERTUS_QUARTZ_CRYSTAL_CHARGED = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_CRYSTAL_CHARGED, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> CERTUS_QUARTZ_DUST = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_DUST, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> SILICON = new ItemDefinition<>(AEItemIds.SILICON,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> MATTER_BALL = new ItemDefinition<>(AEItemIds.MATTER_BALL,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> FLUIX_CRYSTAL = new ItemDefinition<>(AEItemIds.FLUIX_CRYSTAL,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> FLUIX_DUST = new ItemDefinition<>(AEItemIds.FLUIX_DUST,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> FLUIX_PEARL = new ItemDefinition<>(AEItemIds.FLUIX_PEARL,
+        new MaterialItem());
+    public static final ItemDefinition<QuartzAxeItem> CERTUS_QUARTZ_AXE = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_AXE, new QuartzAxeItem(QuartzToolType.CERTUS));
+    public static final ItemDefinition<QuartzHoeItem> CERTUS_QUARTZ_HOE = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_HOE, new QuartzHoeItem(QuartzToolType.CERTUS));
+    public static final ItemDefinition<QuartzSpadeItem> CERTUS_QUARTZ_SHOVEL = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_SHOVEL, new QuartzSpadeItem(QuartzToolType.CERTUS));
+    public static final ItemDefinition<QuartzPickaxeItem> CERTUS_QUARTZ_PICK = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_PICK, new QuartzPickaxeItem(QuartzToolType.CERTUS));
+    public static final ItemDefinition<QuartzSwordItem> CERTUS_QUARTZ_SWORD = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_SWORD, new QuartzSwordItem(QuartzToolType.CERTUS));
+    public static final ItemDefinition<QuartzWrenchItem> CERTUS_QUARTZ_WRENCH = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_WRENCH, new QuartzWrenchItem());
+    public static final ItemDefinition<QuartzCuttingKnifeItem> CERTUS_QUARTZ_KNIFE = new ItemDefinition<>(
+        AEItemIds.CERTUS_QUARTZ_KNIFE, new QuartzCuttingKnifeItem());
+    public static final ItemDefinition<QuartzAxeItem> NETHER_QUARTZ_AXE = new ItemDefinition<>(
+        AEItemIds.NETHER_QUARTZ_AXE, new QuartzAxeItem(QuartzToolType.NETHER));
+    public static final ItemDefinition<QuartzHoeItem> NETHER_QUARTZ_HOE = new ItemDefinition<>(
+        AEItemIds.NETHER_QUARTZ_HOE, new QuartzHoeItem(QuartzToolType.NETHER));
+    public static final ItemDefinition<QuartzSpadeItem> NETHER_QUARTZ_SHOVEL = new ItemDefinition<>(
+        AEItemIds.NETHER_QUARTZ_SHOVEL, new QuartzSpadeItem(QuartzToolType.NETHER));
+    public static final ItemDefinition<QuartzPickaxeItem> NETHER_QUARTZ_PICK = new ItemDefinition<>(
+        AEItemIds.NETHER_QUARTZ_PICK, new QuartzPickaxeItem(QuartzToolType.NETHER));
+    public static final ItemDefinition<QuartzSwordItem> NETHER_QUARTZ_SWORD = new ItemDefinition<>(
+        AEItemIds.NETHER_QUARTZ_SWORD, new QuartzSwordItem(QuartzToolType.NETHER));
+    public static final ItemDefinition<QuartzWrenchItem> NETHER_QUARTZ_WRENCH = new ItemDefinition<>(
+        AEItemIds.NETHER_QUARTZ_WRENCH, new QuartzWrenchItem());
+    public static final ItemDefinition<QuartzCuttingKnifeItem> NETHER_QUARTZ_KNIFE = new ItemDefinition<>(
+        AEItemIds.NETHER_QUARTZ_KNIFE, new QuartzCuttingKnifeItem());
+    public static final ItemDefinition<FluixAxeItem> FLUIX_AXE = new ItemDefinition<>(AEItemIds.FLUIX_AXE,
+        new FluixAxeItem());
+    public static final ItemDefinition<FluixHoeItem> FLUIX_HOE = new ItemDefinition<>(AEItemIds.FLUIX_HOE,
+        new FluixHoeItem());
+    public static final ItemDefinition<FluixSpadeItem> FLUIX_SHOVEL = new ItemDefinition<>(AEItemIds.FLUIX_SHOVEL,
+        new FluixSpadeItem());
+    public static final ItemDefinition<FluixPickaxeItem> FLUIX_PICK = new ItemDefinition<>(AEItemIds.FLUIX_PICK,
+        new FluixPickaxeItem());
+    public static final ItemDefinition<FluixSwordItem> FLUIX_SWORD = new ItemDefinition<>(AEItemIds.FLUIX_SWORD,
+        new FluixSwordItem());
+    public static final ItemDefinition<MaterialItem> CALCULATION_PROCESSOR_PRESS = new ItemDefinition<>(
+        AEItemIds.CALCULATION_PROCESSOR_PRESS, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> ENGINEERING_PROCESSOR_PRESS = new ItemDefinition<>(
+        AEItemIds.ENGINEERING_PROCESSOR_PRESS, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> LOGIC_PROCESSOR_PRESS = new ItemDefinition<>(
+        AEItemIds.LOGIC_PROCESSOR_PRESS, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> CALCULATION_PROCESSOR_PRINT = new ItemDefinition<>(
+        AEItemIds.CALCULATION_PROCESSOR_PRINT, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> ENGINEERING_PROCESSOR_PRINT = new ItemDefinition<>(
+        AEItemIds.ENGINEERING_PROCESSOR_PRINT, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> LOGIC_PROCESSOR_PRINT = new ItemDefinition<>(
+        AEItemIds.LOGIC_PROCESSOR_PRINT, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> SILICON_PRESS = new ItemDefinition<>(AEItemIds.SILICON_PRESS,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> SILICON_PRINT = new ItemDefinition<>(AEItemIds.SILICON_PRINT,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> LOGIC_PROCESSOR = new ItemDefinition<>(AEItemIds.LOGIC_PROCESSOR,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> CALCULATION_PROCESSOR = new ItemDefinition<>(
+        AEItemIds.CALCULATION_PROCESSOR, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> ENGINEERING_PROCESSOR = new ItemDefinition<>(
+        AEItemIds.ENGINEERING_PROCESSOR, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> BASIC_CARD = new ItemDefinition<>(AEItemIds.BASIC_CARD,
+        new MaterialItem());
+    public static final ItemDefinition<Item> REDSTONE_CARD = new ItemDefinition<>(AEItemIds.REDSTONE_CARD,
+        Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<Item> CAPACITY_CARD = new ItemDefinition<>(AEItemIds.CAPACITY_CARD,
+        Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<Item> VOID_CARD = new ItemDefinition<>(AEItemIds.VOID_CARD,
+        Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<MaterialItem> ADVANCED_CARD = new ItemDefinition<>(AEItemIds.ADVANCED_CARD,
+        new MaterialItem());
+    public static final ItemDefinition<Item> FUZZY_CARD = new ItemDefinition<>(AEItemIds.FUZZY_CARD,
+        Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<Item> SPEED_CARD = new ItemDefinition<>(AEItemIds.SPEED_CARD,
+        Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<Item> INVERTER_CARD = new ItemDefinition<>(AEItemIds.INVERTER_CARD,
+        Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<Item> CRAFTING_CARD = new ItemDefinition<>(AEItemIds.CRAFTING_CARD,
+        Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<Item> EQUAL_DISTRIBUTION_CARD = new ItemDefinition<>(
+        AEItemIds.EQUAL_DISTRIBUTION_CARD, Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<EnergyCardItem> ENERGY_CARD = new ItemDefinition<>(AEItemIds.ENERGY_CARD,
+        new EnergyCardItem(1));
+    public static final ItemDefinition<MaterialItem> SPATIAL_2_CELL_COMPONENT = new ItemDefinition<>(
+        AEItemIds.SPATIAL_2_CELL_COMPONENT, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> SPATIAL_16_CELL_COMPONENT = new ItemDefinition<>(
+        AEItemIds.SPATIAL_16_CELL_COMPONENT, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> SPATIAL_128_CELL_COMPONENT = new ItemDefinition<>(
+        AEItemIds.SPATIAL_128_CELL_COMPONENT, new MaterialItem());
+    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_1K = new ItemDefinition<>(
+        AEItemIds.CELL_COMPONENT_1K, new StorageComponentItem(1));
+    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_4K = new ItemDefinition<>(
+        AEItemIds.CELL_COMPONENT_4K, new StorageComponentItem(4));
+    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_16K = new ItemDefinition<>(
+        AEItemIds.CELL_COMPONENT_16K, new StorageComponentItem(16));
+    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_64K = new ItemDefinition<>(
+        AEItemIds.CELL_COMPONENT_64K, new StorageComponentItem(64));
+    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_256K = new ItemDefinition<>(
+        AEItemIds.CELL_COMPONENT_256K, new StorageComponentItem(256));
+    public static final ItemDefinition<SpatialStorageCellItem> SPATIAL_CELL2 = new ItemDefinition<>(
+        AEItemIds.SPATIAL_CELL_2, new SpatialStorageCellItem(2));
+    public static final ItemDefinition<SpatialStorageCellItem> SPATIAL_CELL16 = new ItemDefinition<>(
+        AEItemIds.SPATIAL_CELL_16, new SpatialStorageCellItem(16));
+    public static final ItemDefinition<SpatialStorageCellItem> SPATIAL_CELL128 = new ItemDefinition<>(
+        AEItemIds.SPATIAL_CELL_128, new SpatialStorageCellItem(128));
+    public static final ItemDefinition<CreativeCellItem> CREATIVE_CELL = new ItemDefinition<>(AEItemIds.CREATIVE_CELL,
+        new CreativeCellItem());
+    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_1K = new ItemDefinition<>(AEItemIds.ITEM_CELL_1K,
+        new BasicStorageCell(0.5f, 1, 8, 63, AEKeyType.items()));
+    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_4K = new ItemDefinition<>(AEItemIds.ITEM_CELL_4K,
+        new BasicStorageCell(1.0f, 4, 32, 63, AEKeyType.items()));
+    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_16K = new ItemDefinition<>(AEItemIds.ITEM_CELL_16K,
+        new BasicStorageCell(1.5f, 16, 128, 63, AEKeyType.items()));
+    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_64K = new ItemDefinition<>(AEItemIds.ITEM_CELL_64K,
+        new BasicStorageCell(2.0f, 64, 512, 63, AEKeyType.items()));
+    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_256K = new ItemDefinition<>(AEItemIds.ITEM_CELL_256K,
+        new BasicStorageCell(2.5f, 256, 2048, 63, AEKeyType.items()));
+    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_1K = new ItemDefinition<>(AEItemIds.FLUID_CELL_1K,
+        new BasicStorageCell(0.5f, 1, 8, 18, AEKeyType.fluids()));
+    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_4K = new ItemDefinition<>(AEItemIds.FLUID_CELL_4K,
+        new BasicStorageCell(1.0f, 4, 32, 18, AEKeyType.fluids()));
+    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_16K = new ItemDefinition<>(AEItemIds.FLUID_CELL_16K,
+        new BasicStorageCell(1.5f, 16, 128, 18, AEKeyType.fluids()));
+    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_64K = new ItemDefinition<>(AEItemIds.FLUID_CELL_64K,
+        new BasicStorageCell(2.0f, 64, 512, 18, AEKeyType.fluids()));
+    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_256K = new ItemDefinition<>(AEItemIds.FLUID_CELL_256K,
+        new BasicStorageCell(2.5f, 256, 2048, 18, AEKeyType.fluids()));
+    public static final ItemDefinition<MaterialItem> ITEM_CELL_HOUSING = new ItemDefinition<>(
+        AEItemIds.ITEM_CELL_HOUSING, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> FLUID_CELL_HOUSING = new ItemDefinition<>(
+        AEItemIds.FLUID_CELL_HOUSING, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> WIRELESS_RECEIVER = new ItemDefinition<>(
+        AEItemIds.WIRELESS_RECEIVER, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> WIRELESS_BOOSTER = new ItemDefinition<>(
+        AEItemIds.WIRELESS_BOOSTER, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> FORMATION_CORE = new ItemDefinition<>(AEItemIds.FORMATION_CORE,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> ANNIHILATION_CORE = new ItemDefinition<>(
+        AEItemIds.ANNIHILATION_CORE, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> SKY_DUST = new ItemDefinition<>(AEItemIds.SKY_DUST,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> ENDER_DUST = new ItemDefinition<>(AEItemIds.ENDER_DUST,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> SINGULARITY = new ItemDefinition<>(AEItemIds.SINGULARITY,
+        new MaterialItem());
+    public static final ItemDefinition<MissingContentItem> MISSING_CONTENT = new ItemDefinition<>(
+        AEItemIds.MISSING_CONTENT, new MissingContentItem(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<QuantumEntangledSingularityItem> QUANTUM_ENTANGLED_SINGULARITY = new ItemDefinition<>(
+        AEItemIds.QUANTUM_ENTANGLED_SINGULARITY, new QuantumEntangledSingularityItem());
+    public static final ItemDefinition<ViewCellItem> VIEW_CELL = new ItemDefinition<>(AEItemIds.VIEW_CELL,
+        new ViewCellItem());
+    public static final ItemDefinition<NamePressItem> NAME_PRESS = new ItemDefinition<>(AEItemIds.NAME_PRESS,
+        new NamePressItem());
+    public static final ItemDefinition<MeteoriteCompassItem> METEORITE_COMPASS = new ItemDefinition<>(
+        AEItemIds.METEORITE_COMPASS, new MeteoriteCompassItem());
+    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL1K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_ITEM_CELL1K,
+        new PortableCellItem(AEKeyType.items(), 54, appeng.container.GuiIds.GuiKey.PORTABLE_ITEM_CELL, StorageTier.SIZE_1K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL4K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_ITEM_CELL4K,
+        new PortableCellItem(AEKeyType.items(), 45, appeng.container.GuiIds.GuiKey.PORTABLE_ITEM_CELL, StorageTier.SIZE_4K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL16K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_ITEM_CELL16K,
+        new PortableCellItem(AEKeyType.items(), 36, appeng.container.GuiIds.GuiKey.PORTABLE_ITEM_CELL, StorageTier.SIZE_16K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL64K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_ITEM_CELL64K,
+        new PortableCellItem(AEKeyType.items(), 27, appeng.container.GuiIds.GuiKey.PORTABLE_ITEM_CELL, StorageTier.SIZE_64K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL256K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_ITEM_CELL256K,
+        new PortableCellItem(AEKeyType.items(), 18, appeng.container.GuiIds.GuiKey.PORTABLE_ITEM_CELL, StorageTier.SIZE_256K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL1K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_FLUID_CELL1K,
+        new PortableCellItem(AEKeyType.fluids(), 18, appeng.container.GuiIds.GuiKey.PORTABLE_FLUID_CELL, StorageTier.SIZE_1K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL4K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_FLUID_CELL4K,
+        new PortableCellItem(AEKeyType.fluids(), 18, appeng.container.GuiIds.GuiKey.PORTABLE_FLUID_CELL, StorageTier.SIZE_4K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL16K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_FLUID_CELL16K,
+        new PortableCellItem(AEKeyType.fluids(), 18, appeng.container.GuiIds.GuiKey.PORTABLE_FLUID_CELL, StorageTier.SIZE_16K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL64K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_FLUID_CELL64K,
+        new PortableCellItem(AEKeyType.fluids(), 18, appeng.container.GuiIds.GuiKey.PORTABLE_FLUID_CELL, StorageTier.SIZE_64K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL256K = new ItemDefinition<>(
+        AEItemIds.PORTABLE_FLUID_CELL256K,
+        new PortableCellItem(AEKeyType.fluids(), 18, appeng.container.GuiIds.GuiKey.PORTABLE_FLUID_CELL, StorageTier.SIZE_256K,
+            getPortableCellBattery(), 0x80caff));
+    public static final ItemDefinition<WirelessTerminalItem> WIRELESS_TERMINAL = new ItemDefinition<>(
+        AEItemIds.WIRELESS_TERMINAL, new WirelessTerminalItem(getWirelessTerminalBattery()));
+    public static final ItemDefinition<WirelessCraftingTerminalItem> WIRELESS_CRAFTING_TERMINAL = new ItemDefinition<>(
+        AEItemIds.WIRELESS_CRAFTING_TERMINAL, new WirelessCraftingTerminalItem(getWirelessTerminalBattery()));
+    public static final ItemDefinition<ChargedStaffItem> CHARGED_STAFF = new ItemDefinition<>(
+        AEItemIds.CHARGED_STAFF, new ChargedStaffItem());
+    public static final ItemDefinition<MatterCannonItem> MATTER_CANNON = new ItemDefinition<>(AEItemIds.MATTER_CANNON,
+        new MatterCannonItem());
+    public static final ItemDefinition<EntropyManipulatorItem> ENTROPY_MANIPULATOR = new ItemDefinition<>(
+        AEItemIds.ENTROPY_MANIPULATOR, new EntropyManipulatorItem());
+    public static final ItemDefinition<NetworkToolItem> NETWORK_TOOL = new ItemDefinition<>(AEItemIds.NETWORK_TOOL,
+        new NetworkToolItem());
+    public static final ItemDefinition<MemoryCardItem> MEMORY_CARD = new ItemDefinition<>(AEItemIds.MEMORY_CARD,
+        new MemoryCardItem());
+    public static final ItemDefinition<DebugCardItem> DEBUG_CARD = new ItemDefinition<>(AEItemIds.DEBUG_CARD,
+        new DebugCardItem(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<EraserItem> DEBUG_ERASER = new ItemDefinition<>(AEItemIds.DEBUG_ERASER,
+        new EraserItem(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<MeteoritePlacerItem> DEBUG_METEORITE_PLACER = new ItemDefinition<>(
+        AEItemIds.DEBUG_METEORITE_PLACER, new MeteoritePlacerItem(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<ReplicatorCardItem> DEBUG_REPLICATOR_CARD = new ItemDefinition<>(
+        AEItemIds.DEBUG_REPLICATOR_CARD, new ReplicatorCardItem(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<ColorApplicatorItem> COLOR_APPLICATOR = new ItemDefinition<>(
+        AEItemIds.COLOR_APPLICATOR, new ColorApplicatorItem());
+    public static final ColoredItemDefinition<PaintBallItem> COLORED_PAINT_BALL = createColoredPaintBalls(
+        AEItemIds.COLORED_PAINT_BALL, false);
+    public static final ColoredItemDefinition<PaintBallItem> COLORED_LUMEN_PAINT_BALL = createColoredPaintBalls(
+        AEItemIds.COLORED_LUMEN_PAINT_BALL, true);
 
-    // spotless:off
-    private static final List<ItemDefinition<?>> ITEMS = new ArrayList<>();
+    private static final ItemDefinition<?>[] ITEMS = {
+        WRAPPED_GENERIC_STACK,
+        FACADE,
+        BLANK_PATTERN,
+        CRAFTING_PATTERN,
+        PROCESSING_PATTERN,
+        CERTUS_QUARTZ_CRYSTAL,
+        CERTUS_QUARTZ_CRYSTAL_CHARGED,
+        CERTUS_QUARTZ_DUST,
+        SILICON,
+        MATTER_BALL,
+        FLUIX_CRYSTAL,
+        FLUIX_DUST,
+        FLUIX_PEARL,
+        CERTUS_QUARTZ_AXE,
+        CERTUS_QUARTZ_HOE,
+        CERTUS_QUARTZ_SHOVEL,
+        CERTUS_QUARTZ_PICK,
+        CERTUS_QUARTZ_SWORD,
+        CERTUS_QUARTZ_WRENCH,
+        CERTUS_QUARTZ_KNIFE,
+        NETHER_QUARTZ_AXE,
+        NETHER_QUARTZ_HOE,
+        NETHER_QUARTZ_SHOVEL,
+        NETHER_QUARTZ_PICK,
+        NETHER_QUARTZ_SWORD,
+        NETHER_QUARTZ_WRENCH,
+        NETHER_QUARTZ_KNIFE,
+        FLUIX_AXE,
+        FLUIX_HOE,
+        FLUIX_SHOVEL,
+        FLUIX_PICK,
+        FLUIX_SWORD,
+        CALCULATION_PROCESSOR_PRESS,
+        ENGINEERING_PROCESSOR_PRESS,
+        LOGIC_PROCESSOR_PRESS,
+        CALCULATION_PROCESSOR_PRINT,
+        ENGINEERING_PROCESSOR_PRINT,
+        LOGIC_PROCESSOR_PRINT,
+        SILICON_PRESS,
+        SILICON_PRINT,
+        NAME_PRESS,
+        LOGIC_PROCESSOR,
+        CALCULATION_PROCESSOR,
+        ENGINEERING_PROCESSOR,
+        BASIC_CARD,
+        REDSTONE_CARD,
+        CAPACITY_CARD,
+        VOID_CARD,
+        ADVANCED_CARD,
+        FUZZY_CARD,
+        SPEED_CARD,
+        INVERTER_CARD,
+        CRAFTING_CARD,
+        EQUAL_DISTRIBUTION_CARD,
+        ENERGY_CARD,
+        SPATIAL_2_CELL_COMPONENT,
+        SPATIAL_16_CELL_COMPONENT,
+        SPATIAL_128_CELL_COMPONENT,
+        CELL_COMPONENT_1K,
+        CELL_COMPONENT_4K,
+        CELL_COMPONENT_16K,
+        CELL_COMPONENT_64K,
+        CELL_COMPONENT_256K,
+        SPATIAL_CELL2,
+        SPATIAL_CELL16,
+        SPATIAL_CELL128,
+        CREATIVE_CELL,
+        ITEM_CELL_1K,
+        ITEM_CELL_4K,
+        ITEM_CELL_16K,
+        ITEM_CELL_64K,
+        ITEM_CELL_256K,
+        FLUID_CELL_1K,
+        FLUID_CELL_4K,
+        FLUID_CELL_16K,
+        FLUID_CELL_64K,
+        FLUID_CELL_256K,
+        ITEM_CELL_HOUSING,
+        FLUID_CELL_HOUSING,
+        WIRELESS_RECEIVER,
+        WIRELESS_BOOSTER,
+        FORMATION_CORE,
+        ANNIHILATION_CORE,
+        SKY_DUST,
+        ENDER_DUST,
+        SINGULARITY,
+        MISSING_CONTENT,
+        QUANTUM_ENTANGLED_SINGULARITY,
+        VIEW_CELL,
+        METEORITE_COMPASS,
+        PORTABLE_ITEM_CELL1K,
+        PORTABLE_ITEM_CELL4K,
+        PORTABLE_ITEM_CELL16K,
+        PORTABLE_ITEM_CELL64K,
+        PORTABLE_ITEM_CELL256K,
+        PORTABLE_FLUID_CELL1K,
+        PORTABLE_FLUID_CELL4K,
+        PORTABLE_FLUID_CELL16K,
+        PORTABLE_FLUID_CELL64K,
+        PORTABLE_FLUID_CELL256K,
+        WIRELESS_TERMINAL,
+        WIRELESS_CRAFTING_TERMINAL,
+        CHARGED_STAFF,
+        MATTER_CANNON,
+        ENTROPY_MANIPULATOR,
+        NETWORK_TOOL,
+        MEMORY_CARD,
+        DEBUG_CARD,
+        DEBUG_ERASER,
+        DEBUG_METEORITE_PLACER,
+        DEBUG_REPLICATOR_CARD,
+        COLOR_APPLICATOR
+    };
 
-    ///
-    /// CERTUS QUARTZ TOOLS
-    ///
-
-    public static final ItemDefinition<QuartzAxeItem> CERTUS_QUARTZ_AXE = item("Certus Quartz Axe", AEItemIds.CERTUS_QUARTZ_AXE, p -> new QuartzAxeItem(p, QuartzToolType.CERTUS), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzHoeItem> CERTUS_QUARTZ_HOE = item("Certus Quartz Hoe", AEItemIds.CERTUS_QUARTZ_HOE, p -> new QuartzHoeItem(p, QuartzToolType.CERTUS), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzSpadeItem> CERTUS_QUARTZ_SHOVEL = item("Certus Quartz Shovel", AEItemIds.CERTUS_QUARTZ_SHOVEL, p -> new QuartzSpadeItem(p, QuartzToolType.CERTUS), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzPickaxeItem> CERTUS_QUARTZ_PICK = item("Certus Quartz Pickaxe", AEItemIds.CERTUS_QUARTZ_PICK, p -> new QuartzPickaxeItem(p, QuartzToolType.CERTUS), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzSwordItem> CERTUS_QUARTZ_SWORD = item("Certus Quartz Sword", AEItemIds.CERTUS_QUARTZ_SWORD, p -> new QuartzSwordItem(p, QuartzToolType.CERTUS), CreativeModeTabs.COMBAT);
-    public static final ItemDefinition<QuartzWrenchItem> CERTUS_QUARTZ_WRENCH = item("Certus Quartz Wrench", AEItemIds.CERTUS_QUARTZ_WRENCH, p -> new QuartzWrenchItem(p.stacksTo(1)), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzCuttingKnifeItem> CERTUS_QUARTZ_KNIFE = item("Certus Quartz Cutting Knife", AEItemIds.CERTUS_QUARTZ_KNIFE, p -> new QuartzCuttingKnifeItem(p.durability(50), QuartzToolType.CERTUS), CreativeModeTabs.TOOLS_AND_UTILITIES);
-
-    ///
-    /// NETHER QUARTZ TOOLS
-    ///
-
-    public static final ItemDefinition<QuartzAxeItem> NETHER_QUARTZ_AXE = item("Nether Quartz Axe", AEItemIds.NETHER_QUARTZ_AXE, p -> new QuartzAxeItem(p, QuartzToolType.NETHER), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzHoeItem> NETHER_QUARTZ_HOE = item("Nether Quartz Hoe", AEItemIds.NETHER_QUARTZ_HOE, p -> new QuartzHoeItem(p, QuartzToolType.NETHER), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzSpadeItem> NETHER_QUARTZ_SHOVEL = item("Nether Quartz Shovel", AEItemIds.NETHER_QUARTZ_SHOVEL, p -> new QuartzSpadeItem(p, QuartzToolType.NETHER), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzPickaxeItem> NETHER_QUARTZ_PICK = item("Nether Quartz Pickaxe", AEItemIds.NETHER_QUARTZ_PICK, p -> new QuartzPickaxeItem(p, QuartzToolType.NETHER), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzSwordItem> NETHER_QUARTZ_SWORD = item("Nether Quartz Sword", AEItemIds.NETHER_QUARTZ_SWORD, p -> new QuartzSwordItem(p, QuartzToolType.NETHER), CreativeModeTabs.COMBAT);
-    public static final ItemDefinition<QuartzWrenchItem> NETHER_QUARTZ_WRENCH = item("Nether Quartz Wrench", AEItemIds.NETHER_QUARTZ_WRENCH, p -> new QuartzWrenchItem(p.stacksTo(1)), CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<QuartzCuttingKnifeItem> NETHER_QUARTZ_KNIFE = item("Nether Quartz Cutting Knife", AEItemIds.NETHER_QUARTZ_KNIFE, p -> new QuartzCuttingKnifeItem(p.stacksTo(1).durability(50), QuartzToolType.NETHER), CreativeModeTabs.TOOLS_AND_UTILITIES);
-
-    ///
-    /// FLUIX TOOLS
-    ///
-
-    public static final ItemDefinition<FluixSmithingTemplateItem> FLUIX_UPGRADE_SMITHING_TEMPLATE = item("Fluix Upgrade", AEItemIds.FLUIX_UPGRADE_SMITHING_TEMPLATE, p -> new FluixSmithingTemplateItem(), CreativeModeTabs.INGREDIENTS);
-    public static final ItemDefinition<FluixAxeItem> FLUIX_AXE = item("Fluix Axe", AEItemIds.FLUIX_AXE, FluixAxeItem::new, CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<FluixHoeItem> FLUIX_HOE = item("Fluix Hoe", AEItemIds.FLUIX_HOE, FluixHoeItem::new, CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<FluixSpadeItem> FLUIX_SHOVEL = item("Fluix Shovel", AEItemIds.FLUIX_SHOVEL, FluixSpadeItem::new, CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<FluixPickaxeItem> FLUIX_PICK = item("Fluix Pickaxe", AEItemIds.FLUIX_PICK, FluixPickaxeItem::new, CreativeModeTabs.TOOLS_AND_UTILITIES);
-    public static final ItemDefinition<FluixSwordItem> FLUIX_SWORD = item("Fluix Sword", AEItemIds.FLUIX_SWORD, FluixSwordItem::new, CreativeModeTabs.COMBAT);
-
-    ///
-    /// VARIOUS POWERED TOOLS
-    ///
-
-    public static final ItemDefinition<EntropyManipulatorItem> ENTROPY_MANIPULATOR = item("Entropy Manipulator", AEItemIds.ENTROPY_MANIPULATOR, p -> new EntropyManipulatorItem(p.stacksTo(1)));
-    public static final ItemDefinition<WirelessTerminalItem> WIRELESS_TERMINAL = item("Wireless Terminal", AEItemIds.WIRELESS_TERMINAL, p -> new WirelessTerminalItem(AEConfig.instance().getWirelessTerminalBattery(), p.stacksTo(1)));
-    public static final ItemDefinition<WirelessTerminalItem> WIRELESS_CRAFTING_TERMINAL = item("Wireless Crafting Terminal", AEItemIds.WIRELESS_CRAFTING_TERMINAL, p -> new WirelessCraftingTerminalItem(AEConfig.instance().getWirelessTerminalBattery(), p.stacksTo(1)));
-    public static final ItemDefinition<ChargedStaffItem> CHARGED_STAFF = item("Charged Staff", AEItemIds.CHARGED_STAFF, p -> new ChargedStaffItem(p.stacksTo(1)));
-    public static final ItemDefinition<ColorApplicatorItem> COLOR_APPLICATOR = item("Color Applicator", AEItemIds.COLOR_APPLICATOR, p -> new ColorApplicatorItem(p.stacksTo(1)));
-    public static final ItemDefinition<MatterCannonItem> MATTER_CANNON = item("Matter Cannon", AEItemIds.MATTER_CANNON, p -> new MatterCannonItem(p.stacksTo(1)));
-
-    ///
-    /// PORTABLE CELLS
-    ///
-    private static ItemDefinition<PortableCellItem> makePortableItemCell(ResourceLocation id, StorageTier tier) {
-        var name = tier.namePrefix() + " Portable Item Cell";
-        return item(name, id, p -> new PortableCellItem(AEKeyType.items(), 63 - tier.index() * 9, MEStorageMenu.PORTABLE_ITEM_CELL_TYPE, tier, p.stacksTo(1), 0x80caff));
+    private AEItems() {
     }
 
-    private static ItemDefinition<PortableCellItem> makePortableFluidCell(ResourceLocation id, StorageTier tier) {
-        var name = tier.namePrefix() + " Portable Fluid Cell";
-        return item(name, id, p -> new PortableCellItem(AEKeyType.fluids(), 18, MEStorageMenu.PORTABLE_FLUID_CELL_TYPE, tier, p.stacksTo(1), 0x80caff));
+    private static double getPortableCellBattery() {
+        return getConfiguredBattery(AEConfig.instance()::getPortableCellBattery, 20000);
     }
 
-    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL1K = makePortableItemCell(AEItemIds.PORTABLE_ITEM_CELL1K, StorageTier.SIZE_1K);
-    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL4K = makePortableItemCell(AEItemIds.PORTABLE_ITEM_CELL4K, StorageTier.SIZE_4K);
-    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL16K = makePortableItemCell(AEItemIds.PORTABLE_ITEM_CELL16K, StorageTier.SIZE_16K);
-    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL64K = makePortableItemCell(AEItemIds.PORTABLE_ITEM_CELL64K, StorageTier.SIZE_64K);
-    public static final ItemDefinition<PortableCellItem> PORTABLE_ITEM_CELL256K = makePortableItemCell(AEItemIds.PORTABLE_ITEM_CELL256K, StorageTier.SIZE_256K);
-
-    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL1K = makePortableFluidCell(AEItemIds.PORTABLE_FLUID_CELL1K, StorageTier.SIZE_1K);
-    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL4K = makePortableFluidCell(AEItemIds.PORTABLE_FLUID_CELL4K, StorageTier.SIZE_4K);
-    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL16K = makePortableFluidCell(AEItemIds.PORTABLE_FLUID_CELL16K, StorageTier.SIZE_16K);
-    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL64K = makePortableFluidCell(AEItemIds.PORTABLE_FLUID_CELL64K, StorageTier.SIZE_64K);
-    public static final ItemDefinition<PortableCellItem> PORTABLE_FLUID_CELL256K = makePortableFluidCell(AEItemIds.PORTABLE_FLUID_CELL256K, StorageTier.SIZE_256K);
-
-    ///
-    /// NETWORK RELATED TOOLS
-    ///
-
-    public static final ItemDefinition<NetworkToolItem> NETWORK_TOOL = item("Network Tool", AEItemIds.NETWORK_TOOL, p -> new NetworkToolItem(p.stacksTo(1)));
-    public static final ItemDefinition<MemoryCardItem> MEMORY_CARD = item("Memory Card", AEItemIds.MEMORY_CARD, p -> new MemoryCardItem(p.stacksTo(1)));
-
-    public static final ItemDefinition<FacadeItem> FACADE = item("Cable Facade", AEItemIds.FACADE, FacadeItem::new);
-    public static final ItemDefinition<MaterialItem> BLANK_PATTERN = item("Blank Pattern", AEItemIds.BLANK_PATTERN, MaterialItem::new);
-    public static final ItemDefinition<Item> CRAFTING_PATTERN = item("Crafting Pattern", AEItemIds.CRAFTING_PATTERN, p -> PatternDetailsHelper.encodedPatternItemBuilder(AECraftingPattern::new).invalidPatternTooltip(AECraftingPattern::getInvalidPatternTooltip).build());
-    public static final ItemDefinition<Item> PROCESSING_PATTERN = item("Processing Pattern", AEItemIds.PROCESSING_PATTERN, p -> PatternDetailsHelper.encodedPatternItemBuilder(AEProcessingPattern::new).invalidPatternTooltip(AEProcessingPattern::getInvalidPatternTooltip).build());
-    public static final ItemDefinition<Item> SMITHING_TABLE_PATTERN = item("Smithing Table Pattern", AEItemIds.SMITHING_TABLE_PATTERN, p -> PatternDetailsHelper.encodedPatternItemBuilder(AESmithingTablePattern::new).invalidPatternTooltip(AESmithingTablePattern::getInvalidTooltip).build());
-    public static final ItemDefinition<Item> STONECUTTING_PATTERN = item("Stonecutting Pattern", AEItemIds.STONECUTTING_PATTERN, p -> PatternDetailsHelper.encodedPatternItemBuilder(AEStonecuttingPattern::new).invalidPatternTooltip(AEStonecuttingPattern::getInvalidTooltip).build());
-    // Used to represent missing content if a mod got uninstalled
-    public static final ItemDefinition<Item> MISSING_CONTENT = item("Missing Content", AEItemIds.MISSING_CONTENT, MissingContentItem::new, null);
-
-    public static final ColoredItemDefinition<PaintBallItem> COLORED_PAINT_BALL = createColoredItems("Paint Ball", AEItemIds.COLORED_PAINT_BALL, (p, color) -> new PaintBallItem(p, color, false));
-    public static final ColoredItemDefinition<PaintBallItem> COLORED_LUMEN_PAINT_BALL = createColoredItems("Lumen Paint Ball", AEItemIds.COLORED_LUMEN_PAINT_BALL, (p, color) -> new PaintBallItem(p, color, true));
-
-    public static final ItemDefinition<MeteoriteCompassItem> METEORITE_COMPASS = item("Meteorite Compass", AEItemIds.METEORITE_COMPASS, MeteoriteCompassItem::new);
-
-    ///
-    /// MATERIALS
-    ///
-
-    public static final ItemDefinition<MaterialItem> CERTUS_QUARTZ_CRYSTAL = item("Certus Quartz Crystal", AEItemIds.CERTUS_QUARTZ_CRYSTAL, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> CERTUS_QUARTZ_CRYSTAL_CHARGED = item("Charged Certus Quartz Crystal", AEItemIds.CERTUS_QUARTZ_CRYSTAL_CHARGED, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> CERTUS_QUARTZ_DUST = item("Certus Quartz Dust", AEItemIds.CERTUS_QUARTZ_DUST, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> SILICON = item("Silicon", AEItemIds.SILICON, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> MATTER_BALL = item("Matter Ball", AEItemIds.MATTER_BALL, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> FLUIX_CRYSTAL = item("Fluix Crystal", AEItemIds.FLUIX_CRYSTAL, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> FLUIX_DUST = item("Fluix Dust", AEItemIds.FLUIX_DUST, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> FLUIX_PEARL = item("Fluix Pearl", AEItemIds.FLUIX_PEARL, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> CALCULATION_PROCESSOR_PRESS = item("Inscriber Calculation Press", AEItemIds.CALCULATION_PROCESSOR_PRESS, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> ENGINEERING_PROCESSOR_PRESS = item("Inscriber Engineering Press", AEItemIds.ENGINEERING_PROCESSOR_PRESS, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> LOGIC_PROCESSOR_PRESS = item("Inscriber Logic Press", AEItemIds.LOGIC_PROCESSOR_PRESS, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> CALCULATION_PROCESSOR_PRINT = item("Printed Calculation Circuit", AEItemIds.CALCULATION_PROCESSOR_PRINT, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> ENGINEERING_PROCESSOR_PRINT = item("Printed Engineering Circuit", AEItemIds.ENGINEERING_PROCESSOR_PRINT, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> LOGIC_PROCESSOR_PRINT = item("Printed Logic Circuit", AEItemIds.LOGIC_PROCESSOR_PRINT, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> SILICON_PRESS = item("Inscriber Silicon Press", AEItemIds.SILICON_PRESS, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> SILICON_PRINT = item("Printed Silicon", AEItemIds.SILICON_PRINT, MaterialItem::new);
-    public static final ItemDefinition<NamePressItem> NAME_PRESS = item("Inscriber Name Press", AEItemIds.NAME_PRESS, NamePressItem::new);
-    public static final ItemDefinition<MaterialItem> LOGIC_PROCESSOR = item("Logic Processor", AEItemIds.LOGIC_PROCESSOR, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> CALCULATION_PROCESSOR = item("Calculation Processor", AEItemIds.CALCULATION_PROCESSOR, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> ENGINEERING_PROCESSOR = item("Engineering Processor", AEItemIds.ENGINEERING_PROCESSOR, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> BASIC_CARD = item("Basic Card", AEItemIds.BASIC_CARD, MaterialItem::new);
-    public static final ItemDefinition<Item> REDSTONE_CARD = item("Redstone Card", AEItemIds.REDSTONE_CARD, Upgrades::createUpgradeCardItem);
-    public static final ItemDefinition<Item> CAPACITY_CARD = item("Capacity Card", AEItemIds.CAPACITY_CARD, Upgrades::createUpgradeCardItem);
-    public static final ItemDefinition<Item> VOID_CARD = item("Overflow Destruction Card", AEItemIds.VOID_CARD, Upgrades::createUpgradeCardItem);
-    public static final ItemDefinition<MaterialItem> ADVANCED_CARD = item("Advanced Card", AEItemIds.ADVANCED_CARD, MaterialItem::new);
-    public static final ItemDefinition<Item> FUZZY_CARD = item("Fuzzy Card", AEItemIds.FUZZY_CARD, Upgrades::createUpgradeCardItem);
-    public static final ItemDefinition<Item> SPEED_CARD = item("Acceleration Card", AEItemIds.SPEED_CARD, Upgrades::createUpgradeCardItem);
-    public static final ItemDefinition<Item> INVERTER_CARD = item("Inverter Card", AEItemIds.INVERTER_CARD, Upgrades::createUpgradeCardItem);
-    public static final ItemDefinition<Item> CRAFTING_CARD = item("Crafting Card", AEItemIds.CRAFTING_CARD, Upgrades::createUpgradeCardItem);
-    public static final ItemDefinition<Item> EQUAL_DISTRIBUTION_CARD = item("Equal Distribution Card", AEItemIds.EQUAL_DISTRIBUTION_CARD, Upgrades::createUpgradeCardItem);
-    public static final ItemDefinition<EnergyCardItem> ENERGY_CARD = item("Energy Card", AEItemIds.ENERGY_CARD, p -> new EnergyCardItem(p, 1));
-    public static final ItemDefinition<MaterialItem> SPATIAL_2_CELL_COMPONENT = item("2³ Spatial Component", AEItemIds.SPATIAL_2_CELL_COMPONENT, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> SPATIAL_16_CELL_COMPONENT = item("16³ Spatial Component", AEItemIds.SPATIAL_16_CELL_COMPONENT, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> SPATIAL_128_CELL_COMPONENT = item("128³ Spatial Component", AEItemIds.SPATIAL_128_CELL_COMPONENT, MaterialItem::new);
-    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_1K = item("1k ME Storage Component", AEItemIds.CELL_COMPONENT_1K, p -> new StorageComponentItem(p, 1));
-    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_4K = item("4k ME Storage Component", AEItemIds.CELL_COMPONENT_4K, p -> new StorageComponentItem(p, 4));
-    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_16K = item("16k ME Storage Component", AEItemIds.CELL_COMPONENT_16K, p -> new StorageComponentItem(p, 16));
-    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_64K = item("64k ME Storage Component", AEItemIds.CELL_COMPONENT_64K, p -> new StorageComponentItem(p, 64));
-    public static final ItemDefinition<StorageComponentItem> CELL_COMPONENT_256K = item("256k ME Storage Component", AEItemIds.CELL_COMPONENT_256K, p -> new StorageComponentItem(p, 256));
-    public static final ItemDefinition<MaterialItem> ITEM_CELL_HOUSING = item("ME Item Cell Housing", AEItemIds.ITEM_CELL_HOUSING, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> FLUID_CELL_HOUSING = item("ME Fluid Cell Housing", AEItemIds.FLUID_CELL_HOUSING, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> WIRELESS_RECEIVER = item("Wireless Receiver", AEItemIds.WIRELESS_RECEIVER, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> WIRELESS_BOOSTER = item("Wireless Booster", AEItemIds.WIRELESS_BOOSTER, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> FORMATION_CORE = item("Formation Core", AEItemIds.FORMATION_CORE, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> ANNIHILATION_CORE = item("Annihilation Core", AEItemIds.ANNIHILATION_CORE, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> SKY_DUST = item("Sky Stone Dust", AEItemIds.SKY_DUST, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> ENDER_DUST = item("Ender Dust", AEItemIds.ENDER_DUST, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> SINGULARITY = item("Singularity", AEItemIds.SINGULARITY, MaterialItem::new);
-    public static final ItemDefinition<MaterialItem> QUANTUM_ENTANGLED_SINGULARITY = item("Quantum Entangled Singularity", AEItemIds.QUANTUM_ENTANGLED_SINGULARITY, MaterialItem::new);
-
-    ///
-    /// CELLS
-    ///
-
-    public static final ItemDefinition<CreativeCellItem> CREATIVE_CELL = item("Creative ME Storage Cell", AEItemIds.CREATIVE_CELL, p -> new CreativeCellItem(p.stacksTo(1).rarity(Rarity.EPIC)));
-    public static final ItemDefinition<ViewCellItem> VIEW_CELL = item("View Cell", AEItemIds.VIEW_CELL, p -> new ViewCellItem(p.stacksTo(1)));
-
-    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_1K = item("1k ME Item Storage Cell", AEItemIds.ITEM_CELL_1K, p -> new BasicStorageCell(p.stacksTo(1), 0.5f, 1, 8, 63, AEKeyType.items()));
-    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_4K = item("4k ME Item Storage Cell", AEItemIds.ITEM_CELL_4K, p -> new BasicStorageCell(p.stacksTo(1), 1.0f, 4, 32, 63, AEKeyType.items()));
-    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_16K = item("16k ME Item Storage Cell", AEItemIds.ITEM_CELL_16K, p -> new BasicStorageCell(p.stacksTo(1), 1.5f, 16, 128, 63, AEKeyType.items()));
-    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_64K = item("64k ME Item Storage Cell", AEItemIds.ITEM_CELL_64K, p -> new BasicStorageCell(p.stacksTo(1), 2.0f, 64, 512, 63, AEKeyType.items()));
-    public static final ItemDefinition<BasicStorageCell> ITEM_CELL_256K = item("256k ME Item Storage Cell", AEItemIds.ITEM_CELL_256K, p -> new BasicStorageCell(p.stacksTo(1), 2.5f, 256, 2048, 63, AEKeyType.items()));
-
-    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_1K = item("1k ME Fluid Storage Cell", AEItemIds.FLUID_CELL_1K, p -> new BasicStorageCell(p.stacksTo(1), 0.5f, 1, 8, 18, AEKeyType.fluids()));
-    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_4K = item("4k ME Fluid Storage Cell", AEItemIds.FLUID_CELL_4K, p -> new BasicStorageCell(p.stacksTo(1), 1.0f, 4, 32, 18, AEKeyType.fluids()));
-    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_16K = item("16k ME Fluid Storage Cell", AEItemIds.FLUID_CELL_16K, p -> new BasicStorageCell(p.stacksTo(1), 1.5f, 16, 128, 18, AEKeyType.fluids()));
-    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_64K = item("64k ME Fluid Storage Cell", AEItemIds.FLUID_CELL_64K, p -> new BasicStorageCell(p.stacksTo(1), 2.0f, 64, 512, 18, AEKeyType.fluids()));
-    public static final ItemDefinition<BasicStorageCell> FLUID_CELL_256K = item("256k ME Fluid Storage Cell", AEItemIds.FLUID_CELL_256K, p -> new BasicStorageCell(p.stacksTo(1), 2.5f, 256, 2048, 18, AEKeyType.fluids()));
-
-    public static final ItemDefinition<SpatialStorageCellItem> SPATIAL_CELL2 = item("2³ Spatial Storage Cell", AEItemIds.SPATIAL_CELL_2, p -> new SpatialStorageCellItem(p.stacksTo(1), 2));
-    public static final ItemDefinition<SpatialStorageCellItem> SPATIAL_CELL16 = item("16³ Spatial Storage Cell", AEItemIds.SPATIAL_CELL_16, p -> new SpatialStorageCellItem(p.stacksTo(1), 16));
-    public static final ItemDefinition<SpatialStorageCellItem> SPATIAL_CELL128 = item("128³ Spatial Storage Cell", AEItemIds.SPATIAL_CELL_128, p -> new SpatialStorageCellItem(p.stacksTo(1), 128));
-
-    public static final ItemDefinition<Item> TABLET = item("Guide", AEItemIds.GUIDE, p -> new GuideItem(p.stacksTo(1)));
-
-    ///
-    /// UNSUPPORTED DEV TOOLS
-    ///
-
-    public static final ItemDefinition<EraserItem> DEBUG_ERASER = item("Dev.Eraser", AppEng.makeId("debug_eraser"), EraserItem::new);
-    public static final ItemDefinition<MeteoritePlacerItem> DEBUG_METEORITE_PLACER = item("Dev.MeteoritePlacer", AppEng.makeId("debug_meteorite_placer"), MeteoritePlacerItem::new);
-    public static final ItemDefinition<DebugCardItem> DEBUG_CARD = item("Dev.DebugCard", AppEng.makeId("debug_card"), DebugCardItem::new);
-    public static final ItemDefinition<ReplicatorCardItem> DEBUG_REPLICATOR_CARD = item("Dev.ReplicatorCard", AppEng.makeId("debug_replicator_card"), ReplicatorCardItem::new);
-    public static final ItemDefinition<WrappedGenericStack> WRAPPED_GENERIC_STACK = item("Wrapped Generic Stack", AEItemIds.WRAPPED_GENERIC_STACK, WrappedGenericStack::new);
-
-    // spotless:on
-
-    public static List<ItemDefinition<?>> getItems() {
-        return Collections.unmodifiableList(ITEMS);
+    private static double getWirelessTerminalBattery() {
+        return getConfiguredBattery(AEConfig.instance()::getWirelessTerminalBattery, 1600000);
     }
 
-    private static <T extends Item> ColoredItemDefinition<T> createColoredItems(String name,
-            Map<AEColor, ResourceLocation> ids,
-            BiFunction<Item.Properties, AEColor, T> factory) {
-        var colors = new ColoredItemDefinition<T>();
-        for (var entry : ids.entrySet()) {
-            String fullName;
-            if (entry.getKey() == AEColor.TRANSPARENT) {
-                fullName = name;
-            } else {
-                fullName = entry.getKey().getEnglishName() + " " + name;
+    private static double getConfiguredBattery(IntSupplier supplier, double fallback) {
+        try {
+            return supplier.getAsInt();
+        } catch (IllegalStateException ignored) {
+            return fallback;
+        }
+    }
+
+    public static ItemDefinition<?>[] all() {
+        return ITEMS.clone();
+    }
+
+    public static void register(RegistryEvent.Register<Item> event) {
+        for (BlockDefinition<?> definition : AEBlocks.all()) {
+            ItemBlock itemBlock = definition.item();
+            if (itemBlock != null) {
+                event.getRegistry().register(itemBlock);
             }
-            colors.add(entry.getKey(), entry.getValue(),
-                    item(fullName, entry.getValue(), p -> factory.apply(p, entry.getKey())));
         }
-        return colors;
+        for (ItemDefinition<?> definition : ITEMS) {
+            event.getRegistry().register(definition.item());
+        }
+        registerColored(event, COLORED_PAINT_BALL);
+        registerColored(event, COLORED_LUMEN_PAINT_BALL);
+        AEParts.register(event);
     }
 
-    static <T extends Item> ItemDefinition<T> item(String name, ResourceLocation id,
-            Function<Item.Properties, T> factory) {
-        return item(name, id, factory, AECreativeTabIds.MAIN);
-    }
-
-    static <T extends Item> ItemDefinition<T> item(String name, ResourceLocation id,
-            Function<Item.Properties, T> factory,
-            @Nullable ResourceKey<CreativeModeTab> group) {
-
-        Item.Properties p = new Item.Properties();
-
-        Preconditions.checkArgument(id.getNamespace().equals(AppEng.MOD_ID), "Can only register for AE2");
-        var definition = new ItemDefinition<>(name, DR.registerItem(id.getPath(), factory));
-
-        if (Objects.equals(group, AECreativeTabIds.MAIN)) {
-            MainCreativeTab.add(definition);
-        } else if (group != null) {
-            MainCreativeTab.add(definition);
-            MainCreativeTab.addExternal(group, definition);
+    private static ColoredItemDefinition<PaintBallItem> createColoredPaintBalls(
+        java.util.Map<AEColor, net.minecraft.util.ResourceLocation> ids, boolean lumen) {
+        ColoredItemDefinition<PaintBallItem> definition = new ColoredItemDefinition<>();
+        for (java.util.Map.Entry<AEColor, net.minecraft.util.ResourceLocation> entry : ids.entrySet()) {
+            definition.add(entry.getKey(), entry.getValue(), new ItemDefinition<>(entry.getValue(),
+                new PaintBallItem(entry.getKey(), lumen)));
         }
-
-        ITEMS.add(definition);
-
         return definition;
+    }
+
+    private static void registerColored(RegistryEvent.Register<Item> event, ColoredItemDefinition<?> definition) {
+        for (AEColor color : AEColor.values()) {
+            Item item = definition.item(color);
+            if (item != null) {
+                event.getRegistry().register(item);
+            }
+        }
     }
 }

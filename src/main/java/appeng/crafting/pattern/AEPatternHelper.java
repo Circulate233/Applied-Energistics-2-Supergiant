@@ -1,41 +1,30 @@
 package appeng.crafting.pattern;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
-/**
- * Helpers that apply to both processing and crafting patterns.
- */
+import java.util.List;
+
 final class AEPatternHelper {
     private AEPatternHelper() {
     }
 
-    /**
-     * Given an array of potentially null stacks, which can include multiples of the same type, produce an array that
-     * has no null elements and only contains every input type once, while preserving order.
-     */
-    public static List<GenericStack> condenseStacks(List<GenericStack> sparseInput) {
-        // Use a linked map to preserve ordering.
-        var map = new LinkedHashMap<AEKey, Long>();
-
-        for (var input : sparseInput) {
-            if (input != null) {
-                map.merge(input.what(), input.amount(), Long::sum);
+    static List<GenericStack> condenseStacks(List<GenericStack> sparseStacks) {
+        Object2LongLinkedOpenHashMap<AEKey> totals = new Object2LongLinkedOpenHashMap<>();
+        totals.defaultReturnValue(0);
+        for (var stack : sparseStacks) {
+            if (stack != null) {
+                totals.addTo(stack.what(), stack.amount());
             }
         }
 
-        if (map.isEmpty()) {
-            throw new IllegalStateException("No pattern here!");
+        List<GenericStack> result = new ObjectArrayList<>(totals.size());
+        for (Object2LongMap.Entry<AEKey> entry : totals.object2LongEntrySet()) {
+            result.add(new GenericStack(entry.getKey(), entry.getLongValue()));
         }
-
-        List<GenericStack> out = new ArrayList<>(map.size());
-        for (var entry : map.entrySet()) {
-            out.add(new GenericStack(entry.getKey(), entry.getValue()));
-        }
-        return out;
+        return result;
     }
 }

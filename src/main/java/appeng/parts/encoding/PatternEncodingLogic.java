@@ -1,32 +1,4 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.parts.encoding;
-
-import java.util.List;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
 
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.inventories.InternalInventory;
@@ -35,57 +7,74 @@ import appeng.api.stacks.GenericStack;
 import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AEProcessingPattern;
-import appeng.crafting.pattern.AESmithingTablePattern;
-import appeng.crafting.pattern.AEStonecuttingPattern;
 import appeng.helpers.IPatternTerminalLogicHost;
 import appeng.util.ConfigInventory;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.AEItemDefinitionFilter;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+
+import java.util.List;
 
 public class PatternEncodingLogic implements InternalInventoryHost {
-
-    private final IPatternTerminalLogicHost host;
-
     private static final int MAX_INPUT_SLOTS = Math.max(AECraftingPattern.CRAFTING_GRID_SLOTS,
-            AEProcessingPattern.MAX_INPUT_SLOTS);
+        AEProcessingPattern.MAX_INPUT_SLOTS);
     private static final int MAX_OUTPUT_SLOTS = AEProcessingPattern.MAX_OUTPUT_SLOTS;
 
-    private final ConfigInventory encodedInputInv = ConfigInventory.configStacks(MAX_INPUT_SLOTS)
-            .changeListener(this::onEncodedInputChanged).allowOverstacking(true).build();
-    private final ConfigInventory encodedOutputInv = ConfigInventory.configStacks(MAX_OUTPUT_SLOTS)
-            .changeListener(this::onEncodedOutputChanged).allowOverstacking(true).build();
-
+    private final IPatternTerminalLogicHost host;
     private final AppEngInternalInventory blankPatternInv = new AppEngInternalInventory(this, 1);
-    private final AppEngInternalInventory encodedPatternInv = new AppEngInternalInventory(this, 1);
-
+    private final AppEngInternalInventory encodedPatternInv = new AppEngInternalInventory(this, 1);    private final ConfigInventory encodedInputInv = ConfigInventory.configStacks(MAX_INPUT_SLOTS)
+                                                                   .changeListener(this::onEncodedInputChanged)
+                                                                   .allowOverstacking(true)
+                                                                   .build();
     private EncodingMode mode = EncodingMode.CRAFTING;
-    private boolean substitute = false;
+    private boolean substitute;
     private boolean substituteFluids = true;
-    private boolean isLoading = false;
-    @Nullable
-    private ResourceLocation stonecuttingRecipeId;
-
+    private boolean isLoading;
+    private final ConfigInventory encodedOutputInv = ConfigInventory.configStacks(MAX_OUTPUT_SLOTS)
+                                                                    .changeListener(this::onEncodedOutputChanged)
+                                                                    .allowOverstacking(true)
+                                                                    .build();
     public PatternEncodingLogic(IPatternTerminalLogicHost host) {
         this.host = host;
         this.blankPatternInv.setFilter(new AEItemDefinitionFilter(AEItems.BLANK_PATTERN));
+        this.encodedPatternInv.setMaxStackSize(0, 1);
+    }
+
+    private static void fillInventoryFromSparseStacks(ConfigInventory inv, List<GenericStack> stacks) {
+        inv.beginBatch();
+        try {
+            for (int i = 0; i < inv.size(); i++) {
+                inv.setStack(i, i < stacks.size() ? stacks.get(i) : null);
+            }
+        } finally {
+            inv.endBatch();
+        }
+    }
+
+    private static void fixItemOnlyInventory(ConfigInventory inv) {
+        for (int slot = 0; slot < inv.size(); slot++) {
+            var stack = inv.getStack(slot);
+            if (stack == null) {
+                continue;
+            }
+            if (!(stack.what() instanceof AEItemKey)) {
+                inv.setStack(slot, null);
+                continue;
+            }
+            if (stack.amount() != 1) {
+                inv.setStack(slot, new GenericStack(stack.what(), 1));
+            }
+        }
     }
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
-        // Load the encoded inputs and outputs of a pattern if it changes
         if (inv == this.encodedPatternInv) {
-            loadEncodedPattern(encodedPatternInv.getStackInSlot(0));
+            loadEncodedPattern(this.encodedPatternInv.getStackInSlot(0));
         }
-
         saveChanges();
-    }
-
-    public void saveChanges() {
-        // Do not re-save while we're loading since it could overwrite the NBT with incomplete data
-        if (!isLoading) {
-            host.markForSave();
-        }
     }
 
     @Override
@@ -95,7 +84,13 @@ public class PatternEncodingLogic implements InternalInventoryHost {
 
     @Override
     public boolean isClientSide() {
-        return host.getLevel().isClientSide();
+        return this.host.getLevel() == null || this.host.getLevel().isRemote;
+    }
+
+    public void saveChanges() {
+        if (!this.isLoading) {
+            this.host.markForSave();
+        }
     }
 
     private void onEncodedInputChanged() {
@@ -112,16 +107,11 @@ public class PatternEncodingLogic implements InternalInventoryHost {
             return;
         }
 
-        var details = PatternDetailsHelper.decodePattern(pattern, host.getLevel());
-
+        var details = PatternDetailsHelper.decodePattern(pattern, this.host.getLevel());
         if (details instanceof AECraftingPattern craftingPattern) {
             loadCraftingPattern(craftingPattern);
         } else if (details instanceof AEProcessingPattern processingPattern) {
             loadProcessingPattern(processingPattern);
-        } else if (details instanceof AESmithingTablePattern smithingTablePattern) {
-            loadSmithingTablePattern(smithingTablePattern);
-        } else if (details instanceof AEStonecuttingPattern stonecuttingPattern) {
-            loadStonecuttingPattern(stonecuttingPattern);
         }
 
         saveChanges();
@@ -131,59 +121,24 @@ public class PatternEncodingLogic implements InternalInventoryHost {
         setMode(EncodingMode.CRAFTING);
         this.substitute = pattern.canSubstitute();
         this.substituteFluids = pattern.canSubstituteFluids();
-
-        fillInventoryFromSparseStacks(encodedInputInv, pattern.getSparseInputs());
-        fillInventoryFromSparseStacks(encodedOutputInv, pattern.getSparseOutputs());
+        fillInventoryFromSparseStacks(this.encodedInputInv, pattern.getSparseInputs());
+        fillInventoryFromSparseStacks(this.encodedOutputInv, pattern.getSparseOutputs());
     }
 
     private void loadProcessingPattern(AEProcessingPattern pattern) {
         setMode(EncodingMode.PROCESSING);
-
-        fillInventoryFromSparseStacks(encodedInputInv, pattern.getSparseInputs());
-        fillInventoryFromSparseStacks(encodedOutputInv, pattern.getSparseOutputs());
-    }
-
-    private void loadSmithingTablePattern(AESmithingTablePattern pattern) {
-        setMode(EncodingMode.SMITHING_TABLE);
-        this.substitute = pattern.canSubstitute();
-
-        encodedInputInv.clear();
-        encodedInputInv.setStack(0, new GenericStack(pattern.getTemplate(), 1));
-        encodedInputInv.setStack(1, new GenericStack(pattern.getBase(), 1));
-        encodedInputInv.setStack(2, new GenericStack(pattern.getAddition(), 1));
-        encodedOutputInv.clear();
-    }
-
-    private void loadStonecuttingPattern(AEStonecuttingPattern pattern) {
-        setMode(EncodingMode.STONECUTTING);
-        stonecuttingRecipeId = pattern.getRecipeId();
-
-        this.substitute = pattern.canSubstitute;
-
-        encodedInputInv.clear();
-        encodedInputInv.setStack(0, new GenericStack(pattern.getInput(), 1));
-        encodedOutputInv.clear();
-    }
-
-    private static void fillInventoryFromSparseStacks(ConfigInventory inv, List<GenericStack> stacks) {
-        inv.beginBatch();
-        try {
-            for (int i = 0; i < inv.size(); i++) {
-                inv.setStack(i, i < stacks.size() ? stacks.get(i) : null);
-            }
-        } finally {
-            inv.endBatch();
-        }
+        fillInventoryFromSparseStacks(this.encodedInputInv, pattern.getSparseInputs());
+        fillInventoryFromSparseStacks(this.encodedOutputInv, pattern.getSparseOutputs());
     }
 
     public EncodingMode getMode() {
-        return mode;
+        return this.mode;
     }
 
     public void setMode(EncodingMode mode) {
         this.mode = mode;
-        this.fixCraftingRecipes();
-        this.saveChanges();
+        fixCraftingRecipes();
+        saveChanges();
     }
 
     public boolean isSubstitution() {
@@ -192,7 +147,7 @@ public class PatternEncodingLogic implements InternalInventoryHost {
 
     public void setSubstitution(boolean canSubstitute) {
         this.substitute = canSubstitute;
-        this.saveChanges();
+        saveChanges();
     }
 
     public boolean isFluidSubstitution() {
@@ -201,116 +156,68 @@ public class PatternEncodingLogic implements InternalInventoryHost {
 
     public void setFluidSubstitution(boolean canSubstitute) {
         this.substituteFluids = canSubstitute;
-        this.saveChanges();
+        saveChanges();
     }
 
-    public @Nullable ResourceLocation getStonecuttingRecipeId() {
-        return stonecuttingRecipeId;
-    }
-
-    public void setStonecuttingRecipeId(ResourceLocation stonecuttingRecipeId) {
-        this.stonecuttingRecipeId = stonecuttingRecipeId;
-        this.saveChanges();
-    }
-
-    /**
-     * The inventory used to store the inputs for encoding them into a pattern. Does not contain real items.
-     * <p/>
-     * Used for all {@link #getMode() modes}.
-     */
     public ConfigInventory getEncodedInputInv() {
-        return encodedInputInv;
+        return this.encodedInputInv;
     }
 
-    /**
-     * The inventory used to store the outputs for encoding them into a pattern. Does not contain real items.
-     * <p/>
-     * Not used for crafting {@link #getMode() modes}.
-     */
     public ConfigInventory getEncodedOutputInv() {
-        return encodedOutputInv;
+        return this.encodedOutputInv;
     }
 
-    /**
-     * Inventory of size 1, which contains the blank patterns for encoding.
-     */
     public InternalInventory getBlankPatternInv() {
-        return blankPatternInv;
+        return this.blankPatternInv;
     }
 
-    /**
-     * Inventory of size 1, which will receive the encoded pattern and can be used to place an already-encoded pattern
-     * for re-encoding.
-     */
     public InternalInventory getEncodedPatternInv() {
-        return encodedPatternInv;
+        return this.encodedPatternInv;
     }
 
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        isLoading = true;
+    public void readFromNBT(NBTTagCompound data) {
+        this.isLoading = true;
         try {
-            try {
-                this.mode = EncodingMode.valueOf(data.getString("mode"));
-            } catch (IllegalArgumentException ignored) {
+            if (data.hasKey("mode", 8)) {
+                try {
+                    this.mode = EncodingMode.valueOf(data.getString("mode"));
+                } catch (IllegalArgumentException ignored) {
+                    this.mode = EncodingMode.CRAFTING;
+                }
+            } else {
                 this.mode = EncodingMode.CRAFTING;
             }
-            this.setSubstitution(data.getBoolean("substitute"));
-            this.setFluidSubstitution(data.getBoolean("substituteFluids"));
-
-            if (data.contains("stonecuttingRecipeId", Tag.TAG_STRING)) {
-                this.stonecuttingRecipeId = ResourceLocation.parse(data.getString("stonecuttingRecipeId"));
-            } else {
-                this.stonecuttingRecipeId = null;
-            }
-
-            blankPatternInv.readFromNBT(data, "blankPattern", registries);
-            encodedPatternInv.readFromNBT(data, "encodedPattern", registries);
-
-            encodedInputInv.readFromChildTag(data, "encodedInputs", registries);
-            encodedOutputInv.readFromChildTag(data, "encodedOutputs", registries);
+            this.substitute = data.getBoolean("substitute");
+            this.substituteFluids = !data.hasKey("substituteFluids", 1) || data.getBoolean("substituteFluids");
+            this.blankPatternInv.readFromNBT(data, "blankPattern");
+            this.encodedPatternInv.readFromNBT(data, "encodedPattern");
+            this.encodedInputInv.readFromChildTag(data, "encodedInputs");
+            this.encodedOutputInv.readFromChildTag(data, "encodedOutputs");
+            fixCraftingRecipes();
         } finally {
-            isLoading = false;
+            this.isLoading = false;
         }
     }
 
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        data.putString("mode", this.mode.name());
-        data.putBoolean("substitute", this.substitute);
-        data.putBoolean("substituteFluids", this.substituteFluids);
-        if (this.stonecuttingRecipeId != null) {
-            data.putString("stonecuttingRecipeId", this.stonecuttingRecipeId.toString());
-        }
-        blankPatternInv.writeToNBT(data, "blankPattern", registries);
-        encodedPatternInv.writeToNBT(data, "encodedPattern", registries);
-        encodedInputInv.writeToChildTag(data, "encodedInputs", registries);
-        encodedOutputInv.writeToChildTag(data, "encodedOutputs", registries);
+    public void writeToNBT(NBTTagCompound data) {
+        data.setString("mode", this.mode.name());
+        data.setBoolean("substitute", this.substitute);
+        data.setBoolean("substituteFluids", this.substituteFluids);
+        this.blankPatternInv.writeToNBT(data, "blankPattern");
+        this.encodedPatternInv.writeToNBT(data, "encodedPattern");
+        this.encodedInputInv.writeToChildTag(data, "encodedInputs");
+        this.encodedOutputInv.writeToChildTag(data, "encodedOutputs");
     }
 
     private void fixCraftingRecipes() {
-        // Do not do this on the client since the server will always sync the correct state to us anyway
-        if (host.getLevel() == null || host.getLevel().isClientSide()) {
+        if (this.host.getLevel() == null || this.host.getLevel().isRemote || this.mode == EncodingMode.PROCESSING) {
             return;
         }
 
-        if (getMode() != EncodingMode.PROCESSING) {
-            var craftingGrid = getEncodedInputInv();
-            for (int slot = 0; slot < craftingGrid.size(); slot++) {
-                var stack = craftingGrid.getStack(slot);
-                if (stack == null) {
-                    continue;
-                }
-
-                // Crafting recipes only support real items, not wrapped fluids or similar things
-                if (!AEItemKey.is(stack.what())) {
-                    craftingGrid.setStack(slot, null);
-                    continue;
-                }
-
-                // Clamp item count to 1 for crafting recipes
-                if (stack.amount() != 1) {
-                    craftingGrid.setStack(slot, new GenericStack(stack.what(), 1));
-                }
-            }
-        }
+        fixItemOnlyInventory(this.encodedInputInv);
     }
+
+
+
+
 }

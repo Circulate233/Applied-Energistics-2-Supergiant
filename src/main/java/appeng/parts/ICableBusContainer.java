@@ -1,6 +1,6 @@
 /*
  * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -18,55 +18,58 @@
 
 package appeng.parts;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.parts.SelectedPart;
 import appeng.api.util.AEColor;
-import appeng.client.render.cablebus.CableBusRenderState;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+
+import javax.annotation.Nullable;
+import java.util.Random;
 
 public interface ICableBusContainer {
 
-    int isProvidingStrongPower(Direction opposite);
+    int isProvidingStrongPower(EnumFacing side);
 
-    int isProvidingWeakPower(Direction opposite);
+    int isProvidingWeakPower(EnumFacing side);
 
-    boolean canConnectRedstone(Direction opposite);
+    boolean canConnectRedstone(EnumFacing side);
 
-    void onEntityCollision(Entity e);
+    void onEntityCollision(Entity entity);
 
-    boolean useItemOn(ItemStack heldItem, Player player, InteractionHand hand, Vec3 localPos);
+    boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d localPos);
 
-    boolean useWithoutItem(Player player, Vec3 localPos);
+    boolean onUseWithoutItem(EntityPlayer player, Vec3d localPos);
 
-    void onNeighborChanged(BlockGetter level, BlockPos pos, BlockPos neighbor);
+    boolean onWrenched(EntityPlayer player, Vec3d localPos);
 
-    void onUpdateShape(LevelAccessor level, BlockPos pos, Direction side);
+    boolean onClicked(EntityPlayer player, Vec3d localPos);
+
+    void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor);
+
+    void onUpdateShape(EnumFacing side);
 
     boolean isEmpty();
 
-    SelectedPart selectPartLocal(Vec3 v3);
+    SelectedPart selectPartLocal(Vec3d pos);
 
-    boolean recolourBlock(Direction side, AEColor colour, Player who);
+    boolean recolourBlock(EnumFacing side, AEColor colour, EntityPlayer who);
 
-    boolean isLadder(LivingEntity entity);
+    boolean isLadder(EntityLivingBase entity);
 
-    @OnlyIn(Dist.CLIENT)
-    void animateTick(Level level, BlockPos pos, RandomSource r);
+    void randomDisplayTick(World world, BlockPos pos, Random random);
 
     int getLightValue();
 
-    CableBusRenderState getRenderState();
+    boolean isRequiresDynamicRender();
+
+    Iterable<AxisAlignedBB> getBoxes(boolean includeFacades, @Nullable Entity entity, boolean visual);
 }

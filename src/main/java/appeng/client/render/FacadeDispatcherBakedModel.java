@@ -18,42 +18,82 @@
 
 package appeng.client.render;
 
-import java.util.List;
-import java.util.Map;
-
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.common.util.ItemStackMap;
-
 import appeng.client.render.cablebus.FacadeBuilder;
 import appeng.items.parts.FacadeItem;
+import appeng.util.helpers.ItemComparisonHelper;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.item.ItemStack;
+import net.minecraft.world.World;
 
-/**
- * This baked model class is used as a dispatcher to redirect the renderer to the *real* model that should be used based
- * on the item stack. A custom Item Override List is used to accomplish this.
- */
+import java.util.Collections;
+import java.util.Map;
+import java.util.Objects;
+
 public class FacadeDispatcherBakedModel extends DelegateBakedModel {
     private final FacadeBuilder facadeBuilder;
-    private final Map<ItemStack, FacadeBakedItemModel> cache = ItemStackMap.createTypeAndTagMap();
+    private final Map<CacheKey, FacadeBakedItemModel> cache = new Object2ObjectOpenHashMap<>();
+    private final ItemOverrideList overrides = new ItemOverrideList(
+        Collections.emptyList()) {
+        @Override
+        public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world,
+                                           EntityLivingBase entity) {
+            if (!(stack.getItem() instanceof FacadeItem facadeItem)) {
+                return FacadeDispatcherBakedModel.this;
+            }
 
-    public FacadeDispatcherBakedModel(BakedModel baseModel, FacadeBuilder facadeBuilder) {
+            ItemStack textureItem = facadeItem.getTextureItem(stack);
+            if (textureItem.isEmpty()) {
+                return FacadeDispatcherBakedModel.this;
+            }
+
+            CacheKey cacheKey = new CacheKey(textureItem);
+            synchronized (cache) {
+                FacadeBakedItemModel model = cache.get(cacheKey);
+                if (model == null) {
+                    model = new FacadeBakedItemModel(getBaseModel(), textureItem, facadeBuilder);
+                    cache.put(cacheKey, model);
+                }
+                return model;
+            }
+        }
+    };
+
+    public FacadeDispatcherBakedModel(IBakedModel baseModel, FacadeBuilder facadeBuilder) {
         super(baseModel);
         this.facadeBuilder = facadeBuilder;
     }
 
     @Override
-    public synchronized List<BakedModel> getRenderPasses(ItemStack stack, boolean fabulous) {
-        if (!(stack.getItem() instanceof FacadeItem itemFacade)) {
-            return List.of(this);
+    public ItemOverrideList getOverrides() {
+        return this.overrides;
+    }
+
+    private record CacheKey(ItemStack stack) {
+        private CacheKey {
+            stack = stack.copy();
+            stack.setCount(1);
         }
 
-        var textureItem = itemFacade.getTextureItem(stack);
-        var model = cache.get(textureItem);
-        if (model == null) {
-            model = new FacadeBakedItemModel(getBaseModel(), textureItem, facadeBuilder);
-            cache.put(textureItem, model);
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof CacheKey(ItemStack stack1))) {
+                return false;
+            }
+
+            return ItemComparisonHelper.isEqualItemType(this.stack, stack1)
+                && ItemComparisonHelper.isNbtTagEqual(this.stack.getTagCompound(), stack1.getTagCompound());
         }
 
-        return List.of(model);
+        @Override
+        public int hashCode() {
+            return Objects.hash(this.stack.getItem(), this.stack.isItemStackDamageable() ? 0 : this.stack.getItemDamage(),
+                this.stack.getTagCompound());
+        }
     }
 }

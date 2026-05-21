@@ -15,130 +15,113 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.effects;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
-
-import org.joml.Vector3f;
-
-import net.minecraft.client.Camera;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleProvider;
-import net.minecraft.client.particle.ParticleRenderType;
-import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.particle.TextureSheetParticle;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.minecraft.util.Mth;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.World;
 
-@OnlyIn(Dist.CLIENT)
-public class CraftingFx extends TextureSheetParticle {
+public class CraftingFx extends Particle {
 
-    // Offset relative to center of block, is the starting point of the particle
-    // movement
-    private final float offsetX;
-    private final float offsetY;
-    private final float offsetZ;
+    private final int startBlockX;
+    private final int startBlockY;
+    private final int startBlockZ;
 
-    public CraftingFx(ClientLevel level, double x, double y, double z,
-            SpriteSet sprite) {
-        super(level, x, y, z);
+    public CraftingFx(World world, double x, double y, double z, double motionX, double motionY, double motionZ,
+                      TextureAtlasSprite sprite) {
+        super(world, x, y, z);
+        this.particleRed = 1.0f;
+        this.particleGreen = 0.9f;
+        this.particleBlue = 1.0f;
+        this.particleAlpha = 1.3f;
+        this.particleScale = 1.5f;
+        this.particleGravity = 0.0f;
+        this.particleMaxAge = Math.max(1, (int) (this.particleMaxAge / 1.2D));
+        this.canCollide = false;
+        this.motionX = motionX;
+        this.motionY = motionY;
+        this.motionZ = motionZ;
+        if (sprite != null) {
+            this.setParticleTexture(sprite);
+        }
 
-        // Pick a random normal, offset it by 0.35 and use that as the particle origin
-        Vector3f off = new Vector3f(random.nextFloat() - 0.5f, random.nextFloat() - 0.5f, random.nextFloat() - 0.5f);
-        off.normalize();
-        off.mul(0.35f);
-        offsetX = off.x();
-        offsetY = off.y();
-        offsetZ = off.z();
-
-        this.gravity = 0;
-        this.bCol = 1;
-        this.gCol = 0.9f;
-        this.rCol = 1;
-        this.pickSprite(sprite);
-        this.lifetime /= 1.2;
-        this.hasPhysics = false; // we're INSIDE the block anyway
+        this.startBlockX = MathHelper.floor(this.posX);
+        this.startBlockY = MathHelper.floor(this.posY);
+        this.startBlockZ = MathHelper.floor(this.posZ);
     }
 
     @Override
-    public void render(VertexConsumer buffer, Camera renderInfo, float partialTicks) {
-
-        float f = (this.age + partialTicks) / this.lifetime;
-
-        float offX = (float) x + Mth.lerp(f, offsetX, 0);
-        float offY = (float) y + Mth.lerp(f, offsetY, 0);
-        float offZ = (float) z + Mth.lerp(f, offsetZ, 0);
-        float alpha = Mth.lerp(easeOutCirc(f), 1.3f, 0.1f);
-        float scale = Mth.lerp(easeOutCirc(f), 0.13f, 0.0f);
-
-        // I believe this particle is same as breaking particle, but should not exit the
-        // original block it was
-        // spawned in (which is encased in glass)
-        Vec3 Vector3d = renderInfo.getPosition();
-        offX -= Vector3d.x;
-        offY -= Vector3d.y;
-        offZ -= Vector3d.z;
-
-        Vector3f[] avector3f = new Vector3f[] { new Vector3f(-1.0F, -1.0F, 0.0F), new Vector3f(-1.0F, 1.0F, 0.0F),
-                new Vector3f(1.0F, 1.0F, 0.0F), new Vector3f(1.0F, -1.0F, 0.0F) };
-
-        for (int i = 0; i < 4; ++i) {
-            Vector3f vector3f = avector3f[i];
-            vector3f.rotate(renderInfo.rotation());
-            vector3f.mul(scale);
-            vector3f.add(offX, offY, offZ);
-        }
-
-        float minU = this.getU0();
-        float maxU = this.getU1();
-        float minV = this.getV0();
-        float maxV = this.getV1();
-        int j = 15728880; // full brightness
-        buffer.addVertex(avector3f[3].x(), avector3f[3].y(), avector3f[0].z()).setUv(maxU, maxV)
-                .setColor(this.rCol, this.gCol, this.bCol, alpha).setLight(j);
-        buffer.addVertex(avector3f[2].x(), avector3f[2].y(), avector3f[1].z()).setUv(maxU, minV)
-                .setColor(this.rCol, this.gCol, this.bCol, alpha).setLight(j);
-        buffer.addVertex(avector3f[1].x(), avector3f[1].y(), avector3f[2].z()).setUv(minU, minV)
-                .setColor(this.rCol, this.gCol, this.bCol, alpha).setLight(j);
-        buffer.addVertex(avector3f[0].x(), avector3f[0].y(), avector3f[3].z()).setUv(minU, maxV)
-                .setColor(this.rCol, this.gCol, this.bCol, alpha).setLight(j);
-    }
-
-    // https://easings.net/#easeOutCirc
-    private static float easeOutCirc(float x) {
-        return (float) Math.sqrt(1 - Math.pow(x - 1, 2));
+    public int getFXLayer() {
+        return 1;
     }
 
     @Override
-    public ParticleRenderType getRenderType() {
-        return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+    public void renderParticle(BufferBuilder buffer, net.minecraft.entity.Entity entityIn, float partialTicks,
+                               float rotationX, float rotationZ, float rotationYZ, float rotationXY, float rotationXZ) {
+        int blockX = MathHelper.floor(this.posX);
+        int blockY = MathHelper.floor(this.posY);
+        int blockZ = MathHelper.floor(this.posZ);
+        if (blockX != this.startBlockX || blockY != this.startBlockY || blockZ != this.startBlockZ) {
+            return;
+        }
+
+        float x = (float) (this.prevPosX + (this.posX - this.prevPosX) * partialTicks - Particle.interpPosX);
+        float y = (float) (this.prevPosY + (this.posY - this.prevPosY) * partialTicks - Particle.interpPosY);
+        float z = (float) (this.prevPosZ + (this.posZ - this.prevPosZ) * partialTicks - Particle.interpPosZ);
+        float scale = 0.1F * this.particleScale;
+
+        float minU = this.particleTexture.getMinU();
+        float maxU = this.particleTexture.getMaxU();
+        float minV = this.particleTexture.getMinV();
+        float maxV = this.particleTexture.getMaxV();
+        int lightmap = this.getBrightnessForRender(partialTicks);
+        int sky = lightmap >> 16 & 0xFFFF;
+        int block = lightmap & 0xFFFF;
+
+        buffer.pos(x - rotationX * scale - rotationXY * scale, y - rotationZ * scale,
+                   z - rotationYZ * scale - rotationXZ * scale)
+              .tex(maxU, maxV)
+              .color(this.particleRed, this.particleGreen, this.particleBlue, this.particleAlpha)
+              .lightmap(sky, block)
+              .endVertex();
+        buffer.pos(x - rotationX * scale + rotationXY * scale, y + rotationZ * scale,
+                   z - rotationYZ * scale + rotationXZ * scale)
+              .tex(maxU, minV)
+              .color(this.particleRed, this.particleGreen, this.particleBlue, this.particleAlpha)
+              .lightmap(sky, block)
+              .endVertex();
+        buffer.pos(x + rotationX * scale + rotationXY * scale, y + rotationZ * scale,
+                   z + rotationYZ * scale + rotationXZ * scale)
+              .tex(minU, minV)
+              .color(this.particleRed, this.particleGreen, this.particleBlue, this.particleAlpha)
+              .lightmap(sky, block)
+              .endVertex();
+        buffer.pos(x + rotationX * scale - rotationXY * scale, y - rotationZ * scale,
+                   z + rotationYZ * scale - rotationXZ * scale)
+              .tex(minU, maxV)
+              .color(this.particleRed, this.particleGreen, this.particleBlue, this.particleAlpha)
+              .lightmap(sky, block)
+              .endVertex();
     }
 
     @Override
-    public void tick() {
-        if (this.age++ >= this.lifetime) {
-            this.remove();
+    public void onUpdate() {
+        this.prevPosX = this.posX;
+        this.prevPosY = this.posY;
+        this.prevPosZ = this.posZ;
+
+        if (this.particleAge++ >= this.particleMaxAge) {
+            this.setExpired();
         }
+
+        this.motionY -= 0.04D * this.particleGravity;
+        this.move(this.motionX, this.motionY, this.motionZ);
+        this.motionX *= 0.9800000190734863D;
+        this.motionY *= 0.9800000190734863D;
+        this.motionZ *= 0.9800000190734863D;
+        this.particleScale *= 0.51f;
+        this.particleAlpha *= 0.51f;
     }
-
-    @OnlyIn(Dist.CLIENT)
-    public static class Factory implements ParticleProvider<SimpleParticleType> {
-        private final SpriteSet spriteSet;
-
-        public Factory(SpriteSet spriteSet) {
-            this.spriteSet = spriteSet;
-        }
-
-        @Override
-        public Particle createParticle(SimpleParticleType data, ClientLevel level, double x, double y, double z,
-                double xSpeed, double ySpeed, double zSpeed) {
-            return new CraftingFx(level, x, y, z, spriteSet);
-        }
-    }
-
 }

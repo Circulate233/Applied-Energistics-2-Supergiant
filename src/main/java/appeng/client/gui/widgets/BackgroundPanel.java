@@ -1,19 +1,31 @@
-package appeng.client.gui.widgets;
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
+package appeng.client.gui.widgets;
 
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
+import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
 
-/**
- * Renders a simple panel with a background an no interactivity.
- */
 public class BackgroundPanel implements ICompositeWidget {
     private final Blitter background;
 
-    // Relative to current screen origin (not window)
     private int x;
     private int y;
 
@@ -23,13 +35,12 @@ public class BackgroundPanel implements ICompositeWidget {
 
     @Override
     public void setPosition(Point position) {
-        x = position.getX();
-        y = position.getY();
+        x = position.x();
+        y = position.y();
     }
 
     @Override
     public void setSize(int width, int height) {
-        // Size of panels is implied by the background
     }
 
     @Override
@@ -38,7 +49,8 @@ public class BackgroundPanel implements ICompositeWidget {
     }
 
     @Override
-    public void drawBackgroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
-        background.dest(bounds.getX() + x, bounds.getY() + y).blit(guiGraphics);
+    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+        background.dest(bounds.x() + x, bounds.y() + y).blit();
     }
 }
+

@@ -18,105 +18,65 @@
 
 package appeng.block.networking;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.StringRepresentable;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.phys.BlockHitResult;
-
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.networking.ControllerBlockEntity;
+import appeng.block.AEBaseTileBlock;
 import appeng.core.definitions.AEBlocks;
-import appeng.menu.MenuOpener;
-import appeng.menu.locator.MenuLocators;
-import appeng.menu.me.networktool.NetworkStatusMenu;
+import appeng.tile.networking.TileController;
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.PropertyEnum;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.IStringSerializable;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 
-public class ControllerBlock extends AEBaseEntityBlock<ControllerBlockEntity> {
+@SuppressWarnings("deprecation")
+public class ControllerBlock extends AEBaseTileBlock<TileController> {
 
-    public enum ControllerBlockState implements StringRepresentable {
-        offline, online, conflicted;
-
-        @Override
-        public String getSerializedName() {
-            return this.name();
-        }
-
-    }
-
-    /**
-     * Controls the rendering of the controller block (connected texture style). inside_a and inside_b are alternating
-     * patterns for a controller that is enclosed by other controllers, and since they are always offline, they do not
-     * have the usual sub-states.
-     */
-    public enum ControllerRenderType implements StringRepresentable {
-        block, column_x, column_y, column_z, inside_a, inside_b;
-
-        @Override
-        public String getSerializedName() {
-            return this.name();
-        }
-
-    }
-
-    public static final EnumProperty<ControllerBlockState> CONTROLLER_STATE = EnumProperty.create("state",
-            ControllerBlockState.class);
-
-    public static final EnumProperty<ControllerRenderType> CONTROLLER_TYPE = EnumProperty.create("type",
-            ControllerRenderType.class);
+    public static final PropertyEnum<ControllerBlockState> CONTROLLER_STATE = PropertyEnum.create("state",
+        ControllerBlockState.class);
+    public static final PropertyEnum<ControllerRenderType> CONTROLLER_TYPE = PropertyEnum.create("type",
+        ControllerRenderType.class);
 
     public ControllerBlock() {
-        super(metalProps().strength(6));
-        this.registerDefaultState(this.defaultBlockState().setValue(CONTROLLER_STATE, ControllerBlockState.offline)
-                .setValue(CONTROLLER_TYPE, ControllerRenderType.block));
+        super(Material.IRON);
+        this.setHardness(6.0F);
+        this.setResistance(10.0F);
+        this.setTileEntity(TileController.class);
+        this.setDefaultState(this.blockState.getBaseState()
+                                            .withProperty(CONTROLLER_STATE, ControllerBlockState.offline)
+                                            .withProperty(CONTROLLER_TYPE, ControllerRenderType.block));
+    }
+
+    private static boolean isController(IBlockAccess level, int x, int y, int z) {
+// Do NOT query tile entity:
+        Block block = level.getBlockState(new BlockPos(x, y, z)).getBlock();
+        return block == AEBlocks.CONTROLLER.block();
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(CONTROLLER_STATE);
-        builder.add(CONTROLLER_TYPE);
+    protected BlockStateContainer createBlockState() {
+        return createBlockState(CONTROLLER_STATE, CONTROLLER_TYPE);
     }
 
-    /**
-     * This is called to determine which variant of the controller gets placed based on adjacent blocks.
-     */
-    @Nullable
     @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return getControllerType(defaultBlockState(), context.getLevel(), context.getClickedPos());
-    }
-
-    /**
-     * This is called when an adjacent block is changed.
-     */
-    @Override
-    public BlockState updateShape(BlockState state, Direction facing, BlockState facingState, LevelAccessor level,
-            BlockPos pos, BlockPos facingPos) {
-        return getControllerType(state, level, pos);
-    }
-
-    private BlockState getControllerType(BlockState baseState, LevelAccessor level, BlockPos pos) {
-        // Only used for columns, really
+    public IBlockState getActualState(IBlockState state, IBlockAccess world, BlockPos pos) {
+// Only used for columns, really
         ControllerRenderType type = ControllerRenderType.block;
 
         int x = pos.getX();
         int y = pos.getY();
         int z = pos.getZ();
 
-        // Detect whether controllers are on both sides of the x, y, and z axes
-        final boolean xx = isController(level, x - 1, y, z) && isController(level, x + 1, y, z);
-        final boolean yy = isController(level, x, y - 1, z) && isController(level, x, y + 1, z);
-        final boolean zz = isController(level, x, y, z - 1) && isController(level, x, y, z + 1);
+// Detect whether controllers are on both sides of the x, y, and z axes
+        final boolean xx = isController(world, x - 1, y, z) && isController(world, x + 1, y, z);
+        final boolean yy = isController(world, x, y - 1, z) && isController(world, x, y + 1, z);
+        final boolean zz = isController(world, x, y, z - 1) && isController(world, x, y, z + 1);
 
         if (xx && !yy && !zz) {
             type = ControllerRenderType.column_x;
@@ -126,36 +86,81 @@ public class ControllerBlock extends AEBaseEntityBlock<ControllerBlockEntity> {
             type = ControllerRenderType.column_z;
         } else if ((xx ? 1 : 0) + (yy ? 1 : 0) + (zz ? 1 : 0) >= 2) {
             final int v = (Math.abs(x) + Math.abs(y) + Math.abs(z)) % 2;
-
-            // While i'd like this to be based on the blockstate randomization feature, this
-            // generates an alternating pattern based on level position, so this is not 100% doable with blockstates.
-            if (v == 0) {
-                type = ControllerRenderType.inside_a;
-            } else {
-                type = ControllerRenderType.inside_b;
-            }
+            type = v == 0 ? ControllerRenderType.inside_a : ControllerRenderType.inside_b;
         }
 
-        return baseState.setValue(CONTROLLER_TYPE, type);
-    }
-
-    private static boolean isController(LevelAccessor level, int x, int y, int z) {
-        // Do NOT query block entity:
-        // - in Spatial IO movement, block entity might have been removed but block might still be there
-        // - if we call getBlockEntity a new block entity will be loaded even though it has already been removed (bad!)
-        return level.getBlockState(new BlockPos(x, y, z)).is(AEBlocks.CONTROLLER.block());
+        return state.withProperty(CONTROLLER_TYPE, type);
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof ControllerBlockEntity be) {
-            if (!level.isClientSide) {
-                MenuOpener.open(NetworkStatusMenu.CONTROLLER_TYPE, player, MenuLocators.forBlockEntity(be));
-            }
-            return InteractionResult.sidedSuccess(level.isClientSide);
+    public int getMetaFromState(IBlockState state) {
+        return state.getValue(CONTROLLER_STATE).ordinal();
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        ControllerBlockState[] values = ControllerBlockState.values();
+        int safeMeta = meta < 0 || meta >= values.length ? 0 : meta;
+        return this.getDefaultState().withProperty(CONTROLLER_STATE, values[safeMeta]);
+    }
+
+    @Override
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
+
+    @Override
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileController tileEntity) {
+        ControllerBlockState nextState = ControllerBlockState.offline;
+        if (tileEntity.isOnline()) {
+            nextState = tileEntity.isConflicted() ? ControllerBlockState.conflicted : ControllerBlockState.online;
+        }
+        return currentState.withProperty(CONTROLLER_STATE, nextState);
+    }
+
+    @Override
+    public boolean onBlockActivated(World worldIn, BlockPos pos, IBlockState state, EntityPlayer playerIn,
+                                    EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(worldIn, pos, state, playerIn, hand, facing, hitX, hitY, hitZ)) {
+            return true;
         }
 
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        if (!playerIn.getHeldItem(hand).isEmpty()) {
+            return false;
+        }
+
+        TileController tile = this.getTileEntity(worldIn, pos);
+        if (tile != null) {
+            if (!worldIn.isRemote) {
+                tile.openGui(playerIn);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    public enum ControllerBlockState implements IStringSerializable {
+        offline,
+        online,
+        conflicted;
+
+        @Override
+        public String getName() {
+            return this.name();
+        }
+    }
+
+    public enum ControllerRenderType implements IStringSerializable {
+        block,
+        column_x,
+        column_y,
+        column_z,
+        inside_a,
+        inside_b;
+
+        @Override
+        public String getName() {
+            return this.name();
+        }
     }
 }

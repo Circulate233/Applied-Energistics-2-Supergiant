@@ -18,16 +18,15 @@
 
 package appeng.me.helpers;
 
-import java.util.Optional;
-
-import net.minecraft.world.entity.player.Player;
-
 import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
+import net.minecraft.entity.player.EntityPlayer;
+
+import java.util.Optional;
 
 public class BaseActionSource implements IActionSource {
     @Override
-    public Optional<Player> player() {
+    public Optional<EntityPlayer> player() {
         return Optional.empty();
     }
 

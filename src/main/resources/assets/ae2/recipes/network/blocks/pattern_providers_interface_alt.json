@@ -1,0 +1,12 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:cable_pattern_provider"
+    }
+  ],
+  "result": {
+    "item": "ae2:pattern_provider",
+    "count": 1
+  }
+}

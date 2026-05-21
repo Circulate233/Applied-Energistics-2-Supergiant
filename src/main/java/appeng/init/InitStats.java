@@ -18,25 +18,23 @@
 
 package appeng.init;
 
-import net.minecraft.core.Registry;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.stats.StatFormatter;
-import net.minecraft.stats.Stats;
-
 import appeng.core.stats.AeStats;
 
 public final class InitStats {
 
+    private static boolean initialized;
+
     private InitStats() {
     }
 
-    public static void init(Registry<ResourceLocation> registry) {
-        for (AeStats stat : AeStats.values()) {
-            // Compare with net.minecraft.stats.Stats#registerCustom
-            ResourceLocation registryName = stat.getRegistryName();
-            Registry.register(registry, registryName.getPath(), registryName);
-            Stats.CUSTOM.get(registryName, StatFormatter.DEFAULT);
+    public static synchronized void init() {
+        if (initialized) {
+            return;
         }
-    }
 
+        for (AeStats stat : AeStats.values()) {
+            stat.register();
+        }
+        initialized = true;
+    }
 }

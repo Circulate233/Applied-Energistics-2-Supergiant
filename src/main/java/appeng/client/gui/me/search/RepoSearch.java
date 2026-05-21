@@ -1,25 +1,23 @@
 package appeng.client.gui.me.search;
 
-import java.util.ArrayList;
+import appeng.api.stacks.AEKey;
+import appeng.container.me.common.GridInventoryEntry;
+import it.unimi.dsi.fastutil.longs.Long2BooleanMap;
+import it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 import java.util.function.Predicate;
 
-import it.unimi.dsi.fastutil.longs.Long2BooleanMap;
-import it.unimi.dsi.fastutil.longs.Long2BooleanOpenHashMap;
-
-import appeng.api.stacks.AEKey;
-import appeng.menu.me.common.GridInventoryEntry;
-
 public class RepoSearch {
 
-    private String searchString = "";
-
+    final Map<AEKey, String> tooltipCache = new WeakHashMap<>();
     // Cached information
     private final Long2BooleanMap cache = new Long2BooleanOpenHashMap();
+    private String searchString = "";
     private Predicate<GridInventoryEntry> search = (e) -> true;
-    final Map<AEKey, String> tooltipCache = new WeakHashMap<>();
 
     public RepoSearch() {
     }
@@ -37,7 +35,7 @@ public class RepoSearch {
     }
 
     public boolean matches(GridInventoryEntry entry) {
-        return cache.computeIfAbsent(entry.getSerial(), s -> search.test(entry));
+        return cache.computeIfAbsent(entry.serial(), s -> search.test(entry));
     }
 
     /*
@@ -49,7 +47,7 @@ public class RepoSearch {
         if (orParts.length == 1) {
             return AndSearchPredicate.of(getPredicates(orParts[0]));
         } else {
-            var orPartFilters = new ArrayList<Predicate<GridInventoryEntry>>(orParts.length);
+            var orPartFilters = new ObjectArrayList<Predicate<GridInventoryEntry>>(orParts.length);
 
             for (String orPart : orParts) {
                 orPartFilters.add(AndSearchPredicate.of(getPredicates(orPart)));
@@ -65,7 +63,7 @@ public class RepoSearch {
      */
     private List<Predicate<GridInventoryEntry>> getPredicates(String query) {
         var terms = query.toLowerCase().trim().split("\\s+");
-        var predicateFilters = new ArrayList<Predicate<GridInventoryEntry>>(terms.length);
+        var predicateFilters = new ObjectArrayList<Predicate<GridInventoryEntry>>(terms.length);
 
         for (String part : terms) {
             if (part.startsWith("@")) {

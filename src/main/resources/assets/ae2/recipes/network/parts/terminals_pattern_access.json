@@ -1,0 +1,31 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    [
+      {
+        "item": "ae2:monitor"
+      },
+      {
+        "item": "ae2:semi_dark_monitor"
+      },
+      {
+        "item": "ae2:dark_monitor"
+      }
+    ],
+    {
+      "item": "ae2:engineering_processor"
+    },
+    [
+      {
+        "item": "ae2:cable_pattern_provider"
+      },
+      {
+        "item": "ae2:pattern_provider"
+      }
+    ]
+  ],
+  "result": {
+    "item": "ae2:pattern_access_terminal",
+    "count": 1
+  }
+}

@@ -18,25 +18,23 @@
 
 package appeng.me.pathfinding;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Queue;
-import java.util.Set;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
-
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridMultiblock;
 import appeng.api.networking.IGridNode;
-import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.me.GridConnection;
 import appeng.me.GridNode;
+import appeng.tile.networking.TileController;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.util.ArrayDeque;
+import java.util.List;
+import java.util.Queue;
 
 /**
  * Calculation to assign channels starting from the controllers. The full computation is split in two steps, each linear
@@ -50,25 +48,21 @@ import appeng.me.GridNode;
  */
 public class PathingCalculation {
     private static final Logger LOG = LoggerFactory.getLogger(PathingCalculation.class);
-
+    private static final Object SUBTREE_END = new Object();
     private final IGrid grid;
     /**
      * Path items that are part of a multiblock that was already granted a channel.
      */
-    private final Set<GridNode> multiblocksWithChannel = new HashSet<>();
+    private final ReferenceSet<GridNode> multiblocksWithChannel = new ReferenceOpenHashSet<>();
     /**
      * The BFS queues: all the path items that need to be visited on the next tick. Dense queue is prioritized to have
      * the behavior of dense cables extending the controller faces, then cables, then normal devices.
      */
-    private final Queue<IPathItem>[] queues = new Queue[] {
-            new ArrayDeque<>(), // 0: dense cable queue
-            new ArrayDeque<>(), // 1: normal cable queue
-            new ArrayDeque<>() // 2: non-cable queue
-    };
+    private final Queue<IPathItem>[] queues = createQueues();
     /**
      * Path items that are either in a queue, or have been processed already.
      */
-    private final Set<IPathItem> visited = new HashSet<>();
+    private final ReferenceSet<IPathItem> visited = new ReferenceOpenHashSet<>();
     /**
      * Tracks the number of channels assigned to each path item during the BFS pass. Only a few key nodes along any path
      * are checked and updated.
@@ -77,7 +71,7 @@ public class PathingCalculation {
     /**
      * Nodes that have been granted a channel during the BFS pass.
      */
-    private final Set<GridNode> channelNodes = new HashSet<>();
+    private final ReferenceSet<GridNode> channelNodes = new ReferenceOpenHashSet<>();
     /**
      * Tracks the total number of used channels.
      */
@@ -94,16 +88,25 @@ public class PathingCalculation {
         this.grid = grid;
 
         // Add every outgoing connection of the controllers (that doesn't point to another controller) to the list.
-        for (var node : grid.getMachineNodes(ControllerBlockEntity.class)) {
+        for (var node : grid.getMachineNodes(TileController.class)) {
             visited.add((IPathItem) node);
             for (var gcc : node.getConnections()) {
                 var gc = (GridConnection) gcc;
-                if (!(gc.getOtherSide(node).getOwner() instanceof ControllerBlockEntity)) {
+                if (!(gc.getOtherSide(node).getOwner() instanceof TileController)) {
                     enqueue(gc, 0);
                     gc.setControllerRoute((GridNode) node);
                 }
             }
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Queue<IPathItem>[] createQueues() {
+        return (Queue<IPathItem>[]) new Queue<?>[]{
+            new ArrayDeque<IPathItem>(), // 0: dense cable queue
+            new ArrayDeque<IPathItem>(), // 1: normal cable queue
+            new ArrayDeque<IPathItem>() // 2: non-cable queue
+        };
     }
 
     private void enqueue(IPathItem pathItem, int queueIndex) {
@@ -147,9 +150,12 @@ public class PathingCalculation {
                     pi.setControllerRoute(i);
 
                     if (pi.hasFlag(GridFlags.REQUIRE_CHANNEL)) {
-                        if (!this.multiblocksWithChannel.contains(pi)) {
+                        if (!(pi instanceof GridNode gridNode)) {
+                            continue;
+                        }
+                        if (!this.multiblocksWithChannel.contains(gridNode)) {
                             // Try to use the channel along the path.
-                            boolean worked = tryUseChannel((GridNode) pi);
+                            boolean worked = tryUseChannel(gridNode);
 
                             if (worked && pi.hasFlag(GridFlags.MULTIBLOCK)) {
                                 var multiblock = ((IGridNode) pi).getService(IGridMultiblock.class);
@@ -161,7 +167,7 @@ public class PathingCalculation {
                                             // Only a log for now until addons are fixed too. See
                                             // https://github.com/AppliedEnergistics/Applied-Energistics-2/issues/8295
                                             LOG.error("Skipping null node returned by grid multiblock node {}",
-                                                    multiblock);
+                                                multiblock);
                                         } else if (otherNodes != pi) {
                                             this.multiblocksWithChannel.add((GridNode) otherNodes);
                                         }
@@ -209,20 +215,18 @@ public class PathingCalculation {
         return true;
     }
 
-    private static final Object SUBTREE_END = new Object();
-
     /**
      * Propagates assignment to all nodes by performing a DFS. The implementation is iterative to avoid stack overflow.
      */
     private void propagateAssignments() {
-        List<Object> stack = new ArrayList<>();
-        Set<IPathItem> controllerNodes = new HashSet<>();
+        List<Object> stack = new ObjectArrayList<>();
+        ReferenceSet<IPathItem> controllerNodes = new ReferenceOpenHashSet<>();
 
-        for (var node : grid.getMachineNodes(ControllerBlockEntity.class)) {
+        for (var node : grid.getMachineNodes(TileController.class)) {
             controllerNodes.add((IPathItem) node);
             for (var gcc : node.getConnections()) {
                 var gc = (GridConnection) gcc;
-                if (!(gc.getOtherSide(node).getOwner() instanceof ControllerBlockEntity)) {
+                if (!(gc.getOtherSide(node).getOwner() instanceof TileController)) {
                     stack.add(gc);
                 }
             }

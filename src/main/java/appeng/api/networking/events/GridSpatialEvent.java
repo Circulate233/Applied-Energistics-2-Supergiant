@@ -23,19 +23,19 @@
 
 package appeng.api.networking.events;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.Level;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 /**
  * An event that is posted whenever a spatial IO is active.
  */
 public class GridSpatialEvent extends GridEvent {
     /**
-     * The level in which the Spatial I/O block entity triggering this transition is located.
+     * The level in which the Spatial I/O tile entity triggering this transition is located.
      */
-    public final Level spatialIoLevel;
+    public final World spatialIoLevel;
     /**
-     * The block position at which the Spatial I/O block entity triggering this transition is located.
+     * The block position at which the Spatial I/O tile entity triggering this transition is located.
      */
     public final BlockPos spatialIoPos;
     /**
@@ -49,9 +49,9 @@ public class GridSpatialEvent extends GridEvent {
      * @param spatialIoPos   Position where the Spatial IO is located
      * @param EnergyUsage    ( the amount of energy that the SpatialIO uses)
      */
-    public GridSpatialEvent(Level spatialIoLevel,
-            BlockPos spatialIoPos,
-            double EnergyUsage) {
+    public GridSpatialEvent(World spatialIoLevel,
+                            BlockPos spatialIoPos,
+                            double EnergyUsage) {
         this.spatialIoLevel = spatialIoLevel;
         this.spatialIoPos = spatialIoPos;
         this.spatialEnergyUsage = EnergyUsage;

@@ -15,114 +15,83 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.hooks.ticking;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.entity.BlockEntity;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.World;
 
-/**
- * A class to hold data related to ticking block entities.
- */
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
+import java.util.List;
+import java.util.function.Consumer;
+
 class ServerBlockEntityRepo {
-    record FirstTickInfo<T extends BlockEntity>(T blockEntity, Consumer<? super T> initFunction) {
-        void callInit() {
-            initFunction.accept(blockEntity);
-        }
-    }
+    private final Object2ObjectMap<World, Long2ObjectMap<ObjectList<FirstTickInfo<?>>>> blockEntities = new Object2ObjectOpenHashMap<>();
 
-    // Mapping is level -> encoded chunk pos -> block entities waiting to be initialized
-    private final Map<LevelAccessor, Long2ObjectMap<List<FirstTickInfo<?>>>> blockEntities = new Object2ObjectOpenHashMap<>();
-
-    /**
-     * Resets all internal data
-     */
     void clear() {
         this.blockEntities.clear();
     }
 
-    /**
-     * Add a new block entity to be initializes in a later tick.
-     */
-    synchronized <T extends BlockEntity> void addBlockEntity(T blockEntity, Consumer<? super T> initFunction) {
-        final LevelAccessor level = blockEntity.getLevel();
-        final int x = blockEntity.getBlockPos().getX() >> 4;
-        final int z = blockEntity.getBlockPos().getZ() >> 4;
-        final long chunkPos = ChunkPos.asLong(x, z);
+    synchronized <T extends TileEntity> void addBlockEntity(T blockEntity, Consumer<? super T> initFunction) {
+        World level = blockEntity.getWorld();
+        long chunkPos = ChunkPos.asLong(blockEntity.getPos().getX() >> 4, blockEntity.getPos().getZ() >> 4);
 
-        // Note: in some cases, the level load event might be fired after addBlockEntity is called if a mod loads chunks
-        // during an earlier listener. To avoid such issues, we use computeIfAbsent in addBlockEntity directly.
-        Long2ObjectMap<List<FirstTickInfo<?>>> worldQueue = this.blockEntities.computeIfAbsent(level,
-                key -> new Long2ObjectOpenHashMap<>());
+        Long2ObjectMap<ObjectList<FirstTickInfo<?>>> worldQueue = this.blockEntities.computeIfAbsent(level,
+            ignored -> new Long2ObjectOpenHashMap<>());
 
-        worldQueue.computeIfAbsent(chunkPos, key -> new ArrayList<>())
-                .add(new FirstTickInfo<>(blockEntity, initFunction));
+        worldQueue.computeIfAbsent(chunkPos, ignored -> new ObjectArrayList<>())
+                  .add(new FirstTickInfo<>(blockEntity, initFunction));
     }
 
-    /**
-     * Tears down data related to a now unloaded level
-     */
-    synchronized void removeLevel(LevelAccessor level) {
+    synchronized void removeLevel(World level) {
         this.blockEntities.remove(level);
     }
 
-    /**
-     * Removes a unloaded chunk within a level.
-     * <p>
-     * There is no related addWorldChunk. The necessary queue will be created once the first block entity is added to a
-     * chunk to save memory.
-     */
-    synchronized void removeChunk(LevelAccessor level, long chunkPos) {
-        Map<Long, List<FirstTickInfo<?>>> queue = this.blockEntities.get(level);
+    synchronized void removeChunk(World level, long chunkPos) {
+        Long2ObjectMap<ObjectList<FirstTickInfo<?>>> queue = this.blockEntities.get(level);
         if (queue != null) {
             queue.remove(chunkPos);
         }
     }
 
-    /**
-     * Get the block entities needing to be initialized in this specific {@link LevelAccessor}.
-     */
-    public Long2ObjectMap<List<FirstTickInfo<?>>> getBlockEntities(LevelAccessor level) {
-        return blockEntities.get(level);
+    public Long2ObjectMap<ObjectList<FirstTickInfo<?>>> getBlockEntities(World level) {
+        return this.blockEntities.get(level);
     }
 
-    public List<Component> getReport() {
-        var result = new ArrayList<Component>();
+    public List<ITextComponent> getReport() {
+        List<ITextComponent> result = new ObjectArrayList<>();
 
-        for (var levelEntry : blockEntities.entrySet()) {
+        for (Object2ObjectMap.Entry<World, Long2ObjectMap<ObjectList<FirstTickInfo<?>>>> levelEntry : this.blockEntities.object2ObjectEntrySet()) {
             if (levelEntry.getValue().isEmpty()) {
                 continue;
             }
 
-            var level = levelEntry.getKey();
-            String levelName = level.toString();
-            if (level instanceof ServerLevel serverLevel) {
-                levelName = serverLevel.dimension().location().toString();
-            }
+            result.add(new TextComponentString(levelEntry.getKey().provider.getDimensionType().getName())
+                .setStyle(new net.minecraft.util.text.Style().setBold(true)));
 
-            result.add(Component.literal(levelName).withStyle(ChatFormatting.BOLD));
-            for (var chunkEntry : levelEntry.getValue().long2ObjectEntrySet()) {
-                var chunkPos = new ChunkPos(chunkEntry.getLongKey());
-                var line = Component.literal(chunkPos.x + "," + chunkPos.z + ": ")
-                        .withStyle(ChatFormatting.BOLD)
-                        .append(Integer.toString(chunkEntry.getValue().size()));
-                result.add(line);
+            for (Long2ObjectMap.Entry<ObjectList<FirstTickInfo<?>>> chunkEntry : levelEntry.getValue().long2ObjectEntrySet()) {
+                ChunkPos chunkPos = new ChunkPos(ChunkPos.getX(chunkEntry.getLongKey()),
+                    ChunkPos.getZ(chunkEntry.getLongKey()));
+                result.add(new TextComponentString(chunkPos.x + "," + chunkPos.z + ": " + chunkEntry.getValue().size())
+                    .setStyle(new net.minecraft.util.text.Style().setColor(TextFormatting.WHITE)));
             }
         }
 
         return result;
+    }
+
+    record FirstTickInfo<T extends TileEntity>(T blockEntity, Consumer<? super T> initFunction) {
+        void callInit() {
+            this.initFunction.accept(this.blockEntity);
+        }
     }
 }

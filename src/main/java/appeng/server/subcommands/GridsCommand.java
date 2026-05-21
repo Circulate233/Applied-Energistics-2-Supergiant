@@ -1,50 +1,8 @@
 package appeng.server.subcommands;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.IdentityHashMap;
-import java.util.Set;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
-
-import com.google.common.base.Preconditions;
-import com.google.gson.stream.JsonWriter;
-import com.mojang.brigadier.LiteralMessage;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-
-import org.apache.commons.io.output.CloseShieldOutputStream;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.NbtIo;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.chunk.storage.ChunkSerializer;
-import net.neoforged.neoforge.network.PacketDistributor;
-
 import appeng.api.networking.GridHelper;
+import appeng.api.networking.IGridNode;
+import appeng.core.network.InitNetwork;
 import appeng.core.network.clientbound.ExportedGridContent;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.hooks.ticking.TickHandler;
@@ -54,228 +12,377 @@ import appeng.parts.AEBasePart;
 import appeng.parts.p2p.MEP2PTunnelPart;
 import appeng.server.ISubCommand;
 import appeng.util.Platform;
+import com.google.common.base.Preconditions;
+import com.google.gson.stream.JsonWriter;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.CompressedStreamTools;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.chunk.storage.AnvilChunkLoader;
+import net.minecraftforge.common.ForgeChunkManager;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.world.ChunkDataEvent;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.relauncher.ReflectionHelper;
+import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nonnull;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Collection;
+import java.util.Locale;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
+
+@SuppressWarnings("deprecation")
 public class GridsCommand implements ISubCommand {
-    private static final Logger LOG = LoggerFactory.getLogger(GridsCommand.class);
+    private static final int FLUSH_AFTER = 512 * 1024;
+    private static final Method WRITE_CHUNK_TO_NBT = resolveWriteChunkToNbt();
 
-    public static String buildExportCommand(int gridSerial) {
-        return "/ae2 grids export " + gridSerial;
+    public static String buildExportCommand(int serialNumber) {
+        return "/ae2 grids export " + serialNumber;
     }
 
-    @Override
-    public void addArguments(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        builder.then(Commands.literal("export").executes(ctx -> {
-            exportGrids(ctx.getSource());
-            return 1;
-        }).then(Commands.argument("gridSerial", IntegerArgumentType.integer()).executes(context -> {
-            var gridSerial = context.getArgument("gridSerial", Integer.class);
+    private static int parseSerial(String value) throws CommandException {
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new CommandException("Invalid grid serial: " + value);
+        }
+    }
 
-            // Find the starting grid
-            for (var grid : TickHandler.instance().getGridList()) {
-                if (grid.getSerialNumber() == gridSerial) {
-                    exportGrid(grid, context.getSource());
-                    return 1;
-                }
+    private static Grid findGrid(int serialNumber) throws CommandException {
+        for (Grid grid : TickHandler.instance().getGridList()) {
+            if (grid.getSerialNumber() == serialNumber) {
+                return grid;
             }
-
-            throw new SimpleCommandExceptionType(new LiteralMessage("No such grid found")).create();
-        })));
+        }
+        throw new CommandException("No grid found with serial " + serialNumber);
     }
 
-    private void exportGrids(CommandSourceStack source) throws CommandSyntaxException {
-
-        var grids = TickHandler.instance().getGridList();
-
-        source.sendSystemMessage(Component.literal("Exporting " + grids.size() + " grids"));
-
-        exportGrids(0, grids, source);
-
-    }
-
-    private void exportGrid(Grid startGrid, CommandSourceStack source) throws CommandSyntaxException {
-
-        // Collect all reachable grids
-        var reachableGrids = Collections.newSetFromMap(new IdentityHashMap<Grid, Boolean>());
+    private static Collection<Grid> collectReachableGrids(Grid startGrid) {
+        ReferenceSet<Grid> reachableGrids = new ReferenceOpenHashSet<>();
+        ReferenceSet<Grid> openSet = new ReferenceOpenHashSet<>();
         reachableGrids.add(startGrid);
-        var openSet = Collections.newSetFromMap(new IdentityHashMap<Grid, Boolean>());
         openSet.add(startGrid);
 
         while (!openSet.isEmpty()) {
-            var it = openSet.iterator();
-            var grid = it.next();
-            it.remove();
-            for (var node : grid.getNodes()) {
-                if (node.getOwner() instanceof AEBasePart basePart) {
+            var iterator = openSet.iterator();
+            Grid grid = iterator.next();
+            iterator.remove();
+            for (IGridNode node : grid.getNodes()) {
+                Object owner = node.getOwner();
+                if (owner instanceof AEBasePart basePart) {
                     visitGridInFrontOfPart(basePart, reachableGrids, openSet);
-                } else if (node.getOwner() instanceof PatternProviderLogicHost patternProvider) {
-                    for (var targetSide : patternProvider.getTargets()) {
-                        visitGridAt(
-                                patternProvider.getBlockEntity().getLevel(),
-                                patternProvider.getBlockEntity().getBlockPos().relative(targetSide),
-                                reachableGrids,
-                                openSet);
+                } else if (owner instanceof PatternProviderLogicHost patternProvider) {
+                    TileEntity tile = patternProvider.getTileEntity();
+                    for (EnumFacing targetSide : patternProvider.getTargets()) {
+                        visitGridAt(tile, tile.getPos().offset(targetSide), reachableGrids, openSet);
                     }
-                } else if (node.getOwner() instanceof MEP2PTunnelPart meTunnel) {
-                    var tunnelGrid = (Grid) meTunnel.getMainNode().getGrid();
-                    if (tunnelGrid != null && reachableGrids.add(tunnelGrid)) {
-                        openSet.add(tunnelGrid);
+                } else if (owner instanceof MEP2PTunnelPart meTunnel) {
+                    Object tunnelGrid = meTunnel.getMainNode().getGrid();
+                    if (tunnelGrid instanceof Grid gridAtTunnel && reachableGrids.add(gridAtTunnel)) {
+                        openSet.add(gridAtTunnel);
                     }
                 }
             }
         }
 
-        exportGrids(startGrid.getSerialNumber(), reachableGrids, source);
+        return reachableGrids;
     }
 
-    private static void visitGridInFrontOfPart(AEBasePart part, Set<Grid> reachableGrids, Set<Grid> openSet) {
-        var partSide = part.getSide();
-        if (partSide == null) {
+    private static void visitGridInFrontOfPart(AEBasePart part, ReferenceSet<Grid> reachableGrids,
+                                               ReferenceSet<Grid> openSet) {
+        EnumFacing side = part.getSide();
+        if (side != null) {
+            TileEntity tile = part.getTileEntity();
+            visitGridAt(tile, tile.getPos().offset(side), reachableGrids, openSet);
+        }
+    }
+
+    private static void visitGridAt(TileEntity source, BlockPos targetPos, ReferenceSet<Grid> reachableGrids,
+                                    ReferenceSet<Grid> openSet) {
+        if (source == null || source.getWorld() == null) {
             return;
         }
-        // Storage buses that are attached to devices on different grids are interesting to us
-        var hostBe = part.getBlockEntity();
-        var targetPos = hostBe.getBlockPos().relative(partSide);
-        visitGridAt(hostBe.getLevel(), targetPos, reachableGrids, openSet);
-    }
 
-    private static void visitGridAt(Level level, BlockPos pos, Set<Grid> reachableGrids, Set<Grid> openSet) {
-        var targetGridHost = GridHelper.getNodeHost(level, pos);
-        if (targetGridHost != null) {
-            for (var side : Platform.DIRECTIONS_WITH_NULL) {
-                var nodeOnSide = targetGridHost.getGridNode(side);
-                if (nodeOnSide != null) {
-                    var nodeGrid = (Grid) nodeOnSide.getGrid();
-                    if (reachableGrids.add(nodeGrid)) {
-                        openSet.add(nodeGrid);
-                    }
-                }
+        var targetGridHost = GridHelper.getNodeHost(source.getWorld(), targetPos);
+        if (targetGridHost == null) {
+            return;
+        }
+
+        for (EnumFacing side : Platform.DIRECTIONS_WITH_NULL) {
+            IGridNode node = targetGridHost.getGridNode(side);
+            if (node != null && node.getGrid() instanceof Grid grid && reachableGrids.add(grid)) {
+                openSet.add(grid);
             }
         }
+    }
+
+    private static void exportGrids(EntityPlayerMP player, int serialNumber, Collection<Grid> grids) throws CommandException {
+        if (player != null) {
+            InitNetwork.sendToClient(player,
+                new ExportedGridContent(serialNumber, ExportedGridContent.ContentType.FIRST_CHUNK, new byte[0]));
+            try (SendToPlayerStream output = new SendToPlayerStream(player, serialNumber)) {
+                exportGrids(grids, output);
+                output.complete();
+            }
+            return;
+        }
+
+        try (OutputStream output = Files.newOutputStream(Paths.get("grids.zip"))) {
+            exportGrids(grids, output);
+        } catch (IOException e) {
+            throw new CommandException("Failed to export grid data: " + e.getMessage());
+        }
+    }
+
+    @Nullable
+    private static EntityPlayerMP getPlayer(ICommandSender sender) {
+        if (sender.getCommandSenderEntity() instanceof EntityPlayerMP player) {
+            return player;
+        }
+        return null;
+    }
+
+    private static void exportGrids(Collection<Grid> grids, OutputStream output) throws CommandException {
+        try (ZipOutputStream zip = new ZipOutputStream(new NonClosingOutputStream(output))) {
+            Object2ObjectMap<WorldServer, ObjectSet<ChunkPos>> chunksByLevel = new Object2ObjectOpenHashMap<>();
+            for (Grid grid : grids) {
+                var statisticsService = grid.getService(StatisticsService.class);
+                for (var entry : statisticsService.getChunks().entrySet()) {
+                    chunksByLevel.computeIfAbsent(entry.getKey(), ignored -> new ObjectOpenHashSet<>())
+                                 .addAll(entry.getValue().elementSet());
+                }
+
+                zip.putNextEntry(new ZipEntry("grid_" + grid.getSerialNumber() + ".json"));
+                JsonWriter writer = new JsonWriter(new OutputStreamWriter(zip, StandardCharsets.UTF_8));
+                writer.setIndent(" ");
+                grid.export(writer);
+                writer.flush();
+                zip.closeEntry();
+            }
+
+            zip.putNextEntry(new ZipEntry("chunks/"));
+            zip.closeEntry();
+            for (var entry : chunksByLevel.entrySet()) {
+                String baseName = sanitizeName(
+                    entry.getKey().provider.getDimensionType().getName() + "_" + entry.getKey().provider.getDimension());
+                for (ChunkPos chunkPos : entry.getValue()) {
+                    NBTTagCompound serializedChunk = serializeChunk(entry.getKey(),
+                        entry.getKey().getChunk(chunkPos.x, chunkPos.z));
+
+                    zip.putNextEntry(new ZipEntry("chunks/" + baseName + "_" + chunkPos.x + "_" + chunkPos.z + ".nbt"));
+                    writeCompressedChunk(zip, serializedChunk);
+                    zip.closeEntry();
+
+                    zip.putNextEntry(new ZipEntry("chunks/" + baseName + "_" + chunkPos.x + "_" + chunkPos.z + ".snbt"));
+                    zip.write(serializedChunk.toString().getBytes(StandardCharsets.UTF_8));
+                    zip.closeEntry();
+                }
+            }
+        } catch (IOException | ReflectiveOperationException e) {
+            throw new CommandException("Failed to export grid data: " + e.getMessage());
+        }
+    }
+
+    private static void writeCompressedChunk(ZipOutputStream zip, NBTTagCompound serializedChunk) throws IOException {
+        CompressedStreamTools.writeCompressed(serializedChunk, new NonClosingOutputStream(zip));
+    }
+
+    private static NBTTagCompound serializeChunk(WorldServer level, Chunk chunk)
+        throws ReflectiveOperationException {
+        NBTTagCompound rootTag = new NBTTagCompound();
+        NBTTagCompound levelTag = new NBTTagCompound();
+        rootTag.setTag("Level", levelTag);
+        rootTag.setInteger("DataVersion", 1343);
+        FMLCommonHandler.instance().getDataFixer().writeVersionData(rootTag);
+        invokeWriteChunkToNbt(chunk, level, levelTag);
+        ForgeChunkManager.storeChunkNBT(chunk, levelTag);
+        MinecraftForge.EVENT_BUS.post(new ChunkDataEvent.Save(chunk, rootTag));
+        return rootTag;
+    }
+
+    private static void invokeWriteChunkToNbt(Chunk chunk, WorldServer level, NBTTagCompound levelTag)
+        throws ReflectiveOperationException {
+        try {
+            WRITE_CHUNK_TO_NBT.invoke(
+                new AnvilChunkLoader(level.getChunkSaveLocation(), FMLCommonHandler.instance().getDataFixer()),
+                chunk,
+                level,
+                levelTag);
+        } catch (InvocationTargetException e) {
+            throw new ReflectiveOperationException(e.getCause());
+        }
+    }
+
+    private static Method resolveWriteChunkToNbt() {
+        try {
+            return ReflectionHelper.findMethod(AnvilChunkLoader.class, "writeChunkToNBT", "func_75820_a", Chunk.class,
+                World.class, NBTTagCompound.class);
+        } catch (RuntimeException e) {
+            throw new IllegalStateException("Failed to access chunk serialization method.", e);
+        }
+    }
+
+    private static String sanitizeName(String name) {
+        return name.replaceAll("[^A-Za-z0-9-,]", "_");
     }
 
     @Override
-    public void call(MinecraftServer srv, CommandContext<CommandSourceStack> data,
-            CommandSourceStack sender) {
+    public String getHelp(MinecraftServer srv) {
+        return "commands.ae2.grids";
     }
 
-    private void exportGrids(int baseSerialNumber, Collection<Grid> grids, CommandSourceStack source)
-            throws CommandSyntaxException {
-        source.sendSystemMessage(Component.literal("Exporting " + grids.size() + " grids"));
-        LOG.info("Exporting {} grids for {}", grids.size(), source);
+    @Override
+    public void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException {
+        if (args.length < 2 || !"export".equals(args[1].toLowerCase(Locale.ROOT))) {
+            throw new WrongUsageException("commands.ae2.grids");
+        }
 
-        if (source.isPlayer()) {
-            var player = source.getPlayerOrException();
-            PacketDistributor.sendToPlayer(player,
-                    new ExportedGridContent(baseSerialNumber, ExportedGridContent.ContentType.FIRST_CHUNK,
-                            new byte[0]));
-
-            try (var out = new SendToPlayerStream(player, baseSerialNumber)) {
-                exportGrids(grids, out);
-            }
+        EntityPlayerMP player = getPlayer(sender);
+        int serialNumber = 0;
+        Collection<Grid> grids;
+        if (args.length == 2) {
+            grids = TickHandler.instance().getGridList();
+        } else if (args.length == 3) {
+            serialNumber = parseSerial(args[2]);
+            grids = collectReachableGrids(findGrid(serialNumber));
         } else {
-            var targetPath = Paths.get("grids.zip");
-            try (var out = Files.newOutputStream(targetPath)) {
-                exportGrids(grids, out);
-            } catch (IOException e) {
-                LOG.error("Failed to export grids.", e);
-                source.sendFailure(Component.literal("Failed to export grids: " + e));
-            }
+            throw new WrongUsageException("commands.ae2.grids");
         }
 
-    }
+        if (grids.isEmpty()) {
+            throw new CommandException("commands.ae2.grids.no_grids_found");
+        }
 
-    private void exportGrids(Iterable<Grid> grids, OutputStream out) {
-        try (var zipOut = new ZipOutputStream(out)) {
-            // Collect all chunks that grids live in and dump them all later
-            var chunksByLevel = new HashMap<ServerLevel, Set<ChunkPos>>();
+        sender.sendMessage(new TextComponentString("Exporting " + grids.size() + " grid(s)."));
+        exportGrids(player, serialNumber, grids);
 
-            for (var grid : grids) {
-                var statisticsService = grid.getService(StatisticsService.class);
-                for (var entry : statisticsService.getChunks().entrySet()) {
-                    chunksByLevel.computeIfAbsent(entry.getKey(), level -> new HashSet<>())
-                            .addAll(entry.getValue().elementSet());
-                }
-
-                var entry = new ZipEntry("grid_" + grid.getSerialNumber() + ".json");
-                zipOut.putNextEntry(entry);
-
-                try (var writer = new JsonWriter(
-                        new OutputStreamWriter(CloseShieldOutputStream.wrap(zipOut), StandardCharsets.UTF_8))) {
-                    writer.setIndent(" ");
-                    grid.export(writer);
-                }
-            }
-
-            zipOut.putNextEntry(new ZipEntry("chunks/"));
-            for (var entry : chunksByLevel.entrySet()) {
-                var level = entry.getKey();
-                var chunks = entry.getValue();
-                var baseName = sanitizeName(level.dimension().location().toString());
-                for (var chunk : chunks) {
-                    var serializedChunk = ChunkSerializer.write(level, level.getChunk(chunk.x, chunk.z));
-                    zipOut.putNextEntry(new ZipEntry("chunks/" + baseName + "_" + chunk.x + "_" + chunk.z + ".nbt"));
-                    NbtIo.writeCompressed(serializedChunk, CloseShieldOutputStream.wrap(zipOut));
-
-                    zipOut.putNextEntry(new ZipEntry("chunks/" + baseName + "_" + chunk.x + "_" + chunk.z + ".snbt"));
-                    zipOut.write(NbtUtils.structureToSnbt(serializedChunk).getBytes(StandardCharsets.UTF_8));
-                }
-            }
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+        if (player != null) {
+            sender.sendMessage(new TextComponentString("Exported " + grids.size() + " grid(s)."));
+        } else {
+            sender.sendMessage(new TextComponentString("Exported " + grids.size() + " grid(s) to grids.zip."));
         }
     }
 
-    private String sanitizeName(String string) {
-        return string.replaceAll("[^A-Za-z0-9-,]", "_");
-    }
-
-    private static class SendToPlayerStream extends OutputStream {
-        private static final int FLUSH_AFTER = 512 * 1024;
-        private final ByteArrayOutputStream bout; // 512kb buffer
-        private final ServerPlayer player;
-        private final int baseSerialNumber;
+    private static final class SendToPlayerStream extends OutputStream {
+        private final ByteArrayOutputStream buffer = new ByteArrayOutputStream(FLUSH_AFTER);
+        private final EntityPlayerMP player;
+        private final int serialNumber;
         private boolean closed;
 
-        public SendToPlayerStream(ServerPlayer player, int baseSerialNumber) {
+        private SendToPlayerStream(EntityPlayerMP player, int serialNumber) {
             this.player = player;
-            this.baseSerialNumber = baseSerialNumber;
-            bout = new ByteArrayOutputStream(FLUSH_AFTER);
+            this.serialNumber = serialNumber;
         }
 
         @Override
         public void write(int b) {
-            Preconditions.checkState(!closed, "stream already closed");
-            bout.write(b);
-            if (bout.size() > FLUSH_AFTER) {
-                PacketDistributor.sendToPlayer(player,
-                        new ExportedGridContent(baseSerialNumber, ExportedGridContent.ContentType.CHUNK,
-                                bout.toByteArray()));
-                bout.reset();
+            Preconditions.checkState(!this.closed, "stream already closed");
+            this.buffer.write(b);
+            if (this.buffer.size() >= FLUSH_AFTER) {
+                flushChunk(ExportedGridContent.ContentType.CHUNK);
             }
         }
 
         @Override
-        public void write(@NotNull byte[] b, int off, int len) {
-            Preconditions.checkState(!closed, "stream already closed");
-            bout.write(b, off, len);
-            if (bout.size() > FLUSH_AFTER) {
-                PacketDistributor.sendToPlayer(player,
-                        new ExportedGridContent(baseSerialNumber, ExportedGridContent.ContentType.CHUNK,
-                                bout.toByteArray()));
-                bout.reset();
+        public void write(@Nonnull byte[] b, int off, int len) {
+            Preconditions.checkState(!this.closed, "stream already closed");
+            int remaining = len;
+            int offset = off;
+            while (remaining > 0) {
+                if (this.buffer.size() >= FLUSH_AFTER) {
+                    flushChunk(ExportedGridContent.ContentType.CHUNK);
+                }
+
+                int writable = Math.min(remaining, FLUSH_AFTER - this.buffer.size());
+                this.buffer.write(b, offset, writable);
+                offset += writable;
+                remaining -= writable;
             }
         }
 
         @Override
         public void close() {
-            if (!closed) {
-                closed = true;
-                PacketDistributor.sendToPlayer(player,
-                        new ExportedGridContent(baseSerialNumber, ExportedGridContent.ContentType.LAST_CHUNK,
-                                bout.toByteArray()));
-                bout.reset();
+            abort();
+        }
+
+        private void complete() {
+            Preconditions.checkState(!this.closed, "stream already closed");
+            this.closed = true;
+            flushChunk(ExportedGridContent.ContentType.LAST_CHUNK);
+        }
+
+        private void abort() {
+            if (this.closed) {
+                return;
             }
+            this.closed = true;
+            this.buffer.reset();
+        }
+
+        private void flushChunk(ExportedGridContent.ContentType type) {
+            InitNetwork.sendToClient(this.player,
+                new ExportedGridContent(this.serialNumber, type, this.buffer.toByteArray()));
+            this.buffer.reset();
+        }
+    }
+
+    private static final class NonClosingOutputStream extends OutputStream {
+        private final OutputStream delegate;
+
+        private NonClosingOutputStream(OutputStream delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            this.delegate.write(b);
+        }
+
+        @Override
+        public void write(@Nonnull byte[] b) throws IOException {
+            this.delegate.write(b);
+        }
+
+        @Override
+        public void write(@Nonnull byte[] b, int off, int len) throws IOException {
+            this.delegate.write(b, off, len);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            this.delegate.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+            this.delegate.flush();
         }
     }
 }

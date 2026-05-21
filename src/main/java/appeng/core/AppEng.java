@@ -18,54 +18,48 @@
 
 package appeng.core;
 
-import java.util.Collection;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.HitResult;
-
-import guideme.PageAnchor;
-
-import appeng.api.ids.AEConstants;
 import appeng.api.parts.CableRenderMode;
 import appeng.client.EffectType;
 import appeng.core.network.ClientboundPacket;
+import appeng.core.stats.AdvancementTriggers;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
 
 public interface AppEng {
 
-    String MOD_NAME = "Applied Energistics 2";
-    String MOD_ID = AEConstants.MOD_ID;
+    String MOD_ID = Tags.MOD_ID;
+    String MOD_NAME = Tags.MOD_NAME;
 
     static AppEng instance() {
-        return AppEngBase.INSTANCE;
+        return AppEngBase.runtime();
     }
 
-    static ResourceLocation makeId(String id) {
-        return ResourceLocation.fromNamespaceAndPath(MOD_ID, id);
-    }
-
-    /**
-     * Allows common item use methods to get the current mouse over without relying on client-only methods.
-     */
-    default HitResult getCurrentMouseOver() {
-        return null;
+    static ResourceLocation makeId(String path) {
+        return new ResourceLocation(MOD_ID, path);
     }
 
     /**
      * @return A stream of all players in the game. On the client it'll be empty if no level is loaded.
      */
-    Collection<ServerPlayer> getPlayers();
+    default Collection<EntityPlayerMP> getPlayers() {
+        throw new IllegalStateException("Missing AppEng runtime bridge for getPlayers");
+    }
 
-    void sendToAllNearExcept(Player p, double x, double y, double z, double dist, Level level,
-            ClientboundPacket packet);
-
-    void spawnEffect(EffectType effect, Level level, double posX, double posY,
-            double posZ, Object o);
+    /**
+     * Sends a packet to all players around a position except the optionally excluded player.
+     */
+    default void sendToAllNearExcept(@Nullable EntityPlayer excluded, double x, double y, double z, double distance,
+                                     World world, ClientboundPacket packet) {
+        throw new IllegalStateException("Missing AppEng runtime bridge for sendToAllNearExcept");
+    }
 
     /**
      * Sets the player that is currently interacting with a cable or part attached to a cable. This will return that
@@ -73,36 +67,43 @@ public interface AppEng {
      *
      * @param player Null to revert to the default cable render mode.
      */
-    void setPartInteractionPlayer(Player player);
+    default void setPartInteractionPlayer(@Nullable EntityPlayer player) {
+        throw new IllegalStateException("Missing AppEng runtime bridge for setPartInteractionPlayer");
+    }
 
-    CableRenderMode getCableRenderMode();
+    default CableRenderMode getCableRenderMode() {
+        throw new IllegalStateException("Missing AppEng runtime bridge for getCableRenderMode");
+    }
+
+    default AdvancementTriggers getAdvancementTriggers() {
+        throw new IllegalStateException("Missing AppEng runtime bridge for getAdvancementTriggers");
+    }
+
+    default void spawnEffect(EffectType effect, World world, double posX, double posY, double posZ, Object data) {
+        throw new IllegalStateException("Missing AppEng runtime bridge for spawnEffect");
+    }
+
+    @Nullable
+    default World getClientWorld() {
+        throw new IllegalStateException("Missing AppEng runtime bridge for getClientWorld");
+    }
 
     /**
-     * Can be used to get the current level the client is in.
-     *
-     * @return null if no client level is available (i.e. on a dedicated server)
+     * @return The current server world, if one exists.
      */
     @Nullable
-    Level getClientLevel();
-
-    /**
-     * Since in a Minecraft client, multiple servers can be launched and stopped during a single session, the result of
-     * this method should not be stored globally.
-     *
-     * @return The currently running Minecraft server instance, if there is one.
-     */
-    @Nullable
-    MinecraftServer getCurrentServer();
+    default WorldServer getCurrentServerWorld() {
+        MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
+        if (server == null || server.worlds.length == 0) {
+            return null;
+        }
+        return server.worlds[0];
+    }
 
     /**
      * registers Hotkeys for {@link appeng.hotkeys.HotkeyActions}
      */
-    void registerHotkey(String id);
-
-    /**
-     * Opens the guidebook (if this is a client) on the last opened page, or the given initial page, if no page has ever
-     * been opened yet.
-     */
-    default void openGuideAtAnchor(PageAnchor anchor) {
+    default void registerHotkey(String id) {
+        throw new IllegalStateException("Missing AppEng runtime bridge for registerHotkey");
     }
 }

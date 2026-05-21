@@ -23,11 +23,10 @@
 
 package appeng.api.storage.cells;
 
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.config.FuzzyMode;
 import appeng.api.upgrades.IUpgradeableItem;
 import appeng.util.ConfigInventory;
+import net.minecraft.item.ItemStack;
 
 public interface ICellWorkbenchItem extends IUpgradeableItem {
     /**

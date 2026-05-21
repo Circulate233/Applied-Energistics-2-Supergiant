@@ -19,17 +19,13 @@
 package appeng.helpers;
 
 public enum InventoryAction {
-    // standard vanilla mechanics.
     PICKUP_OR_SET_DOWN, SPLIT_OR_PLACE_SINGLE, CREATIVE_DUPLICATE, SHIFT_CLICK,
 
-    // crafting term
     CRAFT_STACK, CRAFT_ITEM, CRAFT_SHIFT, CRAFT_ALL,
 
-    // fluid term
     FILL_ITEM, FILL_ITEM_MOVE_TO_PLAYER, FILL_ENTIRE_ITEM, FILL_ENTIRE_ITEM_MOVE_TO_PLAYER, EMPTY_ITEM,
     EMPTY_ENTIRE_ITEM,
 
-    // extra...
     MOVE_REGION, PICKUP_SINGLE, ROLL_UP, ROLL_DOWN, AUTO_CRAFT, PLACE_SINGLE,
 
     SET_FILTER

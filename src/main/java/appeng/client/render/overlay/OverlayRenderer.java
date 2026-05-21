@@ -1,177 +1,134 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.client.render.overlay;
+
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.math.ChunkPos;
+import org.lwjgl.opengl.GL11;
 
 import java.util.Set;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-
-import org.joml.Matrix4f;
-
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.world.level.ChunkPos;
-
-/**
- * This is based on the area render of https://github.com/TeamPneumatic/pnc-repressurized/
- */
 public class OverlayRenderer {
+    private static final double INSET = 0.01D;
 
-    private IOverlayDataSource source;
+    private final IOverlayDataSource source;
 
     OverlayRenderer(IOverlayDataSource source) {
         this.source = source;
     }
 
-    public void render(PoseStack poseStack, MultiBufferSource buffer) {
-        RenderType typeLinesOccluded = OverlayRenderType.getBlockHilightLineOccluded();
-        render(poseStack, buffer.getBuffer(typeLinesOccluded), true, 0x30ffffff);
-
-        RenderType typeFaces = OverlayRenderType.getBlockHilightFace();
-        render(poseStack, buffer.getBuffer(typeFaces), false, this.source.getOverlayColor());
-
-        RenderType typeLines = OverlayRenderType.getBlockHilightLine();
-        render(poseStack, buffer.getBuffer(typeLines), true, this.source.getOverlayColor());
+    private static void addLine(BufferBuilder buffer, double x1, double y1, double z1,
+                                double x2, double y2, double z2, int[] colors) {
+        addVertex(buffer, x1, y1, z1, colors);
+        addVertex(buffer, x2, y2, z2, colors);
     }
 
-    private void render(PoseStack poseStack, VertexConsumer builder, boolean renderLines, int color) {
-        int[] cols = OverlayRenderType.decomposeColor(color);
+    private static void addQuad(BufferBuilder buffer, double x1, double y1, double z1,
+                                double x2, double y2, double z2, double x3, double y3, double z3, double x4, double y4, double z4,
+                                int[] colors) {
+        addVertex(buffer, x1, y1, z1, colors);
+        addVertex(buffer, x2, y2, z2, colors);
+        addVertex(buffer, x3, y3, z3, colors);
+        addVertex(buffer, x4, y4, z4, colors);
+    }
+
+    private static void addVertex(BufferBuilder buffer, double x, double y, double z, int[] colors) {
+        buffer.pos(x, y, z).color(colors[1], colors[2], colors[3], colors[0]).endVertex();
+    }
+
+    private static int[] decomposeColor(int color) {
+        return new int[]{
+            color >> 24 & 0xFF,
+            color >> 16 & 0xFF,
+            color >> 8 & 0xFF,
+            color & 0xFF
+        };
+    }
+
+    public void renderFaces() {
+        render(false, this.source.getOverlayColor());
+    }
+
+    public void renderVisibleLines() {
+        render(true, this.source.getOverlayColor());
+    }
+
+    public void renderOccludedLines() {
+        render(true, 0x30FFFFFF);
+    }
+
+    private void render(boolean renderLines, int color) {
+        int[] colors = decomposeColor(color);
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder buffer = tessellator.getBuffer();
+        buffer.begin(renderLines ? GL11.GL_LINES : GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+
         for (ChunkPos pos : this.source.getOverlayChunks()) {
-            poseStack.pushPose();
-            poseStack.translate(pos.getMinBlockX(), 0, pos.getMinBlockZ());
-            Matrix4f posMat = poseStack.last().pose();
-            addVertices(builder, posMat, pos, cols, renderLines);
-            poseStack.popPose();
+            addVertices(buffer, pos, colors, renderLines);
         }
+
+        tessellator.draw();
     }
 
-    private void addVertices(VertexConsumer wr, Matrix4f posMat, ChunkPos pos, int[] cols, boolean renderLines) {
+    private void addVertices(BufferBuilder buffer, ChunkPos pos, int[] colors, boolean renderLines) {
         Set<ChunkPos> chunks = this.source.getOverlayChunks();
 
-        // Render around a whole chunk
-        float x1 = 0f;
-        float x2 = 16f;
-        float y1 = source.getOverlaySourceLocation().getLevel().getMinBuildHeight();
-        float y2 = source.getOverlaySourceLocation().getLevel().getMaxBuildHeight();
-        float z1 = 0f;
-        float z2 = 16f;
+        double x1 = (pos.x << 4) + INSET;
+        double x2 = (pos.x << 4) + 16.0D - INSET;
+        double y1 = 0.0D + INSET;
+        double y2 = 256.0D - INSET;
+        double z1 = (pos.z << 4) + INSET;
+        double z2 = (pos.z << 4) + 16.0D - INSET;
 
         boolean noNorth = !chunks.contains(new ChunkPos(pos.x, pos.z - 1));
         boolean noSouth = !chunks.contains(new ChunkPos(pos.x, pos.z + 1));
         boolean noWest = !chunks.contains(new ChunkPos(pos.x - 1, pos.z));
         boolean noEast = !chunks.contains(new ChunkPos(pos.x + 1, pos.z));
 
-        if (noNorth) {
-            // Face North, Edge Bottom
-            wr.addVertex(posMat, x1, y1, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(1, 0, 0);
-            wr.addVertex(posMat, x2, y1, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(1, 0, 0);
-            // Face North, Edge Top
-            wr.addVertex(posMat, x2, y2, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(-1, 0, 0);
-            wr.addVertex(posMat, x1, y2, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(-1, 0, 0);
-        }
-
-        if (noSouth) {
-            // Face South, Edge Bottom
-            wr.addVertex(posMat, x2, y1, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(-1, 0, 0);
-            wr.addVertex(posMat, x1, y1, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(-1, 0, 0);
-            // Face South, Edge Top
-            wr.addVertex(posMat, x1, y2, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(1, 0, 0);
-            wr.addVertex(posMat, x2, y2, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(1, 0, 0);
-        }
-
-        if (noWest) {
-            // Face West, Edge Bottom
-            wr.addVertex(posMat, x1, y1, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(0, 0, 1);
-            wr.addVertex(posMat, x1, y1, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(0, 0, 1);
-            // Face West, Edge Top
-            wr.addVertex(posMat, x1, y2, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(0, 0, -1);
-            wr.addVertex(posMat, x1, y2, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(0, 0, -1);
-        }
-
-        if (noEast) {
-            // Face East, Edge Bottom
-            wr.addVertex(posMat, x2, y1, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(0, 0, -1);
-            wr.addVertex(posMat, x2, y1, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(0, 0, -1);
-            // Face East, Edge Top
-            wr.addVertex(posMat, x2, y2, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(0, 0, 1);
-            wr.addVertex(posMat, x2, y2, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(0, 0, 1);
-        }
-
         if (renderLines) {
             if (noNorth || noWest) {
-                // Face North, Edge West
-                wr.addVertex(posMat, x1, y1, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                        .setNormal(0, 1, 0);
-                wr.addVertex(posMat, x1, y2, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                        .setNormal(0, 1, 0);
+                addLine(buffer, x1, y1, z1, x1, y2, z1, colors);
             }
-
             if (noNorth || noEast) {
-                // Face North, Edge East
-                wr.addVertex(posMat, x2, y2, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                        .setNormal(0, -1, 0);
-                wr.addVertex(posMat, x2, y1, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                        .setNormal(0, -1, 0);
+                addLine(buffer, x2, y2, z1, x2, y1, z1, colors);
             }
-
             if (noSouth || noEast) {
-                // Face South, Edge East
-                wr.addVertex(posMat, x2, y1, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                        .setNormal(0, 1, 0);
-                wr.addVertex(posMat, x2, y2, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                        .setNormal(0, 1, 0);
+                addLine(buffer, x2, y1, z2, x2, y2, z2, colors);
             }
             if (noSouth || noWest) {
-                // Face South, Edge West
-                wr.addVertex(posMat, x1, y2, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                        .setNormal(0, -1, 0);
-                wr.addVertex(posMat, x1, y1, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                        .setNormal(0, -1, 0);
+                addLine(buffer, x1, y2, z2, x1, y1, z2, colors);
+            }
+            if (noNorth) {
+                addLine(buffer, x1, y1, z1, x2, y1, z1, colors);
+                addLine(buffer, x2, y2, z1, x1, y2, z1, colors);
+            }
+            if (noSouth) {
+                addLine(buffer, x2, y1, z2, x1, y1, z2, colors);
+                addLine(buffer, x1, y2, z2, x2, y2, z2, colors);
+            }
+            if (noWest) {
+                addLine(buffer, x1, y1, z1, x1, y1, z2, colors);
+                addLine(buffer, x1, y2, z2, x1, y2, z1, colors);
+            }
+            if (noEast) {
+                addLine(buffer, x2, y1, z2, x2, y1, z1, colors);
+                addLine(buffer, x2, y2, z1, x2, y2, z2, colors);
             }
         } else {
-            // Bottom Face
-            wr.addVertex(posMat, x1, y1, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(1, 0, 0);
-            wr.addVertex(posMat, x2, y1, z1).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(1, 0, 0);
-            wr.addVertex(posMat, x2, y1, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(-1, 0, 0);
-            wr.addVertex(posMat, x1, y1, z2).setColor(cols[1], cols[2], cols[3], cols[0])
-                    .setNormal(-1, 0, 0);
+            if (noNorth) {
+                addQuad(buffer, x1, y1, z1, x1, y2, z1, x2, y2, z1, x2, y1, z1, colors);
+            }
+            if (noSouth) {
+                addQuad(buffer, x1, y1, z2, x2, y1, z2, x2, y2, z2, x1, y2, z2, colors);
+            }
+            if (noWest) {
+                addQuad(buffer, x1, y1, z1, x1, y1, z2, x1, y2, z2, x1, y2, z1, colors);
+            }
+            if (noEast) {
+                addQuad(buffer, x2, y1, z1, x2, y2, z1, x2, y2, z2, x2, y1, z2, colors);
+            }
+            addQuad(buffer, x1, y1, z1, x2, y1, z1, x2, y1, z2, x1, y1, z2, colors);
+            addQuad(buffer, x1, y2, z1, x1, y2, z2, x2, y2, z2, x2, y2, z1, colors);
         }
-
     }
 }

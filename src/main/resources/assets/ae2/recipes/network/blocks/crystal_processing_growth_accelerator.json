@@ -1,0 +1,27 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "cdc",
+    "aba"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "b": {
+      "item": "ae2:fluix_glass_cable"
+    },
+    "c": {
+      "item": "ae2:quartz_glass"
+    },
+    "d": {
+      "item": "ae2:fluix_block"
+    }
+  },
+  "result": {
+    "item": "ae2:growth_accelerator",
+    "count": 1
+  }
+}

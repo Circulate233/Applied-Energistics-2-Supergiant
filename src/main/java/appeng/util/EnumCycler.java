@@ -18,40 +18,35 @@
 
 package appeng.util;
 
+import com.google.common.base.Preconditions;
+
 import java.util.EnumSet;
 import java.util.Set;
 
-import com.google.common.base.Preconditions;
-
-/**
- * Simple utility class to help with select the "next" or "previous" value in a list of options represented by an
- * enumeration.
- */
 public final class EnumCycler {
 
     private EnumCycler() {
     }
 
-    public static <T extends Enum<T>> T rotateEnum(T ce, boolean backwards, Set<T> validOptions) {
+    public static <T extends Enum<T>> T rotateEnum(T current, boolean backwards, Set<T> validOptions) {
         Preconditions.checkArgument(!validOptions.isEmpty());
 
         int direction = backwards ? -1 : 1;
-        T[] values = ce.getDeclaringClass().getEnumConstants();
+        T[] values = current.getDeclaringClass().getEnumConstants();
 
         do {
-            // mod naturally cycles a changing integer on a range [0, N]
-            int pLoc = Math.floorMod(ce.ordinal() + direction, values.length);
-            ce = values[pLoc];
-        } while (!validOptions.contains(ce));
+            int nextOrdinal = Math.floorMod(current.ordinal() + direction, values.length);
+            current = values[nextOrdinal];
+        } while (!validOptions.contains(current));
 
-        return ce;
+        return current;
     }
 
-    public static <T extends Enum<T>> T next(T ce) {
-        return rotateEnum(ce, false, EnumSet.allOf(ce.getDeclaringClass()));
+    public static <T extends Enum<T>> T next(T current) {
+        return rotateEnum(current, false, EnumSet.allOf(current.getDeclaringClass()));
     }
 
-    public static <T extends Enum<T>> T prev(T ce) {
-        return rotateEnum(ce, true, EnumSet.allOf(ce.getDeclaringClass()));
+    public static <T extends Enum<T>> T prev(T current) {
+        return rotateEnum(current, true, EnumSet.allOf(current.getDeclaringClass()));
     }
 }

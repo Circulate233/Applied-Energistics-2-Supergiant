@@ -1,0 +1,21 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    [
+      {
+        "type": "forge:ore_dict",
+        "ore": "gemCertusQuartz"
+      },
+      {
+        "item": "ae2:charged_certus_quartz_crystal"
+      }
+    ],
+    {
+      "item": "ae2:basic_card"
+    }
+  ],
+  "result": {
+    "item": "ae2:capacity_card",
+    "count": 1
+  }
+}

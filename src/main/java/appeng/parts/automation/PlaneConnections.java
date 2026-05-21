@@ -18,7 +18,8 @@
 
 package appeng.parts.automation;
 
-import java.util.ArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.List;
 
 /**
@@ -27,20 +28,25 @@ import java.util.List;
  */
 public final class PlaneConnections {
 
+    private static final int BITMASK_UP = 8;
+    private static final int BITMASK_RIGHT = 4;
+    private static final int BITMASK_DOWN = 2;
+    private static final int BITMASK_LEFT = 1;
+    public static final List<PlaneConnections> PERMUTATIONS = generatePermutations();
     private final boolean up;
     private final boolean right;
     private final boolean down;
     private final boolean left;
 
-    private static final int BITMASK_UP = 8;
-    private static final int BITMASK_RIGHT = 4;
-    private static final int BITMASK_DOWN = 2;
-    private static final int BITMASK_LEFT = 1;
-
-    public static final List<PlaneConnections> PERMUTATIONS = generatePermutations();
+    private PlaneConnections(boolean up, boolean right, boolean down, boolean left) {
+        this.up = up;
+        this.right = right;
+        this.down = down;
+        this.left = left;
+    }
 
     private static List<PlaneConnections> generatePermutations() {
-        List<PlaneConnections> connections = new ArrayList<>(16);
+        ObjectList<PlaneConnections> connections = new ObjectArrayList<>(16);
 
         for (int i = 0; i < 16; i++) {
             boolean up = (i & BITMASK_UP) != 0;
@@ -54,15 +60,13 @@ public final class PlaneConnections {
         return connections;
     }
 
-    private PlaneConnections(boolean up, boolean right, boolean down, boolean left) {
-        this.up = up;
-        this.right = right;
-        this.down = down;
-        this.left = left;
-    }
-
     public static PlaneConnections of(boolean up, boolean right, boolean down, boolean left) {
         return PERMUTATIONS.get(getIndex(up, right, down, left));
+    }
+
+    private static int getIndex(boolean up, boolean right, boolean down, boolean left) {
+        return (up ? BITMASK_UP : 0) + (right ? BITMASK_RIGHT : 0) + (left ? BITMASK_LEFT : 0)
+            + (down ? BITMASK_DOWN : 0);
     }
 
     public boolean isUp() {
@@ -84,11 +88,6 @@ public final class PlaneConnections {
     // The combination of connections expressed as a number ranging from [0,15]
     public int getIndex() {
         return getIndex(this.up, this.right, this.down, this.left);
-    }
-
-    private static int getIndex(boolean up, boolean right, boolean down, boolean left) {
-        return (up ? BITMASK_UP : 0) + (right ? BITMASK_RIGHT : 0) + (left ? BITMASK_LEFT : 0)
-                + (down ? BITMASK_DOWN : 0);
     }
 
     @Override

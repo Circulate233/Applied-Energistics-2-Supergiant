@@ -1,0 +1,17 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "#  ",
+    "## ",
+    "###"
+  ],
+  "key": {
+    "#": {
+      "item": "ae2:fluix_block"
+    }
+  },
+  "result": {
+    "item": "ae2:fluix_stairs",
+    "count": 4
+  }
+}

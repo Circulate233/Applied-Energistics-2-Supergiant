@@ -1,0 +1,23 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    " a ",
+    "bcb"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:annihilation_core"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "c": {
+      "item": "minecraft:piston"
+    }
+  },
+  "result": {
+    "item": "ae2:import_bus",
+    "count": 1
+  }
+}

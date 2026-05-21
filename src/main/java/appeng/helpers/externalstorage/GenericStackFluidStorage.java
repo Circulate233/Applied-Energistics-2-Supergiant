@@ -1,21 +1,19 @@
 package appeng.helpers.externalstorage;
 
-import com.google.common.primitives.Ints;
-
-import org.jetbrains.annotations.NotNull;
-
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-
 import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEKeyType;
+import com.google.common.primitives.Ints;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.FluidTankProperties;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidTankProperties;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Exposes a {@link GenericInternalInventory} as the platforms external fluid storage interface.
- */
 public class GenericStackFluidStorage implements IFluidHandler {
+    private static final IFluidTankProperties[] EMPTY_TANKS = new IFluidTankProperties[0];
+
     private final GenericInternalInventory inv;
 
     public GenericStackFluidStorage(GenericInternalInventory inv) {
@@ -23,81 +21,71 @@ public class GenericStackFluidStorage implements IFluidHandler {
     }
 
     @Override
-    public int getTanks() {
-        return inv.size();
-    }
-
-    @NotNull
-    @Override
-    public FluidStack getFluidInTank(int tank) {
-        if (inv.getKey(tank) instanceof AEFluidKey what) {
-            var amount = Ints.saturatedCast(inv.getAmount(tank));
-            return what.toStack(amount);
+    public IFluidTankProperties[] getTankProperties() {
+        if (!this.inv.isSupportedType(AEKeyType.fluids())) {
+            return EMPTY_TANKS;
         }
-        return FluidStack.EMPTY;
-    }
 
-    @Override
-    public int getTankCapacity(int tank) {
-        return Ints.saturatedCast(inv.getCapacity(AEKeyType.fluids()));
-    }
-
-    @Override
-    public boolean isFluidValid(int tank, @NotNull FluidStack stack) {
-        if (stack.isEmpty()) {
-            return true;
+        IFluidTankProperties[] properties = new IFluidTankProperties[this.inv.size()];
+        int capacity = Ints.saturatedCast(this.inv.getCapacity(AEKeyType.fluids()));
+        for (int i = 0; i < this.inv.size(); i++) {
+            FluidStack stack = null;
+            boolean canDrain = false;
+            boolean canFill = this.inv.canInsert();
+            if (this.inv.getKey(i) instanceof AEFluidKey what) {
+                stack = what.toStack(Ints.saturatedCast(this.inv.getAmount(i)));
+                canDrain = this.inv.canExtract();
+            }
+            properties[i] = new FluidTankProperties(stack, capacity, canFill, canDrain);
         }
-        var what = AEFluidKey.of(stack);
-        return what != null && inv.isAllowedIn(tank, what);
+        return properties;
     }
 
     @Override
-    public int fill(FluidStack resource, FluidAction action) {
+    public int fill(FluidStack resource, boolean doFill) {
         var what = AEFluidKey.of(resource);
         if (what == null) {
             return 0;
         }
 
         int inserted = 0;
-        for (int i = 0; i < inv.size() && inserted < resource.getAmount(); ++i) {
-            inserted += (int) inv.insert(i, what, resource.getAmount() - inserted, Actionable.of(action));
+        for (int i = 0; i < this.inv.size() && inserted < resource.amount; i++) {
+            inserted += Ints.saturatedCast(this.inv.insert(i, what, resource.amount - inserted,
+                Actionable.ofSimulate(!doFill)));
         }
         return inserted;
     }
 
-    @NotNull
     @Override
-    public FluidStack drain(FluidStack resource, FluidAction action) {
+    @Nullable
+    public FluidStack drain(FluidStack resource, boolean doDrain) {
         var what = AEFluidKey.of(resource);
         if (what == null) {
-            return FluidStack.EMPTY;
+            return null;
         }
 
-        return extract(what, resource.getAmount(), action);
+        return extract(what, resource.amount, doDrain);
     }
 
-    @NotNull
     @Override
-    public FluidStack drain(int maxDrain, FluidAction action) {
-        // Find first fluid in tanks
-        for (int i = 0; i < inv.size(); i++) {
-            var what = inv.getKey(i);
-            if (inv.getKey(i) instanceof AEFluidKey fluidKey) {
-                return extract(fluidKey, maxDrain, action);
+    @Nullable
+    public FluidStack drain(int maxDrain, boolean doDrain) {
+        for (int i = 0; i < this.inv.size(); i++) {
+            if (this.inv.getKey(i) instanceof AEFluidKey what) {
+                return extract(what, maxDrain, doDrain);
             }
         }
-        return FluidStack.EMPTY;
+        return null;
     }
 
-    private FluidStack extract(AEFluidKey what, int amount, FluidAction action) {
+    @Nullable
+    private FluidStack extract(AEFluidKey what, int amount, boolean doDrain) {
         int extracted = 0;
-        for (int i = 0; i < inv.size() && extracted < amount; ++i) {
-            extracted += (int) inv.extract(i, what, amount - extracted, Actionable.of(action));
+        for (int i = 0; i < this.inv.size() && extracted < amount; i++) {
+            extracted += Ints.saturatedCast(this.inv.extract(i, what, amount - extracted,
+                Actionable.ofSimulate(!doDrain)));
         }
 
-        if (extracted > 0) {
-            return what.toStack(extracted);
-        }
-        return FluidStack.EMPTY;
+        return extracted > 0 ? what.toStack(extracted) : null;
     }
 }

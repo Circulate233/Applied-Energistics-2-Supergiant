@@ -18,20 +18,19 @@
 
 package appeng.me.cluster.implementations;
 
-import java.util.Iterator;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.networking.IGrid;
 import appeng.api.networking.events.GridCraftingCpuChange;
-import appeng.blockentity.crafting.CraftingBlockEntity;
 import appeng.me.cluster.MBCalculator;
+import appeng.tile.crafting.TileCraftingUnit;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-public class CraftingCPUCalculator extends MBCalculator<CraftingBlockEntity, CraftingCPUCluster> {
+import java.util.Iterator;
 
-    public CraftingCPUCalculator(CraftingBlockEntity t) {
+public class CraftingCPUCalculator extends MBCalculator<TileCraftingUnit, CraftingCPUCluster> {
+
+    public CraftingCPUCalculator(TileCraftingUnit t) {
         super(t);
     }
 
@@ -45,58 +44,53 @@ public class CraftingCPUCalculator extends MBCalculator<CraftingBlockEntity, Cra
             return false;
         }
 
-        if (max.getZ() - min.getZ() > 16) {
-            return false;
-        }
-
-        return true;
+        return max.getZ() - min.getZ() <= 16;
     }
 
     @Override
-    public CraftingCPUCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
+    public CraftingCPUCluster createCluster(World world, BlockPos min, BlockPos max) {
         return new CraftingCPUCluster(min, max);
     }
 
     @Override
-    public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
+    public boolean verifyInternalStructure(World world, BlockPos min, BlockPos max) {
         boolean storage = false;
 
-        for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
-            if (!(level.getBlockEntity(blockPos) instanceof CraftingBlockEntity craftingBlockEntity)) {
+        for (BlockPos blockPos : BlockPos.getAllInBox(min, max)) {
+            if (!(world.getTileEntity(blockPos) instanceof TileCraftingUnit craftingTile)) {
                 return false;
             }
 
-            storage |= craftingBlockEntity.getStorageBytes() > 0;
+            storage |= craftingTile.getStorageBytes() > 0;
         }
 
         return storage;
     }
 
     @Override
-    public void updateBlockEntities(CraftingCPUCluster c, ServerLevel level, BlockPos min,
-            BlockPos max) {
-        for (BlockPos blockPos : BlockPos.betweenClosed(min, max)) {
-            final CraftingBlockEntity te = (CraftingBlockEntity) level.getBlockEntity(blockPos);
-            te.updateStatus(c);
-            c.addBlockEntity(te);
+    public void updateBlockEntities(CraftingCPUCluster c, World world, BlockPos min, BlockPos max) {
+        for (BlockPos blockPos : BlockPos.getAllInBox(min, max)) {
+            final TileCraftingUnit tile = (TileCraftingUnit) world.getTileEntity(blockPos);
+            tile.updateStatus(c);
+            c.addTileEntity(tile);
         }
 
         c.done();
 
-        final Iterator<CraftingBlockEntity> i = c.getBlockEntities();
+        final Iterator<TileCraftingUnit> i = c.getBlockEntities();
         while (i.hasNext()) {
-            var gh = i.next();
-            var n = gh.getGridNode();
-            if (n != null) {
-                final IGrid g = n.getGrid();
-                g.postEvent(new GridCraftingCpuChange(n));
+            var tile = i.next();
+            var node = tile.getGridNode();
+            if (node != null) {
+                final IGrid grid = node.getGrid();
+                grid.postEvent(new GridCraftingCpuChange(node));
                 return;
             }
         }
     }
 
     @Override
-    public boolean isValidBlockEntity(BlockEntity te) {
-        return te instanceof CraftingBlockEntity;
+    public boolean isValidBlockEntity(TileEntity te) {
+        return te instanceof TileCraftingUnit;
     }
 }

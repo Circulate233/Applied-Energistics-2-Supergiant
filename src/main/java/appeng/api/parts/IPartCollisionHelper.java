@@ -23,13 +23,13 @@
 
 package appeng.api.parts;
 
-import net.minecraft.core.Direction;
+import net.minecraft.util.EnumFacing;
 
 public interface IPartCollisionHelper {
 
     /**
      * add a collision box, expects 0.0 - 16.0 block coords.
-     *
+     * <p>
      * No complaints about the size, I like using pixels :P
      *
      * @param minX minimal x collision
@@ -44,17 +44,17 @@ public interface IPartCollisionHelper {
     /**
      * @return east in world space.
      */
-    Direction getWorldX();
+    EnumFacing getWorldX();
 
     /**
      * @return up in world space.
      */
-    Direction getWorldY();
+    EnumFacing getWorldY();
 
     /**
      * @return forward in world space.
      */
-    Direction getWorldZ();
+    EnumFacing getWorldZ();
 
     /**
      * @return true if this test is to get the BB Collision information.

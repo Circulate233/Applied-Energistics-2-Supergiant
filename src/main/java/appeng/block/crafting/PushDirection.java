@@ -1,54 +1,57 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
 package appeng.block.crafting;
 
-import com.mojang.serialization.Codec;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.util.StringRepresentable;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.IStringSerializable;
 
 /**
- * Extends {@link Direction} with an 'all' key.
+ * Extends the set of block facings with an all-direction state.
  */
-public enum PushDirection implements StringRepresentable {
-    DOWN(Direction.DOWN),
-    UP(Direction.UP),
-    NORTH(Direction.NORTH),
-    SOUTH(Direction.SOUTH),
-    WEST(Direction.WEST),
-    EAST(Direction.EAST),
-    ALL;
+public enum PushDirection implements IStringSerializable {
+    ALL(null),
+    NORTH(EnumFacing.NORTH),
+    SOUTH(EnumFacing.SOUTH),
+    EAST(EnumFacing.EAST),
+    WEST(EnumFacing.WEST),
+    UP(EnumFacing.UP),
+    DOWN(EnumFacing.DOWN);
 
-    public static final Codec<PushDirection> CODEC = StringRepresentable.fromEnum(PushDirection::values);
+    private final EnumFacing direction;
 
-    public static final StreamCodec<FriendlyByteBuf, PushDirection> STREAM_CODEC = NeoForgeStreamCodecs
-            .enumCodec(PushDirection.class);
-
-    @Nullable
-    private final Direction direction;
-
-    PushDirection(Direction direction) {
+    PushDirection(EnumFacing direction) {
         this.direction = direction;
     }
 
-    PushDirection() {
-        this.direction = null;
+    public static PushDirection fromDirection(EnumFacing direction) {
+        if (direction == null) {
+            return ALL;
+        }
+        return valueOf(direction.name());
     }
 
-    @Nullable
-    public Direction getDirection() {
-        return direction;
+    public EnumFacing getDirection() {
+        return this.direction;
     }
 
     @Override
-    public String getSerializedName() {
-        return direction != null ? direction.getSerializedName() : "all";
-    }
-
-    public static PushDirection fromDirection(@Nullable Direction direction) {
-        return direction != null ? values()[direction.ordinal()] : ALL;
+    public String getName() {
+        return name().toLowerCase();
     }
 }
+

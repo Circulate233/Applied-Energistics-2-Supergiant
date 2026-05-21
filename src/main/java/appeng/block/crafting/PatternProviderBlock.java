@@ -15,80 +15,94 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.crafting;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.phys.BlockHitResult;
-
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.crafting.PatternProviderBlockEntity;
-import appeng.menu.locator.MenuLocators;
+import appeng.block.AEBaseTileBlock;
+import appeng.core.gui.locator.GuiHostLocators;
+import appeng.tile.crafting.TilePatternProvider;
 import appeng.util.InteractionUtil;
 import appeng.util.Platform;
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.PropertyEnum;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-public class PatternProviderBlock extends AEBaseEntityBlock<PatternProviderBlockEntity> {
-
-    public static final EnumProperty<PushDirection> PUSH_DIRECTION = EnumProperty.create("push_direction",
-            PushDirection.class);
+@SuppressWarnings("deprecation")
+public class PatternProviderBlock extends AEBaseTileBlock<TilePatternProvider> {
+    public static final PropertyEnum<PushDirection> PUSH_DIRECTION = PropertyEnum.create("push_direction",
+        PushDirection.class);
 
     public PatternProviderBlock() {
-        super(metalProps());
-        registerDefaultState(defaultBlockState().setValue(PUSH_DIRECTION, PushDirection.ALL));
+        super(Material.IRON);
+        setHardness(2.2F);
+        setResistance(11.0F);
+        setTileEntity(TilePatternProvider.class);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(PUSH_DIRECTION, PushDirection.ALL));
     }
 
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(PUSH_DIRECTION);
+    protected BlockStateContainer createBlockState() {
+        return createBlockState(PUSH_DIRECTION);
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block block, BlockPos fromPos,
-            boolean isMoving) {
-        var be = this.getBlockEntity(level, pos);
-        if (be != null) {
-            be.getLogic().updateRedstoneState();
+    public int getMetaFromState(IBlockState state) {
+        return state.getValue(PUSH_DIRECTION).ordinal();
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        PushDirection[] values = PushDirection.values();
+        int index = meta >= 0 && meta < values.length ? meta : PushDirection.ALL.ordinal();
+        return this.getDefaultState().withProperty(PUSH_DIRECTION, values[index]);
+    }
+
+    @Override
+    public void neighborChanged(IBlockState state, World world, BlockPos pos, Block blockIn, BlockPos fromPos) {
+        super.neighborChanged(state, world, pos, blockIn, fromPos);
+        TilePatternProvider tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            tile.getLogic().invalidateTargetCaches();
+            tile.getLogic().updateRedstoneState();
         }
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos,
-            Player player, InteractionHand hand, BlockHitResult hit) {
-        if (InteractionUtil.canWrenchRotate(heldItem)) {
-            setSide(level, pos, hit.getDirection());
-            return ItemInteractionResult.sidedSuccess(level.isClientSide());
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        TilePatternProvider tile = this.getTileEntity(world, pos);
+        if (tile == null) {
+            return super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ);
         }
-        return super.useItemOn(heldItem, state, level, pos, player, hand, hit);
-    }
 
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        var be = this.getBlockEntity(level, pos);
-        if (be != null) {
-            if (!level.isClientSide()) {
-                be.openMenu(player, MenuLocators.forBlockEntity(be));
+        ItemStack heldItem = player.getHeldItem(hand);
+        if (!heldItem.isEmpty()) {
+            if (InteractionUtil.canWrenchRotate(heldItem)) {
+                if (!world.isRemote) {
+                    this.setSide(world, pos, facing);
+                }
+                return true;
             }
-            return InteractionResult.sidedSuccess(level.isClientSide());
+
+            return super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ);
         }
-        return InteractionResult.PASS;
+
+        if (!world.isRemote) {
+            tile.openGui(player, GuiHostLocators.forTile(tile));
+        }
+        return true;
     }
 
-    public void setSide(Level level, BlockPos pos, Direction facing) {
-        var currentState = level.getBlockState(pos);
-        var pushSide = currentState.getValue(PUSH_DIRECTION).getDirection();
+    public void setSide(World world, BlockPos pos, EnumFacing facing) {
+        IBlockState currentState = world.getBlockState(pos);
+        EnumFacing pushSide = currentState.getValue(PUSH_DIRECTION).getDirection();
 
         PushDirection newPushDirection;
         if (pushSide == facing.getOpposite()) {
@@ -101,6 +115,12 @@ public class PatternProviderBlock extends AEBaseEntityBlock<PatternProviderBlock
             newPushDirection = PushDirection.fromDirection(Platform.rotateAround(pushSide, facing));
         }
 
-        level.setBlockAndUpdate(pos, currentState.setValue(PUSH_DIRECTION, newPushDirection));
+        world.setBlockState(pos, currentState.withProperty(PUSH_DIRECTION, newPushDirection), 3);
+        TilePatternProvider tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            tile.getLogic().invalidateTargetCaches();
+            tile.onPushDirectionChanged();
+        }
     }
+
 }

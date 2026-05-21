@@ -1,49 +1,52 @@
 package appeng.api.orientation;
 
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.properties.PropertyDirection;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
-import net.minecraft.core.Direction;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
-import net.minecraft.world.level.block.state.properties.Property;
 
 /**
  * Implements a strategy that allows blocks to be oriented using a single directional property.
  */
 public class FacingStrategy implements IOrientationStrategy {
-    private final DirectionProperty property;
-    private final List<Property<?>> properties;
+    private final PropertyDirection property;
+    private final List<IProperty<?>> properties;
     private final boolean allowsPlayerRotation;
 
-    protected FacingStrategy(DirectionProperty property) {
+    protected FacingStrategy(PropertyDirection property) {
         this(property, true);
     }
 
-    protected FacingStrategy(DirectionProperty property, boolean allowsPlayerRotation) {
+    protected FacingStrategy(PropertyDirection property, boolean allowsPlayerRotation) {
         this.property = property;
         this.properties = Collections.singletonList(property);
         this.allowsPlayerRotation = allowsPlayerRotation;
     }
 
     @Override
-    public Direction getFacing(BlockState state) {
+    public EnumFacing getFacing(IBlockState state) {
         return state.getValue(property);
     }
 
     @Override
-    public BlockState setFacing(BlockState state, Direction facing) {
-        if (!property.getPossibleValues().contains(facing)) {
+    public IBlockState setFacing(IBlockState state, EnumFacing facing) {
+        if (!property.getAllowedValues().contains(facing)) {
             return state;
         }
-        return state.setValue(property, facing);
+        return state.withProperty(property, facing);
     }
 
     @Override
-    public BlockState getStateForPlacement(BlockState state, BlockPlaceContext context) {
-        return setFacing(state, context.getClickedFace());
+    public IBlockState getStateForPlacement(IBlockState state, World world, BlockPos pos, EnumFacing clickedSide,
+                                            float hitX, float hitY, float hitZ, EntityLivingBase placer) {
+        return setFacing(state, clickedSide);
     }
 
     @Override
@@ -52,7 +55,7 @@ public class FacingStrategy implements IOrientationStrategy {
     }
 
     @Override
-    public Collection<Property<?>> getProperties() {
+    public Collection<IProperty<?>> getProperties() {
         return properties;
     }
 }

@@ -1,28 +1,24 @@
 package appeng.util;
 
-import java.io.IOException;
-import java.util.Map;
-
 import com.google.common.math.StatsAccumulator;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.stream.JsonWriter;
+import net.minecraft.util.math.ChunkPos;
 
-import net.minecraft.world.level.ChunkPos;
+import java.io.IOException;
+import java.util.Map;
 
 public final class JsonStreamUtil {
     private static final Gson GSON = new GsonBuilder()
-            .serializeSpecialFloatingPointValues()
-            .create();
+        .serializeSpecialFloatingPointValues()
+        .create();
 
     private JsonStreamUtil() {
     }
 
-    /**
-     * Writes the entries of the given map as object properties. Assumes an object is currently open on the writer.
-     */
     public static void writeProperties(Map<String, ?> properties, JsonWriter writer) throws IOException {
         for (var entry : properties.entrySet()) {
             writer.name(entry.getKey());
@@ -43,9 +39,9 @@ public final class JsonStreamUtil {
         }
 
         return Map.of(
-                "count", stats.count(),
-                "min", stats.min(),
-                "max", stats.max(),
-                "mean", stats.mean());
+            "count", stats.count(),
+            "min", stats.min(),
+            "max", stats.max(),
+            "mean", stats.mean());
     }
 }

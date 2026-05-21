@@ -18,68 +18,71 @@
 
 package appeng.me.cluster.implementations;
 
-import java.util.ArrayList;
+import appeng.me.cluster.IAECluster;
+import appeng.me.cluster.MBCalculator;
+import appeng.tile.spatial.TileSpatialPylon;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
 import java.util.Iterator;
 import java.util.List;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-
-import appeng.blockentity.spatial.SpatialPylonBlockEntity;
-import appeng.me.cluster.IAECluster;
-import appeng.me.cluster.MBCalculator;
-
 public class SpatialPylonCluster implements IAECluster {
 
-    private final ServerLevel level;
-    private final BlockPos boundsMin;
-    private final BlockPos boundsMax;
-    private final List<SpatialPylonBlockEntity> line = new ArrayList<>();
-    private boolean isDestroyed = false;
+    private final World level;
+    private final BlockPos min;
+    private final BlockPos max;
+    private final ObjectList<TileSpatialPylon> line = new ObjectArrayList<>();
 
+    private boolean destroyed;
+    private boolean valid;
     private Axis currentAxis = Axis.UNFORMED;
-    private boolean isValid;
 
-    public SpatialPylonCluster(ServerLevel level, BlockPos boundsMin, BlockPos boundsMax) {
+    public SpatialPylonCluster(World level, BlockPos min, BlockPos max) {
         this.level = level;
-        this.boundsMin = boundsMin.immutable();
-        this.boundsMax = boundsMax.immutable();
+        this.min = min;
+        this.max = max;
 
-        if (this.getBoundsMin().getX() != this.getBoundsMax().getX()) {
-            this.setCurrentAxis(Axis.X);
-        } else if (this.getBoundsMin().getY() != this.getBoundsMax().getY()) {
-            this.setCurrentAxis(Axis.Y);
-        } else if (this.getBoundsMin().getZ() != this.getBoundsMax().getZ()) {
-            this.setCurrentAxis(Axis.Z);
-        } else {
-            this.setCurrentAxis(Axis.UNFORMED);
+        if (this.min.getX() != this.max.getX()) {
+            this.currentAxis = Axis.X;
+        } else if (this.min.getY() != this.max.getY()) {
+            this.currentAxis = Axis.Y;
+        } else if (this.min.getZ() != this.max.getZ()) {
+            this.currentAxis = Axis.Z;
         }
+    }
+
+    @Override
+    public BlockPos getBoundsMin() {
+        return this.min;
+    }
+
+    @Override
+    public BlockPos getBoundsMax() {
+        return this.max;
     }
 
     @Override
     public void updateStatus(boolean updateGrid) {
-        for (SpatialPylonBlockEntity r : this.getLine()) {
-            r.recalculateDisplay();
+        for (var pylon : this.line) {
+            pylon.recalculateDisplay();
         }
-    }
-
-    @Override
-    public boolean isDestroyed() {
-        return isDestroyed;
     }
 
     @Override
     public void destroy() {
-
-        if (this.isDestroyed) {
+        if (this.destroyed) {
             return;
         }
-        this.isDestroyed = true;
 
+        this.destroyed = true;
         MBCalculator.setModificationInProgress(this);
         try {
-            for (SpatialPylonBlockEntity r : this.getLine()) {
-                r.updateStatus(null);
+            for (var pylon : this.line) {
+                pylon.updateStatus(null);
             }
         } finally {
             MBCalculator.setModificationInProgress(null);
@@ -87,49 +90,43 @@ public class SpatialPylonCluster implements IAECluster {
     }
 
     @Override
-    public Iterator<SpatialPylonBlockEntity> getBlockEntities() {
-        return this.getLine().iterator();
+    public boolean isDestroyed() {
+        return this.destroyed;
+    }
+
+    @Override
+    public Iterator<? extends TileEntity> getBlockEntities() {
+        return this.line.iterator();
     }
 
     public int size() {
-        return this.getLine().size();
+        return this.line.size();
     }
 
     public Axis getCurrentAxis() {
         return this.currentAxis;
     }
 
-    private void setCurrentAxis(Axis currentAxis) {
-        this.currentAxis = currentAxis;
-    }
-
     public boolean isValid() {
-        return this.isValid;
+        return this.valid;
     }
 
-    public void setValid(boolean isValid) {
-        this.isValid = isValid;
+    public void setValid(boolean valid) {
+        this.valid = valid;
     }
 
-    public ServerLevel setLevel() {
-        return level;
+    public World getLevel() {
+        return this.level;
     }
 
-    @Override
-    public BlockPos getBoundsMax() {
-        return this.boundsMax;
-    }
-
-    @Override
-    public BlockPos getBoundsMin() {
-        return this.boundsMin;
-    }
-
-    List<SpatialPylonBlockEntity> getLine() {
+    public List<TileSpatialPylon> getLine() {
         return this.line;
     }
 
     public enum Axis {
-        X, Y, Z, UNFORMED
+        X,
+        Y,
+        Z,
+        UNFORMED
     }
 }

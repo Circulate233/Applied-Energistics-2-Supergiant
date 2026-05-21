@@ -1,242 +1,234 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.server.subcommands;
-
-import static net.minecraft.commands.Commands.literal;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.function.UnaryOperator;
-
-import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import com.mojang.brigadier.exceptions.DynamicCommandExceptionType;
-import com.mojang.brigadier.exceptions.SimpleCommandExceptionType;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.commands.CommandSourceStack;
-import net.minecraft.commands.Commands;
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.chat.ClickEvent;
-import net.minecraft.network.chat.ClickEvent.Action;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.HoverEvent;
-import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.network.chat.Style;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 
 import appeng.api.features.IPlayerRegistry;
 import appeng.core.definitions.AEItems;
-import appeng.core.localization.PlayerMessages;
 import appeng.items.storage.SpatialStorageCellItem;
 import appeng.server.ISubCommand;
 import appeng.spatial.SpatialStorageDimensionIds;
 import appeng.spatial.SpatialStoragePlot;
 import appeng.spatial.SpatialStoragePlotManager;
 import appeng.spatial.TransitionInfo;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.Teleporter;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.DimensionManager;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 
-/**
- * This admin command allows management of spatial storage plots.
- */
+import java.util.Comparator;
+
 public class SpatialStorageCommand implements ISubCommand {
 
-    public static final DynamicCommandExceptionType PLOT_NOT_FOUND = new DynamicCommandExceptionType(
-            PlayerMessages.PlotNotFound::text);
-    public static final SimpleCommandExceptionType PLOT_NOT_FOUND_FOR_POSITION = new SimpleCommandExceptionType(
-            PlayerMessages.PlotNotFoundForCurrentPosition.text());
-    public static final SimpleCommandExceptionType NOT_IN_SPATIAL_STORAGE_LEVEL = new SimpleCommandExceptionType(
-            PlayerMessages.NotInSpatialStorageLevel.text());
-    public static final SimpleCommandExceptionType NOT_STORAGE_CELL = new SimpleCommandExceptionType(
-            PlayerMessages.NotStorageCell.text());
-    public static final SimpleCommandExceptionType NO_LAST_TRANSITION = new SimpleCommandExceptionType(
-            PlayerMessages.NoLastTransition.text());
-
-    @Override
-    public void addArguments(LiteralArgumentBuilder<CommandSourceStack> builder) {
-        // Shows info about a given plot or about the plot the player is currently in
-        builder.then(literal("info").executes(ctx -> {
-            showPlotInfo(ctx.getSource(), getCurrentPlot(ctx.getSource()));
-            return 1;
-        }).then(Commands.argument("plotId", IntegerArgumentType.integer(1)).executes(ctx -> {
-            int plotId = IntegerArgumentType.getInteger(ctx, "plotId");
-            showPlotInfo(ctx.getSource(), getPlot(plotId));
-            return 1;
-        })));
-
-        // Teleport into the plot
-        builder.then(literal("tp").then(Commands.argument("plotId", IntegerArgumentType.integer(1)).executes(ctx -> {
-            int plotId = IntegerArgumentType.getInteger(ctx, "plotId");
-            teleportToPlot(ctx.getSource(), plotId);
-            return 1;
-        })));
-
-        // Teleport from the current plot back to the source of its content, or do the
-        // same for a given plot id
-        builder.then(literal("tpback").executes(ctx -> {
-            teleportBack(ctx.getSource());
-            return 1;
-        }).then(Commands.argument("plotId", IntegerArgumentType.integer(1)).executes(ctx -> {
-            int plotId = IntegerArgumentType.getInteger(ctx, "plotId");
-            teleportBack(ctx.getSource(), getPlot(plotId));
-            return 1;
-        })));
-
-        // Creates a storage cell for the given plot id and gives it to the player
-        builder.then(
-                literal("givecell").then(Commands.argument("plotId", IntegerArgumentType.integer(1)).executes(ctx -> {
-                    int plotId = IntegerArgumentType.getInteger(ctx, "plotId");
-                    giveCell(ctx.getSource(), plotId);
-                    return 1;
-                })));
-    }
-
-    /**
-     * If the player is currently within a spatial storage plot, teleports them back to the last source of transition.
-     */
-    private void teleportBack(CommandSourceStack source) throws CommandSyntaxException {
-
-        if (source.getLevel().dimension() != SpatialStorageDimensionIds.WORLD_ID) {
-            throw NOT_IN_SPATIAL_STORAGE_LEVEL.create();
+    private static void teleportPlayer(MinecraftServer server, EntityPlayerMP player, int dimensionId, BlockPos pos) {
+        WorldServer targetLevel = server.getWorld(dimensionId);
+        if (targetLevel == null) {
+            DimensionManager.initDimension(dimensionId);
+            targetLevel = server.getWorld(dimensionId);
+        }
+        if (targetLevel == null) {
+            throw new IllegalStateException("Missing target dimension " + dimensionId);
         }
 
-        BlockPos playerPos = BlockPos.containing(source.getPosition());
-        int x = playerPos.getX();
-        int z = playerPos.getZ();
+        if (player.dimension == dimensionId) {
+            player.connection.setPlayerLocation(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.rotationYaw,
+                player.rotationPitch);
+            return;
+        }
 
-        // This is slow, but for an admin-command it's acceptable
+        server.getPlayerList().transferPlayerToDimension(player, dimensionId, new FixedTeleporter(targetLevel, pos));
+        player.connection.setPlayerLocation(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5, player.rotationYaw,
+            player.rotationPitch);
+    }
+
+    private static EntityPlayerMP getPlayer(ICommandSender sender) throws CommandException {
+        if (sender.getCommandSenderEntity() instanceof EntityPlayerMP player) {
+            return player;
+        }
+        throw new CommandException("This command requires a player.");
+    }
+
+    private static SpatialStoragePlot getPlot(int plotId) throws CommandException {
+        SpatialStoragePlot plot = SpatialStoragePlotManager.INSTANCE.getPlot(plotId);
+        if (plot == null) {
+            throw new CommandException("No plot found with id " + plotId);
+        }
+        return plot;
+    }
+
+    private static SpatialStoragePlot getCurrentPlot(ICommandSender sender) throws CommandException {
+        BlockPos playerPos = sender.getPosition();
+        if (playerPos == null || sender.getEntityWorld().provider.getDimension() != SpatialStorageDimensionIds.getDimensionId()) {
+            throw new CommandException("Not in the spatial storage dimension.");
+        }
 
         for (SpatialStoragePlot plot : SpatialStoragePlotManager.INSTANCE.getPlots()) {
             BlockPos origin = plot.getOrigin();
             BlockPos size = plot.getSize();
-            if (x >= origin.getX() && x <= origin.getX() + size.getX() && z >= origin.getZ()
-                    && z <= origin.getZ() + size.getZ()) {
-                teleportBack(source, plot);
+            if (playerPos.getX() >= origin.getX() && playerPos.getX() <= origin.getX() + size.getX()
+                && playerPos.getZ() >= origin.getZ() && playerPos.getZ() <= origin.getZ() + size.getZ()) {
+                return plot;
+            }
+        }
+
+        throw new CommandException("No spatial storage plot at the current position.");
+    }
+
+    private static int parsePlotId(String input) throws CommandException {
+        try {
+            return Integer.parseInt(input);
+        } catch (NumberFormatException e) {
+            throw new CommandException("Invalid plot id: " + input);
+        }
+    }
+
+    private static String format(BlockPos pos) {
+        return pos.getX() + "," + pos.getY() + "," + pos.getZ();
+    }
+
+    private static String describeOwner(MinecraftServer server, int ownerId) {
+        if (ownerId == -1) {
+            return "unknown";
+        }
+
+        EntityPlayerMP connectedPlayer = IPlayerRegistry.getConnected(server, ownerId);
+        if (connectedPlayer != null) {
+            return connectedPlayer.getGameProfile().getName() + " (online)";
+        }
+
+        java.util.UUID profileId = IPlayerRegistry.getMapping(server).getProfileId(ownerId);
+        if (profileId != null) {
+            com.mojang.authlib.GameProfile cachedProfile = server.getPlayerProfileCache().getProfileByUUID(profileId);
+            if (cachedProfile != null) {
+                return cachedProfile.getName() + " (offline)";
+            }
+            return profileId.toString();
+        }
+
+        return Integer.toString(ownerId);
+    }
+
+    private static java.time.Instant getLastTransitionTimestamp(SpatialStoragePlot plot) {
+        TransitionInfo transition = plot.getLastTransition();
+        return transition != null ? transition.timestamp() : java.time.Instant.MIN;
+    }
+
+    @Override
+    public String getHelp(MinecraftServer srv) {
+        return "commands.ae2.spatial";
+    }
+
+    @Override
+    public void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException {
+        try {
+            SpatialStoragePlotManager.INSTANCE.getLevel();
+        } catch (IllegalStateException e) {
+            sender.sendMessage(new TextComponentString("Spatial storage level is unavailable: " + e.getMessage()));
+            return;
+        }
+
+        if (args.length == 1) {
+            listPlots(srv, sender);
+            return;
+        }
+
+        String action = args[1].toLowerCase();
+        switch (action) {
+            case "info" -> {
+                if (args.length == 2) {
+                    showPlotInfo(sender, getCurrentPlot(sender));
+                    return;
+                }
+                showPlotInfo(sender, getPlot(parsePlotId(args[2])));
+                return;
+            }
+            case "tp" -> {
+                if (args.length != 3) {
+                    throw new WrongUsageException("commands.ae2.spatial");
+                }
+                teleportToPlot(srv, sender, parsePlotId(args[2]));
+                return;
+            }
+            case "tpback" -> {
+                if (args.length == 2) {
+                    teleportBack(srv, sender, getCurrentPlot(sender));
+                    return;
+                }
+                teleportBack(srv, sender, getPlot(parsePlotId(args[2])));
+                return;
+            }
+            case "givecell" -> {
+                if (args.length != 3) {
+                    throw new WrongUsageException("commands.ae2.spatial");
+                }
+                giveCell(sender, parsePlotId(args[2]));
                 return;
             }
         }
 
-        throw PLOT_NOT_FOUND_FOR_POSITION.create();
-
+        throw new WrongUsageException("commands.ae2.spatial");
     }
 
-    /**
-     * Teleports back from the given plot.
-     */
-    private void teleportBack(CommandSourceStack source, SpatialStoragePlot plot) throws CommandSyntaxException {
-        TransitionInfo lastTransition = plot.getLastTransition();
-        if (lastTransition == null) {
-            throw NO_LAST_TRANSITION.create();
+    private void listPlots(MinecraftServer server, ICommandSender sender) {
+        ObjectList<SpatialStoragePlot> plots = new ObjectArrayList<>(SpatialStoragePlotManager.INSTANCE.getPlots());
+        if (plots.isEmpty()) {
+            sender.sendMessage(new TextComponentString("No spatial storage plots exist."));
+            return;
         }
 
-        String command = getTeleportCommand(lastTransition.getWorldId(), lastTransition.getMin().offset(0, 1, 0));
-        runCommandFor(source, command);
+        plots.sort(Comparator.comparing(SpatialStorageCommand::getLastTransitionTimestamp).reversed());
+        for (int i = 0; i < Math.min(5, plots.size()); i++) {
+            SpatialStoragePlot plot = plots.get(i);
+            sender.sendMessage(new TextComponentString(
+                "Plot #" + plot.getId() + " size=" + format(plot.getSize()) + " origin=" + format(plot.getOrigin())));
+        }
     }
 
-    /**
-     * Shows detailed information about a spatial storage plot.
-     */
-    private static void showPlotInfo(CommandSourceStack source, SpatialStoragePlot plot) {
+    private void showPlotInfo(ICommandSender sender, SpatialStoragePlot plot) {
+        sender.sendMessage(new TextComponentString("Plot #" + plot.getId()));
+        sender.sendMessage(new TextComponentString("Owner: " + describeOwner(sender.getServer(), plot.getOwner())));
+        sender.sendMessage(new TextComponentString("Size: " + format(plot.getSize())));
+        sender.sendMessage(new TextComponentString("Origin: " + format(plot.getOrigin())));
+        sender.sendMessage(new TextComponentString("Region: " + plot.getRegionFilename()));
 
-        sendKeyValuePair(source, PlayerMessages.PlotID.text(), String.valueOf(plot.getId()));
-        // Show the owner of the spatial storage plot
-        int playerId = plot.getOwner();
-        if (playerId != -1) {
-            var server = source.getServer();
-            var profileId = IPlayerRegistry.getMapping(server).getProfileId(playerId);
-
-            if (profileId == null) {
-                sendKeyValuePair(source, PlayerMessages.Owner.text(), PlayerMessages.UnknownAE2Player.text(playerId));
-            } else {
-                ServerPlayer player = server.getPlayerList().getPlayer(profileId);
-                if (player != null) {
-                    sendKeyValuePair(source, PlayerMessages.Owner.text(),
-                            PlayerMessages.PlayerConnected.text(player.getGameProfile().getName()));
-                } else {
-                    var cachedProfile = server.getProfileCache().get(profileId);
-                    if (cachedProfile.isPresent()) {
-                        sendKeyValuePair(source, PlayerMessages.Owner.text(),
-                                PlayerMessages.PlayerDisconnected.text(cachedProfile.get().getName()));
-                    } else {
-                        sendKeyValuePair(source, PlayerMessages.Owner.text(),
-                                PlayerMessages.MinecraftProfile.text(profileId));
-                    }
-                }
-            }
-        } else {
-            sendKeyValuePair(source, PlayerMessages.Owner.text(), PlayerMessages.Unknown.text());
+        TransitionInfo transition = plot.getLastTransition();
+        if (transition != null) {
+            sender.sendMessage(new TextComponentString("Last source: " + transition.worldId()));
+            sender.sendMessage(new TextComponentString("Last min: " + format(transition.min())));
+            sender.sendMessage(new TextComponentString("Last max: " + format(transition.max())));
+            sender.sendMessage(new TextComponentString("Last time: " + transition.timestamp()));
         }
-
-        sendKeyValuePair(source, PlayerMessages.Size.text(), formatBlockPos(plot.getSize(), "x"));
-
-        // Show the plot's origin and make it clickable to teleport directly to it
-        String teleportToPlotCommand = getTeleportCommand(SpatialStorageDimensionIds.WORLD_ID.location(),
-                plot.getOrigin());
-        sendKeyValuePair(source, PlayerMessages.Origin.text(), Component.literal(formatBlockPos(plot.getOrigin(), ","))
-                .withStyle(makeCommandLink(teleportToPlotCommand, PlayerMessages.ClickToTeleport.text())));
-
-        sendKeyValuePair(source, PlayerMessages.RegionFile.text(), plot.getRegionFilename());
-
-        // Show information about what was last transfered into the plot (with a
-        // clickable link to the source)
-        TransitionInfo lastTransition = plot.getLastTransition();
-        if (lastTransition != null) {
-            source.sendSuccess(
-                    () -> PlayerMessages.LastTransition.text().withStyle(ChatFormatting.UNDERLINE, ChatFormatting.BOLD),
-                    true);
-
-            String sourceWorldId = lastTransition.getWorldId().toString();
-            MutableComponent sourceLink = PlayerMessages.SourceLink.text(sourceWorldId,
-                    formatBlockPos(lastTransition.getMin(), ","), formatBlockPos(lastTransition.getMax(), ","));
-            String tpCommand = getTeleportCommand(lastTransition.getWorldId(), lastTransition.getMin().offset(0, 1, 0));
-            sourceLink.withStyle(makeCommandLink(tpCommand, PlayerMessages.ClickToTeleport.text()));
-
-            sendKeyValuePair(source, PlayerMessages.Source.text(), sourceLink);
-            sendKeyValuePair(source, PlayerMessages.When.text(), lastTransition.getTimestamp().toString());
-        } else {
-            source.sendSuccess(() -> PlayerMessages.LastTransitionUnknown.text(), true);
-        }
-
     }
 
-    private static void teleportToPlot(CommandSourceStack source, int plotId) throws CommandSyntaxException {
+    private void teleportToPlot(MinecraftServer server, ICommandSender sender, int plotId) throws CommandException {
+        EntityPlayerMP player = getPlayer(sender);
         SpatialStoragePlot plot = getPlot(plotId);
-
-        String teleportCommand = getTeleportCommand(SpatialStorageDimensionIds.WORLD_ID.location(),
-                plot.getOrigin());
-
-        runCommandFor(source, teleportCommand);
+        teleportPlayer(server, player, SpatialStorageDimensionIds.getDimensionId(), plot.getOrigin().add(0, 1, 0));
     }
 
-    private void giveCell(CommandSourceStack source, int plotId) throws CommandSyntaxException {
-        ServerPlayer player = source.getPlayerOrException();
+    private void teleportBack(MinecraftServer server, ICommandSender sender, SpatialStoragePlot plot)
+        throws CommandException {
+        EntityPlayerMP player = getPlayer(sender);
+        TransitionInfo transition = plot.getLastTransition();
+        if (transition == null) {
+            throw new CommandException("No previous transition recorded.");
+        }
 
+        int dimensionId = transition.dimensionId();
+        teleportPlayer(server, player, dimensionId, transition.min().add(0, 1, 0));
+    }
+
+    private void giveCell(ICommandSender sender, int plotId) throws CommandException {
+        EntityPlayerMP player = getPlayer(sender);
         SpatialStoragePlot plot = getPlot(plotId);
-
         ItemStack cell;
-        int longestSide = getLongestSide(plot.getSize());
+        int longestSide = Math.max(plot.getSize().getX(), Math.max(plot.getSize().getY(), plot.getSize().getZ()));
         if (longestSide <= 2) {
             cell = AEItems.SPATIAL_CELL2.stack();
         } else if (longestSide <= 16) {
@@ -246,125 +238,40 @@ public class SpatialStorageCommand implements ISubCommand {
         }
 
         if (!(cell.getItem() instanceof SpatialStorageCellItem spatialCellItem)) {
-            throw NOT_STORAGE_CELL.create();
+            throw new CommandException("Not a spatial storage cell.");
         }
 
-        spatialCellItem.setStoredDimension(cell, plotId, plot.getSize());
-
-        player.addItem(cell);
+        spatialCellItem.setStoredDimension(cell, plot.getId(), plot.getSize());
+        player.addItemStackToInventory(cell);
     }
 
-    private static int getLongestSide(BlockPos size) {
-        return Math.max(size.getX(), Math.max(size.getY(), size.getZ()));
-    }
+    private static final class FixedTeleporter extends Teleporter {
+        private final BlockPos pos;
 
-    @Override
-    public void call(MinecraftServer srv, CommandContext<CommandSourceStack> ctx, CommandSourceStack sender) {
-
-        // Test if the storage level has gone missing, which has occurred in the past. Instead of just not
-        // printing anything or a non-descript error, give the user some hint as to what's happening.
-        try {
-            SpatialStoragePlotManager.INSTANCE.getLevel();
-        } catch (IllegalStateException e) {
-            sender.sendSuccess(() -> PlayerMessages.NoSpatialIOLevel.text(e.getMessage()), true);
-            return;
+        private FixedTeleporter(WorldServer worldIn, BlockPos pos) {
+            super(worldIn);
+            this.pos = pos;
         }
 
-        List<SpatialStoragePlot> plots = new ArrayList<>(SpatialStoragePlotManager.INSTANCE.getPlots());
-
-        if (plots.isEmpty()) {
-            sender.sendSuccess(() -> PlayerMessages.NoSpatialIOPlots.text(), true);
-            return;
+        @Override
+        public void placeInPortal(net.minecraft.entity.Entity entity, float rotationYaw) {
+            entity.setLocationAndAngles(this.pos.getX() + 0.5, this.pos.getY(), this.pos.getZ() + 0.5,
+                entity.rotationYaw, entity.rotationPitch);
         }
 
-        // Prints the least recently used plots
-        plots.sort(Comparator.comparing((SpatialStoragePlot plot) -> {
-            TransitionInfo lastTransition = plot.getLastTransition();
-            if (lastTransition != null) {
-                return lastTransition.getTimestamp();
-            } else {
-                return Instant.MIN;
-            }
-        }).reversed());
-
-        for (int i = 0; i < Math.min(5, plots.size()); i++) {
-            SpatialStoragePlot plot = plots.get(i);
-            String size = formatBlockPos(plot.getSize(), "x");
-            BlockPos originPos = plot.getOrigin();
-            String origin = formatBlockPos(originPos, ",");
-
-            Component infoLink = PlayerMessages.Plot.text().append(" #" + plot.getId()).withStyle(
-                    makeCommandLink("/ae2 spatial info " + plot.getId(), PlayerMessages.ClickToShowDetails.text()));
-            Component tpLink = PlayerMessages.Origin.text().append(": " + origin).withStyle(
-                    makeCommandLink("/ae2 spatial tp " + plot.getId(), PlayerMessages.ClickToTeleport.text()));
-
-            MutableComponent message = Component.literal("").append(infoLink).append(" ")
-                    .append(PlayerMessages.Size.text()).append(": " + size + " ").append(tpLink);
-
-            sender.sendSuccess(() -> message, true);
+        @Override
+        public boolean placeInExistingPortal(net.minecraft.entity.Entity entity, float rotationYaw) {
+            this.placeInPortal(entity, rotationYaw);
+            return true;
         }
 
-    }
-
-    private static String formatBlockPos(BlockPos size, String separator) {
-        return size.getX() + separator + size.getY() + separator + size.getZ();
-    }
-
-    private static UnaryOperator<Style> makeCommandLink(String command, MutableComponent tooltip) {
-        return style -> style.applyFormat(ChatFormatting.UNDERLINE)
-                .withClickEvent(new ClickEvent(Action.RUN_COMMAND, command))
-                .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, tooltip));
-
-    }
-
-    private static void runCommandFor(CommandSourceStack source, String command) {
-        Commands commandManager = source.getServer().getCommands();
-        commandManager.performPrefixedCommand(source, command);
-    }
-
-    private static String getTeleportCommand(ResourceLocation worldId, BlockPos pos) {
-        return "/execute in " + worldId + " run tp @s " + pos.getX() + " " + (pos.getY() + 1) + " " + pos.getZ();
-    }
-
-    private static SpatialStoragePlot getPlot(int plotId) throws CommandSyntaxException {
-        SpatialStoragePlot plot = SpatialStoragePlotManager.INSTANCE.getPlot(plotId);
-        if (plot == null) {
-            throw PLOT_NOT_FOUND.create(plotId);
-        }
-        return plot;
-    }
-
-    private static void sendKeyValuePair(CommandSourceStack source, MutableComponent label, Component value) {
-        source.sendSuccess(() -> label.append(": ").withStyle(ChatFormatting.BOLD).append(value), true);
-    }
-
-    private static void sendKeyValuePair(CommandSourceStack source, MutableComponent label, String value) {
-        sendKeyValuePair(source, label, Component.literal(value));
-    }
-
-    /**
-     * Gets the spatial storage plot that the command source is currently in.
-     */
-    private static SpatialStoragePlot getCurrentPlot(CommandSourceStack source) throws CommandSyntaxException {
-        if (source.getLevel().dimension() != SpatialStorageDimensionIds.WORLD_ID) {
-            throw NOT_IN_SPATIAL_STORAGE_LEVEL.create();
+        @Override
+        public boolean makePortal(net.minecraft.entity.Entity entity) {
+            return true;
         }
 
-        BlockPos playerPos = BlockPos.containing(source.getPosition());
-        int x = playerPos.getX();
-        int z = playerPos.getZ();
-
-        // This is slow, but for an admin-command it's acceptable
-        for (SpatialStoragePlot plot : SpatialStoragePlotManager.INSTANCE.getPlots()) {
-            BlockPos origin = plot.getOrigin();
-            BlockPos size = plot.getSize();
-            if (x >= origin.getX() && x <= origin.getX() + size.getX() && z >= origin.getZ()
-                    && z <= origin.getZ() + size.getZ()) {
-                return plot;
-            }
+        @Override
+        public void removeStalePortalLocations(long worldTime) {
         }
-
-        throw PLOT_NOT_FOUND_FOR_POSITION.create();
     }
-
 }

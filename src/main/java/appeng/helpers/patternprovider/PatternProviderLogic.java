@@ -18,57 +18,34 @@
 
 package appeng.helpers.patternprovider;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Set;
-
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.Nameable;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.ItemContainerContents;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.config.Actionable;
+import appeng.api.config.BlockingMode;
 import appeng.api.config.LockCraftingMode;
+import appeng.api.config.PatternProviderBlockingType;
 import appeng.api.config.Setting;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.crafting.IPatternDetails;
+import appeng.api.crafting.IPatternDetails.IInput;
 import appeng.api.crafting.PatternDetailsHelper;
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
-import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridConnection;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.networking.security.IActionHost;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.util.IConfigManager;
-import appeng.core.AELog;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
@@ -78,155 +55,129 @@ import appeng.me.helpers.MachineSource;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.PlayerInternalInventory;
+import appeng.util.inv.filter.IAEItemFilter;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.util.Constants;
 
-/**
- * Shared code between the pattern provider block and part.
- */
+import javax.annotation.Nullable;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+
 public class PatternProviderLogic implements InternalInventoryHost, ICraftingProvider {
-    private static final Logger LOG = LoggerFactory.getLogger(PatternProviderLogic.class);
-
-    public static final String NBT_MEMORY_CARD_PATTERNS = "patterns";
+    public static final String NBT_PATTERNS = "patterns";
     public static final String NBT_UNLOCK_EVENT = "unlockEvent";
     public static final String NBT_UNLOCK_STACK = "unlockStack";
     public static final String NBT_PRIORITY = "priority";
     public static final String NBT_SEND_LIST = "sendList";
     public static final String NBT_SEND_DIRECTION = "sendDirection";
     public static final String NBT_RETURN_INV = "returnInv";
+    private static final String MEMORY_CARD_SETTINGS = "settings";
+    private static final String MEMORY_CARD_PRIORITY = "priority";
+    private static final String MEMORY_CARD_PATTERNS = "patterns";
 
     private final PatternProviderLogicHost host;
     private final IManagedGridNode mainNode;
     private final IActionSource actionSource;
     private final IConfigManager configManager;
-
-    private int priority;
-
-    // Pattern storing logic
     private final AppEngInternalInventory patternInventory;
-    private final List<IPatternDetails> patterns = new ArrayList<>();
-    /**
-     * Keeps track of the inputs of all the patterns. When blocking mode is enabled, if any of these is contained in the
-     * target, the pattern won't be pushed. Always contains keys with the secondary component dropped.
-     */
-    private final Set<AEKey> patternInputs = new HashSet<>();
-    // Pattern sending logic
-    private final List<GenericStack> sendList = new ArrayList<>();
-    private Direction sendDirection;
-    // Stack returning logic
+    private final ObjectList<IPatternDetails> patterns = new ObjectArrayList<>();
+    private final ObjectSet<AEKey> patternInputs = new ObjectOpenHashSet<>();
+    private final ObjectList<GenericStack> sendList = new ObjectArrayList<>();
     private final PatternProviderReturnInventory returnInv;
-
     private final PatternProviderTargetCache[] targetCaches = new PatternProviderTargetCache[6];
 
+    private int priority;
+    private EnumFacing sendDirection;
     private YesNo redstoneState = YesNo.UNDECIDED;
-
-    @Nullable
     private UnlockCraftingEvent unlockEvent;
-    @Nullable
     private GenericStack unlockStack;
-    private int roundRobinIndex = 0;
+    private int roundRobinIndex;
+    private boolean wasProviderActive;
+    private boolean hasLastSuccessfulPatternHash;
+    private int lastSuccessfulPatternHash;
 
-    @Nullable
     public PatternProviderLogic(IManagedGridNode mainNode, PatternProviderLogicHost host) {
         this(mainNode, host, 9);
     }
 
     public PatternProviderLogic(IManagedGridNode mainNode, PatternProviderLogicHost host, int patternInventorySize) {
-        this.patternInventory = new AppEngInternalInventory(this, patternInventorySize);
         this.host = host;
         this.mainNode = mainNode
-                .setFlags(GridFlags.REQUIRE_CHANNEL)
-                .addService(IGridTickable.class, new Ticker())
-                .addService(ICraftingProvider.class, this);
-        this.actionSource = new MachineSource(mainNode::getNode);
-
-        configManager = IConfigManager.builder(this::configChanged)
-                .registerSetting(Settings.BLOCKING_MODE, YesNo.NO)
-                .registerSetting(Settings.PATTERN_ACCESS_TERMINAL, YesNo.YES)
-                .registerSetting(Settings.LOCK_CRAFTING_MODE, LockCraftingMode.NONE)
-                .build();
-
+            .setFlags(GridFlags.REQUIRE_CHANNEL)
+            .addService(IGridTickable.class, new Ticker())
+            .addService(ICraftingProvider.class, this);
+        TileEntity hostTile = host.getTileEntity();
+        IActionHost actionHost = hostTile instanceof IActionHost ? (IActionHost) hostTile : mainNode::getNode;
+        this.actionSource = new MachineSource(actionHost);
+        this.configManager = IConfigManager.builder(this::configChanged)
+                                           .registerSetting(Settings.BLOCKING_MODE, BlockingMode.NO)
+                                           .registerSetting(Settings.PATTERN_PROVIDER_BLOCKING_TYPE,
+                                               PatternProviderBlockingType.NORMAL)
+                                           .registerSetting(Settings.PATTERN_ACCESS_TERMINAL, YesNo.YES)
+                                           .registerSetting(Settings.LOCK_CRAFTING_MODE, LockCraftingMode.NONE)
+                                           .build();
+        this.patternInventory = new AppEngInternalInventory(this, patternInventorySize, 1, new PatternInventoryFilter());
         this.returnInv = new PatternProviderReturnInventory(() -> {
             this.mainNode.ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
             this.host.saveChanges();
         });
     }
 
+    private static int countItem(net.minecraft.entity.player.InventoryPlayer inventory, ItemStack needle) {
+        int total = 0;
+        for (int i = 0; i < inventory.getSizeInventory(); i++) {
+            ItemStack stack = inventory.getStackInSlot(i);
+            if (!stack.isEmpty() && ItemStack.areItemsEqual(stack, needle)
+                && ItemStack.areItemStackTagsEqual(stack, needle)) {
+                total += stack.getCount();
+            }
+        }
+        return total;
+    }
+
+    private static Map<String, String> readSettings(NBTTagCompound settings) {
+        Object2ObjectMap<String, String> result = new Object2ObjectOpenHashMap<>();
+        for (String key : settings.getKeySet()) {
+            if (settings.hasKey(key, Constants.NBT.TAG_STRING)) {
+                result.put(key, settings.getString(key));
+            }
+        }
+        return result;
+    }
+
     public int getPriority() {
-        return priority;
+        return this.priority;
     }
 
     public void setPriority(int priority) {
         this.priority = priority;
         this.host.saveChanges();
-
-        ICraftingProvider.requestUpdate(mainNode);
-    }
-
-    public void writeToNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        this.configManager.writeToNBT(tag, registries);
-        this.patternInventory.writeToNBT(tag, NBT_MEMORY_CARD_PATTERNS, registries);
-        tag.putInt(NBT_PRIORITY, this.priority);
-        if (unlockEvent == UnlockCraftingEvent.REDSTONE_POWER) {
-            tag.putByte(NBT_UNLOCK_EVENT, (byte) 1);
-        } else if (unlockEvent == UnlockCraftingEvent.RESULT) {
-            if (unlockStack != null) {
-                tag.putByte(NBT_UNLOCK_EVENT, (byte) 2);
-                tag.put(NBT_UNLOCK_STACK, GenericStack.writeTag(registries, unlockStack));
-            } else {
-                LOG.error("Saving pattern provider {}, locked waiting for stack, but stack is null!", host);
-            }
-        } else if (unlockEvent == UnlockCraftingEvent.REDSTONE_PULSE) {
-            tag.putByte(NBT_UNLOCK_EVENT, (byte) 3);
-        }
-
-        ListTag sendListTag = new ListTag();
-        for (var toSend : sendList) {
-            sendListTag.add(GenericStack.writeTag(registries, toSend));
-        }
-        tag.put(NBT_SEND_LIST, sendListTag);
-        if (sendDirection != null) {
-            tag.putByte(NBT_SEND_DIRECTION, (byte) sendDirection.get3DDataValue());
-        }
-
-        tag.put(NBT_RETURN_INV, this.returnInv.writeToTag(registries));
-    }
-
-    public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        this.configManager.readFromNBT(tag, registries);
-        this.patternInventory.readFromNBT(tag, NBT_MEMORY_CARD_PATTERNS, registries);
-        this.priority = tag.getInt(NBT_PRIORITY);
-
-        var unlockEventType = tag.getByte(NBT_UNLOCK_EVENT);
-        this.unlockEvent = switch (unlockEventType) {
-            case 0 -> null;
-            case 1 -> UnlockCraftingEvent.REDSTONE_POWER;
-            case 2 -> UnlockCraftingEvent.RESULT;
-            case 3 -> UnlockCraftingEvent.REDSTONE_PULSE;
-            default -> {
-                LOG.error("Unknown unlock event type {} in NBT for pattern provider: {}", unlockEventType, tag);
-                yield null;
-            }
-        };
-        if (this.unlockEvent == UnlockCraftingEvent.RESULT) {
-            this.unlockStack = GenericStack.readTag(registries, tag.getCompound(NBT_UNLOCK_STACK));
-            if (this.unlockStack == null) {
-                LOG.error("Could not load unlock stack for pattern provider from NBT: {}", tag);
-            }
-        } else {
-            this.unlockStack = null;
-        }
-
-        var sendListTag = tag.getList("sendList", Tag.TAG_COMPOUND);
-        for (int i = 0; i < sendListTag.size(); ++i) {
-            var stack = GenericStack.readTag(registries, sendListTag.getCompound(i));
-            if (stack != null) {
-                this.addToSendList(stack.what(), stack.amount());
-            }
-        }
-        if (tag.contains("sendDirection")) {
-            sendDirection = Direction.from3DDataValue(tag.getByte("sendDirection"));
-        }
-
-        this.returnInv.readFromTag(tag.getList("returnInv", Tag.TAG_COMPOUND), registries);
+        ICraftingProvider.requestUpdate(this.mainNode);
     }
 
     public IConfigManager getConfigManager() {
@@ -237,6 +188,79 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         this.host.saveChanges();
     }
 
+    public void writeToNBT(NBTTagCompound tag) {
+        this.configManager.writeToNBT(tag);
+        this.patternInventory.writeToNBT(tag, NBT_PATTERNS);
+        tag.setInteger(NBT_PRIORITY, this.priority);
+
+        if (this.unlockEvent == UnlockCraftingEvent.REDSTONE_POWER) {
+            tag.setByte(NBT_UNLOCK_EVENT, (byte) 1);
+        } else if (this.unlockEvent == UnlockCraftingEvent.RESULT && this.unlockStack != null) {
+            tag.setByte(NBT_UNLOCK_EVENT, (byte) 2);
+            tag.setTag(NBT_UNLOCK_STACK, GenericStack.writeTag(this.unlockStack));
+        } else if (this.unlockEvent == UnlockCraftingEvent.REDSTONE_PULSE) {
+            tag.setByte(NBT_UNLOCK_EVENT, (byte) 3);
+        }
+
+        NBTTagList sendListTag = new NBTTagList();
+        for (GenericStack toSend : this.sendList) {
+            sendListTag.appendTag(GenericStack.writeTag(toSend));
+        }
+        tag.setTag(NBT_SEND_LIST, sendListTag);
+
+        if (this.sendDirection != null) {
+            tag.setByte(NBT_SEND_DIRECTION, (byte) this.sendDirection.ordinal());
+        } else {
+            tag.removeTag(NBT_SEND_DIRECTION);
+        }
+
+        tag.setTag(NBT_RETURN_INV, this.returnInv.writeToTag());
+    }
+
+    public void readFromNBT(NBTTagCompound tag) {
+        this.configManager.readFromNBT(tag);
+        migrateLegacyBlockingMode(tag);
+        this.patternInventory.readFromNBT(tag, NBT_PATTERNS);
+        this.priority = tag.getInteger(NBT_PRIORITY);
+
+        byte unlockEventType = tag.getByte(NBT_UNLOCK_EVENT);
+        if (unlockEventType == 1) {
+            this.unlockEvent = UnlockCraftingEvent.REDSTONE_POWER;
+        } else if (unlockEventType == 2) {
+            this.unlockEvent = UnlockCraftingEvent.RESULT;
+        } else if (unlockEventType == 3) {
+            this.unlockEvent = UnlockCraftingEvent.REDSTONE_PULSE;
+        } else {
+            this.unlockEvent = null;
+        }
+
+        this.unlockStack = this.unlockEvent == UnlockCraftingEvent.RESULT
+            ? GenericStack.readTag(tag.getCompoundTag(NBT_UNLOCK_STACK))
+            : null;
+
+        this.sendDirection = null;
+        this.sendList.clear();
+        if (tag.hasKey(NBT_SEND_LIST, Constants.NBT.TAG_LIST)) {
+            NBTTagList sendListTag = tag.getTagList(NBT_SEND_LIST, Constants.NBT.TAG_COMPOUND);
+            for (GenericStack stack : GenericStack.readList(sendListTag)) {
+                if (stack != null) {
+                    this.sendList.add(stack);
+                }
+            }
+        }
+
+        if (tag.hasKey(NBT_SEND_DIRECTION, Constants.NBT.TAG_BYTE)) {
+            this.sendDirection = EnumFacing.byIndex(tag.getByte(NBT_SEND_DIRECTION));
+        }
+
+        if (this.sendList.isEmpty()) {
+            this.sendDirection = null;
+        }
+
+        this.returnInv.readFromChildTag(tag, NBT_RETURN_INV);
+        this.updatePatterns();
+    }
+
     @Override
     public void saveChangedInventory(AppEngInternalInventory inv) {
         this.host.saveChanges();
@@ -244,40 +268,41 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
-        this.saveChanges();
+        this.host.saveChanges();
         this.updatePatterns();
     }
 
     @Override
     public boolean isClientSide() {
-        Level level = this.host.getBlockEntity().getLevel();
-        return level == null || level.isClientSide();
+        World level = this.host.getTileEntity().getWorld();
+        return level == null || level.isRemote;
     }
 
     public void updatePatterns() {
-        patterns.clear();
-        patternInputs.clear();
+        this.patterns.clear();
+        this.patternInputs.clear();
 
-        for (var stack : this.patternInventory) {
-            var details = PatternDetailsHelper.decodePattern(stack, this.host.getBlockEntity().getLevel());
-
-            if (details != null) {
-                patterns.add(details);
-
-                for (var iinput : details.getInputs()) {
-                    for (var inputCandidate : iinput.getPossibleInputs()) {
-                        patternInputs.add(inputCandidate.what().dropSecondary());
-                    }
-                }
+        for (ItemStack stack : this.patternInventory) {
+            IPatternDetails details = PatternDetailsHelper.decodePattern(stack, this.host.getTileEntity().getWorld());
+            if (details == null) {
+                continue;
             }
+
+            this.patterns.add(details);
+            this.patternInputs.addAll(getPatternInputs(details));
         }
 
-        ICraftingProvider.requestUpdate(mainNode);
+        if (this.hasLastSuccessfulPatternHash
+            && this.patterns.stream().noneMatch(pattern -> getPatternHash(pattern) == this.lastSuccessfulPatternHash)) {
+            this.hasLastSuccessfulPatternHash = false;
+        }
+
+        ICraftingProvider.requestUpdate(this.mainNode);
     }
 
     @Override
     public List<IPatternDetails> getAvailablePatterns() {
-        return this.patterns;
+        return this.mainNode.isActive() ? this.patterns : Collections.emptyList();
     }
 
     @Override
@@ -285,89 +310,77 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         return this.priority;
     }
 
-    /**
-     * Apply round-robin to list.
-     */
     private <T> void rearrangeRoundRobin(List<T> list) {
         if (list.isEmpty()) {
             return;
         }
 
-        roundRobinIndex %= list.size();
-        for (int i = 0; i < roundRobinIndex; ++i) {
+        this.roundRobinIndex %= list.size();
+        for (int i = 0; i < this.roundRobinIndex; ++i) {
             list.add(list.get(i));
         }
-        list.subList(0, roundRobinIndex).clear();
+        list.subList(0, this.roundRobinIndex).clear();
     }
 
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
-        if (!sendList.isEmpty() || !this.mainNode.isActive() || !this.patterns.contains(patternDetails)) {
+        if (!this.sendList.isEmpty() || !this.mainNode.isActive() || !this.patterns.contains(patternDetails)) {
             return false;
         }
-
-        var be = host.getBlockEntity();
-        var level = be.getLevel();
 
         if (getCraftingLockedReason() != LockCraftingMode.NONE) {
             return false;
         }
 
-        record PushTarget(Direction direction, PatternProviderTarget target) {
+        ObjectList<PushTarget> possibleTargets = new ObjectArrayList<>();
+        TileEntity blockEntity = this.host.getTileEntity();
+        World level = blockEntity.getWorld();
+        if (level == null) {
+            return false;
         }
-        var possibleTargets = new ArrayList<PushTarget>();
 
-        // Push to crafting machines first
-        for (var direction : getActiveSides()) {
-            var adjPos = be.getBlockPos().relative(direction);
-            var adjBeSide = direction.getOpposite();
+        for (EnumFacing direction : getActiveSides()) {
+            BlockPos adjacentPos = blockEntity.getPos().offset(direction);
+            EnumFacing adjacentSide = direction.getOpposite();
 
-            var craftingMachine = ICraftingMachine.of(level, adjPos, adjBeSide);
+            ICraftingMachine craftingMachine = ICraftingMachine.of(level, adjacentPos, adjacentSide);
             if (craftingMachine != null && craftingMachine.acceptsPlans()) {
-                if (craftingMachine.pushPattern(patternDetails, inputHolder, adjBeSide)) {
+                if (craftingMachine.pushPattern(patternDetails, inputHolder, adjacentSide)) {
                     onPushPatternSuccess(patternDetails);
                     return true;
                 }
                 continue;
             }
 
-            var adapter = findAdapter(direction);
-            if (adapter == null)
-                continue;
-
-            possibleTargets.add(new PushTarget(direction, adapter));
+            PatternProviderTarget adapter = findAdapter(direction);
+            if (adapter != null) {
+                possibleTargets.add(new PushTarget(direction, adapter));
+            }
         }
 
-        // If no dedicated crafting machine could be found, and the pattern does not support
-        // generic external inventories, stop here.
         if (!patternDetails.supportsPushInputsToExternalInventory()) {
             return false;
         }
 
-        // Rearrange for round-robin
         rearrangeRoundRobin(possibleTargets);
-
-        // Push to other kinds of blocks
         for (int i = 0; i < possibleTargets.size(); ++i) {
-            var target = possibleTargets.get(i);
-            var direction = target.direction();
-            var adapter = target.target();
-
-            if (this.isBlocking() && adapter.containsPatternInput(this.patternInputs)) {
+            PushTarget target = possibleTargets.get(i);
+            if (this.isTargetBlocked(target.target, patternDetails)) {
                 continue;
             }
 
-            if (this.adapterAcceptsAll(adapter, inputHolder)) {
+            if (this.adapterAcceptsAll(target.target, inputHolder)) {
                 patternDetails.pushInputsToExternalInventory(inputHolder, (what, amount) -> {
-                    var inserted = adapter.insert(what, amount, Actionable.MODULATE);
+                    long inserted = target.target.insert(what, amount, Actionable.MODULATE);
                     if (inserted < amount) {
                         this.addToSendList(what, amount - inserted);
                     }
                 });
                 onPushPatternSuccess(patternDetails);
-                this.sendDirection = direction;
+                this.sendDirection = target.direction;
+                this.saveChanges();
                 this.sendStacksOut();
-                roundRobinIndex += i + 1;
+                this.roundRobinIndex += i + 1;
                 return true;
             }
         }
@@ -375,83 +388,75 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         return false;
     }
 
-    public void resetCraftingLock() {
-        if (unlockEvent != null) {
-            unlockEvent = null;
-            unlockStack = null;
-            saveChanges();
+    @Override
+    public boolean isBusy() {
+        return !this.sendList.isEmpty();
+    }
+
+    public boolean resetCraftingLock() {
+        if (this.unlockEvent != null || this.unlockStack != null) {
+            this.unlockEvent = null;
+            this.unlockStack = null;
+            this.saveChanges();
+            return true;
         }
+        return false;
     }
 
     private void onPushPatternSuccess(IPatternDetails pattern) {
-        resetCraftingLock();
+        this.resetCraftingLock();
+        this.hasLastSuccessfulPatternHash = true;
+        this.lastSuccessfulPatternHash = getPatternHash(pattern);
 
-        var lockMode = configManager.getSetting(Settings.LOCK_CRAFTING_MODE);
-        switch (lockMode) {
-            case LOCK_UNTIL_PULSE -> {
-                if (getRedstoneState()) {
-                    // Already have signal, wait for no signal before switching to REDSTONE_POWER
-                    unlockEvent = UnlockCraftingEvent.REDSTONE_PULSE;
-                } else {
-                    // No signal, wait for signal
-                    unlockEvent = UnlockCraftingEvent.REDSTONE_POWER;
-                }
-                redstoneState = YesNo.UNDECIDED; // Check redstone state again next update
-                saveChanges();
+        LockCraftingMode lockMode = this.configManager.getSetting(Settings.LOCK_CRAFTING_MODE);
+        if (lockMode == LockCraftingMode.LOCK_UNTIL_PULSE) {
+            if (getRedstoneState()) {
+                this.unlockEvent = UnlockCraftingEvent.REDSTONE_PULSE;
+            } else {
+                this.unlockEvent = UnlockCraftingEvent.REDSTONE_POWER;
             }
-            case LOCK_UNTIL_RESULT -> {
-                unlockEvent = UnlockCraftingEvent.RESULT;
-                unlockStack = pattern.getPrimaryOutput();
-                saveChanges();
-            }
+            this.redstoneState = YesNo.UNDECIDED;
+            this.saveChanges();
+        } else if (lockMode == LockCraftingMode.LOCK_UNTIL_RESULT) {
+            this.unlockEvent = UnlockCraftingEvent.RESULT;
+            this.unlockStack = pattern.getPrimaryOutput();
+            this.saveChanges();
         }
     }
 
-    /**
-     * Gets if the crafting lock is in effect and why.
-     *
-     * @return null if the lock isn't in effect
-     */
     public LockCraftingMode getCraftingLockedReason() {
-        var lockMode = configManager.getSetting(Settings.LOCK_CRAFTING_MODE);
+        LockCraftingMode lockMode = this.configManager.getSetting(Settings.LOCK_CRAFTING_MODE);
         if (lockMode == LockCraftingMode.LOCK_WHILE_LOW && !getRedstoneState()) {
-            // Crafting locked by redstone signal
             return LockCraftingMode.LOCK_WHILE_LOW;
-        } else if (lockMode == LockCraftingMode.LOCK_WHILE_HIGH && getRedstoneState()) {
+        }
+        if (lockMode == LockCraftingMode.LOCK_WHILE_HIGH && getRedstoneState()) {
             return LockCraftingMode.LOCK_WHILE_HIGH;
-        } else if (unlockEvent != null) {
-            // Crafting locked by waiting for unlock event
-            switch (unlockEvent) {
-                case REDSTONE_POWER, REDSTONE_PULSE -> {
-                    return LockCraftingMode.LOCK_UNTIL_PULSE;
-                }
-                case RESULT -> {
-                    return LockCraftingMode.LOCK_UNTIL_RESULT;
-                }
-            }
+        }
+        if (this.unlockEvent == UnlockCraftingEvent.REDSTONE_POWER
+            || this.unlockEvent == UnlockCraftingEvent.REDSTONE_PULSE) {
+            return LockCraftingMode.LOCK_UNTIL_PULSE;
+        }
+        if (this.unlockEvent == UnlockCraftingEvent.RESULT) {
+            return LockCraftingMode.LOCK_UNTIL_RESULT;
         }
         return LockCraftingMode.NONE;
     }
 
-    /**
-     * @return Null if {@linkplain #getCraftingLockedReason()} is not {@link LockCraftingMode#LOCK_UNTIL_RESULT}.
-     */
     @Nullable
     public GenericStack getUnlockStack() {
-        return unlockStack;
+        return this.unlockStack;
     }
 
-    private Set<Direction> getActiveSides() {
-        var sides = host.getTargets();
+    private EnumSet<EnumFacing> getActiveSides() {
+        EnumSet<EnumFacing> sides = this.host.getTargets();
 
-        // Skip sides with grid connections to other pattern providers and to interfaces connected to the same network
-        var node = mainNode.getNode();
+        IGridNode node = this.mainNode.getNode();
         if (node != null) {
-            for (var entry : node.getInWorldConnections().entrySet()) {
-                var otherNode = entry.getValue().getOtherSide(node);
+            for (Entry<EnumFacing, IGridConnection> entry : node.getInWorldConnections().entrySet()) {
+                IGridNode otherNode = entry.getValue().getOtherSide(node);
                 if (otherNode.getOwner() instanceof PatternProviderLogicHost
-                        || (otherNode.getOwner() instanceof InterfaceLogicHost
-                                && otherNode.getGrid().equals(mainNode.getGrid()))) {
+                    || (otherNode.getOwner() instanceof InterfaceLogicHost
+                    && otherNode.getGrid().equals(this.mainNode.getGrid()))) {
                     sides.remove(entry.getKey());
                 }
             }
@@ -460,29 +465,62 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         return sides;
     }
 
-    public boolean isBlocking() {
-        return this.configManager.getSetting(Settings.BLOCKING_MODE) == YesNo.YES;
+    private boolean isTargetBlocked(PatternProviderTarget target, IPatternDetails patternDetails) {
+        if (shouldBypassBlockingFor(patternDetails)) {
+            return false;
+        }
+
+        return switch (this.configManager.getSetting(Settings.BLOCKING_MODE)) {
+            case NO -> false;
+            case STRONG -> target.containsAnyStack();
+            case YES -> target.containsPatternInput(this.patternInputs);
+        };
+    }
+
+    private boolean shouldBypassBlockingFor(IPatternDetails patternDetails) {
+        return this.configManager.getSetting(Settings.PATTERN_PROVIDER_BLOCKING_TYPE) == PatternProviderBlockingType.SMART
+            && this.hasLastSuccessfulPatternHash
+            && this.lastSuccessfulPatternHash == getPatternHash(patternDetails);
+    }
+
+    private Set<AEKey> getPatternInputs(IPatternDetails patternDetails) {
+        ObjectSet<AEKey> result = new ObjectOpenHashSet<>();
+        for (IInput input : patternDetails.getInputs()) {
+            for (GenericStack candidate : input.possibleInputs()) {
+                result.add(candidate.what().dropSecondary());
+            }
+        }
+        return result;
+    }
+
+    private int getPatternHash(IPatternDetails patternDetails) {
+        return patternDetails.getDefinition().hashCode();
     }
 
     @Nullable
-    private PatternProviderTarget findAdapter(Direction side) {
-        if (targetCaches[side.get3DDataValue()] == null) {
-            var thisBe = host.getBlockEntity();
-            targetCaches[side.get3DDataValue()] = new PatternProviderTargetCache(
-                    (ServerLevel) thisBe.getLevel(),
-                    thisBe.getBlockPos().relative(side),
-                    side.getOpposite(),
-                    actionSource);
+    private PatternProviderTarget findAdapter(EnumFacing side) {
+        if (this.targetCaches[side.ordinal()] == null) {
+            TileEntity blockEntity = this.host.getTileEntity();
+            World level = blockEntity.getWorld();
+            if (!(level instanceof WorldServer)) {
+                return null;
+            }
+
+            this.targetCaches[side.ordinal()] = new PatternProviderTargetCache((WorldServer) level,
+                blockEntity.getPos().offset(side), side.getOpposite(), this.actionSource);
         }
 
-        return targetCaches[side.get3DDataValue()].find();
+        return this.targetCaches[side.ordinal()].find();
+    }
+
+    public void invalidateTargetCaches() {
+        Arrays.fill(this.targetCaches, null);
     }
 
     private boolean adapterAcceptsAll(PatternProviderTarget target, KeyCounter[] inputHolder) {
-        for (var inputList : inputHolder) {
-            for (var input : inputList) {
-                var inserted = target.insert(input.getKey(), input.getLongValue(), Actionable.SIMULATE);
-                if (inserted == 0) {
+        for (KeyCounter inputList : inputHolder) {
+            for (Object2LongMap.Entry<AEKey> input : inputList) {
+                if (target.insert(input.getKey(), input.getLongValue(), Actionable.SIMULATE) == 0) {
                     return false;
                 }
             }
@@ -493,87 +531,105 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     private void addToSendList(AEKey what, long amount) {
         if (amount > 0) {
             this.sendList.add(new GenericStack(what, amount));
-
             this.mainNode.ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
         }
     }
 
     private boolean sendStacksOut() {
-        if (sendDirection == null) {
-            if (!sendList.isEmpty()) {
+        if (this.sendDirection == null) {
+            if (!this.sendList.isEmpty()) {
                 throw new IllegalStateException("Invalid pattern provider state, this is a bug.");
             }
             return false;
         }
 
-        var adapter = findAdapter(sendDirection);
+        TileEntity blockEntity = this.host.getTileEntity();
+        World level = blockEntity.getWorld();
+        if (level == null) {
+            return false;
+        }
+
+        PatternProviderTarget adapter = findAdapter(this.sendDirection);
         if (adapter == null) {
             return false;
         }
 
         boolean didSomething = false;
-
-        for (var it = sendList.listIterator(); it.hasNext();) {
-            var stack = it.next();
-            var what = stack.what();
-            long amount = stack.amount();
-
-            var inserted = adapter.insert(what, amount, Actionable.MODULATE);
-            if (inserted >= amount) {
+        boolean changed = false;
+        for (ListIterator<GenericStack> it = this.sendList.listIterator(); it.hasNext(); ) {
+            GenericStack stack = it.next();
+            long inserted = adapter.insert(stack.what(), stack.amount(), Actionable.MODULATE);
+            if (inserted >= stack.amount()) {
                 it.remove();
                 didSomething = true;
+                changed = true;
             } else if (inserted > 0) {
-                it.set(new GenericStack(what, amount - inserted));
+                it.set(new GenericStack(stack.what(), stack.amount() - inserted));
                 didSomething = true;
+                changed = true;
             }
         }
 
-        if (sendList.isEmpty()) {
-            sendDirection = null;
+        if (this.sendList.isEmpty()) {
+            if (this.sendDirection != null) {
+                this.sendDirection = null;
+                changed = true;
+            }
+        }
+
+        if (changed) {
+            this.saveChanges();
         }
 
         return didSomething;
     }
 
-    @Override
-    public boolean isBusy() {
-        return !sendList.isEmpty();
-    }
-
     private boolean hasWorkToDo() {
-        return !sendList.isEmpty() || !returnInv.isEmpty();
+        return !this.sendList.isEmpty() || !this.returnInv.isEmpty();
     }
 
     private boolean doWork() {
-        // Note: bitwise OR to avoid short-circuiting.
-        return returnInv.injectIntoNetwork(
-                mainNode.getGrid().getStorageService().getInventory(), actionSource, this::onStackReturnedToNetwork)
-                | sendStacksOut();
+        IGrid grid = this.mainNode.getGrid();
+        if (grid == null) {
+            return false;
+        }
+
+        return this.returnInv.injectIntoNetwork(grid.getStorageService().getInventory(), this.actionSource,
+            this::onStackReturnedToNetwork)
+            | this.sendStacksOut();
     }
 
-    public InternalInventory getPatternInv() {
+    public AppEngInternalInventory getPatternInv() {
         return this.patternInventory;
     }
 
     public void onMainNodeStateChanged() {
-        if (this.mainNode.isActive()) {
-            this.mainNode.ifPresent((grid, node) -> {
-                grid.getTickManager().alertDevice(node);
-            });
+        boolean providerActive = this.mainNode.isActive();
+        if (this.wasProviderActive != providerActive) {
+            this.wasProviderActive = providerActive;
+            ICraftingProvider.requestUpdate(this.mainNode);
+        }
+
+        if (providerActive) {
+            this.mainNode.ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
         }
     }
 
     public void addDrops(List<ItemStack> drops) {
-        for (var stack : this.patternInventory) {
-            drops.add(stack);
+        for (ItemStack stack : this.patternInventory) {
+            if (!stack.isEmpty()) {
+                drops.add(stack.copy());
+            }
         }
 
-        for (var stack : this.sendList) {
-            stack.what().addDrops(stack.amount(), drops, this.host.getBlockEntity().getLevel(),
-                    this.host.getBlockEntity().getBlockPos());
+        TileEntity blockEntity = this.host.getTileEntity();
+        World level = blockEntity.getWorld();
+        if (level != null) {
+            for (GenericStack stack : this.sendList) {
+                stack.what().addDrops(stack.amount(), drops, level, blockEntity.getPos());
+            }
+            this.returnInv.addDrops(drops, level, blockEntity.getPos());
         }
-
-        this.returnInv.addDrops(drops, this.host.getBlockEntity().getLevel(), this.host.getBlockEntity().getBlockPos());
     }
 
     public void clearContent() {
@@ -586,118 +642,240 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         return this.returnInv;
     }
 
-    public void exportSettings(DataComponentMap.Builder builder) {
-        builder.set(AEComponents.EXPORTED_PATTERNS, patternInventory.toItemContainerContents());
-    }
-
-    public void importSettings(DataComponentMap input, @Nullable Player player) {
-        var patterns = input.getOrDefault(AEComponents.EXPORTED_PATTERNS, ItemContainerContents.EMPTY);
-
-        if (player != null && !player.level().isClientSide) {
-            clearPatternInventory(player);
-
-            var desiredPatterns = new AppEngInternalInventory(patternInventory.size());
-            desiredPatterns.fromItemContainerContents(patterns);
-
-            // Restore from blank patterns in the player inv
-            var playerInv = player.getInventory();
-            var blankPatternsAvailable = player.getAbilities().instabuild ? Integer.MAX_VALUE
-                    : playerInv.countItem(AEItems.BLANK_PATTERN.asItem());
-            var blankPatternsUsed = 0;
-            for (int i = 0; i < desiredPatterns.size(); i++) {
-                if (desiredPatterns.getStackInSlot(i).isEmpty()) {
-                    continue;
-                }
-
-                // Don't restore junk
-                var pattern = PatternDetailsHelper.decodePattern(desiredPatterns.getStackInSlot(i),
-                        host.getBlockEntity().getLevel());
-                if (pattern == null) {
-                    continue; // Skip junk / broken recipes
-                }
-
-                // Keep track of how many blank patterns we need
-                ++blankPatternsUsed;
-                if (blankPatternsAvailable >= blankPatternsUsed) {
-                    if (!patternInventory.addItems(pattern.getDefinition().toStack()).isEmpty()) {
-                        AELog.warn("Failed to add pattern to pattern provider");
-                        blankPatternsUsed--;
-                    }
-                }
-            }
-
-            // Deduct the used blank patterns
-            if (blankPatternsUsed > 0 && !player.getAbilities().instabuild) {
-                new PlayerInternalInventory(playerInv)
-                        .removeItems(blankPatternsUsed, AEItems.BLANK_PATTERN.stack(), null);
-            }
-
-            // Warn about not being able to restore all patterns due to lack of blank patterns
-            if (blankPatternsUsed > blankPatternsAvailable) {
-                player.sendSystemMessage(
-                        PlayerMessages.MissingBlankPatterns.text(blankPatternsUsed - blankPatternsAvailable));
-            }
+    public void exportSettings(NBTTagCompound output) {
+        NBTTagCompound settings = new NBTTagCompound();
+        for (Entry<String, String> entry : this.configManager.exportSettings().entrySet()) {
+            settings.setString(entry.getKey(), entry.getValue());
         }
+
+        output.setTag(MEMORY_CARD_SETTINGS, settings);
+        output.setInteger(MEMORY_CARD_PRIORITY, this.priority);
+        this.patternInventory.writeToNBT(output, MEMORY_CARD_PATTERNS);
     }
 
-    // Converts all patterns in this provider to blank patterns and give them to the player
-    private void clearPatternInventory(Player player) {
-        // Just clear it for creative mode players
-        if (player.getAbilities().instabuild) {
-            for (int i = 0; i < patternInventory.size(); i++) {
-                patternInventory.setItemDirect(i, ItemStack.EMPTY);
-            }
+    public void importSettings(NBTTagCompound input, @Nullable EntityPlayer player) {
+        if (input.hasKey(MEMORY_CARD_SETTINGS, Constants.NBT.TAG_COMPOUND)) {
+            var settings = readSettings(input.getCompoundTag(MEMORY_CARD_SETTINGS));
+            migrateLegacyBlockingMode(settings);
+            this.configManager.importSettings(settings);
+        }
+
+        if (input.hasKey(MEMORY_CARD_PRIORITY, Constants.NBT.TAG_INT)) {
+            this.setPriority(input.getInteger(MEMORY_CARD_PRIORITY));
+        }
+
+        if (player == null || player.world.isRemote || !input.hasKey(MEMORY_CARD_PATTERNS, Constants.NBT.TAG_LIST)) {
             return;
         }
 
-        var playerInv = player.getInventory();
+        clearPatternInventory(player);
 
-        // Clear out any existing patterns and give them to the player
-        var blankPatternCount = 0;
-        for (int i = 0; i < patternInventory.size(); i++) {
-            var pattern = patternInventory.getStackInSlot(i);
-            // Auto-Clear encoded patterns to allow them to stack
-            if (pattern.is(AEItems.CRAFTING_PATTERN.asItem())
-                    || pattern.is(AEItems.PROCESSING_PATTERN.asItem())
-                    || pattern.is(AEItems.SMITHING_TABLE_PATTERN.asItem())
-                    || pattern.is(AEItems.STONECUTTING_PATTERN.asItem())
-                    || pattern.is(AEItems.BLANK_PATTERN.asItem())) {
-                blankPatternCount += pattern.getCount();
-            } else {
-                // Give back any non-blank-patterns individually
-                playerInv.placeItemBackInInventory(pattern);
+        AppEngInternalInventory desiredPatterns = new AppEngInternalInventory(this.patternInventory.size());
+        desiredPatterns.readFromNBT(input, MEMORY_CARD_PATTERNS);
+
+        int blankPatternsAvailable = player.capabilities.isCreativeMode
+            ? Integer.MAX_VALUE
+            : countItem(player.inventory, AEItems.BLANK_PATTERN.stack());
+        int blankPatternsUsed = 0;
+        for (int i = 0; i < desiredPatterns.size(); i++) {
+            ItemStack desiredPattern = desiredPatterns.getStackInSlot(i);
+            if (desiredPattern.isEmpty()) {
+                continue;
             }
-            patternInventory.setItemDirect(i, ItemStack.EMPTY);
+
+            IPatternDetails pattern = PatternDetailsHelper.decodePattern(desiredPattern, this.host.getTileEntity().getWorld());
+            if (pattern == null) {
+                continue;
+            }
+
+            ++blankPatternsUsed;
+            if (blankPatternsAvailable >= blankPatternsUsed) {
+                if (!this.patternInventory.addItems(pattern.getDefinition().toStack()).isEmpty()) {
+                    blankPatternsUsed--;
+                }
+            }
         }
 
-        // Place back the removed blank patterns all at once
-        if (blankPatternCount > 0) {
-            playerInv.placeItemBackInInventory(AEItems.BLANK_PATTERN.stack(blankPatternCount), false);
+        if (blankPatternsUsed > 0 && !player.capabilities.isCreativeMode) {
+            new PlayerInternalInventory(player.inventory).removeItems(blankPatternsUsed, AEItems.BLANK_PATTERN.stack(),
+                null);
+        }
+
+        if (blankPatternsUsed > blankPatternsAvailable) {
+            player.sendMessage(PlayerMessages.MissingBlankPatterns.text(blankPatternsUsed - blankPatternsAvailable));
+        }
+
+        this.updatePatterns();
+        this.saveChanges();
+    }
+
+    private void migrateLegacyBlockingMode(NBTTagCompound tag) {
+        if (tag.hasKey(Settings.BLOCKING_MODE.getName(), Constants.NBT.TAG_STRING)
+            && "YES".equals(tag.getString(Settings.BLOCKING_MODE.getName()))) {
+            this.configManager.putSetting(Settings.BLOCKING_MODE, BlockingMode.YES);
+        }
+    }
+
+    private void migrateLegacyBlockingMode(Map<String, String> settings) {
+        if ("YES".equals(settings.get(Settings.BLOCKING_MODE.getName()))) {
+            settings.put(Settings.BLOCKING_MODE.getName(), BlockingMode.YES.name());
+        }
+    }
+
+    public PatternContainerGroup getTerminalGroup() {
+        TileEntity blockEntity = this.host.getTileEntity();
+        if (this.host.hasCustomName()) {
+            ITextComponent name = this.host.getCustomName();
+            if (name != null) {
+                return new PatternContainerGroup(this.host.getTerminalIcon(), name.createCopy(),
+                    Collections.emptyList());
+            }
+        }
+
+        EnumSet<EnumFacing> sides = getActiveSides();
+        Set<PatternContainerGroup> groups = new it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet<>(sides.size());
+        World level = blockEntity.getWorld();
+        if (level != null) {
+            for (EnumFacing side : sides) {
+                PatternContainerGroup group = PatternContainerGroup.fromMachine(level, blockEntity.getPos().offset(side),
+                    side.getOpposite());
+                if (group != null) {
+                    groups.add(group);
+                }
+            }
+        }
+
+        if (groups.size() == 1) {
+            return groups.iterator().next();
+        }
+
+        ObjectList<ITextComponent> tooltip = it.unimi.dsi.fastutil.objects.ObjectLists.emptyList();
+        if (groups.size() > 1) {
+            tooltip = new ObjectArrayList<>();
+            tooltip.add(GuiText.AdjacentToDifferentMachines.text()
+                                                           .setStyle(new Style().setBold(true).setColor(TextFormatting.WHITE)));
+            for (PatternContainerGroup group : groups) {
+                tooltip.add(group.name().createCopy());
+                for (ITextComponent line : group.tooltip()) {
+                    tooltip.add(new TextComponentString("  ").appendSibling(line.createCopy()));
+                }
+            }
+        }
+
+        AEItemKey hostIcon = this.host.getTerminalIcon();
+        return new PatternContainerGroup(hostIcon, hostIcon.getDisplayName(), tooltip);
+    }
+
+    public long getSortValue() {
+        BlockPos pos = this.host.getTileEntity().getPos();
+        return ((long) pos.getZ() << 24) ^ ((long) pos.getX() << 8) ^ pos.getY();
+    }
+
+    @Nullable
+    public IGrid getGrid() {
+        return this.mainNode.getGrid();
+    }
+
+    public void updateRedstoneState() {
+        if (this.unlockEvent == UnlockCraftingEvent.REDSTONE_POWER && this.getRedstoneState()) {
+            this.unlockEvent = null;
+            this.saveChanges();
+        } else if (this.unlockEvent == UnlockCraftingEvent.REDSTONE_PULSE && !this.getRedstoneState()) {
+            this.unlockEvent = UnlockCraftingEvent.REDSTONE_POWER;
+            this.redstoneState = YesNo.UNDECIDED;
+            this.saveChanges();
+        } else {
+            this.redstoneState = YesNo.UNDECIDED;
         }
     }
 
     private void onStackReturnedToNetwork(GenericStack genericStack) {
-        if (unlockEvent != UnlockCraftingEvent.RESULT) {
-            return; // If we're not waiting for the result, we don't care
+        if (this.unlockEvent != UnlockCraftingEvent.RESULT) {
+            return;
         }
 
-        if (unlockStack == null) {
-            // Actually an error state...
-            LOG.error("pattern provider was waiting for RESULT, but no result was set");
-            unlockEvent = null;
-        } else if (unlockStack.what().equals(genericStack.what())) {
-            var remainingAmount = unlockStack.amount() - genericStack.amount();
+        if (this.unlockStack == null) {
+            this.unlockEvent = null;
+            this.saveChanges();
+            return;
+        }
+
+        if (this.unlockStack.what().equals(genericStack.what())) {
+            long remainingAmount = this.unlockStack.amount() - genericStack.amount();
             if (remainingAmount <= 0) {
-                unlockEvent = null;
-                unlockStack = null;
+                this.unlockEvent = null;
+                this.unlockStack = null;
             } else {
-                unlockStack = new GenericStack(unlockStack.what(), remainingAmount);
+                this.unlockStack = new GenericStack(this.unlockStack.what(), remainingAmount);
+            }
+            this.saveChanges();
+        }
+    }
+
+    private void configChanged(IConfigManager manager, Setting<?> setting) {
+        if (setting == Settings.LOCK_CRAFTING_MODE) {
+            if (!this.resetCraftingLock()) {
+                this.saveChanges();
+            }
+        } else {
+            this.saveChanges();
+        }
+    }
+
+    private boolean getRedstoneState() {
+        if (this.redstoneState == YesNo.UNDECIDED) {
+            TileEntity blockEntity = this.host.getTileEntity();
+            World level = blockEntity.getWorld();
+            this.redstoneState = level != null && level.isBlockPowered(blockEntity.getPos()) ? YesNo.YES : YesNo.NO;
+        }
+        return this.redstoneState == YesNo.YES;
+    }
+
+    private void clearPatternInventory(EntityPlayer player) {
+        if (player.capabilities.isCreativeMode) {
+            for (int i = 0; i < this.patternInventory.size(); i++) {
+                this.patternInventory.setItemDirect(i, ItemStack.EMPTY);
+            }
+            return;
+        }
+
+        int blankPatternCount = 0;
+        for (int i = 0; i < this.patternInventory.size(); i++) {
+            ItemStack pattern = this.patternInventory.getStackInSlot(i);
+            if (pattern.isEmpty()) {
+                continue;
+            }
+
+            if (pattern.getItem() == AEItems.CRAFTING_PATTERN.item()
+                || pattern.getItem() == AEItems.PROCESSING_PATTERN.item()
+                || pattern.getItem() == AEItems.BLANK_PATTERN.item()) {
+                blankPatternCount += pattern.getCount();
+            } else if (!player.inventory.addItemStackToInventory(pattern.copy())) {
+                player.dropItem(pattern.copy(), false);
+            }
+
+            this.patternInventory.setItemDirect(i, ItemStack.EMPTY);
+        }
+
+        if (blankPatternCount > 0) {
+            ItemStack stack = AEItems.BLANK_PATTERN.stack(blankPatternCount);
+            if (!player.inventory.addItemStackToInventory(stack)) {
+                player.dropItem(stack, false);
             }
         }
     }
 
-    private class Ticker implements IGridTickable {
+    private record PushTarget(EnumFacing direction, PatternProviderTarget target) {
+    }
 
+    private static class PatternInventoryFilter implements IAEItemFilter {
+        @Override
+        public boolean allowInsert(appeng.api.inventories.InternalInventory inv, int slot, ItemStack stack) {
+            return PatternDetailsHelper.isEncodedPattern(stack);
+        }
+    }
+
+    private class Ticker implements IGridTickable {
         @Override
         public TickingRequest getTickingRequest(IGridNode node) {
             return new TickingRequest(TickRates.Interface, !hasWorkToDo());
@@ -708,105 +886,14 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
             if (!mainNode.isActive()) {
                 return TickRateModulation.SLEEP;
             }
+
             boolean couldDoWork = doWork();
-            return hasWorkToDo() ? couldDoWork ? TickRateModulation.URGENT : TickRateModulation.SLOWER
-                    : TickRateModulation.SLEEP;
-        }
-    }
-
-    /**
-     * @return Gets the name used to show this pattern provider in the
-     *         {@link appeng.menu.implementations.PatternAccessTermMenu}.
-     */
-    public PatternContainerGroup getTerminalGroup() {
-        var host = this.host.getBlockEntity();
-        var hostLevel = host.getLevel();
-
-        // Prefer own custom name / icon if player has named it
-        if (this.host instanceof Nameable nameable && nameable.hasCustomName()) {
-            var name = nameable.getCustomName();
-            return new PatternContainerGroup(
-                    this.host.getTerminalIcon(),
-                    name,
-                    List.of());
-        }
-
-        var sides = getActiveSides();
-        var groups = new LinkedHashSet<PatternContainerGroup>(sides.size());
-        for (var side : sides) {
-            var sidePos = host.getBlockPos().relative(side);
-            var group = PatternContainerGroup.fromMachine(hostLevel, sidePos, side.getOpposite());
-            if (group != null) {
-                groups.add(group);
+            if (!hasWorkToDo()) {
+                return TickRateModulation.SLEEP;
             }
+            return couldDoWork ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
         }
-
-        // If there's just one group, group by that
-        if (groups.size() == 1) {
-            return groups.iterator().next();
-        }
-
-        List<Component> tooltip = List.of();
-        // If there are multiple groups, show that in the tooltip
-        if (groups.size() > 1) {
-            tooltip = new ArrayList<>();
-            tooltip.add(GuiText.AdjacentToDifferentMachines.text().withStyle(ChatFormatting.BOLD));
-            for (var group : groups) {
-                tooltip.add(group.name());
-                for (var line : group.tooltip()) {
-                    tooltip.add(Component.literal("  ").append(line));
-                }
-            }
-        }
-
-        // If nothing is adjacent, just use itself
-        var hostIcon = this.host.getTerminalIcon();
-        return new PatternContainerGroup(
-                hostIcon,
-                hostIcon.getDisplayName(),
-                tooltip);
-    }
-
-    public long getSortValue() {
-        final BlockEntity te = this.host.getBlockEntity();
-        return te.getBlockPos().getZ() << 24 ^ te.getBlockPos().getX() << 8 ^ te.getBlockPos().getY();
-    }
-
-    @Nullable
-    public IGrid getGrid() {
-        return mainNode.getGrid();
-    }
-
-    public void updateRedstoneState() {
-        // If we're waiting for a pulse, update immediately
-        if (unlockEvent == UnlockCraftingEvent.REDSTONE_POWER && getRedstoneState()) {
-            unlockEvent = null; // Unlocked!
-            saveChanges();
-        } else if (unlockEvent == UnlockCraftingEvent.REDSTONE_PULSE && !getRedstoneState()) {
-            unlockEvent = UnlockCraftingEvent.REDSTONE_POWER; // Wait for re-power
-            redstoneState = YesNo.UNDECIDED; // Need to re-check signal on next update
-            saveChanges();
-        } else {
-            // Otherwise, just reset back to undecided
-            redstoneState = YesNo.UNDECIDED;
-        }
-    }
-
-    private void configChanged(IConfigManager manager, Setting<?> setting) {
-        if (setting == Settings.LOCK_CRAFTING_MODE) {
-            resetCraftingLock();
-        } else {
-            saveChanges();
-        }
-    }
-
-    private boolean getRedstoneState() {
-        if (redstoneState == YesNo.UNDECIDED) {
-            var be = this.host.getBlockEntity();
-            redstoneState = be.getLevel().hasNeighborSignal(be.getBlockPos())
-                    ? YesNo.YES
-                    : YesNo.NO;
-        }
-        return redstoneState == YesNo.YES;
     }
 }
+
+

@@ -18,27 +18,26 @@
 
 package appeng.hooks;
 
-import net.minecraft.core.Direction;
-import net.minecraft.core.dispenser.BlockSource;
-import net.minecraft.core.dispenser.DefaultDispenseItemBehavior;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.DispenserBlock;
-
 import appeng.entity.TinyTNTPrimedEntity;
+import net.minecraft.block.BlockDispenser;
+import net.minecraft.dispenser.BehaviorDefaultDispenseItem;
+import net.minecraft.dispenser.IBlockSource;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.world.World;
 
-public final class TinyTNTDispenseItemBehavior extends DefaultDispenseItemBehavior {
+public final class TinyTNTDispenseItemBehavior extends BehaviorDefaultDispenseItem {
 
     @Override
-    protected ItemStack execute(BlockSource dispenser, ItemStack dispensedItem) {
-        final Direction Direction = dispenser.state().getValue(DispenserBlock.FACING);
-        final Level level = dispenser.level();
-        final int i = dispenser.pos().getX() + Direction.getStepX();
-        final int j = dispenser.pos().getY() + Direction.getStepY();
-        final int k = dispenser.pos().getZ() + Direction.getStepZ();
-        final TinyTNTPrimedEntity primedTinyTNTEntity = new TinyTNTPrimedEntity(level, i + 0.5F, j, k + 0.5F,
-                null);
-        level.addFreshEntity(primedTinyTNTEntity);
+    protected ItemStack dispenseStack(IBlockSource dispenser, ItemStack dispensedItem) {
+        final EnumFacing facing = dispenser.getBlockState().getValue(BlockDispenser.FACING);
+        final World world = dispenser.getWorld();
+        final int x = dispenser.getBlockPos().getX() + facing.getXOffset();
+        final int y = dispenser.getBlockPos().getY() + facing.getYOffset();
+        final int z = dispenser.getBlockPos().getZ() + facing.getZOffset();
+        final TinyTNTPrimedEntity primedTinyTNTEntity = new TinyTNTPrimedEntity(world, x + 0.5F, y + 0.5F,
+            z + 0.5F, null);
+        world.spawnEntity(primedTinyTNTEntity);
         dispensedItem.setCount(dispensedItem.getCount() - 1);
         return dispensedItem;
     }

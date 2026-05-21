@@ -18,39 +18,22 @@
 
 package appeng.parts.reporting;
 
-import net.minecraft.resources.ResourceLocation;
-
 import appeng.api.parts.IPartItem;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
+import net.minecraft.util.ResourceLocation;
 
-/**
- * A more sophisticated part overlapping all 3 textures.
- * <p>
- * Subclass this if you need want a new part and need all 3 textures. For more concrete implementations, the direct
- * abstract subclasses might be a better alternative.
- *
- * @author AlgorithmX2
- * @author yueh
- * @version rv3
- * @since rv3
- */
 public abstract class AbstractDisplayPart extends AbstractReportingPart {
 
-    // The base chassis of all display parts
     @PartModels
     protected static final ResourceLocation MODEL_BASE = AppEng.makeId("part/display_base");
 
-    // Models that contain the status indicator light
     @PartModels
-    protected static final ResourceLocation MODEL_STATUS_OFF = AppEng.makeId(
-            "part/display_status_off");
+    protected static final ResourceLocation MODEL_STATUS_OFF = AppEng.makeId("part/display_status_off");
     @PartModels
-    protected static final ResourceLocation MODEL_STATUS_ON = AppEng.makeId(
-            "part/display_status_on");
+    protected static final ResourceLocation MODEL_STATUS_ON = AppEng.makeId("part/display_status_on");
     @PartModels
-    protected static final ResourceLocation MODEL_STATUS_HAS_CHANNEL = AppEng.makeId(
-            "part/display_status_has_channel");
+    protected static final ResourceLocation MODEL_STATUS_HAS_CHANNEL = AppEng.makeId("part/display_status_has_channel");
 
     public AbstractDisplayPart(IPartItem<?> partItem, boolean requireChannel) {
         super(partItem, requireChannel);

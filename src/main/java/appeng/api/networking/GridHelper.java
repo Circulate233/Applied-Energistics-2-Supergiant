@@ -23,23 +23,20 @@
 
 package appeng.api.networking;
 
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
-import appeng.api.AECapabilities;
 import appeng.api.networking.events.GridEvent;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.GridConnection;
 import appeng.me.GridEventBus;
 import appeng.me.InWorldGridNode;
 import appeng.me.ManagedGridNode;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * A helper responsible for creating new {@link IGridNode}, connecting existing nodes, and related features.
@@ -49,19 +46,19 @@ public final class GridHelper {
     }
 
     /**
-     * On the server side, schedule a call to the passed callback once the block entity is in a ticking chunk. Any
+     * On the server side, schedule a call to the passed callback once the tile entity is in a ticking chunk. Any
      * action which might cause other chunks to be initialized, such as {@linkplain IManagedGridNode#create creating a
-     * grid node}, should not be done immediately when the block entity is added to the world, but should rather be
+     * grid node}, should not be done immediately when the tile entity is added to the world, but should rather be
      * deferred using this function.
      * <p>
-     * This function should usually be called from {@link BlockEntity#clearRemoved()}, for example:
+     * This function should usually be called from the tile's ready/init callback, for example:
      *
      * <pre>
      * {@code
-     * atOverride
+     * @Override
      * public void clearRemoved() {
      *     super.clearRemoved();
-     *     GridHelper.onFirstTick(this, MyBlockEntity::onFirstTick);
+     *     GridHelper.onFirstTick(this, MyTileEntity::onFirstTick);
      * }
      *
      * private void onFirstTick() {
@@ -73,7 +70,7 @@ public final class GridHelper {
      * <p>
      * Client side this can be safely called, it will do nothing.
      */
-    public static <T extends BlockEntity> void onFirstTick(T blockEntity, Consumer<? super T> callback) {
+    public static <T extends TileEntity> void onFirstTick(T blockEntity, Consumer<? super T> callback) {
         TickHandler.instance().addInit(blockEntity, callback);
     }
 
@@ -88,11 +85,9 @@ public final class GridHelper {
      * Forwards grid-wide events to the {@link IGridService} attached to that particular {@link IGrid}.
      */
     public static <T extends GridEvent, C extends IGridService> void addGridServiceEventHandler(Class<T> eventClass,
-            Class<C> cacheClass,
-            BiConsumer<C, T> eventHandler) {
-        addEventHandler(eventClass, (grid, event) -> {
-            eventHandler.accept(grid.getService(cacheClass), event);
-        });
+                                                                                                Class<C> cacheClass,
+                                                                                                BiConsumer<C, T> eventHandler) {
+        addEventHandler(eventClass, (grid, event) -> eventHandler.accept(grid.getService(cacheClass), event));
     }
 
     /**
@@ -102,8 +97,8 @@ public final class GridHelper {
      *                       included.
      */
     public static <T extends GridEvent, C> void addNodeOwnerEventHandler(Class<T> eventClass,
-            Class<C> nodeOwnerClass,
-            BiConsumer<C, T> eventHandler) {
+                                                                         Class<C> nodeOwnerClass,
+                                                                         BiConsumer<C, T> eventHandler) {
         addEventHandler(eventClass, (grid, event) -> {
             for (C machine : grid.getMachines(nodeOwnerClass)) {
                 eventHandler.accept(machine, event);
@@ -116,9 +111,9 @@ public final class GridHelper {
      * doesn't care about the actual event object.
      */
     public static <T extends GridEvent, C> void addNodeOwnerEventHandler(Class<T> eventClass,
-            Class<C> nodeOwnerClass,
-            Consumer<C> eventHandler) {
-        addEventHandler(eventClass, (grid, event) -> {
+                                                                         Class<C> nodeOwnerClass,
+                                                                         Consumer<C> eventHandler) {
+        addEventHandler(eventClass, (grid, ignored) -> {
             for (C machine : grid.getMachines(nodeOwnerClass)) {
                 eventHandler.accept(machine);
             }
@@ -129,8 +124,12 @@ public final class GridHelper {
      * Finds an {@link IInWorldGridNodeHost} at the given world location, or returns null if there isn't one.
      */
     @Nullable
-    public static IInWorldGridNodeHost getNodeHost(Level level, BlockPos pos) {
-        return level.getCapability(AECapabilities.IN_WORLD_GRID_NODE_HOST, pos, null);
+    public static IInWorldGridNodeHost getNodeHost(World level, BlockPos pos) {
+        var tile = level.getTileEntity(pos);
+        if (tile instanceof IInWorldGridNodeHost host) {
+            return host;
+        }
+        return null;
     }
 
     /**
@@ -139,11 +138,11 @@ public final class GridHelper {
      * <p/>
      * Nodes that have been destroyed or have not completed initialization will not be returned.
      *
-     * @see #getNodeHost(Level, BlockPos)
+     * @see #getNodeHost(World, BlockPos)
      */
     @Nullable
-    public static IGridNode getExposedNode(Level level, BlockPos pos,
-            Direction side) {
+    public static IGridNode getExposedNode(World level, BlockPos pos,
+                                           EnumFacing side) {
         var host = getNodeHost(level, pos);
         if (host == null) {
             return null;
@@ -162,7 +161,7 @@ public final class GridHelper {
      * <p/>
      * This method can be called on both server and client.
      *
-     * @param owner    The game object that owns the node, such as a block entity or {@link appeng.api.parts.IPart}.
+     * @param owner    The game object that owns the node, such as a tile entity or {@link appeng.api.parts.IPart}.
      * @param listener A listener that will adapt events sent by the grid node to the owner.
      * @param <T>      The type of the owner.
      * @return The managed grid node.

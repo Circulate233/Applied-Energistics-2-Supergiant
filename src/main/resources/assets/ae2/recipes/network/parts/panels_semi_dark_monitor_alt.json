@@ -1,0 +1,12 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:dark_monitor"
+    }
+  ],
+  "result": {
+    "item": "ae2:semi_dark_monitor",
+    "count": 1
+  }
+}

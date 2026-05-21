@@ -18,26 +18,6 @@
 
 package appeng.me;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Objects;
-import java.util.Set;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.MutableClassToInstanceMap;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-
 import appeng.api.features.IPlayerRegistry;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridNode;
@@ -47,74 +27,32 @@ import appeng.api.networking.IManagedGridNode;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.util.AEColor;
 import appeng.core.AELog;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.MutableClassToInstanceMap;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Manages the lifecycle of a {@link IGridNode}.
  */
 @SuppressWarnings("UnusedReturnValue")
 public class ManagedGridNode implements IManagedGridNode {
-    private static class InitData<T> {
-        private final T logicalHost;
-        private final IGridNodeListener<T> listener;
-        public ClassToInstanceMap<IGridNodeService> services;
-        private CompoundTag data = null;
-
-        // The following values are used until the node is constructed, and then are applied to the node
-        private AEColor gridColor = AEColor.TRANSPARENT;
-        private Set<Direction> exposedOnSides = EnumSet.allOf(Direction.class);
-        private AEItemKey visualRepresentation = null;
-        private EnumSet<GridFlags> flags = EnumSet.noneOf(GridFlags.class);
-        private double idlePowerUsage = 1.0;
-        private int owner = -1; // ME player id of owner
-        private Level level;
-        private BlockPos pos;
-        private boolean inWorldNode;
-
-        public InitData(T logicalHost, IGridNodeListener<T> listener) {
-            this.logicalHost = Objects.requireNonNull(logicalHost);
-            this.listener = Objects.requireNonNull(listener);
-        }
-
-        public GridNode createNode() {
-            GridNode node;
-            if (inWorldNode) {
-                Preconditions.checkState(pos != null, "No position was set for an in-world node");
-                var inWorldNode = new InWorldGridNode((ServerLevel) level, pos, logicalHost, listener, flags);
-                inWorldNode.setExposedOnSides(exposedOnSides);
-                node = inWorldNode;
-            } else {
-                node = new GridNode((ServerLevel) level, logicalHost, listener, flags);
-            }
-            node.setGridColor(gridColor);
-            node.setOwningPlayerId(owner);
-            node.setIdlePowerUsage(idlePowerUsage);
-            node.setVisualRepresentation(visualRepresentation);
-            if (services != null) {
-                for (var serviceClass : services.keySet()) {
-                    addService(node, serviceClass);
-                }
-            }
-            AELog.grid("Created node %s", node);
-            return node;
-        }
-
-        private <SC extends IGridNodeService> void addService(GridNode node, Class<SC> serviceClass) {
-            node.addService(serviceClass, services.getInstance(serviceClass));
-        }
-    }
-
-    /**
-     * This will be set in the constructor and initialization data will be aggregated in this field until the node is
-     * finally constructed. At that point, this field will be set to null to clear the memory.
-     */
     @Nullable
     private InitData<?> initData;
-
-    /**
-     * The name of the NBT sub-tag used to store the managed node's data in the host.
-     */
     private String tagName = "gn";
-
     @Nullable
     private GridNode node = null;
 
@@ -146,14 +84,13 @@ public class ManagedGridNode implements IManagedGridNode {
     }
 
     @Override
-    public void create(Level level, @Nullable BlockPos blockPos) {
-        // We can only ready up if the init-data still exists
+    public void create(World world, @Nullable BlockPos blockPos) {
         var initData = getInitData();
-        initData.level = level;
+        initData.level = world;
         initData.pos = blockPos;
-        this.initData = null;
 
-        if (this.node == null && !initData.level.isClientSide()) {
+        if (!initData.level.isRemote) {
+            this.initData = null;
             createNode(initData);
         }
     }
@@ -165,8 +102,6 @@ public class ManagedGridNode implements IManagedGridNode {
         if (initData.data != null) {
             node.loadFromNBT(this.tagName, initData.data);
         }
-        // The field has to be set before markReady is called! Otherwise the grid will reach back into a null-pointer
-        // during it's creation.
         this.node = node;
         this.node.markReady();
     }
@@ -177,7 +112,7 @@ public class ManagedGridNode implements IManagedGridNode {
     }
 
     @Override
-    public void loadFromNBT(CompoundTag tag) {
+    public void loadFromNBT(NBTTagCompound tag) {
         if (node == null) {
             getInitData().data = tag;
         } else {
@@ -186,7 +121,7 @@ public class ManagedGridNode implements IManagedGridNode {
     }
 
     @Override
-    public void saveToNBT(CompoundTag tag) {
+    public void saveToNBT(NBTTagCompound tag) {
         if (this.node != null) {
             this.node.saveToNBT(this.tagName, tag);
         }
@@ -197,27 +132,19 @@ public class ManagedGridNode implements IManagedGridNode {
         return initData == null && node != null;
     }
 
-    /**
-     * @see IGridNode#isActive()
-     */
     @Override
     public boolean isActive() {
         if (this.node == null) {
             return false;
         }
-
         return this.node.isActive();
     }
 
-    /**
-     * @see IGridNode#isOnline()
-     */
     @Override
     public boolean isOnline() {
         if (this.node == null) {
             return false;
         }
-
         return this.node.isOnline();
     }
 
@@ -247,9 +174,9 @@ public class ManagedGridNode implements IManagedGridNode {
     }
 
     @Override
-    public void setOwningPlayer(Player player) {
-        if (player instanceof ServerPlayer serverPlayer) {
-            setOwningPlayerId(IPlayerRegistry.getPlayerId(serverPlayer));
+    public void setOwningPlayer(EntityPlayer player) {
+        if (player instanceof EntityPlayerMP) {
+            setOwningPlayerId(IPlayerRegistry.getPlayerId((EntityPlayerMP) player));
         }
     }
 
@@ -262,11 +189,21 @@ public class ManagedGridNode implements IManagedGridNode {
     }
 
     @Override
-    public ManagedGridNode setExposedOnSides(Set<Direction> directions) {
+    public ManagedGridNode setExposedOnSides(Set<EnumFacing> directions) {
         if (node == null) {
             getInitData().exposedOnSides = ImmutableSet.copyOf(directions);
-        } else if (node instanceof InWorldGridNode inWorldNode) {
-            inWorldNode.setExposedOnSides(directions);
+        } else if (node instanceof InWorldGridNode) {
+            ((InWorldGridNode) node).setExposedOnSides(directions);
+        }
+        return this;
+    }
+
+    @Override
+    public ManagedGridNode setVisualRepresentation(@Nullable AEItemKey visualRepresentation) {
+        if (node == null) {
+            getInitData().visualRepresentation = visualRepresentation;
+        } else {
+            node.setVisualRepresentation(visualRepresentation);
         }
         return this;
     }
@@ -283,34 +220,10 @@ public class ManagedGridNode implements IManagedGridNode {
         return this;
     }
 
-    @Override
-    public ManagedGridNode setVisualRepresentation(@Nullable AEItemKey visualRepresentation) {
-        if (node == null) {
-            getInitData().visualRepresentation = visualRepresentation;
-        } else {
-            node.setVisualRepresentation(visualRepresentation);
-        }
-        return this;
-    }
-
-    @Override
-    public ManagedGridNode setGridColor(AEColor gridColor) {
-        if (this.node == null) {
-            getInitData().gridColor = gridColor;
-        } else {
-            node.setGridColor(gridColor);
-        }
-        return this;
-    }
-
-    public double getIdlePowerUsage() {
-        return node != null ? node.getIdlePowerUsage() : getInitData().idlePowerUsage;
-    }
-
     private InitData<?> getInitData() {
         if (initData == null) {
             throw new IllegalStateException(
-                    "The node has already been initialized. Initialization data cannot be changed anymore.");
+                "The node has already been initialized. Initialization data cannot be changed anymore.");
         }
         return initData;
     }
@@ -325,11 +238,63 @@ public class ManagedGridNode implements IManagedGridNode {
         return this;
     }
 
-    public AEColor getGridColor() {
-        if (node == null) {
-            return getInitData().gridColor;
+    @Override
+    public ManagedGridNode setGridColor(AEColor gridColor) {
+        if (this.node == null) {
+            getInitData().gridColor = gridColor;
         } else {
-            return node.getGridColor();
+            node.setGridColor(gridColor);
+        }
+        return this;
+    }
+
+    private static class InitData<T> {
+        private final T logicalHost;
+        private final IGridNodeListener<T> listener;
+        public ClassToInstanceMap<IGridNodeService> services;
+        private NBTTagCompound data = null;
+
+        // The following values are used until the node is constructed, and then are applied to the node
+        private AEColor gridColor = AEColor.TRANSPARENT;
+        private Set<EnumFacing> exposedOnSides = EnumSet.allOf(EnumFacing.class);
+        private AEItemKey visualRepresentation = null;
+        private EnumSet<GridFlags> flags = EnumSet.noneOf(GridFlags.class);
+        private double idlePowerUsage = 1.0;
+        private int owner = -1; // ME player id of owner
+        private World level;
+        private BlockPos pos;
+        private boolean inWorldNode;
+
+        public InitData(T logicalHost, IGridNodeListener<T> listener) {
+            this.logicalHost = Objects.requireNonNull(logicalHost);
+            this.listener = Objects.requireNonNull(listener);
+        }
+
+        public GridNode createNode() {
+            GridNode node;
+            if (inWorldNode) {
+                Preconditions.checkState(pos != null, "No position was set for an in-world node");
+                InWorldGridNode inWorld = new InWorldGridNode((WorldServer) level, pos, logicalHost, listener, flags);
+                inWorld.setExposedOnSides(exposedOnSides);
+                node = inWorld;
+            } else {
+                node = new GridNode((WorldServer) level, logicalHost, listener, flags);
+            }
+            node.setGridColor(gridColor);
+            node.setOwningPlayerId(owner);
+            node.setIdlePowerUsage(idlePowerUsage);
+            node.setVisualRepresentation(visualRepresentation);
+            if (services != null) {
+                for (var serviceClass : services.keySet()) {
+                    addService(node, serviceClass);
+                }
+            }
+            AELog.grid("Created node %s", node);
+            return node;
+        }
+
+        private <SC extends IGridNodeService> void addService(GridNode node, Class<SC> serviceClass) {
+            node.addService(serviceClass, services.getInstance(serviceClass));
         }
     }
 

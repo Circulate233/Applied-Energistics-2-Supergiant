@@ -1,0 +1,26 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:charger"
+    },
+    "title": {
+      "translate": "achievement.ae2.Charger"
+    },
+    "description": {
+      "translate": "achievement.ae2.Charger.desc"
+    }
+  },
+  "parent": "ae2:main/root",
+  "criteria": {
+    "certus": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:charger"
+          }
+        ]
+      }
+    }
+  }
+}

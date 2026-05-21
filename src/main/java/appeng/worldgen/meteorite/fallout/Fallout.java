@@ -9,8 +9,7 @@
  *
  * Applied Energistics 2 is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more details.
  *
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
@@ -18,20 +17,18 @@
 
 package appeng.worldgen.meteorite.fallout;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-
 import appeng.worldgen.meteorite.MeteoriteBlockPutter;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 public class Fallout {
-    private final MeteoriteBlockPutter putter;
-    private final BlockState skyStone;
-    protected final RandomSource random;
+    protected final MeteoriteBlockPutter putter;
+    protected final IBlockState skyStone;
+    protected final java.util.Random random;
 
-    public Fallout(MeteoriteBlockPutter putter, BlockState skyStone, RandomSource random) {
+    public Fallout(MeteoriteBlockPutter putter, IBlockState skyStone, java.util.Random random) {
         this.putter = putter;
         this.skyStone = skyStone;
         this.random = random;
@@ -41,33 +38,33 @@ public class Fallout {
         return 0;
     }
 
-    public void getRandomFall(LevelAccessor level, BlockPos pos) {
-        var a = random.nextFloat();
+    public void getRandomFall(World world, BlockPos pos) {
+        float a = random.nextFloat();
         if (a > 0.9f) {
-            this.putter.put(level, pos, Blocks.STONE.defaultBlockState());
+            this.putter.put(world, pos, Blocks.STONE);
         } else if (a > 0.8f) {
-            this.putter.put(level, pos, Blocks.COBBLESTONE.defaultBlockState());
+            this.putter.put(world, pos, Blocks.COBBLESTONE);
         } else if (a > 0.7f) {
-            this.putter.put(level, pos, Blocks.DIRT.defaultBlockState());
+            this.putter.put(world, pos, Blocks.DIRT);
         } else {
-            this.putter.put(level, pos, Blocks.GRAVEL.defaultBlockState());
+            this.putter.put(world, pos, Blocks.GRAVEL);
         }
     }
 
-    public void getRandomInset(LevelAccessor level, BlockPos pos) {
-        var a = random.nextFloat();
+    public void getRandomInset(World world, BlockPos pos) {
+        float a = random.nextFloat();
         if (a > 0.9f) {
-            this.putter.put(level, pos, Blocks.COBBLESTONE.defaultBlockState());
+            this.putter.put(world, pos, Blocks.COBBLESTONE);
         } else if (a > 0.8f) {
-            this.putter.put(level, pos, Blocks.STONE.defaultBlockState());
+            this.putter.put(world, pos, Blocks.STONE);
         } else if (a > 0.7f) {
-            this.putter.put(level, pos, Blocks.GRASS_BLOCK.defaultBlockState());
+            this.putter.put(world, pos, Blocks.GRASS);
         } else if (a > 0.6f) {
-            this.putter.put(level, pos, this.skyStone);
+            this.putter.put(world, pos, this.skyStone);
         } else if (a > 0.5f) {
-            this.putter.put(level, pos, Blocks.GRAVEL.defaultBlockState());
+            this.putter.put(world, pos, Blocks.GRAVEL);
         } else {
-            this.putter.put(level, pos, Blocks.AIR.defaultBlockState());
+            this.putter.put(world, pos, Blocks.AIR);
         }
     }
 }

@@ -33,29 +33,27 @@ public interface ITickManager extends IGridService {
 
     /**
      * immediately sets the node to tick, only valid if your node is marked as "Alertable" in its TickingRequest
-     *
      * Sleeping Devices Still Alertable, when your grid node is alerted its new status is determined by the result of
      * its tick.
      *
      * @param node gridnode
      */
+    @SuppressWarnings("UnusedReturnValue")
     boolean alertDevice(IGridNode node);
 
     /**
      * disables ticking for your device.
      *
      * @param node gridnode
-     *
      * @return if the call was successful.
      */
+    @SuppressWarnings("UnusedReturnValue")
     boolean sleepDevice(IGridNode node);
 
     /**
      * enables ticking for your device, undoes a sleepDevice call.
      *
      * @param node gridnode
-     *
-     * @return if the call was successful.
      */
-    boolean wakeDevice(IGridNode node);
+    void wakeDevice(IGridNode node);
 }

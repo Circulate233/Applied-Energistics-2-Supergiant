@@ -18,47 +18,6 @@
 
 package appeng.items.tools.powered;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.animal.Sheep;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.ClipContext;
-import net.minecraft.world.level.ClipContext.Block;
-import net.minecraft.world.level.ClipContext.Fluid;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.HitResult.Type;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.util.BlockSnapshot;
-import net.neoforged.neoforge.event.EventHooks;
-import net.neoforged.neoforge.event.level.BlockEvent;
-
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.ids.AEComponents;
@@ -72,7 +31,6 @@ import appeng.api.upgrades.UpgradeInventories;
 import appeng.api.upgrades.Upgrades;
 import appeng.api.util.AEColor;
 import appeng.api.util.DimensionalBlockPos;
-import appeng.blockentity.misc.PaintSplotchesBlockEntity;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEBlocks;
@@ -84,23 +42,72 @@ import appeng.items.contents.CellConfig;
 import appeng.items.misc.PaintBallItem;
 import appeng.items.tools.powered.powersink.AEBasePoweredItem;
 import appeng.me.helpers.PlayerSource;
-import appeng.recipes.AERecipeTypes;
+import appeng.recipes.mattercannon.MatterCannonAmmo;
+import appeng.tile.misc.TilePaint;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
 import appeng.util.LookDirection;
 import appeng.util.Platform;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.passive.EntitySheep;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.DamageSource;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.RayTraceResult.Type;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.BlockSnapshot;
+import net.minecraftforge.event.ForgeEventFactory;
+
+import java.util.List;
+import java.util.Set;
 
 public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellItem {
 
-    private static final Logger LOG = LoggerFactory.getLogger(MatterCannonItem.class);
-
-    /**
-     * AE energy units consumer per shot fired.
-     */
     private static final int ENERGY_PER_SHOT = 1600;
 
-    public MatterCannonItem(Properties props) {
-        super(AEConfig.instance().getMatterCannonBattery(), props);
+    public MatterCannonItem() {
+        super(getBatteryCapacity());
+    }
+
+    public static int getDamageFromPenetration(float penetration) {
+        return (int) Math.ceil(penetration / 20.0f);
+    }
+
+    private static double getBatteryCapacity() {
+        try {
+            return AEConfig.instance().getMatterCannonBattery();
+        } catch (IllegalStateException ignored) {
+            return 200000;
+        }
+    }
+
+    private static boolean isMatterCannonBlockDamageEnabled() {
+        try {
+            return AEConfig.instance().isMatterCanonBlockDamageEnabled();
+        } catch (IllegalStateException ignored) {
+            return true;
+        }
+    }
+
+    @Override
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+        addCellInformationToTooltip(stack, lines);
     }
 
     @Override
@@ -108,35 +115,19 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
         return 800d + 800d * Upgrades.getEnergyCardMultiplier(getUpgrades(stack));
     }
 
-    @OnlyIn(Dist.CLIENT)
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        super.appendHoverText(stack, context, lines, advancedTooltips);
-        addCellInformationToTooltip(stack, lines);
-    }
+    public ActionResult<ItemStack> onItemRightClick(World level, EntityPlayer player, EnumHand hand) {
+        var stack = player.getHeldItem(hand);
+        var direction = InteractionUtil.getPlayerRay(player, 255);
 
-    @Override
-    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
-        return getCellTooltipImage(stack);
-    }
-
-    @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player p, InteractionHand hand) {
-        var stack = p.getItemInHand(hand);
-
-        var direction = InteractionUtil.getPlayerRay(p, 255);
-
-        if (fireCannon(level, stack, p, direction)) {
-            return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()),
-                    stack);
+        if (fireCannon(level, stack, player, hand, direction)) {
+            return new ActionResult<>(EnumActionResult.SUCCESS, stack);
         } else {
-            return new InteractionResultHolder<>(InteractionResult.FAIL, stack);
+            return new ActionResult<>(EnumActionResult.FAIL, stack);
         }
     }
 
-    public boolean fireCannon(Level level, ItemStack stack, Player player, LookDirection dir) {
-
+    public boolean fireCannon(World level, ItemStack stack, EntityPlayer player, EnumHand hand, LookDirection dir) {
         var inv = StorageCells.getCellInventory(stack, null);
         if (inv == null) {
             return false;
@@ -145,16 +136,16 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
         var itemList = inv.getAvailableStacks();
         var req = itemList.getFirstEntry(AEItemKey.class);
         if (req == null || !(req.getKey() instanceof AEItemKey itemKey)) {
-            if (!level.isClientSide()) {
-                player.displayClientMessage(PlayerMessages.AmmoDepleted.text(), true);
+            if (!level.isRemote) {
+                player.sendStatusMessage(PlayerMessages.AmmoDepleted.text(), true);
             }
             return true;
         }
 
         int shotPower = 1;
-        var cu = getUpgrades(stack);
-        if (cu != null) {
-            shotPower += cu.getInstalledUpgrades(AEItems.SPEED_CARD);
+        var upgrades = getUpgrades(stack);
+        if (upgrades != null) {
+            shotPower += upgrades.getInstalledUpgrades(AEItems.SPEED_CARD.item());
         }
         shotPower = Math.min(shotPower, (int) req.getLongValue());
 
@@ -163,12 +154,9 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
         }
 
         shotPower = Math.min(shotPower, (int) getAECurrentPower(stack) / ENERGY_PER_SHOT);
-
         extractAEPower(stack, ENERGY_PER_SHOT * shotPower, Actionable.MODULATE);
 
-        if (level.isClientSide()) {
-            // Up until this point, we can simulate on the client, after this,
-            // we need to run the server-side version
+        if (level.isRemote) {
             return true;
         }
 
@@ -177,20 +165,20 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
             return true;
         }
 
-        var rayFrom = dir.getA();
-        var rayTo = dir.getB();
+        var rayFrom = dir.a();
+        var rayTo = dir.b();
         var direction = rayTo.subtract(rayFrom);
-        direction.normalize();
+        direction = direction.normalize();
 
         var x = rayFrom.x;
         var y = rayFrom.y;
         var z = rayFrom.z;
 
-        var penetration = getPenetration(itemKey) * shotPower; // 196.96655f;
+        var penetration = getPenetration(itemKey) * shotPower;
         if (penetration <= 0) {
             if (itemKey.getItem() instanceof PaintBallItem paintBallItem) {
-                shootPaintBalls(paintBallItem.getColor(), paintBallItem.isLumen(), level, player, rayFrom, rayTo,
-                        direction, x, y, z);
+                shootPaintBalls(paintBallItem.getColor(), paintBallItem.isLumen(), level, player, hand, rayFrom, rayTo,
+                    direction, x, y, z);
                 return true;
             }
         } else {
@@ -200,200 +188,165 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
         return true;
     }
 
-    private void shootPaintBalls(AEColor color, boolean lit, Level level, @Nullable Player p, Vec3 Vector3d,
-            Vec3 Vector3d1, Vec3 direction, double d0, double d1, double d2) {
-        final AABB bb = new AABB(Math.min(Vector3d.x, Vector3d1.x), Math.min(Vector3d.y, Vector3d1.y),
-                Math.min(Vector3d.z, Vector3d1.z), Math.max(Vector3d.x, Vector3d1.x), Math.max(Vector3d.y, Vector3d1.y),
-                Math.max(Vector3d.z, Vector3d1.z)).inflate(16, 16, 16);
+    private void shootPaintBalls(AEColor color, boolean lit, World level, EntityPlayer player, EnumHand hand, Vec3d from, Vec3d to,
+                                 Vec3d direction, double x, double y, double z) {
+        final AxisAlignedBB bb = new AxisAlignedBB(Math.min(from.x, to.x), Math.min(from.y, to.y), Math.min(from.z, to.z),
+            Math.max(from.x, to.x), Math.max(from.y, to.y), Math.max(from.z, to.z)).grow(16, 16, 16);
 
         Entity entity = null;
-        Vec3 entityIntersection = null;
-        final List<Entity> list = level.getEntities(p, bb,
-                e -> !(e instanceof ItemEntity) && e.isAlive());
+        Vec3d entityIntersection = null;
+        final List<Entity> list = level.getEntitiesWithinAABBExcludingEntity(player, bb);
         double closest = 9999999.0D;
 
         for (Entity entity1 : list) {
-            if (p.isPassenger() && entity1.hasPassenger(p)) {
+            if (entity1 instanceof EntityItem || !entity1.isEntityAlive() || entity1.isRidingOrBeingRiddenBy(player)) {
                 continue;
             }
 
-            final float f1 = 0.3F;
-
-            final AABB boundingBox = entity1.getBoundingBox().inflate(f1, f1, f1);
-            final Vec3 intersection = boundingBox.clip(Vector3d, Vector3d1).orElse(null);
+            final AxisAlignedBB boundingBox = entity1.getEntityBoundingBox().grow(0.3F, 0.3F, 0.3F);
+            final RayTraceResult intersection = boundingBox.calculateIntercept(from, to);
 
             if (intersection != null) {
-                final double nd = Vector3d.distanceToSqr(intersection);
-
+                final double nd = from.squareDistanceTo(intersection.hitVec);
                 if (nd < closest) {
                     entity = entity1;
-                    entityIntersection = intersection;
+                    entityIntersection = intersection.hitVec;
                     closest = nd;
                 }
             }
         }
 
-        ClipContext rayTraceContext = new ClipContext(Vector3d, Vector3d1, Block.COLLIDER,
-                Fluid.NONE, p);
-        HitResult pos = level.clip(rayTraceContext);
-
-        final Vec3 vec = new Vec3(d0, d1, d2);
-        if (entity != null && pos.getType() != Type.MISS
-                && pos.getLocation().distanceToSqr(vec) > closest) {
-            pos = new EntityHitResult(entity, entityIntersection);
-        } else if (entity != null && pos.getType() == Type.MISS) {
-            pos = new EntityHitResult(entity, entityIntersection);
+        RayTraceResult pos = level.rayTraceBlocks(from, to, false);
+        final Vec3d start = new Vec3d(x, y, z);
+        if (entity != null && pos != null && pos.typeOfHit != Type.MISS && pos.hitVec.squareDistanceTo(start) > closest) {
+            pos = new RayTraceResult(entity, entityIntersection);
+        } else if (entity != null && (pos == null || pos.typeOfHit == Type.MISS)) {
+            pos = new RayTraceResult(entity, entityIntersection);
         }
 
-        AppEng.instance().sendToAllNearExcept(null, d0, d1, d2, 256, level,
-                new MatterCannonPacket(d0, d1, d2, (float) direction.x, (float) direction.y, (float) direction.z,
-                        (byte) (pos.getType() == Type.MISS ? 32
-                                : pos.getLocation().distanceToSqr(vec) + 1)));
+        AppEng.instance().sendToAllNearExcept(null, x, y, z, 256, level,
+            new MatterCannonPacket(x, y, z, direction.x, direction.y, direction.z,
+                (byte) (pos == null || pos.typeOfHit == Type.MISS ? 32 : pos.hitVec.squareDistanceTo(start) + 1)));
 
-        if (pos.getType() != Type.MISS) {
-            if (pos instanceof EntityHitResult entityResult) {
-                var entityHit = entityResult.getEntity();
+        if (pos == null || pos.typeOfHit == Type.MISS) {
+            return;
+        }
 
-                if (entityHit instanceof Sheep sh) {
-                    sh.setColor(color.dye);
-                }
-
-                entityHit.hurt(level.damageSources().playerAttack(p), 0);
-            } else if (pos instanceof BlockHitResult blockResult) {
-                final Direction side = blockResult.getDirection();
-                final BlockPos hitPos = blockResult.getBlockPos().relative(side);
-
-                if (!Platform.hasPermissions(new DimensionalBlockPos(level, hitPos), p)) {
-                    return;
-                }
-
-                if (EventHooks.onBlockPlace(p, BlockSnapshot.create(p.level().dimension(), level, hitPos),
-                        blockResult.getDirection())) {
-                    return;
-                }
-
-                final BlockState whatsThere = level.getBlockState(hitPos);
-                if (whatsThere.canBeReplaced() && level.isEmptyBlock(hitPos)) {
-                    level.setBlock(hitPos, AEBlocks.PAINT.block().defaultBlockState(), 3);
-                }
-
-                final BlockEntity te = level.getBlockEntity(hitPos);
-                if (te instanceof PaintSplotchesBlockEntity) {
-                    final Vec3 hp = pos.getLocation().subtract(hitPos.getX(), hitPos.getY(), hitPos.getZ());
-                    ((PaintSplotchesBlockEntity) te).addBlot(color, lit, side.getOpposite(), hp);
-                }
+        if (pos.typeOfHit == Type.ENTITY) {
+            var entityHit = pos.entityHit;
+            if (entityHit instanceof EntitySheep sheep) {
+                sheep.setFleeceColor(color.dye);
             }
+            entityHit.attackEntityFrom(DamageSource.causePlayerDamage(player), 0);
+            return;
+        }
+
+        final EnumFacing side = pos.sideHit;
+        final BlockPos hitPos = pos.getBlockPos().offset(side);
+
+        if (!Platform.hasPermissions(new DimensionalBlockPos(level, hitPos), player)) {
+            return;
+        }
+
+        if (ForgeEventFactory.onPlayerBlockPlace(player, BlockSnapshot.getBlockSnapshot(level, hitPos), side,
+            hand).isCanceled()) {
+            return;
+        }
+
+        final IBlockState whatsThere = level.getBlockState(hitPos);
+        if (whatsThere.getBlock().isReplaceable(level, hitPos) && level.isAirBlock(hitPos)) {
+            level.setBlockState(hitPos, AEBlocks.PAINT.block().getDefaultState(), 3);
+        }
+
+        final var te = level.getTileEntity(hitPos);
+        if (te instanceof TilePaint paint) {
+            final Vec3d hp = pos.hitVec.subtract(hitPos.getX(), hitPos.getY(), hitPos.getZ());
+            paint.addBlot(color, lit, side.getOpposite(), hp);
         }
     }
 
-    private void standardAmmo(float penetration, Level level, Player p, Vec3 Vector3d,
-            Vec3 Vector3d1, Vec3 direction, double d0, double d1, double d2) {
+    private void standardAmmo(float penetration, World level, EntityPlayer player, Vec3d from, Vec3d to,
+                              Vec3d direction, double x, double y, double z) {
         boolean hasDestroyed = true;
         while (penetration > 0 && hasDestroyed) {
             hasDestroyed = false;
 
-            final AABB bb = new AABB(Math.min(Vector3d.x, Vector3d1.x),
-                    Math.min(Vector3d.y, Vector3d1.y), Math.min(Vector3d.z, Vector3d1.z),
-                    Math.max(Vector3d.x, Vector3d1.x), Math.max(Vector3d.y, Vector3d1.y),
-                    Math.max(Vector3d.z, Vector3d1.z)).inflate(16, 16, 16);
+            final AxisAlignedBB bb = new AxisAlignedBB(Math.min(from.x, to.x), Math.min(from.y, to.y), Math.min(from.z, to.z),
+                Math.max(from.x, to.x), Math.max(from.y, to.y), Math.max(from.z, to.z)).grow(16, 16, 16);
 
             Entity entity = null;
-            Vec3 entityIntersection = null;
-            var list = level.getEntities(p, bb, e -> !(e instanceof ItemEntity) && e.isAlive());
+            Vec3d entityIntersection = null;
+            final List<Entity> list = level.getEntitiesWithinAABBExcludingEntity(player, bb);
             double closest = 9999999.0D;
 
             for (Entity entity1 : list) {
-                // Do not shoot your horse.
-                if (p.isPassenger() && entity1.hasPassenger(p)) {
+                if (entity1 instanceof EntityItem || !entity1.isEntityAlive() || entity1.isRidingOrBeingRiddenBy(player)) {
                     continue;
                 }
 
-                final float f1 = 0.3F;
-
-                final AABB boundingBox = entity1.getBoundingBox().inflate(f1, f1, f1);
-                final Vec3 intersection = boundingBox.clip(Vector3d, Vector3d1).orElse(null);
-
+                final AxisAlignedBB boundingBox = entity1.getEntityBoundingBox().grow(0.3F, 0.3F, 0.3F);
+                final RayTraceResult intersection = boundingBox.calculateIntercept(from, to);
                 if (intersection != null) {
-                    final double nd = Vector3d.distanceToSqr(intersection);
-
+                    final double nd = from.squareDistanceTo(intersection.hitVec);
                     if (nd < closest) {
                         entity = entity1;
-                        entityIntersection = intersection;
+                        entityIntersection = intersection.hitVec;
                         closest = nd;
                     }
                 }
             }
 
-            ClipContext rayTraceContext = new ClipContext(Vector3d, Vector3d1,
-                    Block.COLLIDER, Fluid.NONE, p);
-            final Vec3 vec = new Vec3(d0, d1, d2);
-            HitResult pos = level.clip(rayTraceContext);
-            if (entity != null && pos.getType() != Type.MISS
-                    && pos.getLocation().distanceToSqr(vec) > closest) {
-                pos = new EntityHitResult(entity, entityIntersection);
-            } else if (entity != null && pos.getType() == Type.MISS) {
-                pos = new EntityHitResult(entity, entityIntersection);
+            final Vec3d start = new Vec3d(x, y, z);
+            RayTraceResult pos = level.rayTraceBlocks(from, to, true);
+            if (entity != null && pos != null && pos.typeOfHit != Type.MISS && pos.hitVec.squareDistanceTo(start) > closest) {
+                pos = new RayTraceResult(entity, entityIntersection);
+            } else if (entity != null && (pos == null || pos.typeOfHit == Type.MISS)) {
+                pos = new RayTraceResult(entity, entityIntersection);
             }
 
-            AppEng.instance().sendToAllNearExcept(null, d0, d1, d2, 256, level,
-                    new MatterCannonPacket(d0, d1, d2, (float) direction.x, (float) direction.y,
-                            (float) direction.z, (byte) (pos.getType() == Type.MISS ? 32
-                                    : pos.getLocation().distanceToSqr(vec) + 1)));
+            AppEng.instance().sendToAllNearExcept(null, x, y, z, 256, level,
+                new MatterCannonPacket(x, y, z, direction.x, direction.y, direction.z,
+                    (byte) (pos == null || pos.typeOfHit == Type.MISS ? 32 : pos.hitVec.squareDistanceTo(start) + 1)));
 
-            if (pos.getType() != Type.MISS) {
-                var dmgSrc = level.damageSources().source(AEDamageTypes.MATTER_CANNON, p);
+            if (pos == null || pos.typeOfHit == Type.MISS) {
+                continue;
+            }
 
-                if (pos instanceof EntityHitResult entityResult) {
-                    Entity entityHit = entityResult.getEntity();
-
-                    final int dmg = getDamageFromPenetration(penetration);
-                    if (entityHit instanceof LivingEntity el) {
-                        penetration -= dmg;
-                        if (el.hurt(dmgSrc, dmg)) {
-                            el.knockback(0, -direction.x, -direction.z);
-                            if (!el.isAlive()) {
-                                hasDestroyed = true;
-                            }
-                        }
-                    } else if (entityHit instanceof ItemEntity) {
-                        hasDestroyed = true;
-                        entityHit.discard();
-                    } else if (entityHit.hurt(dmgSrc, dmg)) {
-                        hasDestroyed = !entityHit.isAlive();
-                    }
-                } else if (pos instanceof BlockHitResult blockResult) {
-
-                    if (!AEConfig.instance().isMatterCanonBlockDamageEnabled()) {
-                        penetration = 0;
-                    } else {
-                        BlockPos blockPos = blockResult.getBlockPos();
-                        final BlockState bs = level.getBlockState(blockPos);
-
-                        final float hardness = bs.getDestroySpeed(level, blockPos) * 9.0f;
-                        if (hardness >= 0.0 && penetration > hardness && canDestroyBlock(level, blockPos, p)) {
+            final DamageSource dmgSrc = AEDamageTypes.causeMatterCannonDamage(player);
+            if (pos.typeOfHit == Type.ENTITY) {
+                final int dmg = getDamageFromPenetration(penetration);
+                Entity entityHit = pos.entityHit;
+                if (entityHit instanceof EntityLivingBase living) {
+                    penetration -= dmg;
+                    if (living.attackEntityFrom(dmgSrc, dmg)) {
+                        living.knockBack(player, 0, -direction.x, -direction.z);
+                        if (!living.isEntityAlive()) {
                             hasDestroyed = true;
-                            penetration -= hardness;
-                            penetration *= 0.60F;
-                            level.destroyBlock(blockPos, true);
                         }
+                    }
+                } else if (entityHit instanceof EntityItem) {
+                    hasDestroyed = true;
+                    entityHit.setDead();
+                } else if (entityHit.attackEntityFrom(dmgSrc, dmg)) {
+                    hasDestroyed = !entityHit.isDead;
+                }
+            } else if (pos.typeOfHit == Type.BLOCK) {
+                if (!isMatterCannonBlockDamageEnabled()) {
+                    penetration = 0;
+                } else {
+                    final BlockPos blockPos = pos.getBlockPos();
+                    final IBlockState bs = level.getBlockState(blockPos);
+                    final float hardness = bs.getBlockHardness(level, blockPos) * 9.0f;
+                    if (hardness >= 0.0F && penetration > hardness
+                        && Platform.hasPermissions(new DimensionalBlockPos(level, blockPos), player)) {
+                        hasDestroyed = true;
+                        penetration -= hardness;
+                        penetration *= 0.60F;
+                        level.destroyBlock(blockPos, true);
                     }
                 }
             }
         }
-    }
-
-    private boolean canDestroyBlock(Level level, BlockPos pos, Player player) {
-        if (!Platform.hasPermissions(new DimensionalBlockPos(level, pos), player)) {
-            return false;
-        }
-
-        var state = level.getBlockState(pos);
-        var event = new BlockEvent.BreakEvent(level, pos, state, player);
-        return !NeoForge.EVENT_BUS.post(event).isCanceled();
-    }
-
-    public static int getDamageFromPenetration(float penetration) {
-        return (int) Math.ceil(penetration / 20.0f);
     }
 
     @Override
@@ -402,8 +355,7 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
     }
 
     private void onUpgradesChanged(ItemStack stack, IUpgradeInventory upgrades) {
-        // Item is crafted with a normal cell, base energy card contains a dense cell (x8)
-        setAEMaxPowerMultiplier(stack, 1 + Upgrades.getEnergyCardMultiplier(upgrades) * 8);
+        setAEMaxPower(stack, getBatteryCapacity() * (1 + Upgrades.getEnergyCardMultiplier(upgrades) * 8));
     }
 
     @Override
@@ -413,12 +365,27 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
-        return is.getOrDefault(AEComponents.STORAGE_CELL_FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        var tag = is.getTagCompound();
+        if (tag != null) {
+            try {
+                var value = AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.readFrom(tag);
+                if (value != null) {
+                    return FuzzyMode.valueOf(value.getString());
+                }
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return FuzzyMode.IGNORE_ALL;
     }
 
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-        is.set(AEComponents.STORAGE_CELL_FUZZY_MODE, fzMode);
+        NBTTagCompound tag = is.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            is.setTagCompound(tag);
+        }
+        AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.writeTo(tag, new NBTTagString(fzMode.name()));
     }
 
     @Override
@@ -438,40 +405,13 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
 
     @Override
     public boolean isBlackListed(ItemStack cellItem, AEKey requestedAddition) {
-
         if (requestedAddition instanceof AEItemKey itemKey) {
             var pen = getPenetration(itemKey);
             if (pen > 0) {
                 return false;
             }
-
             return !(itemKey.getItem() instanceof PaintBallItem);
         }
-
-        return true;
-    }
-
-    private float getPenetration(AEItemKey what) {
-        // We need a server to query the recipes if the cache is empty
-        var server = AppEng.instance().getCurrentServer();
-        if (server == null) {
-            LOG.warn("Tried to get penetration of matter cannon ammo for {} while no server was running", what);
-            return 0;
-        }
-
-        var recipes = server.getRecipeManager().byType(AERecipeTypes.MATTER_CANNON_AMMO);
-        for (var holder : recipes) {
-            var ammoRecipe = holder.value();
-            if (what.matches(ammoRecipe.getAmmo())) {
-                return ammoRecipe.getWeight();
-            }
-        }
-
-        return 0;
-    }
-
-    @Override
-    public boolean storableInStorageCell() {
         return true;
     }
 
@@ -481,7 +421,21 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
     }
 
     @Override
+    public boolean storableInStorageCell() {
+        return true;
+    }
+
+    @Override
     public AEKeyType getKeyType() {
         return AEKeyType.items();
+    }
+
+    private float getPenetration(AEItemKey what) {
+        return getPenetration(what.toStack());
+    }
+
+    private float getPenetration(ItemStack what) {
+        var ammo = MatterCannonAmmo.findAmmo(what);
+        return ammo != null ? ammo.weight() : 0;
     }
 }

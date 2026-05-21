@@ -1,0 +1,16 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:advanced_card"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "wool"
+    }
+  ],
+  "result": {
+    "item": "ae2:fuzzy_card",
+    "count": 1
+  }
+}

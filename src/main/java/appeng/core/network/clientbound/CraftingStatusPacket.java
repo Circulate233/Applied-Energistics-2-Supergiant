@@ -1,54 +1,52 @@
-
 package appeng.core.network.clientbound;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
-import appeng.client.gui.me.crafting.CraftingCPUScreen;
+import appeng.client.gui.me.crafting.GuiCraftingCPU;
+import appeng.container.me.crafting.CraftingStatus;
 import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
-import appeng.menu.me.crafting.CraftingStatus;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.network.PacketBuffer;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public record CraftingStatusPacket(int containerId, CraftingStatus status) implements ClientboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, CraftingStatusPacket> STREAM_CODEC = StreamCodec.ofMember(
-            CraftingStatusPacket::write,
-            CraftingStatusPacket::decode);
+public class CraftingStatusPacket extends ClientboundPacket {
+    private int containerId;
+    private CraftingStatus status;
 
-    public static final Type<CraftingStatusPacket> TYPE = CustomAppEngPayload.createType("crafting_status");
+    public CraftingStatusPacket() {
+    }
+
+    public CraftingStatusPacket(int containerId, CraftingStatus status) {
+        this.containerId = containerId;
+        this.status = status;
+    }
 
     @Override
-    public Type<CraftingStatusPacket> type() {
-        return TYPE;
+    protected void read(ByteBuf buf) {
+        var data = new PacketBuffer(buf);
+        this.containerId = data.readInt();
+        this.status = CraftingStatus.read(data);
     }
 
-    public static CraftingStatusPacket decode(RegistryFriendlyByteBuf buffer) {
-        return new CraftingStatusPacket(
-                buffer.readInt(),
-                CraftingStatus.read(buffer));
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
+    @Override
+    protected void write(ByteBuf buf) {
+        var data = new PacketBuffer(buf);
         data.writeInt(containerId);
         status.write(data);
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        if (player.containerMenu == null || player.containerMenu.containerId != containerId) {
-            return; // Packet received for an invalid container id, i.e. after closing it client-side
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.player == null || minecraft.player.openContainer == null
+            || minecraft.player.openContainer.windowId != containerId) {
+            return;
         }
 
-        Screen screen = Minecraft.getInstance().screen;
-
-        if (screen instanceof CraftingCPUScreen<?> cpuScreen) {
-            cpuScreen.postUpdate(this.status);
+        GuiScreen screen = minecraft.currentScreen;
+        if (screen instanceof GuiCraftingCPU<?> cpuScreen) {
+            cpuScreen.postUpdate(status);
         }
     }
-
 }

@@ -18,58 +18,31 @@
 
 package appeng.client.render.cablebus;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.particle.ParticleRenderType;
-import net.minecraft.client.particle.TextureSheetParticle;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.particle.ParticleDigging;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-// Derived from Vanilla's BreakingParticle, but allows
-// a texture to be specified directly rather than via an itemstack
-@OnlyIn(Dist.CLIENT)
-public class CableBusBreakingParticle extends TextureSheetParticle {
+@SideOnly(Side.CLIENT)
+public class CableBusBreakingParticle extends ParticleDigging {
 
-    private final float uCoord;
-    private final float vCoord;
-
-    public CableBusBreakingParticle(ClientLevel level, double x, double y, double z, double speedX, double speedY,
-            double speedZ, TextureAtlasSprite sprite) {
-        super(level, x, y, z, speedX, speedY, speedZ);
-        this.setSprite(sprite);
-        this.gravity = 1.0F;
-        this.quadSize /= 2.0F;
-        this.uCoord = this.random.nextFloat() * 3.0F;
-        this.vCoord = this.random.nextFloat() * 3.0F;
+    public CableBusBreakingParticle(World world, double x, double y, double z, double speedX, double speedY,
+                                    double speedZ, IBlockState state, TextureAtlasSprite sprite) {
+        super(world, x, y, z, speedX, speedY, speedZ, state);
+        this.setParticleTexture(sprite);
+        this.particleGravity = 1.0F;
+        this.particleScale /= 2.0F;
     }
 
-    public CableBusBreakingParticle(ClientLevel level, double x, double y, double z, TextureAtlasSprite sprite) {
-        this(level, x, y, z, 0, 0, 0, sprite);
+    public CableBusBreakingParticle(World world, double x, double y, double z, IBlockState state,
+                                    TextureAtlasSprite sprite) {
+        this(world, x, y, z, 0.0D, 0.0D, 0.0D, state, sprite);
     }
 
-    @Override
-    public ParticleRenderType getRenderType() {
-        return ParticleRenderType.TERRAIN_SHEET;
+    public CableBusBreakingParticle scale(float scale) {
+        this.particleScale *= scale;
+        return this;
     }
-
-    @Override
-    protected float getU0() {
-        return this.sprite.getU((this.uCoord + 1.0F) / 4.0F);
-    }
-
-    @Override
-    protected float getU1() {
-        return this.sprite.getU(this.uCoord / 4.0F);
-    }
-
-    @Override
-    protected float getV0() {
-        return this.sprite.getV(this.vCoord / 4.0F);
-    }
-
-    @Override
-    protected float getV1() {
-        return this.sprite.getV((this.vCoord + 1.0F) / 4.0F);
-    }
-
 }

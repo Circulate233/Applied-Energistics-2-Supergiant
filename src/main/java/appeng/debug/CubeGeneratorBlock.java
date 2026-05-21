@@ -18,38 +18,34 @@
 
 package appeng.debug;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
+import appeng.block.AEBaseTileBlock;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-import appeng.block.AEBaseEntityBlock;
-import appeng.core.AEConfig;
-
-public class CubeGeneratorBlock extends AEBaseEntityBlock<CubeGeneratorBlockEntity> {
+public class CubeGeneratorBlock extends AEBaseTileBlock<TileCubeGenerator> {
 
     public CubeGeneratorBlock() {
-        super(metalProps());
+        super(Material.IRON);
+        this.setHardness(5.0F);
+        this.setResistance(6.0F);
+        this.setTileEntity(TileCubeGenerator.class);
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof CubeGeneratorBlockEntity be) {
-            be.click(player);
-            return InteractionResult.sidedSuccess(level.isClientSide());
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        TileCubeGenerator tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            tile.click(player);
+            return true;
         }
 
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        return super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ);
     }
 
-    @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        if (AEConfig.instance().isDebugToolsEnabled()) {
-            output.accept(this);
-        }
-    }
 }

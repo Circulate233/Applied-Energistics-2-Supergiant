@@ -23,8 +23,8 @@
 
 package appeng.api.implementations.items;
 
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 
 /**
  * Implemented on a {@link Item}
@@ -36,7 +36,6 @@ public interface IStorageComponent {
      * way, its currently only used for the condenser.
      *
      * @param is item
-     *
      * @return number of bytes
      */
     int getBytes(ItemStack is);
@@ -45,7 +44,6 @@ public interface IStorageComponent {
      * Just true or false for the item stack.
      *
      * @param is item
-     *
      * @return true if item is a storage component
      */
     boolean isStorageComponent(ItemStack is);

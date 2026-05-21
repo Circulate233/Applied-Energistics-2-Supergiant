@@ -23,23 +23,21 @@
 
 package appeng.api.parts;
 
-import java.util.Objects;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-
 import appeng.core.AppEng;
 import appeng.core.definitions.AEBlockEntities;
 import appeng.core.definitions.AEBlocks;
 import appeng.parts.PartPlacement;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Objects;
 
 public final class PartHelper {
     private PartHelper() {
@@ -47,14 +45,15 @@ public final class PartHelper {
 
     /**
      * When implementing a custom part in an addon, you can use this method in
-     * {@link net.minecraft.world.item.Item#useOn} of your parts item (if you're not using AE2s internal PartItem class)
+     * {@link net.minecraft.item.Item#onItemUse} of your parts item (if you're not using AE2s internal PartItem class)
      * to implement part placement.
      *
      * @return The result of placement suitable for returning from
-     *         {@link net.minecraft.world.item.Item#useOn(UseOnContext)}.
+     * {@link net.minecraft.item.Item#onItemUse(EntityPlayer, World, BlockPos, EnumHand, EnumFacing, float, float, float)}.
      */
-    public static InteractionResult usePartItem(UseOnContext context) {
-        return PartPlacement.place(context);
+    public static EnumActionResult usePartItem(ItemStack stack, @Nullable EntityPlayer player, World world,
+                                               BlockPos pos, EnumHand hand, EnumFacing side, float hitX, float hitY, float hitZ) {
+        return PartPlacement.place(stack, pos, side, player, hand, world, hitX, hitY, hitZ);
     }
 
     /**
@@ -63,8 +62,8 @@ public final class PartHelper {
      * @param side Null will retrieve the part at the center (the cable).
      */
     @Nullable
-    public static <T extends IPart> T getPart(IPartItem<T> partItem, BlockGetter level, BlockPos pos,
-            @Nullable Direction side) {
+    public static <T extends IPart> T getPart(IPartItem<T> partItem, IBlockAccess level, BlockPos pos,
+                                              @Nullable EnumFacing side) {
         var part = getPart(level, pos, side);
         if (part != null) {
             var partClass = partItem.getPartClass();
@@ -81,9 +80,9 @@ public final class PartHelper {
      * @param side Null will retrieve the part at the center (the cable).
      */
     @Nullable
-    public static IPart getPart(BlockGetter level, BlockPos pos, @Nullable Direction side) {
-        var be = level.getBlockEntity(pos);
-        if (be instanceof IPartHost partHost) {
+    public static IPart getPart(IBlockAccess level, BlockPos pos, @Nullable EnumFacing side) {
+        var tile = level.getTileEntity(pos);
+        if (tile instanceof IPartHost partHost) {
             return partHost.getPart(side);
         }
         return null;
@@ -97,8 +96,8 @@ public final class PartHelper {
      * @param player The player is only used to set the ownership of the created grid node.
      */
     @Nullable
-    public static <T extends IPart> T setPart(ServerLevel level, BlockPos pos, @Nullable Direction side,
-            @Nullable Player player, IPartItem<T> partItem) {
+    public static <T extends IPart> T setPart(World level, BlockPos pos, @Nullable EnumFacing side,
+                                              @Nullable EntityPlayer player, IPartItem<T> partItem) {
         Objects.requireNonNull(level, "level");
         Objects.requireNonNull(pos, "pos");
 
@@ -126,20 +125,19 @@ public final class PartHelper {
      *               if force is not true.
      */
     @Nullable
-    public static IPartHost getOrPlacePartHost(Level level, BlockPos pos, boolean force, @Nullable Player player) {
-        // Get or place part host
-        var blockEntity = level.getBlockEntity(pos);
-        if (blockEntity instanceof IPartHost partHost) {
+    public static IPartHost getOrPlacePartHost(World level, BlockPos pos, boolean force, @Nullable EntityPlayer player) {
+        var tile = level.getTileEntity(pos);
+        if (tile instanceof IPartHost partHost) {
             return partHost;
-        } else {
-            if (!force && !canPlacePartHost(player, level, pos)) {
-                return null;
-            }
-
-            var state = AEBlocks.CABLE_BUS.block().getStateForPlacement(level, pos);
-            level.setBlockAndUpdate(pos, state);
-            return AEBlockEntities.CABLE_BUS.getBlockEntity(level, pos);
         }
+
+        if (!force && !canPlacePartHost(player, level, pos)) {
+            return null;
+        }
+
+        level.setBlockState(pos, AEBlocks.CABLE_BUS.block()
+                                                   .getStateForPlacement(level, pos, EnumFacing.UP, 0.5F, 0.5F, 0.5F, 0, player, EnumHand.MAIN_HAND), 3);
+        return AEBlockEntities.CABLE_BUS.getTileEntity(level, pos);
     }
 
     /**
@@ -148,32 +146,31 @@ public final class PartHelper {
      * @return null if placing a new bus fails (even if a bus already is at that location)
      */
     @Nullable
-    public static IPartHost placePartHost(@Nullable Player player, Level level, BlockPos pos) {
-        // Get or place part host
+    public static IPartHost placePartHost(@Nullable EntityPlayer player, World level, BlockPos pos) {
         if (!canPlacePartHost(player, level, pos)) {
             return null;
         }
 
-        var state = AEBlocks.CABLE_BUS.block().getStateForPlacement(level, pos);
-        level.setBlockAndUpdate(pos, state);
-        return AEBlockEntities.CABLE_BUS.getBlockEntity(level, pos);
+        level.setBlockState(pos, AEBlocks.CABLE_BUS.block()
+                                                   .getStateForPlacement(level, pos, EnumFacing.UP, 0.5F, 0.5F, 0.5F, 0, player, EnumHand.MAIN_HAND), 3);
+        return AEBlockEntities.CABLE_BUS.getTileEntity(level, pos);
     }
 
-    public static boolean canPlacePartHost(@Nullable Player player, Level level, BlockPos pos) {
-        if (player != null && !level.mayInteract(player, pos)) {
+    public static boolean canPlacePartHost(@Nullable EntityPlayer player, World level, BlockPos pos) {
+        if (player != null && !player.canPlayerEdit(pos, EnumFacing.UP, ItemStack.EMPTY)) {
             return false;
         }
 
-        return level.isEmptyBlock(pos) || level.getBlockState(pos).canBeReplaced();
+        return level.getBlockState(pos).getBlock().isReplaceable(level, pos);
     }
 
     /**
      * Gets a part host at the given position.
      */
     @Nullable
-    public static IPartHost getPartHost(Level level, BlockPos pos) {
-        var blockEntity = level.getBlockEntity(pos);
-        if (blockEntity instanceof IPartHost partHost) {
+    public static IPartHost getPartHost(IBlockAccess level, BlockPos pos) {
+        var tile = level.getTileEntity(pos);
+        if (tile instanceof IPartHost partHost) {
             return partHost;
         }
 
@@ -188,3 +185,4 @@ public final class PartHelper {
     }
 
 }
+

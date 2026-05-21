@@ -18,27 +18,24 @@
 
 package appeng.items;
 
-import org.jetbrains.annotations.Nullable;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.Item;
+import java.util.List;
 
 public abstract class AEBaseItem extends Item {
 
-    public AEBaseItem(Properties properties) {
-        super(properties);
-    }
-
-    @Nullable
-    public ResourceLocation getRegistryName() {
-        var id = BuiltInRegistries.ITEM.getKey(this);
-        return id != BuiltInRegistries.ITEM.getDefaultKey() ? id : null;
-    }
-
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        output.accept(this);
+    protected AEBaseItem() {
+        super();
+        this.setNoRepair();
     }
 
     @Override
@@ -47,4 +44,36 @@ public abstract class AEBaseItem extends Item {
         return this.getClass().getSimpleName() + "[" + regName + "]";
     }
 
+    @SideOnly(Side.CLIENT)
+    @Override
+    @SuppressWarnings("unchecked")
+    public final void addInformation(final ItemStack stack, final World world, final List lines,
+                                     final ITooltipFlag advancedTooltips) {
+        this.addCheckedInformation(stack, world, lines, advancedTooltips);
+    }
+
+    @Override
+    public final void getSubItems(final CreativeTabs creativeTab, final NonNullList<ItemStack> itemStacks) {
+        if (this.isInCreativeTab(creativeTab)) {
+            this.getCheckedSubItems(creativeTab, itemStacks);
+        }
+    }
+
+    @SideOnly(Side.CLIENT)
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        super.addInformation(stack, world, lines, advancedTooltips);
+    }
+
+    public boolean onStackedOnOther(ItemStack stack, Slot slot, EntityPlayer player) {
+        return false;
+    }
+
+    public boolean onOtherStackedOnMe(ItemStack stack, ItemStack otherStack, Slot slot, EntityPlayer player) {
+        return false;
+    }
+
+    protected void getCheckedSubItems(final CreativeTabs creativeTab, final NonNullList<ItemStack> itemStacks) {
+        itemStacks.add(new ItemStack(this));
+    }
 }

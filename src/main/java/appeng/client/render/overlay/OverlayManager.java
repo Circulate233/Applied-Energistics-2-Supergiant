@@ -18,84 +18,86 @@
 
 package appeng.client.render.overlay;
 
-import java.util.HashMap;
-import java.util.Map;
+import appeng.api.util.DimensionalBlockPos;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraftforge.client.event.RenderWorldLastEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import org.lwjgl.opengl.GL11;
+
 import java.util.Map.Entry;
 import java.util.Objects;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.joml.Quaternionf;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.bus.api.SubscribeEvent;
-import net.neoforged.neoforge.client.event.RenderLevelStageEvent;
-
-import appeng.api.util.DimensionalBlockPos;
-
-/**
- * This is based on the area render of https://github.com/TeamPneumatic/pnc-repressurized/
- */
 public class OverlayManager {
 
-    private final static OverlayManager INSTANCE = new OverlayManager();
+    private static final OverlayManager INSTANCE = new OverlayManager();
 
-    private final Map<DimensionalBlockPos, OverlayRenderer> overlayHandlers = new HashMap<>();
+    private final Object2ObjectMap<DimensionalBlockPos, OverlayRenderer> overlayHandlers = new Object2ObjectOpenHashMap<>();
 
     public static OverlayManager getInstance() {
         return INSTANCE;
     }
 
     @SubscribeEvent
-    public void renderWorldLastEvent(RenderLevelStageEvent event) {
-        if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_LEVEL) {
+    public void renderWorldLastEvent(RenderWorldLastEvent event) {
+        if (this.overlayHandlers.isEmpty()) {
             return;
         }
 
-        if (overlayHandlers.isEmpty()) {
+        Minecraft minecraft = Minecraft.getMinecraft();
+        if (minecraft.world == null || minecraft.player == null) {
             return;
         }
 
-        Minecraft minecraft = Minecraft.getInstance();
-        BufferSource buffer = minecraft.renderBuffers().bufferSource();
-        PoseStack poseStack = event.getPoseStack();
+        double camX = minecraft.getRenderManager().viewerPosX;
+        double camY = minecraft.getRenderManager().viewerPosY;
+        double camZ = minecraft.getRenderManager().viewerPosZ;
 
-        poseStack.pushPose();
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(-camX, -camY, -camZ);
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableLighting();
+        GlStateManager.enableBlend();
+        GlStateManager.disableCull();
+        GlStateManager.glLineWidth(2.0F);
+        GlStateManager.depthMask(false);
 
-        Vec3 projectedView = minecraft.gameRenderer.getMainCamera().getPosition();
-        Quaternionf rotation = new Quaternionf(minecraft.gameRenderer.getMainCamera().rotation());
-        rotation.invert();
-        poseStack.mulPose(rotation);
-        poseStack.translate(-projectedView.x, -projectedView.y, -projectedView.z);
+        for (OverlayRenderer renderer : this.overlayHandlers.entrySet().stream()
+                                                            .filter(entry -> entry.getKey().isInWorld(minecraft.world))
+                                                            .map(Entry::getValue)
+                                                            .toList()) {
+            GlStateManager.depthFunc(GL11.GL_GREATER);
+            renderer.renderOccludedLines();
 
-        for (var handler : overlayHandlers.entrySet().stream()
-                .filter(e -> e.getKey().getLevel() == minecraft.level).map(Entry::getValue)
-                .toList()) {
-            handler.render(poseStack, buffer);
+            GlStateManager.depthFunc(GL11.GL_LEQUAL);
+            renderer.renderFaces();
+            renderer.renderVisibleLines();
         }
 
-        poseStack.popPose();
-
-        buffer.endBatch(OverlayRenderType.getBlockHilightLineOccluded());
-        buffer.endBatch(OverlayRenderType.getBlockHilightFace());
-        buffer.endBatch(OverlayRenderType.getBlockHilightLine());
+        GlStateManager.depthFunc(GL11.GL_LEQUAL);
+        GlStateManager.depthMask(true);
+        GlStateManager.enableCull();
+        GlStateManager.disableBlend();
+        GlStateManager.enableLighting();
+        GlStateManager.enableTexture2D();
+        GlStateManager.popMatrix();
     }
 
-    public OverlayRenderer showArea(IOverlayDataSource source) {
+    public void showArea(IOverlayDataSource source) {
         Objects.requireNonNull(source);
 
         OverlayRenderer handler = new OverlayRenderer(source);
-        overlayHandlers.put(source.getOverlaySourceLocation(), handler);
-        return handler;
+        this.overlayHandlers.put(source.getOverlaySourceLocation(), handler);
     }
 
+    @SuppressWarnings("unused")
     public boolean isShowing(IOverlayDataSource source) {
-        return overlayHandlers.containsKey(source.getOverlaySourceLocation());
+        return this.overlayHandlers.containsKey(source.getOverlaySourceLocation());
     }
 
     public void removeHandlers(IOverlayDataSource source) {
-        overlayHandlers.remove(source.getOverlaySourceLocation());
+        this.overlayHandlers.remove(source.getOverlaySourceLocation());
     }
 }

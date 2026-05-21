@@ -1,0 +1,25 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "bcb",
+    "aba"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "dustFluix"
+    },
+    "b": {
+      "item": "ae2:fluix_crystal"
+    },
+    "c": {
+      "type": "forge:ore_dict",
+      "ore": "enderPearl"
+    }
+  },
+  "result": {
+    "item": "ae2:fluix_pearl",
+    "count": 1
+  }
+}

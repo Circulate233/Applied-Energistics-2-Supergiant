@@ -18,12 +18,6 @@
 
 package appeng.me.cells;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
@@ -31,17 +25,18 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.StorageCell;
 import appeng.items.contents.CellConfig;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
 
-class CreativeCellInventory implements StorageCell {
-    private final Set<AEKey> configured;
+public class CreativeCellInventory implements StorageCell {
+    private final ObjectSet<AEKey> configured;
     private final ItemStack stack;
 
-    protected CreativeCellInventory(ItemStack o) {
-        this.configured = new HashSet<>();
-        this.stack = o;
-
-        var cc = CellConfig.create(o);
-        configured.addAll(cc.keySet());
+    protected CreativeCellInventory(ItemStack stack) {
+        this.stack = stack;
+        this.configured = new ObjectOpenHashSet<>(CellConfig.create(stack).keySet());
     }
 
     @Override
@@ -73,7 +68,7 @@ class CreativeCellInventory implements StorageCell {
 
     @Override
     public double getIdleDrain() {
-        return 0;
+        return 0.0d;
     }
 
     @Override
@@ -82,8 +77,8 @@ class CreativeCellInventory implements StorageCell {
     }
 
     @Override
-    public Component getDescription() {
-        return stack.getHoverName();
+    public ITextComponent getDescription() {
+        return stack.getTextComponent();
     }
 
     @Override

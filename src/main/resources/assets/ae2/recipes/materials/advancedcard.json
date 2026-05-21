@@ -1,0 +1,29 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "ab ",
+    "cdb",
+    "ab "
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "gemDiamond"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "c": {
+      "type": "forge:ore_dict",
+      "ore": "dustRedstone"
+    },
+    "d": {
+      "item": "ae2:calculation_processor"
+    }
+  },
+  "result": {
+    "item": "ae2:advanced_card",
+    "count": 2
+  }
+}

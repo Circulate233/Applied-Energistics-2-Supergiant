@@ -18,65 +18,44 @@
 
 package appeng.block.qnb;
 
+import appeng.client.render.DelegateBakedModel;
+import appeng.client.render.cablebus.CubeBuilder;
+import appeng.core.AppEng;
+import appeng.core.definitions.AEBlocks;
+import com.google.common.collect.ImmutableList;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.MinecraftForgeClient;
+import net.minecraftforge.common.property.IExtendedBlockState;
+
+import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
-import com.google.common.collect.ImmutableList;
+class QnbFormedBakedModel extends DelegateBakedModel {
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.ChunkRenderTypeSet;
-import net.neoforged.neoforge.client.model.IDynamicBakedModel;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
-import appeng.blockentity.qnb.QuantumBridgeBlockEntity;
-import appeng.client.render.cablebus.CubeBuilder;
-import appeng.core.AppEng;
-import appeng.core.definitions.AEBlocks;
-
-class QnbFormedBakedModel implements IDynamicBakedModel {
-    private static final ChunkRenderTypeSet RENDER_TYPES = ChunkRenderTypeSet.of(RenderType.CUTOUT);
-    private static final Material TEXTURE_LINK = new Material(TextureAtlas.LOCATION_BLOCKS,
-            AppEng.makeId("block/quantum_link"));
-    private static final Material TEXTURE_RING = new Material(TextureAtlas.LOCATION_BLOCKS,
-            AppEng.makeId("block/quantum_ring"));
-    private static final Material TEXTURE_RING_LIGHT = new Material(TextureAtlas.LOCATION_BLOCKS,
-            AppEng.makeId("block/quantum_ring_light"));
-    private static final Material TEXTURE_RING_LIGHT_CORNER = new Material(
-            TextureAtlas.LOCATION_BLOCKS,
-            AppEng.makeId("block/quantum_ring_light_corner"));
-    private static final Material TEXTURE_CABLE_GLASS = new Material(TextureAtlas.LOCATION_BLOCKS,
-            AppEng.makeId("part/cable/glass/transparent"));
-    private static final Material TEXTURE_COVERED_CABLE = new Material(TextureAtlas.LOCATION_BLOCKS,
-            AppEng.makeId("part/cable/covered/transparent"));
+    private static final ResourceLocation TEXTURE_LINK = AppEng.makeId("block/quantum_link");
+    private static final ResourceLocation TEXTURE_RING = AppEng.makeId("block/quantum_ring");
+    private static final ResourceLocation TEXTURE_RING_LIGHT = AppEng.makeId("block/quantum_ring_light");
+    private static final ResourceLocation TEXTURE_RING_LIGHT_CORNER = AppEng.makeId("block/quantum_ring_light_corner");
+    private static final ResourceLocation TEXTURE_CABLE_GLASS = AppEng.makeId("part/cable/glass/transparent");
+    private static final ResourceLocation TEXTURE_COVERED_CABLE = AppEng.makeId("part/cable/covered/transparent");
 
     private static final float DEFAULT_RENDER_MIN = 2.0f;
     private static final float DEFAULT_RENDER_MAX = 14.0f;
 
-    private static final float CORNER_POWERED_RENDER_MIN = 3.9f;
-    private static final float CORNER_POWERED_RENDER_MAX = 12.1f;
-
-    private static final float CENTER_POWERED_RENDER_MIN = -0.01f;
-    private static final float CENTER_POWERED_RENDER_MAX = 16.01f;
-
-    private final BakedModel baseModel;
-
+    private final VertexFormat format;
     private final Block linkBlock;
-
     private final TextureAtlasSprite linkTexture;
     private final TextureAtlasSprite ringTexture;
     private final TextureAtlasSprite glassCableTexture;
@@ -84,95 +63,110 @@ class QnbFormedBakedModel implements IDynamicBakedModel {
     private final TextureAtlasSprite lightTexture;
     private final TextureAtlasSprite lightCornerTexture;
 
-    public QnbFormedBakedModel(BakedModel baseModel, Function<Material, TextureAtlasSprite> bakedTextureGetter) {
-        this.baseModel = baseModel;
+    QnbFormedBakedModel(IBakedModel baseModel, VertexFormat format,
+                        Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        super(baseModel);
+        this.format = format;
+        this.linkBlock = AEBlocks.QUANTUM_LINK.block();
         this.linkTexture = bakedTextureGetter.apply(TEXTURE_LINK);
         this.ringTexture = bakedTextureGetter.apply(TEXTURE_RING);
         this.glassCableTexture = bakedTextureGetter.apply(TEXTURE_CABLE_GLASS);
         this.coveredCableTexture = bakedTextureGetter.apply(TEXTURE_COVERED_CABLE);
         this.lightTexture = bakedTextureGetter.apply(TEXTURE_RING_LIGHT);
         this.lightCornerTexture = bakedTextureGetter.apply(TEXTURE_RING_LIGHT_CORNER);
-        this.linkBlock = AEBlocks.QUANTUM_LINK.block();
+    }
+
+    @Nullable
+    private static QnbFormedState getFormedState(@Nullable IBlockState state) {
+        if (!(state instanceof IExtendedBlockState)) {
+            return null;
+        }
+
+        return ((IExtendedBlockState) state).getValue(QnbFormedState.PROPERTY);
+    }
+
+    static List<ResourceLocation> getRequiredTextures() {
+        return ImmutableList.of(
+            TEXTURE_LINK,
+            TEXTURE_RING,
+            TEXTURE_CABLE_GLASS,
+            TEXTURE_COVERED_CABLE,
+            TEXTURE_RING_LIGHT,
+            TEXTURE_RING_LIGHT_CORNER);
     }
 
     @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand,
-            ModelData modelData, RenderType renderType) {
-        QnbFormedState formedState = modelData.get(QuantumBridgeBlockEntity.FORMED_STATE);
-
-        if (formedState == null) {
-            return this.baseModel.getQuads(state, side, rand);
-        }
-
+    public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
         if (side != null) {
             return Collections.emptyList();
         }
 
-        return this.getQuads(formedState, state);
+        BlockRenderLayer layer = MinecraftForgeClient.getRenderLayer();
+        if (layer != null && layer != BlockRenderLayer.CUTOUT) {
+            return Collections.emptyList();
+        }
+
+        QnbFormedState formedState = getFormedState(state);
+        if (formedState == null || state == null) {
+            return getBaseModel().getQuads(state, side, rand);
+        }
+
+        return getQuads(formedState, state);
     }
 
-    private List<BakedQuad> getQuads(QnbFormedState formedState, BlockState state) {
-        CubeBuilder builder = new CubeBuilder();
+    private List<BakedQuad> getQuads(QnbFormedState formedState, IBlockState state) {
+        CubeBuilder builder = new CubeBuilder(this.format);
 
         if (state.getBlock() == this.linkBlock) {
-            Set<Direction> sides = formedState.getAdjacentQuantumBridges();
-
+            Set<EnumFacing> sides = formedState.adjacentQuantumBridges();
             this.renderCableAt(builder, 0.11f * 16, this.glassCableTexture, 0.141f * 16, sides);
-
             this.renderCableAt(builder, 0.188f * 16, this.coveredCableTexture, 0.1875f * 16, sides);
 
             builder.setTexture(this.linkTexture);
-            builder.addCube(DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN, DEFAULT_RENDER_MAX,
-                    DEFAULT_RENDER_MAX, DEFAULT_RENDER_MAX);
-        } else if (formedState.isCorner()) {
+            builder.addCube(DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN,
+                DEFAULT_RENDER_MAX, DEFAULT_RENDER_MAX, DEFAULT_RENDER_MAX);
+        } else if (formedState.corner()) {
             this.renderCableAt(builder, 0.188f * 16, this.coveredCableTexture, 0.05f * 16,
-                    formedState.getAdjacentQuantumBridges());
+                formedState.adjacentQuantumBridges());
 
             builder.setTexture(this.ringTexture);
-            builder.addCube(DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN, DEFAULT_RENDER_MAX,
-                    DEFAULT_RENDER_MAX, DEFAULT_RENDER_MAX);
+            builder.addCube(DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN,
+                DEFAULT_RENDER_MAX, DEFAULT_RENDER_MAX, DEFAULT_RENDER_MAX);
 
-            if (formedState.isPowered()) {
+            if (formedState.powered()) {
                 builder.setTexture(this.lightCornerTexture);
                 builder.setEmissiveMaterial(true);
-                for (Direction facing : Direction.values()) {
-                    // Offset the face by a slight amount so that it is drawn over the already drawn
-                    // ring texture
-                    // (avoids z-fighting)
-                    float xOffset = Math.abs(facing.getStepX() * 0.01f);
-                    float yOffset = Math.abs(facing.getStepY() * 0.01f);
-                    float zOffset = Math.abs(facing.getStepZ() * 0.01f);
+                for (EnumFacing facing : EnumFacing.values()) {
+                    float xOffset = Math.abs(facing.getXOffset() * 0.01f);
+                    float yOffset = Math.abs(facing.getYOffset() * 0.01f);
+                    float zOffset = Math.abs(facing.getZOffset() * 0.01f);
 
                     builder.setDrawFaces(EnumSet.of(facing));
                     builder.addCube(DEFAULT_RENDER_MIN - xOffset, DEFAULT_RENDER_MIN - yOffset,
-                            DEFAULT_RENDER_MIN - zOffset, DEFAULT_RENDER_MAX + xOffset,
-                            DEFAULT_RENDER_MAX + yOffset, DEFAULT_RENDER_MAX + zOffset);
+                        DEFAULT_RENDER_MIN - zOffset, DEFAULT_RENDER_MAX + xOffset,
+                        DEFAULT_RENDER_MAX + yOffset, DEFAULT_RENDER_MAX + zOffset);
                 }
                 builder.setEmissiveMaterial(false);
             }
         } else {
             builder.setTexture(this.ringTexture);
-
             builder.addCube(0, DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN, 16, DEFAULT_RENDER_MAX, DEFAULT_RENDER_MAX);
-
             builder.addCube(DEFAULT_RENDER_MIN, 0, DEFAULT_RENDER_MIN, DEFAULT_RENDER_MAX, 16, DEFAULT_RENDER_MAX);
-
             builder.addCube(DEFAULT_RENDER_MIN, DEFAULT_RENDER_MIN, 0, DEFAULT_RENDER_MAX, DEFAULT_RENDER_MAX, 16);
 
-            if (formedState.isPowered()) {
+            if (formedState.powered()) {
                 builder.setTexture(this.lightTexture);
                 builder.setEmissiveMaterial(true);
-                for (Direction facing : Direction.values()) {
-                    // Offset the face by a slight amount so that it is drawn over the already drawn
-                    // ring texture
-                    // (avoids z-fighting)
-                    float xOffset = Math.abs(facing.getStepX() * 0.01f);
-                    float yOffset = Math.abs(facing.getStepY() * 0.01f);
-                    float zOffset = Math.abs(facing.getStepZ() * 0.01f);
+                for (EnumFacing facing : EnumFacing.values()) {
+                    float xOffset = Math.abs(facing.getXOffset() * 0.01f);
+                    float yOffset = Math.abs(facing.getYOffset() * 0.01f);
+                    float zOffset = Math.abs(facing.getZOffset() * 0.01f);
 
                     builder.setDrawFaces(EnumSet.of(facing));
-                    builder.addCube(-xOffset, -yOffset, -zOffset, 16 + xOffset, 16 + yOffset, 16 + zOffset);
+                    builder.addCube(-xOffset, -yOffset, -zOffset,
+                        16 + xOffset, 16 + yOffset, 16 + zOffset);
                 }
+                builder.setEmissiveMaterial(false);
             }
         }
 
@@ -180,71 +174,31 @@ class QnbFormedBakedModel implements IDynamicBakedModel {
     }
 
     private void renderCableAt(CubeBuilder builder, float thickness, TextureAtlasSprite texture, float pull,
-            Set<Direction> connections) {
+                               Set<EnumFacing> connections) {
         builder.setTexture(texture);
 
-        if (connections.contains(Direction.WEST)) {
+        if (connections.contains(EnumFacing.WEST)) {
             builder.addCube(0, 8 - thickness, 8 - thickness, 8 - thickness - pull, 8 + thickness, 8 + thickness);
         }
 
-        if (connections.contains(Direction.EAST)) {
+        if (connections.contains(EnumFacing.EAST)) {
             builder.addCube(8 + thickness + pull, 8 - thickness, 8 - thickness, 16, 8 + thickness, 8 + thickness);
         }
 
-        if (connections.contains(Direction.NORTH)) {
+        if (connections.contains(EnumFacing.NORTH)) {
             builder.addCube(8 - thickness, 8 - thickness, 0, 8 + thickness, 8 + thickness, 8 - thickness - pull);
         }
 
-        if (connections.contains(Direction.SOUTH)) {
+        if (connections.contains(EnumFacing.SOUTH)) {
             builder.addCube(8 - thickness, 8 - thickness, 8 + thickness + pull, 8 + thickness, 8 + thickness, 16);
         }
 
-        if (connections.contains(Direction.DOWN)) {
+        if (connections.contains(EnumFacing.DOWN)) {
             builder.addCube(8 - thickness, 0, 8 - thickness, 8 + thickness, 8 - thickness - pull, 8 + thickness);
         }
 
-        if (connections.contains(Direction.UP)) {
+        if (connections.contains(EnumFacing.UP)) {
             builder.addCube(8 - thickness, 8 + thickness + pull, 8 - thickness, 8 + thickness, 16, 8 + thickness);
         }
-    }
-
-    @Override
-    public boolean useAmbientOcclusion() {
-        return this.baseModel.useAmbientOcclusion();
-    }
-
-    @Override
-    public boolean isGui3d() {
-        return true;
-    }
-
-    @Override
-    public boolean usesBlockLight() {
-        return false;
-    }
-
-    @Override
-    public boolean isCustomRenderer() {
-        return false;
-    }
-
-    @Override
-    public TextureAtlasSprite getParticleIcon() {
-        return this.baseModel.getParticleIcon();
-    }
-
-    @Override
-    public ItemOverrides getOverrides() {
-        return this.baseModel.getOverrides();
-    }
-
-    public static List<Material> getRequiredTextures() {
-        return ImmutableList.of(TEXTURE_LINK, TEXTURE_RING, TEXTURE_CABLE_GLASS, TEXTURE_COVERED_CABLE,
-                TEXTURE_RING_LIGHT, TEXTURE_RING_LIGHT_CORNER);
-    }
-
-    @Override
-    public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
-        return RENDER_TYPES;
     }
 }

@@ -23,14 +23,8 @@ import appeng.api.networking.pathing.ChannelMode;
 import appeng.api.parts.IPart;
 import appeng.me.GridNode;
 
-/**
- * Extended part that provides info about channel capacity and usage to probes like HWYLA and TheOneProbe.
- */
 public interface IUsedChannelProvider extends IPart {
 
-    /**
-     * @return The number of channels carried on this cable. Purely for informational purposes.
-     */
     default int getUsedChannelsInfo() {
         int howMany = 0;
         IGridNode node = this.getGridNode();
@@ -42,10 +36,6 @@ public interface IUsedChannelProvider extends IPart {
         return howMany;
     }
 
-    /**
-     * @return The number of channels that can be carried at most. Purely for informational purposes. -1 indicates there
-     *         is no limit to the number of carried channels.
-     */
     default int getMaxChannelsInfo() {
         var node = this.getGridNode();
         if (node instanceof GridNode gridNode) {
@@ -56,5 +46,4 @@ public interface IUsedChannelProvider extends IPart {
         }
         return 0;
     }
-
 }

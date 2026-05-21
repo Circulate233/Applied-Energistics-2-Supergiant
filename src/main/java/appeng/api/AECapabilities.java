@@ -18,38 +18,26 @@
 
 package appeng.api;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-import net.neoforged.neoforge.capabilities.BlockCapability;
-
 import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.implementations.blockentities.ICrankable;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.storage.MEStorage;
-import appeng.core.AppEng;
+import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.common.capabilities.CapabilityInject;
 
-/**
- * Utility class that holds the capabilities provided by AE2.
- */
 public final class AECapabilities {
+    @CapabilityInject(MEStorage.class)
+    public static final Capability<MEStorage> ME_STORAGE = null;
+    @CapabilityInject(ICraftingMachine.class)
+    public static final Capability<ICraftingMachine> CRAFTING_MACHINE = null;
+    @CapabilityInject(GenericInternalInventory.class)
+    public static final Capability<GenericInternalInventory> GENERIC_INTERNAL_INV = null;
+    @CapabilityInject(ICrankable.class)
+    public static final Capability<ICrankable> CRANKABLE = null;
+    @CapabilityInject(IInWorldGridNodeHost.class)
+    public static Capability<IInWorldGridNodeHost> IN_WORLD_GRID_NODE_HOST = null;
+
     private AECapabilities() {
     }
-
-    public static BlockCapability<MEStorage, @Nullable Direction> ME_STORAGE = BlockCapability
-            .createSided(AppEng.makeId("me_storage"), MEStorage.class);
-
-    public static BlockCapability<ICraftingMachine, @Nullable Direction> CRAFTING_MACHINE = BlockCapability
-            .createSided(AppEng.makeId("crafting_machine"), ICraftingMachine.class);
-
-    public static BlockCapability<GenericInternalInventory, @Nullable Direction> GENERIC_INTERNAL_INV = BlockCapability
-            .createSided(AppEng.makeId("generic_internal_inv"), GenericInternalInventory.class);
-
-    public static BlockCapability<IInWorldGridNodeHost, Void> IN_WORLD_GRID_NODE_HOST = BlockCapability
-            .createVoid(AppEng.makeId("inworld_gridnode_host"), IInWorldGridNodeHost.class);
-
-    public static BlockCapability<ICrankable, @Nullable Direction> CRANKABLE = BlockCapability
-            .createSided(AppEng.makeId("crankable"), ICrankable.class);
-
 }

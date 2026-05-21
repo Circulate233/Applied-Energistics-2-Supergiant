@@ -18,31 +18,25 @@
 
 package appeng.client.render;
 
-import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Helper to get a specific baked model class out of a chain of delegating baked models.
  */
 public final class BakedModelUnwrapper {
-
     private BakedModelUnwrapper() {
     }
 
-    public static <T> T unwrap(BakedModel model, Class<T> targetClass) {
+    public static <T> @Nullable T unwrap(IBakedModel model, Class<T> targetClass) {
         if (targetClass.isInstance(model)) {
             return targetClass.cast(model);
         }
 
         if (model instanceof DelegateBakedModel) {
-            model = ((DelegateBakedModel) model).getBaseModel();
-            if (targetClass.isInstance(model)) {
-                return targetClass.cast(model);
-            } else {
-                return unwrap(model, targetClass);
-            }
+            return unwrap(((DelegateBakedModel) model).getBaseModel(), targetClass);
         }
 
         return null;
     }
-
 }

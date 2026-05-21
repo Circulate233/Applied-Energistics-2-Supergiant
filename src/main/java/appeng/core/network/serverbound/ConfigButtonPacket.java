@@ -1,62 +1,73 @@
-
 package appeng.core.network.serverbound;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
 
 import appeng.api.config.Setting;
 import appeng.api.config.Settings;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
+import appeng.container.AEBaseContainer;
 import appeng.core.AELog;
-import appeng.core.network.CustomAppEngPayload;
 import appeng.core.network.ServerboundPacket;
-import appeng.menu.AEBaseMenu;
 import appeng.util.EnumCycler;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 
-public record ConfigButtonPacket(Setting<?> option, boolean rotationDirection) implements ServerboundPacket {
+public class ConfigButtonPacket extends ServerboundPacket {
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, ConfigButtonPacket> STREAM_CODEC = StreamCodec.ofMember(
-            ConfigButtonPacket::write,
-            ConfigButtonPacket::decode);
+    private Setting<?> option;
+    private String optionName;
+    private boolean rotationDirection;
 
-    public static final Type<ConfigButtonPacket> TYPE = CustomAppEngPayload.createType("config_button");
-
-    @Override
-    public Type<ConfigButtonPacket> type() {
-        return TYPE;
+    public ConfigButtonPacket() {
     }
 
-    public static ConfigButtonPacket decode(RegistryFriendlyByteBuf stream) {
-        var option = Settings.getOrThrow(stream.readUtf());
-        var rotationDirection = stream.readBoolean();
-        return new ConfigButtonPacket(option, rotationDirection);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeUtf(option.getName());
-        data.writeBoolean(rotationDirection);
+    public ConfigButtonPacket(Setting<?> option, boolean rotationDirection) {
+        this.option = option;
+        this.optionName = option.getName();
+        this.rotationDirection = rotationDirection;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (player.containerMenu instanceof AEBaseMenu baseMenu) {
-            if (baseMenu.getTarget() instanceof IConfigurableObject configurableObject) {
-                var cm = configurableObject.getConfigManager();
-                if (cm.hasSetting(option)) {
-                    cycleSetting(cm, option);
-                } else {
-                    AELog.info("Ignoring unsupported setting %s sent by client on %s", option,
-                            baseMenu.getTarget());
-                }
+    protected void read(ByteBuf buf) {
+        this.optionName = ByteBufUtils.readUTF8String(buf);
+        this.option = Settings.getOrThrow(this.optionName);
+        this.rotationDirection = buf.readBoolean();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        ByteBufUtils.writeUTF8String(buf, getOptionName());
+        buf.writeBoolean(this.rotationDirection);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if (this.option == null || !(player.openContainer instanceof AEBaseContainer baseContainer)) {
+            return;
+        }
+
+        var target = baseContainer.getTarget();
+        if (target instanceof IConfigurableObject configurableObject) {
+            IConfigManager configManager = configurableObject.getConfigManager();
+            if (configManager.hasSetting(this.option)) {
+                cycleSetting(configManager, this.option);
+            } else {
+                AELog.info("Ignoring unsupported setting %s sent by client on %s", this.option, target);
             }
         }
     }
 
-    private <T extends Enum<T>> void cycleSetting(IConfigManager cm, Setting<T> setting) {
-        var currentValue = cm.getSetting(setting);
-        var nextValue = EnumCycler.rotateEnum(currentValue, rotationDirection, setting.getValues());
-        cm.putSetting(setting, nextValue);
+    private String getOptionName() {
+        if (this.optionName != null) {
+            return this.optionName;
+        }
+        return this.option.getName();
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void cycleSetting(IConfigManager configManager, Setting setting) {
+        Enum currentValue = configManager.getSetting(setting);
+        Enum nextValue = EnumCycler.rotateEnum(currentValue, this.rotationDirection, setting.getValues());
+        configManager.putSetting(setting, nextValue);
     }
 }

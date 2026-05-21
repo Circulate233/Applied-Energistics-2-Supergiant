@@ -1,32 +1,13 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.crafting;
-
-import java.util.UUID;
-
-import net.minecraft.nbt.CompoundTag;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.crafting.ICraftingCPU;
 import appeng.api.networking.crafting.ICraftingLink;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.stacks.AEKey;
+import net.minecraft.nbt.NBTTagCompound;
+
+import java.util.UUID;
 
 public class CraftingLink implements ICraftingLink {
 
@@ -38,13 +19,13 @@ public class CraftingLink implements ICraftingLink {
     private boolean done = false;
     private CraftingLinkNexus tie;
 
-    public CraftingLink(CompoundTag data, ICraftingRequester req) {
-        this.craftId = data.getUUID("craftId");
+    public CraftingLink(NBTTagCompound data, ICraftingRequester req) {
+        this.craftId = data.getUniqueId("craftId");
         this.setCanceled(data.getBoolean("canceled"));
         this.setDone(data.getBoolean("done"));
         this.standalone = data.getBoolean("standalone");
 
-        if (!data.contains("req") || !data.getBoolean("req")) {
+        if (!data.hasKey("req") || !data.getBoolean("req")) {
             throw new IllegalStateException("Invalid Crafting Link for Object");
         }
 
@@ -52,13 +33,13 @@ public class CraftingLink implements ICraftingLink {
         this.cpu = null;
     }
 
-    public CraftingLink(CompoundTag data, ICraftingCPU cpu) {
-        this.craftId = data.getUUID("craftId");
+    public CraftingLink(NBTTagCompound data, ICraftingCPU cpu) {
+        this.craftId = data.getUniqueId("craftId");
         this.setCanceled(data.getBoolean("canceled"));
         this.setDone(data.getBoolean("done"));
         this.standalone = data.getBoolean("standalone");
 
-        if (!data.contains("req") || data.getBoolean("req")) {
+        if (!data.hasKey("req") || data.getBoolean("req")) {
             throw new IllegalStateException("Invalid Crafting Link for Object");
         }
 
@@ -72,15 +53,15 @@ public class CraftingLink implements ICraftingLink {
             return true;
         }
 
-        if (this.done) {
-            return false;
-        }
-
-        if (this.tie == null) {
+        if (this.done || this.tie == null) {
             return false;
         }
 
         return this.tie.isCanceled();
+    }
+
+    void setCanceled(boolean canceled) {
+        this.canceled = canceled;
     }
 
     @Override
@@ -89,15 +70,15 @@ public class CraftingLink implements ICraftingLink {
             return true;
         }
 
-        if (this.canceled) {
-            return false;
-        }
-
-        if (this.tie == null) {
+        if (this.canceled || this.tie == null) {
             return false;
         }
 
         return this.tie.isDone();
+    }
+
+    void setDone(boolean done) {
+        this.done = done;
     }
 
     @Override
@@ -121,12 +102,12 @@ public class CraftingLink implements ICraftingLink {
     }
 
     @Override
-    public void writeToNBT(CompoundTag tag) {
-        tag.putUUID("craftId", this.craftId);
-        tag.putBoolean("canceled", this.isCanceled());
-        tag.putBoolean("done", this.isDone());
-        tag.putBoolean("standalone", this.standalone);
-        tag.putBoolean("req", this.getRequester() != null);
+    public void writeToNBT(NBTTagCompound tag) {
+        tag.setUniqueId("craftId", this.craftId);
+        tag.setBoolean("canceled", this.isCanceled());
+        tag.setBoolean("done", this.isDone());
+        tag.setBoolean("standalone", this.standalone);
+        tag.setBoolean("req", this.getRequester() != null);
     }
 
     @Override
@@ -134,21 +115,21 @@ public class CraftingLink implements ICraftingLink {
         return this.craftId;
     }
 
-    public void setNexus(CraftingLinkNexus n) {
+    public void setNexus(CraftingLinkNexus nexus) {
         if (this.tie != null) {
             this.tie.remove(this);
         }
 
-        if (this.isCanceled() && n != null) {
-            n.cancel();
+        if (this.isCanceled() && nexus != null) {
+            nexus.cancel();
             this.tie = null;
             return;
         }
 
-        this.tie = n;
+        this.tie = nexus;
 
-        if (n != null) {
-            n.add(this);
+        if (nexus != null) {
+            nexus.add(this);
         }
     }
 
@@ -157,8 +138,7 @@ public class CraftingLink implements ICraftingLink {
             return 0;
         }
 
-        // The job was canceled. Don't insert more items. See issue #5919
-        if (tie.isCanceled()) {
+        if (this.tie.isCanceled()) {
             return 0;
         }
 
@@ -171,19 +151,11 @@ public class CraftingLink implements ICraftingLink {
         }
     }
 
-    void setCanceled(boolean canceled) {
-        this.canceled = canceled;
-    }
-
     ICraftingRequester getRequester() {
         return this.req;
     }
 
     ICraftingCPU getCpu() {
         return this.cpu;
-    }
-
-    void setDone(boolean done) {
-        this.done = done;
     }
 }

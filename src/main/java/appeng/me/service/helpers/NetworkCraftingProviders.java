@@ -1,21 +1,5 @@
 package appeng.me.service.helpers;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-
-import com.google.common.collect.Iterators;
-
-import org.jetbrains.annotations.Nullable;
-
 import appeng.api.config.FuzzyMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGridNode;
@@ -24,6 +8,26 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.AEKeyFilter;
 import appeng.hooks.ticking.TickHandler;
+import com.google.common.collect.Iterators;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * Keeps track of the crafting patterns in the network, and related information.
@@ -32,23 +36,27 @@ public class NetworkCraftingProviders {
     /**
      * Tracks the provider state for each grid node that provides auto-crafting to the network.
      */
-    private final Map<IGridNode, ProviderState> craftingProviders = new HashMap<>();
+    private final Reference2ObjectMap<IGridNode, ProviderState> craftingProviders = new Reference2ObjectOpenHashMap<>();
     /**
      * Tracks state for crafting providers that may be provided without a grid node, such as by other grid services.
      */
-    private final List<ProviderState> globalProviders = new ArrayList<>();
-    private final Map<IPatternDetails, CraftingProviderList> craftingMethods = new HashMap<>();
-    private final Map<AEKey, PatternsForKey> craftableItems = new HashMap<>();
+    private final ObjectList<ProviderState> globalProviders = new ObjectArrayList<>();
+    private final Object2ObjectMap<IPatternDetails, CraftingProviderList> craftingMethods = new Object2ObjectOpenHashMap<>();
+    private final Object2ObjectMap<AEKey, PatternsForKey> craftableItems = new Object2ObjectOpenHashMap<>();
     /**
      * Used for looking up craftable alternatives using fuzzy search (i.e. ignore NBT).
      */
     private final KeyCounter craftableItemsList = new KeyCounter();
-    private final Map<AEKey, Integer> emitableItems = new HashMap<>();
+    private final Object2IntOpenHashMap<AEKey> emitableItems = new Object2IntOpenHashMap<>();
 
     private final Set<AEKey> craftableKeys = Collections.unmodifiableSet(craftableItems.keySet());
     private final Set<AEKey> emittableKeys = Collections.unmodifiableSet(emitableItems.keySet());
 
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+
+    public NetworkCraftingProviders() {
+        this.emitableItems.defaultReturnValue(0);
+    }
 
     public void addProvider(IGridNode node) {
         var provider = node.getService(ICraftingProvider.class);
@@ -100,7 +108,7 @@ public class NetworkCraftingProviders {
     }
 
     public Set<AEKey> getCraftables(AEKeyFilter filter) {
-        var result = new HashSet<AEKey>();
+        var result = new ObjectOpenHashSet<AEKey>();
 
         // add craftable items!
         for (var stack : this.craftableItems.keySet()) {
@@ -153,8 +161,19 @@ public class NetworkCraftingProviders {
         return Objects.requireNonNullElse(mediumList, Collections.emptyList());
     }
 
+    private void setLastModifiedOnTick() {
+        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+    }
+
+    /**
+     * @see TickHandler#getCurrentTick()
+     */
+    public long getLastModifiedOnTick() {
+        return lastModifiedOnTick;
+    }
+
     private static class CraftingProviderList implements Iterable<ICraftingProvider> {
-        private final List<ICraftingProvider> providers = new ArrayList<>();
+        private final ObjectList<ICraftingProvider> providers = new ObjectArrayList<>();
         /**
          * Cycling iterator for round-robin. Has to be refreshed after every addition or removal to providers to prevent
          * CMEs.
@@ -172,6 +191,7 @@ public class NetworkCraftingProviders {
         }
 
         @Override
+        @NotNull
         public Iterator<ICraftingProvider> iterator() {
             return Iterators.limit(cycleIterator, providers.size());
         }
@@ -179,14 +199,14 @@ public class NetworkCraftingProviders {
 
     private static class ProviderState {
         private final ICraftingProvider provider;
-        private final Set<AEKey> emitableItems;
-        private final List<IPatternDetails> patterns;
+        private final ObjectSet<AEKey> emitableItems;
+        private final ObjectList<IPatternDetails> patterns;
         private final int priority;
 
         private ProviderState(ICraftingProvider provider) {
             this.provider = provider;
-            this.emitableItems = new HashSet<>(provider.getEmitableItems());
-            this.patterns = new ArrayList<>(provider.getAvailablePatterns());
+            this.emitableItems = new ObjectOpenHashSet<>(provider.getEmitableItems());
+            this.patterns = new ObjectArrayList<>(provider.getAvailablePatterns());
             this.priority = provider.getPatternPriority();
         }
 
@@ -201,31 +221,31 @@ public class NetworkCraftingProviders {
                 methods.craftableItemsList.add(primaryOutput.what(), 1);
 
                 var patternsForKey = methods.craftableItems.computeIfAbsent(primaryOutput.what(),
-                        k -> new PatternsForKey());
+                    ignored -> new PatternsForKey());
                 patternsForKey.patterns.add(new PatternInfo(pattern, this));
                 patternsForKey.needsSorting = true;
 
                 // pattern -> method (for execution)
-                methods.craftingMethods.computeIfAbsent(pattern, d -> new CraftingProviderList()).add(provider);
+                methods.craftingMethods.computeIfAbsent(pattern, ignored -> new CraftingProviderList()).add(provider);
             }
         }
 
         private void unmount(NetworkCraftingProviders methods) {
             for (var emitable : emitableItems) {
-                methods.emitableItems.compute(emitable, (key, cnt) -> cnt == 1 ? null : cnt - 1);
+                methods.emitableItems.compute(emitable, (ignored, cnt) -> cnt == null || cnt <= 1 ? null : cnt - 1);
             }
             for (var pattern : patterns) {
                 var primaryOutput = pattern.getPrimaryOutput();
 
                 methods.craftableItemsList.remove(primaryOutput.what(), 1);
 
-                methods.craftableItems.computeIfPresent(primaryOutput.what(), (key, patternsForKey) -> {
+                methods.craftableItems.computeIfPresent(primaryOutput.what(), (ignored, patternsForKey) -> {
                     patternsForKey.patterns.remove(new PatternInfo(pattern, this));
                     patternsForKey.needsSorting = true;
                     return patternsForKey.patterns.isEmpty() ? null : patternsForKey;
                 });
 
-                methods.craftingMethods.computeIfPresent(pattern, (pat, list) -> {
+                methods.craftingMethods.computeIfPresent(pattern, (ignored, list) -> {
                     list.remove(provider);
                     return list.providers.isEmpty() ? null : list;
                 });
@@ -234,16 +254,16 @@ public class NetworkCraftingProviders {
     }
 
     private static class PatternsForKey {
-        private final Set<PatternInfo> patterns = new HashSet<>();
+        private final ObjectSet<PatternInfo> patterns = new ObjectOpenHashSet<>();
         private List<IPatternDetails> sortedPatterns = Collections.emptyList();
         private boolean needsSorting = false;
 
         private void sortPatterns() {
             sortedPatterns = patterns.stream()
-                    .sorted(Comparator.comparingInt((PatternInfo pi) -> pi.state.priority).reversed())
-                    .map(PatternInfo::pattern)
-                    .distinct()
-                    .toList();
+                                     .sorted(Comparator.comparingInt((PatternInfo pi) -> pi.state().priority).reversed())
+                                     .map(PatternInfo::pattern)
+                                     .distinct()
+                                     .toList();
         }
 
         private List<IPatternDetails> getSortedPatterns() {
@@ -255,16 +275,5 @@ public class NetworkCraftingProviders {
     }
 
     private record PatternInfo(IPatternDetails pattern, ProviderState state) {
-    }
-
-    private void setLastModifiedOnTick() {
-        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
-    }
-
-    /**
-     * @see TickHandler#getCurrentTick()
-     */
-    public long getLastModifiedOnTick() {
-        return lastModifiedOnTick;
     }
 }

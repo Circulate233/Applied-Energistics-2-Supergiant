@@ -23,16 +23,14 @@
 
 package appeng.api.parts;
 
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.EnumFacing;
 import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
 
 /**
  * Used Internally.
- *
+ * <p>
  * not intended for implementation.
  */
 public interface IFacadeContainer {
@@ -54,45 +52,42 @@ public interface IFacadeContainer {
     /**
      * Removed the facade on the given side, or does nothing.
      */
-    void removeFacade(IPartHost host, Direction side);
+    void removeFacade(IPartHost host, EnumFacing side);
 
     /**
      * @return the {@link IFacadePart} for a given side, or null.
      */
     @Nullable
-    IFacadePart getFacade(Direction s);
+    IFacadePart getFacade(EnumFacing s);
 
     /**
      * write nbt data
      *
-     * @param data       to be written data
-     * @param registries
+     * @param data to be written data
      */
-    void writeToNBT(CompoundTag data, HolderLookup.Provider registries);
+    void writeToNBT(NBTTagCompound data);
 
     /**
      * read from stream
      *
      * @param data to be read data
-     *
      * @return true if it was readable
      */
-    boolean readFromStream(RegistryFriendlyByteBuf data);
+    boolean readFromStream(PacketBuffer data);
 
     /**
      * read from NBT
      *
-     * @param data       to be read data
-     * @param registries
+     * @param data to be read data
      */
-    void readFromNBT(CompoundTag data, HolderLookup.Provider registries);
+    void readFromNBT(NBTTagCompound data);
 
     /**
      * write to stream
      *
      * @param data to be written data
      */
-    void writeToStream(RegistryFriendlyByteBuf data);
+    void writeToStream(PacketBuffer data);
 
     /**
      * @return true if there are no facades.

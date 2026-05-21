@@ -1,0 +1,28 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:64k_crafting_storage"
+    },
+    "title": {
+      "translate": "achievement.ae2.CraftingCPU"
+    },
+    "description": {
+      "translate": "achievement.ae2.CraftingCPU.desc"
+    },
+    "show_toast": false,
+    "announce_to_chat": false
+  },
+  "parent": "ae2:main/pattern_encoding_terminal",
+  "criteria": {
+    "cu": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:crafting_unit"
+          }
+        ]
+      }
+    }
+  }
+}

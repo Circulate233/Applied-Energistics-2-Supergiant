@@ -23,9 +23,9 @@
 
 package appeng.api.inventories;
 
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.IItemHandlerModifiable;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandlerModifiable;
 
 /**
  * Wraps an inventory implementing the platforms standard inventory interface (i.e. IItemHandler on Forge) such that it

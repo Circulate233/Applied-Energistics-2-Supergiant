@@ -1,24 +1,16 @@
 package appeng.recipes.game;
 
-import com.mojang.serialization.MapCodec;
+import appeng.recipes.AERecipeTypes;
+import appeng.recipes.IAERecipeFactory;
+import appeng.recipes.serializers.JsonRecipeUtils;
+import com.google.gson.JsonObject;
+import net.minecraftforge.common.crafting.JsonContext;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.item.crafting.RecipeSerializer;
-
-public class CraftingUnitTransformRecipeSerializer implements RecipeSerializer<CraftingUnitTransformRecipe> {
-    public static final CraftingUnitTransformRecipeSerializer INSTANCE = new CraftingUnitTransformRecipeSerializer();
-
-    private CraftingUnitTransformRecipeSerializer() {
-    }
-
+public class CraftingUnitTransformRecipeSerializer implements IAERecipeFactory {
     @Override
-    public MapCodec<CraftingUnitTransformRecipe> codec() {
-        return CraftingUnitTransformRecipe.CODEC;
-    }
-
-    @Override
-    public StreamCodec<RegistryFriendlyByteBuf, CraftingUnitTransformRecipe> streamCodec() {
-        return CraftingUnitTransformRecipe.STREAM_CODEC;
+    public void register(JsonObject json, JsonContext ctx) {
+        AERecipeTypes.CRAFTING_UNIT_TRANSFORM.register(new CraftingUnitTransformRecipe(
+            JsonRecipeUtils.readBlock(json, "upgraded_block"),
+            JsonRecipeUtils.readItem(json, "upgrade_item")));
     }
 }

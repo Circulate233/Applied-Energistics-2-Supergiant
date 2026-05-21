@@ -18,29 +18,35 @@
 
 package appeng.client.render.cablebus;
 
+import appeng.core.AppEng;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModel;
+import net.minecraftforge.common.model.IModelState;
+import org.jspecify.annotations.NonNull;
+
+import java.util.Collection;
+import java.util.Collections;
 import java.util.function.Function;
 
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelState;
+public class P2PTunnelFrequencyModel implements IModel {
+    private static final ResourceLocation TEXTURE = AppEng.makeId("part/p2p_tunnel_frequency");
 
-import appeng.client.render.BasicUnbakedModel;
-import appeng.core.AppEng;
-
-public class P2PTunnelFrequencyModel implements BasicUnbakedModel {
-
-    private static final Material TEXTURE = new Material(TextureAtlas.LOCATION_BLOCKS,
-            AppEng.makeId("part/p2p_tunnel_frequency"));
-
-    @org.jetbrains.annotations.Nullable
     @Override
-    public BakedModel bake(ModelBaker baker, Function<Material, TextureAtlasSprite> textureGetter,
-            ModelState modelState) {
-        final TextureAtlasSprite texture = textureGetter.apply(TEXTURE);
-        return new P2PTunnelFrequencyBakedModel(texture);
+    public Collection<ResourceLocation> getTextures() {
+        return Collections.singletonList(TEXTURE);
     }
 
+    @Override
+    public IBakedModel bake(@NonNull IModelState state, @NonNull VertexFormat format,
+                            @NonNull Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        try {
+            TextureAtlasSprite texture = bakedTextureGetter.apply(TEXTURE);
+            return new P2PTunnelFrequencyBakedModel(format, texture);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

@@ -23,19 +23,18 @@
 
 package appeng.api.parts;
 
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.ApiStatus;
-
-import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Used Internally.
- *
+ * <p>
  * not intended for implementation.
  */
 @ApiStatus.NonExtendable
@@ -58,7 +57,7 @@ public interface IFacadePart {
      * @return The side the facade is attached to.
      */
 
-    Direction getSide();
+    EnumFacing getSide();
 
     Item getItem();
 
@@ -70,9 +69,9 @@ public interface IFacadePart {
     /**
      * @return The block state used for rendering.
      */
-    BlockState getBlockState();
+    IBlockState getBlockState();
 
-    boolean onUseItemOn(ItemStack heldItem, Player player, InteractionHand hand, Vec3 pos);
+    boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos);
 
-    boolean onClicked(Player player, Vec3 pos);
+    boolean onClicked(EntityPlayer player, Vec3d pos);
 }

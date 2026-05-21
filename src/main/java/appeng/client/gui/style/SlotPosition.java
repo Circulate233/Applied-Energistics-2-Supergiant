@@ -18,13 +18,9 @@
 
 package appeng.client.gui.style;
 
+import appeng.client.gui.layout.SlotGridLayout;
 import org.jetbrains.annotations.Nullable;
 
-import appeng.client.gui.layout.SlotGridLayout;
-
-/**
- * Describes positioning for a slot.
- */
 public class SlotPosition extends Position {
 
     @Nullable
@@ -45,8 +41,8 @@ public class SlotPosition extends Position {
         return hidden;
     }
 
-    public void setHidden(@Nullable Boolean hidden) {
-        this.hidden = Boolean.TRUE.equals(hidden);
+    public void setHidden(boolean hidden) {
+        this.hidden = hidden;
     }
 
     @Override
@@ -55,3 +51,4 @@ public class SlotPosition extends Position {
         return grid != null ? result + "grid=" + grid : result;
     }
 }
+

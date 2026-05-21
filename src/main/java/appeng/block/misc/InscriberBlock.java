@@ -15,69 +15,32 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.misc;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SimpleWaterloggedBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.BlockHitResult;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.misc.InscriberBlockEntity;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.InscriberMenu;
-import appeng.menu.locator.MenuLocators;
+import appeng.block.AEBaseTileBlock;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.tile.misc.TileInscriber;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumBlockRenderType;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-public class InscriberBlock extends AEBaseEntityBlock<InscriberBlockEntity> implements SimpleWaterloggedBlock {
-
-    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
-
-    public InscriberBlock(Properties props) {
-        super(props);
-        this.registerDefaultState(this.defaultBlockState().setValue(WATERLOGGED, false));
-    }
-
-    @Override
-    public int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) {
-        return 2; // FIXME validate this. a) possibly not required because of getShape b) value
-        // range. was 2 in 1.10
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof InscriberBlockEntity be) {
-            if (!level.isClientSide()) {
-                MenuOpener.open(InscriberMenu.TYPE, player, MenuLocators.forBlockEntity(be));
-            }
-            return InteractionResult.sidedSuccess(level.isClientSide());
-        }
-
-        return super.useWithoutItem(state, level, pos, player, hitResult);
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(WATERLOGGED);
+@SuppressWarnings("deprecation")
+public class InscriberBlock extends AEBaseTileBlock<TileInscriber> {
+    public InscriberBlock() {
+        super(Material.IRON);
+        setOpaque();
+        setFullSize();
+        setHardness(2.2F);
+        setResistance(11.0F);
+        setTileEntity(TileInscriber.class);
     }
 
     @Override
@@ -86,28 +49,30 @@ public class InscriberBlock extends AEBaseEntityBlock<InscriberBlockEntity> impl
     }
 
     @Override
-    @Nullable
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        var fluidState = context.getLevel().getFluidState(context.getClickedPos());
-        return super.getStateForPlacement(context)
-                .setValue(WATERLOGGED, fluidState.getType() == Fluids.WATER);
+    public EnumBlockRenderType getRenderType(IBlockState state) {
+        return EnumBlockRenderType.MODEL;
     }
 
     @Override
-    public FluidState getFluidState(BlockState blockState) {
-        return blockState.getValue(WATERLOGGED).booleanValue()
-                ? Fluids.WATER.getSource(false)
-                : super.getFluidState(blockState);
-    }
-
-    @Override
-    public BlockState updateShape(BlockState blockState, Direction facing, BlockState facingState, LevelAccessor level,
-            BlockPos currentPos, BlockPos facingPos) {
-        if (blockState.getValue(WATERLOGGED).booleanValue()) {
-            level.scheduleTick(currentPos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
         }
 
-        return super.updateShape(blockState, facing, facingState, level, currentPos, facingPos);
+        if (player.isSneaking()) {
+            return false;
+        }
+
+        TileInscriber tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            if (!world.isRemote) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.INSCRIBER, tile);
+            }
+            return true;
+        }
+
+        return false;
     }
 
 }

@@ -23,7 +23,7 @@
 
 package appeng.api.inventories;
 
-import net.neoforged.neoforge.items.IItemHandler;
+import net.minecraftforge.items.IItemHandler;
 
 /**
  * Implementation aid for {@link InternalInventory} that ensures the platorm adapter maintains its referential equality
@@ -36,9 +36,8 @@ public abstract class BaseInternalInventory implements InternalInventory {
     @Override
     public final IItemHandler toItemHandler() {
         if (platformWrapper == null) {
-            // Porting note: On Fabric we need to maintain the specialized storage used by
-            // sub-inventories in case of combined internal inventories due to transactions.
-            // This is not needed on Forge.
+            // Preserve a stable wrapper instance so combined internal inventories keep
+            // consistent handler identity across repeated lookups.
             platformWrapper = new InternalInventoryItemHandler(this);
         }
         return platformWrapper;

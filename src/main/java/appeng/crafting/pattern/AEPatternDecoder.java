@@ -1,31 +1,11 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.crafting.pattern;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.IPatternDetailsDecoder;
 import appeng.api.stacks.AEItemKey;
+import net.minecraft.item.ItemStack;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
 
 public class AEPatternDecoder implements IPatternDetailsDecoder {
     public static final AEPatternDecoder INSTANCE = new AEPatternDecoder();
@@ -37,7 +17,7 @@ public class AEPatternDecoder implements IPatternDetailsDecoder {
 
     @Nullable
     @Override
-    public IPatternDetails decodePattern(AEItemKey what, Level level) {
+    public IPatternDetails decodePattern(AEItemKey what, World level) {
         if (level == null || what == null || !(what.getItem() instanceof EncodedPatternItem<?> encodedPatternItem)) {
             return null;
         }

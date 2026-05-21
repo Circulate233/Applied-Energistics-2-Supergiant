@@ -18,123 +18,97 @@
 
 package appeng.me.cells;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
-import net.minecraft.world.item.ItemStack;
-
-import appeng.api.config.IncludeExclude;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.ICellHandler;
+import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.storage.cells.ISaveProvider;
-import appeng.core.AEConfig;
+import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import appeng.items.storage.StorageCellTooltipComponent;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Cell handler that manages all normal storage cells (items, fluids).
- */
+import java.util.Comparator;
+import java.util.List;
+
 public class BasicCellHandler implements ICellHandler {
     public static final BasicCellHandler INSTANCE = new BasicCellHandler();
 
     @Override
-    public boolean isCell(ItemStack is) {
-        return BasicCellInventory.isCell(is);
+    public boolean isCell(ItemStack stack) {
+        return BasicCellInventory.isCell(stack);
     }
 
+    @Nullable
     @Override
-    public BasicCellInventory getCellInventory(ItemStack is, ISaveProvider container) {
-        return BasicCellInventory.createInventory(is, container);
+    public BasicCellInventory getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
+        return BasicCellInventory.createInventory(stack, host);
     }
 
-    public void addCellInformationToTooltip(ItemStack is, List<Component> lines) {
-        var handler = getCellInventory(is, null);
-        if (handler == null) {
+    public void addCellInformationToTooltip(ItemStack stack, List<String> lines) {
+        var inventory = BasicCellInventory.createInventory(stack, null);
+        if (inventory == null) {
             return;
         }
 
-        lines.add(Tooltips.bytesUsed(handler.getUsedBytes(), handler.getTotalBytes()));
-        lines.add(Tooltips.typesUsed(handler.getStoredItemTypes(), handler.getTotalItemTypes()));
+        lines.add(Tooltips.bytesUsed(inventory.getUsedBytes(), inventory.getTotalBytes()).getFormattedText());
+        lines.add(Tooltips.typesUsed(inventory.getStoredItemTypes(), inventory.getTotalItemTypes()).getFormattedText());
 
-        if (handler.isPreformatted()) {
-            var list = (handler.getPartitionListMode() == IncludeExclude.WHITELIST ? GuiText.Included
-                    : GuiText.Excluded)
-                    .text();
-
-            if (handler.isFuzzy()) {
-                lines.add(GuiText.Partitioned.withSuffix(" - ").append(list).append(" ").append(GuiText.Fuzzy.text()));
-            } else {
-                lines.add(
-                        GuiText.Partitioned.withSuffix(" - ").append(list).append(" ").append(GuiText.Precise.text()));
-            }
+        if (stack.getItem() instanceof ICellWorkbenchItem workbenchItem) {
+            addPartitionInformation(stack, workbenchItem, lines);
         }
     }
 
-    public Optional<TooltipComponent> getTooltipImage(ItemStack is) {
-        var handler = getCellInventory(is, null);
-        if (handler == null) {
-            return Optional.empty();
+    @Nullable
+    public java.util.Optional<StorageCellTooltipComponent> getTooltipData(ItemStack stack) {
+        var inventory = BasicCellInventory.createInventory(stack, null);
+        if (inventory == null) {
+            return java.util.Optional.empty();
         }
 
-        var upgradeStacks = new ArrayList<ItemStack>();
-        if (AEConfig.instance().isTooltipShowCellUpgrades()) {
-            for (var upgrade : handler.getUpgradesInventory()) {
-                upgradeStacks.add(upgrade);
-            }
-        }
-
-        // Find items with the highest stored amount
-        boolean hasMoreContent;
-        List<GenericStack> content;
-        if (AEConfig.instance().isTooltipShowCellContent()) {
-            content = new ArrayList<>();
-
-            var maxCountShown = AEConfig.instance().getTooltipMaxCellContentShown();
-
-            var availableStacks = handler.getAvailableStacks();
-            for (var entry : availableStacks) {
-                content.add(new GenericStack(entry.getKey(), entry.getLongValue()));
-            }
-
-            // Fill up with stacks from the filter if it's not inverted
-            if (content.size() < maxCountShown && handler.getPartitionListMode() == IncludeExclude.WHITELIST) {
-                var config = handler.getConfigInventory();
-                for (int i = 0; i < config.size(); i++) {
-                    var what = config.getKey(i);
-                    if (what != null) {
-                        // Don't add it twice
-                        if (availableStacks.get(what) <= 0) {
-                            content.add(new GenericStack(what, 0));
-                        }
-                    }
-                    if (content.size() > maxCountShown) {
-                        break; // Don't need to add filters beyond 6 (to determine if it has more than 5 below)
-                    }
+        var upgrades = new ObjectArrayList<ItemStack>();
+        if (stack.getItem() instanceof ICellWorkbenchItem workbenchItem) {
+            for (var upgrade : workbenchItem.getUpgrades(stack)) {
+                if (!upgrade.isEmpty()) {
+                    upgrades.add(upgrade.copy());
                 }
             }
-
-            // Sort by amount descending
-            content.sort(Comparator.comparingLong(GenericStack::amount).reversed());
-
-            hasMoreContent = content.size() > maxCountShown;
-            if (content.size() > maxCountShown) {
-                content.subList(maxCountShown, content.size()).clear();
-            }
-        } else {
-            hasMoreContent = false;
-            content = Collections.emptyList();
         }
 
-        return Optional.of(new StorageCellTooltipComponent(
-                upgradeStacks,
-                content,
-                hasMoreContent,
-                true));
+        var content = new ObjectArrayList<GenericStack>();
+        for (var entry : inventory.getAvailableStacks()) {
+            content.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+        }
+        content.sort(Comparator.comparingLong(GenericStack::amount).reversed()
+                               .thenComparing(entry -> entry.what().getDisplayName().getFormattedText()));
+
+        boolean showAmounts = true;
+        int contentLimit = Math.min(content.size(), 5);
+        boolean hasMoreContent = content.size() > contentLimit;
+        if (content.size() > contentLimit) {
+            content = new ObjectArrayList<>(content.subList(0, contentLimit));
+        }
+
+        return java.util.Optional.of(new StorageCellTooltipComponent(upgrades, content, hasMoreContent, showAmounts));
+    }
+
+    private void addPartitionInformation(ItemStack stack, ICellWorkbenchItem workbenchItem, List<String> lines) {
+        var config = workbenchItem.getConfigInventory(stack);
+        if (config.isEmpty()) {
+            return;
+        }
+
+        var upgrades = workbenchItem.getUpgrades(stack);
+        var includeMode = upgrades.isInstalled(AEItems.INVERTER_CARD.item()) ? GuiText.Excluded : GuiText.Included;
+        var precisionMode = upgrades.isInstalled(AEItems.FUZZY_CARD.item()) ? GuiText.Fuzzy : GuiText.Precise;
+
+        lines.add(GuiText.Partitioned.text()
+                                     .appendText(" - ")
+                                     .appendSibling(includeMode.text())
+                                     .appendText(" ")
+                                     .appendSibling(precisionMode.text())
+                                     .getFormattedText());
     }
 }

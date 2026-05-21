@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "variant=default": {
+      "model": "ae2:chiseled_quartz_slab_double"
+    }
+  }
+}

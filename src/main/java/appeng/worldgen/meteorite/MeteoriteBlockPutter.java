@@ -18,22 +18,41 @@
 
 package appeng.worldgen.meteorite;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 public class MeteoriteBlockPutter {
-    public boolean put(LevelAccessor level, BlockPos pos, BlockState blk) {
-        final BlockState original = level.getBlockState(pos);
+    public boolean put(final World world, final BlockPos pos, final BlockStateWrapper wrapper) {
+        return this.put(world, pos, wrapper.state);
+    }
 
-        if (original.getBlock() == Blocks.BEDROCK || original == blk) {
+    public void put(final World world, final BlockPos pos, final Block block) {
+        final Block original = world.getBlockState(pos).getBlock();
+
+        if (original == Blocks.BEDROCK || original == block) {
+            return;
+        }
+
+        world.setBlockState(pos, block.getDefaultState());
+    }
+
+    public boolean put(final World world, final BlockPos pos, final IBlockState state) {
+        if (world.getBlockState(pos).getBlock() == Blocks.BEDROCK) {
             return false;
         }
 
-        level.setBlock(pos, blk, Block.UPDATE_ALL);
+        world.setBlockState(pos, state, 3);
         return true;
     }
 
+    public static final class BlockStateWrapper {
+        private final IBlockState state;
+
+        public BlockStateWrapper(IBlockState state) {
+            this.state = state;
+        }
+    }
 }

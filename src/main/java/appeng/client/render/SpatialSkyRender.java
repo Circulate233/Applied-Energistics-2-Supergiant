@@ -1,157 +1,153 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.client.render;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.BufferUploader;
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.Tesselator;
-import com.mojang.blaze3d.vertex.VertexBuffer;
-import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.WorldClient;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GLAllocation;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraftforge.client.IRenderHandler;
+import org.lwjgl.opengl.GL11;
 
-import org.joml.Matrix4f;
-import org.joml.Quaternionf;
+import java.util.Random;
 
-import net.minecraft.client.renderer.GameRenderer;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
-
-public class SpatialSkyRender {
+public class SpatialSkyRender extends IRenderHandler {
 
     private static final SpatialSkyRender INSTANCE = new SpatialSkyRender();
 
-    private final RandomSource random = RandomSource.create();
-    private final VertexBuffer sparkleBuffer;
+    private final Random random = new Random();
+    private final int dspList;
     private long cycle = 0;
 
     public SpatialSkyRender() {
-        sparkleBuffer = new VertexBuffer(VertexBuffer.Usage.DYNAMIC);
+        this.dspList = GLAllocation.generateDisplayLists(1);
     }
 
-    public static SpatialSkyRender getInstance() {
+    public static IRenderHandler getInstance() {
         return INSTANCE;
     }
 
-    private static final Quaternionf[] SKYBOX_SIDE_ROTATIONS = { new Quaternionf(),
-            new Quaternionf().rotationX(Mth.DEG_TO_RAD * 90.0F),
-            new Quaternionf().rotationX(Mth.DEG_TO_RAD * -90.0F), new Quaternionf().rotationX(Mth.DEG_TO_RAD * 180.0F),
-            new Quaternionf().rotationZ(Mth.DEG_TO_RAD * 90.0F),
-            new Quaternionf().rotationZ(Mth.DEG_TO_RAD * -90.0F), };
-
-    public void render(Matrix4f modelViewMatrix, Matrix4f projectionMatrix) {
-        final long now = System.currentTimeMillis();
+    @Override
+    public void render(float partialTicks, WorldClient world, Minecraft mc) {
+        long now = System.currentTimeMillis();
         if (now - this.cycle > 2000) {
             this.cycle = now;
-            this.rebuildSparkles();
+            GlStateManager.glNewList(this.dspList, GL11.GL_COMPILE);
+            this.renderTwinkles();
+            GlStateManager.glEndList();
         }
 
-        RenderSystem.setShader(GameRenderer::getPositionColorShader);
-        RenderSystem.disableBlend();
-        RenderSystem.depthMask(false);
-
-        var poseStack = new PoseStack();
-        poseStack.mulPose(modelViewMatrix);
-
-        // This renders a skybox around the player at a far, fixed distance from them.
-        // The skybox is pitch black and untextured
-        for (Quaternionf rotation : SKYBOX_SIDE_ROTATIONS) {
-            poseStack.pushPose();
-            poseStack.mulPose(rotation);
-
-            // This is very similar to how the End sky is rendered, just untextured
-            Matrix4f matrix4f = poseStack.last().pose();
-            var builder = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
-            builder.addVertex(matrix4f, -100.0f, -100.0f, -100.0f).setColor(0f, 0f, 0f, 1f);
-            builder.addVertex(matrix4f, -100.0f, -100.0f, 100.0f).setColor(0f, 0f, 0f, 1f);
-            builder.addVertex(matrix4f, 100.0f, -100.0f, 100.0f).setColor(0f, 0f, 0f, 1f);
-            builder.addVertex(matrix4f, 100.0f, -100.0f, -100.0f).setColor(0f, 0f, 0f, 1f);
-            BufferUploader.drawWithShader(builder.buildOrThrow());
-            poseStack.popPose();
-        }
-
-        // Cycle the sparkles between 0 and 0.25 color value over 2 seconds
         float fade = now - this.cycle;
         fade /= 1000;
-        fade = 0.25f * (1.0f - Math.abs((fade - 1.0f) * (fade - 1.0f)));
+        fade = 0.15f * (1.0f - Math.abs((fade - 1.0f) * (fade - 1.0f)));
 
-        if (fade > 0.0f) {
-            RenderSystem.enableBlend();
-            RenderSystem.defaultBlendFunc();
+        GlStateManager.disableFog();
+        GlStateManager.disableAlpha();
+        GlStateManager.disableBlend();
+        GlStateManager.depthMask(false);
+        GlStateManager.color(0.0f, 0.0f, 0.0f, 1.0f);
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder buffer = tessellator.getBuffer();
 
-            RenderSystem.setShaderColor(fade, fade, fade, 1.0f);
-            sparkleBuffer.bind();
-            sparkleBuffer.drawWithShader(poseStack.last().pose(), projectionMatrix,
-                    GameRenderer.getPositionColorShader());
-            VertexBuffer.unbind();
-            RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        for (int i = 0; i < 6; ++i) {
+            GlStateManager.pushMatrix();
+            if (i == 1) {
+                GlStateManager.rotate(90.0F, 1.0F, 0.0F, 0.0F);
+            }
+            if (i == 2) {
+                GlStateManager.rotate(-90.0F, 1.0F, 0.0F, 0.0F);
+            }
+            if (i == 3) {
+                GlStateManager.rotate(180.0F, 1.0F, 0.0F, 0.0F);
+            }
+            if (i == 4) {
+                GlStateManager.rotate(90.0F, 0.0F, 0.0F, 1.0F);
+            }
+            if (i == 5) {
+                GlStateManager.rotate(-90.0F, 0.0F, 0.0F, 1.0F);
+            }
+
+            GlStateManager.disableTexture2D();
+            buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION);
+            buffer.pos(-100.0D, -100.0D, -100.0D).endVertex();
+            buffer.pos(-100.0D, -100.0D, 100.0D).endVertex();
+            buffer.pos(100.0D, -100.0D, 100.0D).endVertex();
+            buffer.pos(100.0D, -100.0D, -100.0D).endVertex();
+            tessellator.draw();
+            GlStateManager.enableTexture2D();
+            GlStateManager.popMatrix();
         }
 
-        RenderSystem.depthMask(true);
-        RenderSystem.enableBlend();
+        GlStateManager.depthMask(true);
+
+        if (fade > 0.0f) {
+            GlStateManager.disableFog();
+            GlStateManager.disableAlpha();
+            GlStateManager.enableBlend();
+            GlStateManager.disableTexture2D();
+            GlStateManager.depthMask(false);
+            OpenGlHelper.glBlendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, 1, 0);
+            RenderHelper.disableStandardItemLighting();
+            GlStateManager.color(fade, fade, fade, 1.0f);
+            GlStateManager.callList(this.dspList);
+        }
+
+        GlStateManager.depthMask(true);
+        GlStateManager.enableBlend();
+        GlStateManager.enableAlpha();
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableFog();
+        GlStateManager.color(1.0f, 1.0f, 1.0f, 1.0f);
     }
 
-    private void rebuildSparkles() {
-        var vb = Tesselator.getInstance().begin(VertexFormat.Mode.QUADS, DefaultVertexFormat.POSITION_COLOR);
+    private void renderTwinkles() {
+        Tessellator tessellator = Tessellator.getInstance();
+        BufferBuilder buffer = tessellator.getBuffer();
+        buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION);
 
         for (int i = 0; i < 50; ++i) {
-            float iX = this.random.nextFloat() * 2.0f - 1.0f;
-            float iY = this.random.nextFloat() * 2.0f - 1.0f;
-            float iZ = this.random.nextFloat() * 2.0f - 1.0f;
-            float d3 = 0.05F + this.random.nextFloat() * 0.1f;
-            float dist = iX * iX + iY * iY + iZ * iZ;
+            double iX = this.random.nextFloat() * 2.0F - 1.0F;
+            double iY = this.random.nextFloat() * 2.0F - 1.0F;
+            double iZ = this.random.nextFloat() * 2.0F - 1.0F;
+            double d3 = 0.05F + this.random.nextFloat() * 0.1F;
+            double dist = iX * iX + iY * iY + iZ * iZ;
 
-            if (dist < 1.0f && dist > 0.01f) {
-                dist = 1.0f / Mth.sqrt(dist);
+            if (dist < 1.0D && dist > 0.01D) {
+                dist = 1.0D / Math.sqrt(dist);
                 iX *= dist;
                 iY *= dist;
                 iZ *= dist;
-                float x = iX * 100.0f;
-                float y = iY * 100.0f;
-                float z = iZ * 100.0f;
-                float d8 = (float) Mth.atan2(iX, iZ);
-                float d9 = Mth.sin(d8);
-                float d10 = Mth.cos(d8);
-                float d11 = (float) Mth.atan2(Mth.sqrt(iX * iX + iZ * iZ), iY);
-                float d12 = Mth.sin(d11);
-                float d13 = Mth.cos(d11);
-                float d14 = this.random.nextFloat() * Mth.PI * 2.0f;
-                float d15 = Mth.sin(d14);
-                float d16 = Mth.cos(d14);
+                double x = iX * 100.0D;
+                double y = iY * 100.0D;
+                double z = iZ * 100.0D;
+                double d8 = Math.atan2(iX, iZ);
+                double d9 = Math.sin(d8);
+                double d10 = Math.cos(d8);
+                double d11 = Math.atan2(Math.sqrt(iX * iX + iZ * iZ), iY);
+                double d12 = Math.sin(d11);
+                double d13 = Math.cos(d11);
+                double d14 = this.random.nextDouble() * Math.PI * 2.0D;
+                double d15 = Math.sin(d14);
+                double d16 = Math.cos(d14);
 
                 for (int j = 0; j < 4; ++j) {
-                    float d17 = 0.0f;
-                    float d18 = ((j & 2) - 1) * d3;
-                    float d19 = ((j + 1 & 2) - 1) * d3;
-                    float d20 = d18 * d16 - d19 * d15;
-                    float d21 = d19 * d16 + d18 * d15;
-                    float d22 = d20 * d12 + d17 * d13;
-                    float d23 = d17 * d12 - d20 * d13;
-                    float d24 = d23 * d9 - d21 * d10;
-                    float d25 = d21 * d9 + d23 * d10;
-                    vb.addVertex(x + d24, y + d22, z + d25).setColor(255, 255, 255, 255);
+                    double d17 = 0.0D;
+                    double d18 = ((j & 2) - 1) * d3;
+                    double d19 = ((j + 1 & 2) - 1) * d3;
+                    double d20 = d18 * d16 - d19 * d15;
+                    double d21 = d19 * d16 + d18 * d15;
+                    double d22 = d20 * d12 + d17 * d13;
+                    double d23 = d17 * d12 - d20 * d13;
+                    double d24 = d23 * d9 - d21 * d10;
+                    double d25 = d21 * d9 + d23 * d10;
+                    buffer.pos(x + d24, y + d22, z + d25).endVertex();
                 }
             }
         }
 
-        sparkleBuffer.bind();
-        sparkleBuffer.upload(vb.buildOrThrow());
-        VertexBuffer.unbind();
+        tessellator.draw();
     }
 }

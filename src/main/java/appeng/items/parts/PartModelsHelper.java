@@ -18,28 +18,23 @@
 
 package appeng.items.parts;
 
+import appeng.api.parts.IPartModel;
+import appeng.core.AELog;
+import net.minecraft.util.ResourceLocation;
+
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.util.ArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import net.minecraft.resources.ResourceLocation;
-
-import appeng.api.parts.IPartModel;
-import appeng.core.AELog;
-
-/**
- * Helps with the reflection magic needed to gather all models for AE2 cable bus parts.
- */
 public class PartModelsHelper {
 
     public static List<ResourceLocation> createModels(Class<?> clazz) {
-        List<ResourceLocation> locations = new ArrayList<>();
+        List<ResourceLocation> locations = new ObjectArrayList<>();
 
-        // Check all static fields for used models
         Field[] fields = clazz.getDeclaredFields();
         for (Field field : fields) {
             if (field.getAnnotation(PartModels.class) == null) {
@@ -48,7 +43,7 @@ public class PartModelsHelper {
 
             if (!Modifier.isStatic(field.getModifiers())) {
                 AELog.error("The @PartModels annotation can only be used on static fields or methods. Was seen on: "
-                        + field);
+                    + field);
                 continue;
             }
 
@@ -64,7 +59,6 @@ public class PartModelsHelper {
             convertAndAddLocation(field, value, locations);
         }
 
-        // Check all static methods for the annotation
         for (Method method : clazz.getDeclaredMethods()) {
             if (method.getAnnotation(PartModels.class) == null) {
                 continue;
@@ -72,25 +66,23 @@ public class PartModelsHelper {
 
             if (!Modifier.isStatic(method.getModifiers())) {
                 AELog.error("The @PartModels annotation can only be used on static fields or methods. Was seen on: "
+                    + method);
+                continue;
+            }
+
+            if (method.getParameters().length != 0) {
+                AELog.error(
+                    "The @PartModels annotation can only be used on static methods without parameters. Was seen on: "
                         + method);
                 continue;
             }
 
-            // Check for parameter count
-            if (method.getParameters().length != 0) {
-                AELog.error(
-                        "The @PartModels annotation can only be used on static methods without parameters. Was seen on: "
-                                + method);
-                continue;
-            }
-
-            // Make sure we can handle the return type
             Class<?> returnType = method.getReturnType();
             if (!ResourceLocation.class.isAssignableFrom(returnType)
-                    && !Collection.class.isAssignableFrom(returnType)) {
+                && !Collection.class.isAssignableFrom(returnType)) {
                 AELog.error(
-                        "The @PartModels annotation can only be used on static methods that return a ResourceLocation or Collection of "
-                                + "ResourceLocations. Was seen on: " + method);
+                    "The @PartModels annotation can only be used on static methods that return a ResourceLocation or Collection of "
+                        + "ResourceLocations. Was seen on: " + method);
                 continue;
             }
 
@@ -114,26 +106,24 @@ public class PartModelsHelper {
     }
 
     private static void convertAndAddLocation(Object source, Object value, List<ResourceLocation> locations) {
-        if (value == null) {
-            return;
-        }
-
-        if (value instanceof ResourceLocation) {
-            locations.add((ResourceLocation) value);
-        } else if (value instanceof IPartModel) {
-            locations.addAll(((IPartModel) value).getModels());
-        } else if (value instanceof Collection<?> values) {
-            // Check that each object is an IPartModel
-            for (Object candidate : values) {
-                if (!(candidate instanceof IPartModel)) {
-                    AELog.error("List of locations obtained from {} contains a non resource location: {}", source,
+        switch (value) {
+            case ResourceLocation resourceLocation -> locations.add(resourceLocation);
+            case IPartModel iPartModel -> locations.addAll(iPartModel.getModels());
+            case Collection<?> values -> {
+                for (Object candidate : values) {
+                    if (!(candidate instanceof IPartModel)) {
+                        AELog.error("List of locations obtained from {} contains a non resource location: {}", source,
                             candidate);
-                    continue;
-                }
+                        continue;
+                    }
 
-                locations.addAll(((IPartModel) candidate).getModels());
+                    locations.addAll(((IPartModel) candidate).getModels());
+                }
+            }
+            case null, default -> {
             }
         }
+
     }
 
 }

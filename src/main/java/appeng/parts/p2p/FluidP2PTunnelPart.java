@@ -18,33 +18,39 @@
 
 package appeng.parts.p2p;
 
-import java.util.List;
-
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEKeyType;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.FluidTankProperties;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidTankProperties;
+import org.jspecify.annotations.Nullable;
+
+import java.util.List;
 
 public class FluidP2PTunnelPart extends CapabilityP2PTunnelPart<FluidP2PTunnelPart, IFluidHandler> {
 
     private static final P2PModels MODELS = new P2PModels(AppEng.makeId("part/p2p/p2p_tunnel_fluids"));
     private static final IFluidHandler NULL_FLUID_HANDLER = new NullFluidHandler();
+    private static final IFluidTankProperties[] INPUT_TANKS = {
+        new FluidTankProperties(null, Integer.MAX_VALUE, true, false)
+    };
+    private static final IFluidTankProperties[] EMPTY_TANKS = new IFluidTankProperties[0];
+
+    public FluidP2PTunnelPart(IPartItem<?> partItem) {
+        super(partItem, CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY);
+        inputHandler = new InputFluidHandler();
+        outputHandler = new OutputFluidHandler();
+        emptyHandler = NULL_FLUID_HANDLER;
+    }
 
     @PartModels
     public static List<IPartModel> getModels() {
         return MODELS.getModels();
-    }
-
-    public FluidP2PTunnelPart(IPartItem<?> partItem) {
-        super(partItem, Capabilities.FluidHandler.BLOCK);
-        inputHandler = new InputFluidHandler();
-        outputHandler = new OutputFluidHandler();
-        emptyHandler = NULL_FLUID_HANDLER;
     }
 
     @Override
@@ -52,57 +58,67 @@ public class FluidP2PTunnelPart extends CapabilityP2PTunnelPart<FluidP2PTunnelPa
         return MODELS.getModel(this.isPowered(), this.isActive());
     }
 
+    private static class NullFluidHandler implements IFluidHandler {
+        @Override
+        public IFluidTankProperties[] getTankProperties() {
+            return EMPTY_TANKS;
+        }
+
+        @Override
+        public int fill(FluidStack resource, boolean doFill) {
+            return 0;
+        }
+
+        @Override
+        public @Nullable FluidStack drain(FluidStack resource, boolean doDrain) {
+            return null;
+        }
+
+        @Override
+        public @Nullable FluidStack drain(int maxDrain, boolean doDrain) {
+            return null;
+        }
+    }
+
     private class InputFluidHandler implements IFluidHandler {
-
         @Override
-        public int getTanks() {
-            return 1;
+        public IFluidTankProperties[] getTankProperties() {
+            return INPUT_TANKS;
         }
 
         @Override
-        public FluidStack getFluidInTank(int tank) {
-            return FluidStack.EMPTY;
-        }
-
-        @Override
-        public int getTankCapacity(int tank) {
-            return Integer.MAX_VALUE;
-        }
-
-        @Override
-        public boolean isFluidValid(int tank, FluidStack stack) {
-            return true;
-        }
-
-        @Override
-        public int fill(FluidStack resource, FluidAction action) {
-            int total = 0;
+        public int fill(FluidStack resource, boolean doFill) {
+            if (resource == null) {
+                return 0;
+            }
 
             final int outputTunnels = FluidP2PTunnelPart.this.getOutputs().size();
-            final int amount = resource.getAmount();
-
+            final int amount = resource.amount;
             if (outputTunnels == 0 || amount == 0) {
                 return 0;
             }
 
             final int amountPerOutput = amount / outputTunnels;
-            int overflow = amountPerOutput == 0 ? amount : amount % amountPerOutput;
+            int overflow = amount % outputTunnels;
+            int total = 0;
 
             for (FluidP2PTunnelPart target : FluidP2PTunnelPart.this.getOutputs()) {
                 try (CapabilityGuard capabilityGuard = target.getAdjacentCapability()) {
                     final IFluidHandler output = capabilityGuard.get();
                     final int toSend = amountPerOutput + overflow;
-                    final FluidStack fillWithFluidStack = resource.copy();
-                    fillWithFluidStack.setAmount(toSend);
+                    if (toSend <= 0) {
+                        break;
+                    }
 
-                    final int received = output.fill(fillWithFluidStack, action);
-
+                    final FluidStack stack = resource.copy();
+                    stack.amount = toSend;
+                    final int received = output.fill(stack, doFill);
                     overflow = toSend - received;
                     total += received;
                 }
             }
 
-            if (action == FluidAction.EXECUTE) {
+            if (doFill && total > 0) {
                 deductTransportCost(total, AEKeyType.fluids());
             }
 
@@ -110,114 +126,49 @@ public class FluidP2PTunnelPart extends CapabilityP2PTunnelPart<FluidP2PTunnelPa
         }
 
         @Override
-        public FluidStack drain(FluidStack resource, FluidAction action) {
-            return FluidStack.EMPTY;
+        public @Nullable FluidStack drain(FluidStack resource, boolean doDrain) {
+            return null;
         }
 
         @Override
-        public FluidStack drain(int maxDrain, FluidAction action) {
-            return FluidStack.EMPTY;
+        public @Nullable FluidStack drain(int maxDrain, boolean doDrain) {
+            return null;
         }
-
     }
 
     private class OutputFluidHandler implements IFluidHandler {
         @Override
-        public int getTanks() {
+        public IFluidTankProperties[] getTankProperties() {
             try (CapabilityGuard input = getInputCapability()) {
-                return input.get().getTanks();
+                return input.get().getTankProperties();
             }
         }
 
         @Override
-        public FluidStack getFluidInTank(int tank) {
-            try (CapabilityGuard input = getInputCapability()) {
-                return input.get().getFluidInTank(tank);
-            }
-        }
-
-        @Override
-        public int getTankCapacity(int tank) {
-            try (CapabilityGuard input = getInputCapability()) {
-                return input.get().getTankCapacity(tank);
-            }
-        }
-
-        @Override
-        public boolean isFluidValid(int tank, FluidStack stack) {
-            try (CapabilityGuard input = getInputCapability()) {
-                return input.get().isFluidValid(tank, stack);
-            }
-        }
-
-        @Override
-        public int fill(FluidStack resource, FluidAction action) {
+        public int fill(FluidStack resource, boolean doFill) {
             return 0;
         }
 
         @Override
-        public FluidStack drain(FluidStack resource, FluidAction action) {
+        public FluidStack drain(FluidStack resource, boolean doDrain) {
             try (CapabilityGuard input = getInputCapability()) {
-                FluidStack result = input.get().drain(resource, action);
-
-                if (action.execute()) {
-                    deductTransportCost(result.getAmount(), AEKeyType.fluids());
+                FluidStack result = input.get().drain(resource, doDrain);
+                if (doDrain && result != null) {
+                    deductTransportCost(result.amount, AEKeyType.fluids());
                 }
-
                 return result;
             }
         }
 
         @Override
-        public FluidStack drain(int maxDrain, FluidAction action) {
+        public FluidStack drain(int maxDrain, boolean doDrain) {
             try (CapabilityGuard input = getInputCapability()) {
-                FluidStack result = input.get().drain(maxDrain, action);
-
-                if (action.execute()) {
-                    deductTransportCost(result.getAmount(), AEKeyType.fluids());
+                FluidStack result = input.get().drain(maxDrain, doDrain);
+                if (doDrain && result != null) {
+                    deductTransportCost(result.amount, AEKeyType.fluids());
                 }
-
                 return result;
             }
         }
     }
-
-    private static class NullFluidHandler implements IFluidHandler {
-
-        @Override
-        public int getTanks() {
-            return 0;
-        }
-
-        @Override
-        public FluidStack getFluidInTank(int tank) {
-            return FluidStack.EMPTY;
-        }
-
-        @Override
-        public int getTankCapacity(int tank) {
-            return 0;
-        }
-
-        @Override
-        public boolean isFluidValid(int tank, FluidStack stack) {
-            return false;
-        }
-
-        @Override
-        public int fill(FluidStack resource, FluidAction action) {
-            return 0;
-        }
-
-        @Override
-        public FluidStack drain(FluidStack resource, FluidAction action) {
-            return FluidStack.EMPTY;
-        }
-
-        @Override
-        public FluidStack drain(int maxDrain, FluidAction action) {
-            return FluidStack.EMPTY;
-        }
-    }
-
 }

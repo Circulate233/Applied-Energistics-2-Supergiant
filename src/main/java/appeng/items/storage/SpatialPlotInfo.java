@@ -1,28 +1,44 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
 package appeng.items.storage;
 
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.math.BlockPos;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-
-import appeng.spatial.SpatialStoragePlot;
-
-/**
- * @param id   The {@linkplain SpatialStoragePlot#getId() plot id}.
- * @param size This is only stored in the itemstack to display in the tooltip on the client-side.
- */
 public record SpatialPlotInfo(int id, BlockPos size) {
-    public static final Codec<SpatialPlotInfo> CODEC = RecordCodecBuilder.create(builder -> builder.group(
-            Codec.INT.fieldOf("id").forGetter(SpatialPlotInfo::id),
-            BlockPos.CODEC.fieldOf("size").forGetter(SpatialPlotInfo::size)).apply(builder, SpatialPlotInfo::new));
 
-    public static final StreamCodec<FriendlyByteBuf, SpatialPlotInfo> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.VAR_INT,
-            SpatialPlotInfo::id,
-            BlockPos.STREAM_CODEC,
-            SpatialPlotInfo::size,
-            SpatialPlotInfo::new);
+    private static final String TAG_ID = "id";
+    private static final String TAG_SIZE = "size";
+
+    public SpatialPlotInfo(int id, BlockPos size) {
+        this.id = id;
+        this.size = size.toImmutable();
+    }
+
+    public static SpatialPlotInfo fromNBT(NBTTagCompound tag) {
+        return new SpatialPlotInfo(tag.getInteger(TAG_ID), BlockPos.fromLong(tag.getLong(TAG_SIZE)));
+    }
+
+    public NBTTagCompound writeToNBT() {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger(TAG_ID, this.id);
+        tag.setLong(TAG_SIZE, this.size.toLong());
+        return tag;
+    }
 }

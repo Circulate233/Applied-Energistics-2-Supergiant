@@ -18,16 +18,10 @@
 
 package appeng.helpers;
 
-import appeng.api.storage.ISubMenuHost;
+import appeng.api.storage.ISubGuiHost;
 
-public interface IPriorityHost extends ISubMenuHost {
-    /**
-     * get current priority.
-     */
+public interface IPriorityHost extends ISubGuiHost {
     int getPriority();
 
-    /**
-     * set new priority
-     */
     void setPriority(int newValue);
 }

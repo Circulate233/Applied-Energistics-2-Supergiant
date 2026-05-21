@@ -1,11 +1,10 @@
 package appeng.util;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidUtil;
-
 import appeng.api.stacks.GenericStack;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.FluidUtil;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Allows generalized extraction from item-based containers such as buckets or tanks.
@@ -20,12 +19,7 @@ public final class GenericContainerHelper {
             return null;
         }
 
-        var content = FluidUtil.getFluidContained(stack).orElse(null);
-        if (content != null) {
-            return GenericStack.fromFluidStack(content);
-        } else {
-            return null;
-        }
+        FluidStack content = FluidUtil.getFluidContained(stack);
+        return content != null ? GenericStack.fromFluidStack(content) : null;
     }
-
 }

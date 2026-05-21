@@ -26,6 +26,12 @@ public class EnergyThreshold implements Comparable<EnergyThreshold> {
     private final IEnergyWatcher watcher;
     private final int watcherHash;
 
+    /**
+     * Special constructor to allow querying a for a subset of thresholds.
+     *
+     * @param lim
+     * @param bound
+     */
     public EnergyThreshold(double lim, IEnergyWatcher watcher) {
         this.threshold = lim;
         this.watcher = watcher;
@@ -34,9 +40,6 @@ public class EnergyThreshold implements Comparable<EnergyThreshold> {
 
     /**
      * Special constructor to allow querying a for a subset of thresholds.
-     *
-     * @param lim
-     * @param bound
      */
     public EnergyThreshold(double lim, int bound) {
         this.threshold = lim;
@@ -63,9 +66,7 @@ public class EnergyThreshold implements Comparable<EnergyThreshold> {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        long temp;
-        temp = Double.doubleToLongBits(this.threshold);
-        result = prime * result + (int) (temp ^ temp >>> 32);
+        result = prime * result + Double.hashCode(this.threshold);
         result = prime * result + (this.watcher == null ? 0 : this.watcher.hashCode());
         return result;
     }
@@ -88,12 +89,7 @@ public class EnergyThreshold implements Comparable<EnergyThreshold> {
         }
 
         if (this.watcher == null) {
-            if (other.watcher != null) {
-                return false;
-            }
-        } else if (!this.watcher.equals(other.watcher)) {
-            return false;
-        }
-        return true;
+            return other.watcher == null;
+        } else return this.watcher.equals(other.watcher);
     }
 }

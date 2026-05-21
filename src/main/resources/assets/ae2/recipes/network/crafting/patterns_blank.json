@@ -1,0 +1,39 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "bcb",
+    "ded"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:quartz_glass"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "dustGlowstone"
+    },
+    "c": [
+      {
+        "type": "forge:ore_dict",
+        "ore": "gemCertusQuartz"
+      },
+      {
+        "item": "ae2:charged_certus_quartz_crystal"
+      }
+    ],
+    "d": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "e": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    }
+  },
+  "result": {
+    "item": "ae2:blank_pattern",
+    "count": 2
+  }
+}
+

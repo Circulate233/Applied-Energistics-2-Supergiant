@@ -18,68 +18,51 @@
 
 package appeng.core;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
-
-import net.minecraft.core.Registry;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.item.CreativeModeTab;
-import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
-
 import appeng.api.ids.AECreativeTabIds;
-import appeng.block.AEBaseBlock;
-import appeng.block.AEBaseBlockItem;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.ItemDefinition;
-import appeng.core.localization.GuiText;
-import appeng.items.AEBaseItem;
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
 
-public final class MainCreativeTab {
+public final class MainCreativeTab extends CreativeTabs {
 
-    private static final Multimap<ResourceKey<CreativeModeTab>, ItemDefinition<?>> externalItemDefs = HashMultimap
-            .create();
-    private static final List<ItemDefinition<?>> itemDefs = new ArrayList<>();
+    public static final MainCreativeTab INSTANCE = new MainCreativeTab();
 
-    public static void init(Registry<CreativeModeTab> registry) {
-        var tab = CreativeModeTab.builder()
-                .title(GuiText.CreativeTab.text())
-                .icon(() -> AEBlocks.CONTROLLER.stack(1))
-                .displayItems(MainCreativeTab::buildDisplayItems)
-                .build();
-        Registry.register(registry, AECreativeTabIds.MAIN, tab);
+    private static final Multimap<CreativeTabs, ItemDefinition<?>> externalItemDefs = HashMultimap.create();
+
+    private MainCreativeTab() {
+        super(AECreativeTabIds.MAIN.toString());
     }
 
-    public static void initExternal(BuildCreativeModeTabContentsEvent contents) {
-        for (var itemDefinition : externalItemDefs.get(contents.getTabKey())) {
-            contents.accept(itemDefinition);
-        }
-    }
-
-    public static void add(ItemDefinition<?> itemDef) {
-        itemDefs.add(itemDef);
-    }
-
-    public static void addExternal(ResourceKey<CreativeModeTab> tab, ItemDefinition<?> itemDef) {
+    public static void addExternal(CreativeTabs tab, ItemDefinition<?> itemDef) {
         externalItemDefs.put(tab, itemDef);
     }
 
-    private static void buildDisplayItems(CreativeModeTab.ItemDisplayParameters itemDisplayParameters,
-            CreativeModeTab.Output output) {
-        for (var itemDef : itemDefs) {
-            var item = itemDef.asItem();
-
-            // For block items, the block controls the creative tab
-            if (item instanceof AEBaseBlockItem baseItem
-                    && baseItem.getBlock() instanceof AEBaseBlock baseBlock) {
-                baseBlock.addToMainCreativeTab(itemDisplayParameters, output);
-            } else if (item instanceof AEBaseItem baseItem) {
-                baseItem.addToMainCreativeTab(itemDisplayParameters, output);
-            } else {
-                output.accept(itemDef);
-            }
+    public static void addExternalItems(CreativeTabs tab, NonNullList<ItemStack> itemStacks) {
+        for (ItemDefinition<?> itemDefinition : externalItemDefs.get(tab)) {
+            addToCreativeTab(tab, itemStacks, itemDefinition);
         }
+    }
+
+    private static void addToCreativeTab(CreativeTabs creativeTab, NonNullList<ItemStack> itemStacks,
+                                         ItemDefinition<?> itemDef) {
+        Item item = itemDef.asItem();
+        if (item == null) {
+            return;
+        }
+
+        CreativeTabs queryTab = creativeTab == INSTANCE ? item.getCreativeTab() : creativeTab;
+        if (queryTab != null) {
+            item.getSubItems(queryTab, itemStacks);
+        }
+    }
+
+    @Override
+    public ItemStack createIcon() {
+        return AEBlocks.CONTROLLER.stack(1);
     }
 }

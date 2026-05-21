@@ -18,30 +18,6 @@
 
 package appeng.integration.modules.theoneprobe;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-
-import mcjty.theoneprobe.api.CompoundText;
-import mcjty.theoneprobe.api.IBlockDisplayOverride;
-import mcjty.theoneprobe.api.IProbeHitData;
-import mcjty.theoneprobe.api.IProbeInfo;
-import mcjty.theoneprobe.api.IProbeInfoProvider;
-import mcjty.theoneprobe.api.ProbeMode;
-import mcjty.theoneprobe.api.TextStyleClass;
-
 import appeng.api.integrations.igtooltip.ClientRegistration;
 import appeng.api.integrations.igtooltip.CommonRegistration;
 import appeng.api.integrations.igtooltip.TooltipBuilder;
@@ -54,54 +30,74 @@ import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.core.AppEng;
 import appeng.integration.modules.igtooltip.TooltipProviders;
 import appeng.util.Platform;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import mcjty.theoneprobe.api.IBlockDisplayOverride;
+import mcjty.theoneprobe.api.IProbeHitData;
+import mcjty.theoneprobe.api.IProbeInfo;
+import mcjty.theoneprobe.api.IProbeInfoProvider;
+import mcjty.theoneprobe.api.ProbeMode;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.World;
+import org.jspecify.annotations.Nullable;
+
+import java.util.Comparator;
 
 public final class BlockEntityInfoProvider implements IProbeInfoProvider, IBlockDisplayOverride {
-    private final List<ServerDataCollector> dataCollectors = new ArrayList<>();
-    private final List<BodyCustomizer<?>> bodyCustomizers = new ArrayList<>();
-
-    private final List<NameCustomizer<?>> nameCustomizers = new ArrayList<>();
-    private final List<ModNameCustomizer<?>> modNameCustomizers = new ArrayList<>();
-    private final List<IconCustomizer<?>> iconCustomizers = new ArrayList<>();
+    private final ObjectList<ServerDataCollector> dataCollectors = new ObjectArrayList<>();
+    private final ObjectList<BodyCustomizer<?>> bodyCustomizers = new ObjectArrayList<>();
+    private final ObjectList<NameCustomizer<?>> nameCustomizers = new ObjectArrayList<>();
+    private final ObjectList<ModNameCustomizer<?>> modNameCustomizers = new ObjectArrayList<>();
+    private final ObjectList<IconCustomizer<?>> iconCustomizers = new ObjectArrayList<>();
 
     public BlockEntityInfoProvider() {
         TooltipProviders.loadCommon(new CommonRegistration() {
             @Override
-            public <T extends BlockEntity> void addBlockEntityData(ResourceLocation id, Class<T> blockEntityClass,
-                    ServerDataProvider<? super T> provider) {
+            public <T extends TileEntity> void addBlockEntityData(ResourceLocation id, Class<T> blockEntityClass,
+                                                                  ServerDataProvider<? super T> provider) {
                 dataCollectors.add((blockEntity, player, serverData) -> {
                     if (blockEntityClass.isInstance(blockEntity)) {
-                        var obj = blockEntityClass.cast(blockEntity);
-                        provider.provideServerData(player, obj, serverData);
+                        provider.provideServerData(player, blockEntityClass.cast(blockEntity), serverData);
                     }
                 });
             }
         });
         TooltipProviders.loadClient(new ClientRegistration() {
             @Override
-            public <T extends BlockEntity> void addBlockEntityBody(Class<T> blockEntityClass,
-                    Class<? extends Block> blockClass, ResourceLocation id, BodyProvider<? super T> provider,
-                    int priority) {
+            public <T extends TileEntity> void addBlockEntityBody(Class<T> blockEntityClass,
+                                                                  Class<? extends Block> blockClass, ResourceLocation id, BodyProvider<? super T> provider,
+                                                                  int priority) {
                 bodyCustomizers.add(new BodyCustomizer<>(blockEntityClass, provider, priority));
             }
 
             @Override
-            public <T extends BlockEntity> void addBlockEntityIcon(Class<T> blockEntityClass,
-                    Class<? extends Block> blockClass, ResourceLocation id, IconProvider<? super T> provider,
-                    int priority) {
+            public <T extends TileEntity> void addBlockEntityIcon(Class<T> blockEntityClass,
+                                                                  Class<? extends Block> blockClass, ResourceLocation id, IconProvider<? super T> provider,
+                                                                  int priority) {
                 iconCustomizers.add(new IconCustomizer<>(blockEntityClass, provider, priority));
             }
 
             @Override
-            public <T extends BlockEntity> void addBlockEntityName(Class<T> blockEntityClass,
-                    Class<? extends Block> blockClass, ResourceLocation id, NameProvider<? super T> provider,
-                    int priority) {
+            public <T extends TileEntity> void addBlockEntityName(Class<T> blockEntityClass,
+                                                                  Class<? extends Block> blockClass, ResourceLocation id, NameProvider<? super T> provider,
+                                                                  int priority) {
                 nameCustomizers.add(new NameCustomizer<>(blockEntityClass, provider, priority));
             }
 
             @Override
-            public <T extends BlockEntity> void addBlockEntityModName(Class<T> blockEntityClass,
-                    Class<? extends Block> blockClass, ResourceLocation id, ModNameProvider<? super T> provider,
-                    int priority) {
+            public <T extends TileEntity> void addBlockEntityModName(Class<T> blockEntityClass,
+                                                                     Class<? extends Block> blockClass, ResourceLocation id, ModNameProvider<? super T> provider,
+                                                                     int priority) {
                 modNameCustomizers.add(new ModNameCustomizer<>(blockEntityClass, provider, priority));
             }
         });
@@ -112,21 +108,24 @@ public final class BlockEntityInfoProvider implements IProbeInfoProvider, IBlock
         bodyCustomizers.sort(Comparator.comparingInt(BodyCustomizer::priority));
     }
 
-    @Override
-    public ResourceLocation getID() {
-        return AppEng.makeId("block-entity");
+    private static TooltipContext getContext(EntityPlayer player, IProbeHitData data, NBTTagCompound serverData) {
+        Vec3d hitLocation = data.getHitVec();
+        return new TooltipContext(serverData, hitLocation, player);
     }
 
     @Override
-    public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, Player player, Level level,
-            BlockState blockState, IProbeHitData data) {
-        var blockEntity = level.getBlockEntity(data.getPos());
+    public String getID() {
+        return AppEng.MOD_ID + ":block_entity";
+    }
+
+    @Override
+    public void addProbeInfo(ProbeMode mode, IProbeInfo probeInfo, EntityPlayer player, World level,
+                             IBlockState blockState, IProbeHitData data) {
+        var blockEntity = level.getTileEntity(data.getPos());
         if (blockEntity != null) {
             var serverData = getServerData(player, blockEntity);
-
-            // Then allow all providers to modify the probe info
             var context = getContext(player, data, serverData);
-            var tooltipBuilder = new TopTooltipBuilder(probeInfo);
+            TooltipBuilder tooltipBuilder = new TopTooltipBuilder(probeInfo);
             for (var customizer : bodyCustomizers) {
                 customizer.buildTooltip(blockEntity, context, tooltipBuilder);
             }
@@ -134,10 +133,9 @@ public final class BlockEntityInfoProvider implements IProbeInfoProvider, IBlock
     }
 
     @Override
-    public boolean overrideStandardInfo(ProbeMode probeMode, IProbeInfo probeInfo, Player player, Level level,
-            BlockState blockState, IProbeHitData probeHitData) {
-
-        var blockEntity = level.getBlockEntity(probeHitData.getPos());
+    public boolean overrideStandardInfo(ProbeMode probeMode, IProbeInfo probeInfo, EntityPlayer player, World level,
+                                        IBlockState blockState, IProbeHitData probeHitData) {
+        var blockEntity = level.getTileEntity(probeHitData.getPos());
         if (blockEntity == null) {
             return false;
         }
@@ -145,10 +143,9 @@ public final class BlockEntityInfoProvider implements IProbeInfoProvider, IBlock
         var serverData = getServerData(player, blockEntity);
         var context = getContext(player, probeHitData, serverData);
 
-        // If any one of our providers customizes the info, we have to override it all
-        Component name = null;
+        ITextComponent name = null;
         String modName = null;
-        ItemStack icon = null;
+        ItemStack icon = ItemStack.EMPTY;
 
         for (var customizer : nameCustomizers) {
             name = customizer.getName(blockEntity, context);
@@ -166,89 +163,82 @@ public final class BlockEntityInfoProvider implements IProbeInfoProvider, IBlock
 
         for (var customizer : iconCustomizers) {
             icon = customizer.getIcon(blockEntity, context);
-            if (icon != null) {
+            if (icon != null && !icon.isEmpty()) {
                 break;
             }
         }
 
-        if (name != null || modName != null || icon != null) {
-            // Fill out defaults
-            var pickBlock = probeHitData.getPickBlock();
+        if (name != null || modName != null || (icon != null && !icon.isEmpty())) {
+            ItemStack pickBlock = probeHitData.getPickBlock();
             if (name == null) {
-                name = pickBlock.getHoverName();
+                name = pickBlock != null ? new TextComponentString(pickBlock.getDisplayName())
+                    : new TextComponentString("");
             }
-            if (icon == null) {
+            if (icon == null || icon.isEmpty()) {
                 icon = pickBlock;
             }
-            if (modName == null) {
-                modName = Platform.getModName(BuiltInRegistries.ITEM.getKey(pickBlock.getItem()).getNamespace());
+            if (modName == null && pickBlock != null && !pickBlock.isEmpty()
+                && pickBlock.getItem().getRegistryName() != null) {
+                modName = Platform.getModName(pickBlock.getItem().getRegistryName().getNamespace());
             }
 
-            // TOP itself checks a config here to enable/disable the mod name, but I don't know how to get access to it
-            probeInfo.horizontal().item(icon).vertical().text(name)
-                    .text(CompoundText.create().style(TextStyleClass.MODNAME).text(modName));
+            var vertical = probeInfo.horizontal().item(icon).vertical();
+            vertical.text(name.getFormattedText());
+            if (modName != null) {
+                vertical.text("§9§o" + modName);
+            }
             return true;
         }
 
         return false;
     }
 
-    @FunctionalInterface
-    private interface ServerDataCollector {
-        void collect(BlockEntity blockEntity, ServerPlayer player, CompoundTag serverData);
-    }
-
-    private CompoundTag getServerData(Player player, BlockEntity blockEntity) {
-        var serverData = new CompoundTag();
-
-        // Emulate Jade/WTHIT/Waila model by collecting the server-data they would send to the client
-        // into a temporary compound tag.
-        if (player instanceof ServerPlayer serverPlayer) {
-            for (var dataCollector : dataCollectors) {
+    private NBTTagCompound getServerData(EntityPlayer player, TileEntity blockEntity) {
+        NBTTagCompound serverData = new NBTTagCompound();
+        if (player instanceof EntityPlayerMP serverPlayer) {
+            for (ServerDataCollector dataCollector : dataCollectors) {
                 dataCollector.collect(blockEntity, serverPlayer, serverData);
             }
         }
         return serverData;
     }
 
-    private static TooltipContext getContext(Player player, IProbeHitData data, CompoundTag serverData) {
-        return new TooltipContext(
-                serverData,
-                data.getHitVec(),
-                player);
+    @FunctionalInterface
+    private interface ServerDataCollector {
+        void collect(TileEntity blockEntity, EntityPlayerMP player, NBTTagCompound serverData);
     }
 
-    record NameCustomizer<T>(Class<T> beClass, NameProvider<? super T> provider, int priority) {
-        public Component getName(BlockEntity blockEntity, TooltipContext context) {
-            if (beClass.isInstance(blockEntity)) {
-                return provider.getName(beClass.cast(blockEntity), context);
+    private record NameCustomizer<T>(Class<T> beClass, NameProvider<? super T> provider, int priority) {
+        public @Nullable ITextComponent getName(TileEntity blockEntity, TooltipContext context) {
+            if (this.beClass.isInstance(blockEntity)) {
+                return this.provider.getName(this.beClass.cast(blockEntity), context);
             }
             return null;
         }
     }
 
-    record IconCustomizer<T>(Class<T> beClass, IconProvider<? super T> provider, int priority) {
-        public ItemStack getIcon(BlockEntity blockEntity, TooltipContext context) {
-            if (beClass.isInstance(blockEntity)) {
-                return provider.getIcon(beClass.cast(blockEntity), context);
+    private record IconCustomizer<T>(Class<T> beClass, IconProvider<? super T> provider, int priority) {
+        public ItemStack getIcon(TileEntity blockEntity, TooltipContext context) {
+            if (this.beClass.isInstance(blockEntity)) {
+                return this.provider.getIcon(this.beClass.cast(blockEntity), context);
+            }
+            return ItemStack.EMPTY;
+        }
+    }
+
+    private record ModNameCustomizer<T>(Class<T> beClass, ModNameProvider<? super T> provider, int priority) {
+        public @Nullable String getModName(TileEntity blockEntity, TooltipContext context) {
+            if (this.beClass.isInstance(blockEntity)) {
+                return this.provider.getModName(this.beClass.cast(blockEntity), context);
             }
             return null;
         }
     }
 
-    record ModNameCustomizer<T>(Class<T> beClass, ModNameProvider<? super T> provider, int priority) {
-        public String getModName(BlockEntity blockEntity, TooltipContext context) {
-            if (beClass.isInstance(blockEntity)) {
-                return provider.getModName(beClass.cast(blockEntity), context);
-            }
-            return null;
-        }
-    }
-
-    record BodyCustomizer<T>(Class<T> beClass, BodyProvider<? super T> provider, int priority) {
-        public void buildTooltip(BlockEntity blockEntity, TooltipContext context, TooltipBuilder tooltipBuilder) {
-            if (beClass.isInstance(blockEntity)) {
-                provider.buildTooltip(beClass.cast(blockEntity), context, tooltipBuilder);
+    private record BodyCustomizer<T>(Class<T> beClass, BodyProvider<? super T> provider, int priority) {
+        public void buildTooltip(TileEntity blockEntity, TooltipContext context, TooltipBuilder tooltipBuilder) {
+            if (this.beClass.isInstance(blockEntity)) {
+                this.provider.buildTooltip(this.beClass.cast(blockEntity), context, tooltipBuilder);
             }
         }
     }

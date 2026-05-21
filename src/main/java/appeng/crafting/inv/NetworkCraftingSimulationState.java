@@ -18,17 +18,15 @@
 
 package appeng.crafting.inv;
 
-import java.util.Map;
-
-import com.google.common.collect.Iterables;
-
-import org.jetbrains.annotations.Nullable;
-
 import appeng.api.config.FuzzyMode;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import com.google.common.collect.Iterables;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Map;
 
 /**
  * Currently, extracts the whole network contents when the job starts. Lazily extracting is unfortunately not possible
@@ -41,7 +39,7 @@ public class NetworkCraftingSimulationState extends CraftingSimulationState {
     public NetworkCraftingSimulationState(IStorageService storage, @Nullable IActionSource src) {
         if (src != null && src.player().isPresent()) {
             // We choose to re-query the available stacks every time a crafting simulation is started by a player.
-            // Using getCachedInventory causes issues with our "CTRL+click to craft" integration with EMI, which submits
+            // Using getCachedInventory causes issues with our external recipe-transfer integration, which submits
             // a job and then immediately starts a new simulation. We want that simulation to see the state of the
             // network after the previous job was submitted in case of overlap between the recipes. More generally,
             // having to replan is annoying, and we want to minimize the risk of that for player-started calculations.
@@ -60,8 +58,8 @@ public class NetworkCraftingSimulationState extends CraftingSimulationState {
     }
 
     @Override
-    protected long simulateExtractParent(AEKey what, long amount) {
-        return Math.min(list.get(what), amount);
+    protected long simulateExtractParent(AEKey what) {
+        return Math.min(list.get(what), Long.MAX_VALUE);
     }
 
     @Override

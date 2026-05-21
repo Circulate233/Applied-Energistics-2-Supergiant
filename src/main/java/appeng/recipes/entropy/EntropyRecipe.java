@@ -18,194 +18,72 @@
 
 package appeng.recipes.entropy;
 
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+
+import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import com.google.common.collect.Maps;
-import com.mojang.serialization.Codec;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
+@SuppressWarnings("deprecation")
+public record EntropyRecipe(EntropyMode mode, Input input, Output output) {
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.NonNullList;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeInput;
-import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateHolder;
-import net.minecraft.world.level.block.state.properties.Property;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.FluidState;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
-
-import appeng.core.AppEng;
-import appeng.items.tools.powered.EntropyManipulatorItem;
-import appeng.recipes.AERecipeTypes;
-
-/**
- * A special recipe used for the {@link EntropyManipulatorItem}.
- */
-public class EntropyRecipe implements Recipe<RecipeInput> {
-
-    public static final MapCodec<EntropyRecipe> CODEC = RecordCodecBuilder.mapCodec(builder -> builder.group(
-            EntropyMode.CODEC.fieldOf("mode").forGetter(EntropyRecipe::getMode),
-            Input.CODEC.fieldOf("input").forGetter(EntropyRecipe::getInput),
-            Output.CODEC.fieldOf("output").forGetter(EntropyRecipe::getOutput)).apply(builder, EntropyRecipe::new));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, EntropyRecipe> STREAM_CODEC = StreamCodec.composite(
-            NeoForgeStreamCodecs.enumCodec(EntropyMode.class),
-            EntropyRecipe::getMode,
-            Input.STREAM_CODEC,
-            EntropyRecipe::getInput,
-            Output.STREAM_CODEC,
-            EntropyRecipe::getOutput,
-            EntropyRecipe::new);
-
-    @Deprecated(forRemoval = true, since = "1.21.1")
-    public static final ResourceLocation TYPE_ID = AppEng.makeId("entropy");
-
-    @Deprecated(forRemoval = true, since = "1.21.1")
-    public static final RecipeType<EntropyRecipe> TYPE = AERecipeTypes.ENTROPY;
-
-    private final EntropyMode mode;
-    private final Input input;
-    private final Output output;
-
-    EntropyRecipe(EntropyMode mode, Input input, Output output) {
-        this.mode = mode;
-        this.input = input;
-        this.output = output;
-    }
-
-    @Override
-    public boolean matches(RecipeInput inv, Level level) {
-        return false;
-    }
-
-    @Override
-    public ItemStack assemble(RecipeInput inv, HolderLookup.Provider registries) {
-        return ItemStack.EMPTY;
-    }
-
-    @Override
-    public boolean canCraftInDimensions(int width, int height) {
-        return false;
-    }
-
-    @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) {
-        return ItemStack.EMPTY;
-    }
-
-    @Override
-    public RecipeSerializer<?> getSerializer() {
-        return EntropyRecipeSerializer.INSTANCE;
-    }
-
-    @Override
-    public RecipeType<?> getType() {
-        return TYPE;
-    }
-
-    @Override
-    public NonNullList<Ingredient> getIngredients() {
-        return NonNullList.create();
-    }
-
-    public EntropyMode getMode() {
-        return this.mode;
+    @Nullable
+    public IBlockState getOutputBlockState(IBlockState originalBlockState) {
+        return this.output.block.map(blockOutput -> blockOutput.apply(originalBlockState)).orElse(null);
     }
 
     @Nullable
-    public BlockState getOutputBlockState(BlockState originalBlockState) {
-        return output.block().map(blockOutput -> blockOutput.apply(originalBlockState)).orElse(null);
+    public IBlockState getOutputFluidState(IBlockState originalBlockState) {
+        return this.output.fluid.map(fluidOutput -> fluidOutput.apply(originalBlockState)).orElse(null);
     }
 
     @Nullable
-    public FluidState getOutputFluidState(FluidState originalFluidState) {
-        return output.fluid().map(fluidOutput -> fluidOutput.apply(originalFluidState)).orElse(null);
+    public FluidStack getOutputFluidStack(FluidStack originalFluidStack) {
+        return this.output.fluid.map(fluidOutput -> fluidOutput.apply(originalFluidStack)).orElse(null);
     }
 
     public List<ItemStack> getDrops() {
-        return this.output.drops();
+        return this.output.drops;
     }
 
-    public boolean matches(EntropyMode mode, BlockState blockState, FluidState fluidState) {
-        if (this.getMode() != mode) {
+    public boolean matches(EntropyMode mode, IBlockState blockState, FluidStack fluidStack) {
+        if (this.mode() != mode) {
             return false;
         }
 
-        return input.matches(blockState, fluidState);
-    }
-
-    /**
-     * Copies a property from one stateholder to another (if that stateholder also has that property).
-     */
-    private static <T extends Comparable<T>, SH extends StateHolder<?, SH>> SH copyProperty(SH from, SH to,
-            Property<T> property) {
-        if (to.hasProperty(property)) {
-            return to.setValue(property, from.getValue(property));
-        } else {
-            return to;
-        }
-    }
-
-    public Input getInput() {
-        return input;
-    }
-
-    public Output getOutput() {
-        return output;
+        return this.input.matches(blockState, fluidStack);
     }
 
     public record Input(Optional<BlockInput> block, Optional<FluidInput> fluid) {
-        public static Codec<Input> CODEC = RecordCodecBuilder.create(builder -> builder.group(
-                BlockInput.CODEC.optionalFieldOf("block").forGetter(Input::block),
-                FluidInput.CODEC.optionalFieldOf("fluid").forGetter(Input::fluid)).apply(builder, Input::new));
 
-        public static StreamCodec<RegistryFriendlyByteBuf, Input> STREAM_CODEC = StreamCodec.composite(
-                BlockInput.STREAM_CODEC.apply(ByteBufCodecs::optional),
-                Input::block,
-                FluidInput.STREAM_CODEC.apply(ByteBufCodecs::optional),
-                Input::fluid,
-                Input::new);
-
-        public boolean matches(BlockState blockState, FluidState fluidState) {
-            if (block.isPresent()) {
-                var inputBlock = block.get().block();
-
-                if (blockState.getBlock() != inputBlock) {
+        public boolean matches(IBlockState blockState, FluidStack fluidStack) {
+            if (this.block.isPresent()) {
+                BlockInput blockInput = this.block.get();
+                if (blockState == null || blockState.getBlock() != blockInput.block) {
                     return false;
                 }
-                var stateDefinition = inputBlock.getStateDefinition();
-                if (!PropertyUtils.doPropertiesMatch(stateDefinition, blockState, block.get().properties())) {
+                if (!PropertyUtils.doPropertiesMatch(blockInput.block, blockState, blockInput.properties)) {
                     return false;
                 }
             }
 
-            if (fluid.isPresent()) {
-                var inputFluid = fluid.get().fluid();
-                if (fluidState.getType() != inputFluid) {
+            if (this.fluid.isPresent()) {
+                FluidInput fluidInput = this.fluid.get();
+                if (fluidStack == null || fluidStack.getFluid() != fluidInput.fluid) {
                     return false;
                 }
-                var stateDefinition = inputFluid.getStateDefinition();
-                if (!PropertyUtils.doPropertiesMatch(stateDefinition, fluidState, fluid.get().properties())) {
-                    return false;
+                Block fluidBlock = fluidInput.fluid.getBlock();
+                if (!fluidInput.properties.isEmpty()) {
+                    if (fluidBlock == null || blockState == null || blockState.getBlock() != fluidBlock) {
+                        return false;
+                    }
+                    return PropertyUtils.doPropertiesMatch(fluidBlock, blockState, fluidInput.properties);
                 }
             }
 
@@ -214,136 +92,75 @@ public class EntropyRecipe implements Recipe<RecipeInput> {
     }
 
     public record BlockInput(Block block, Map<String, PropertyValueMatcher> properties) {
-        public static Codec<BlockInput> CODEC = RecordCodecBuilder.create(builder -> builder.group(
-                BuiltInRegistries.BLOCK.byNameCodec().fieldOf("id").forGetter(BlockInput::block),
-                PropertyValueMatcher.MAP_CODEC.optionalFieldOf("properties", Map.of())
-                        .forGetter(BlockInput::properties))
-                .apply(builder, BlockInput::new));
-
-        public static StreamCodec<RegistryFriendlyByteBuf, BlockInput> STREAM_CODEC = StreamCodec.composite(
-                ByteBufCodecs.registry(Registries.BLOCK),
-                BlockInput::block,
-                ByteBufCodecs.map(Maps::newHashMapWithExpectedSize, ByteBufCodecs.STRING_UTF8,
-                        PropertyValueMatcher.STREAM_CODEC),
-                BlockInput::properties,
-                BlockInput::new);
+        public BlockInput(Block block, Map<String, PropertyValueMatcher> properties) {
+            this.block = block;
+            this.properties = properties;
+            PropertyUtils.validatePropertyMatchers(block, properties);
+        }
     }
 
     public record FluidInput(Fluid fluid, Map<String, PropertyValueMatcher> properties) {
-        public static Codec<FluidInput> CODEC = RecordCodecBuilder.create(builder -> builder.group(
-                BuiltInRegistries.FLUID.byNameCodec().fieldOf("id").forGetter(FluidInput::fluid),
-                PropertyValueMatcher.MAP_CODEC.optionalFieldOf("properties", Map.of())
-                        .forGetter(FluidInput::properties))
-                .apply(builder, FluidInput::new));
-
-        public static StreamCodec<RegistryFriendlyByteBuf, FluidInput> STREAM_CODEC = StreamCodec.composite(
-                ByteBufCodecs.registry(Registries.FLUID),
-                FluidInput::fluid,
-                ByteBufCodecs.map(Maps::newHashMapWithExpectedSize, ByteBufCodecs.STRING_UTF8,
-                        PropertyValueMatcher.STREAM_CODEC),
-                FluidInput::properties,
-                FluidInput::new);
     }
 
     public record Output(Optional<BlockOutput> block, Optional<FluidOutput> fluid, List<ItemStack> drops) {
-
-        public static Codec<Output> CODEC = RecordCodecBuilder.create(builder -> builder.group(
-                BlockOutput.CODEC.optionalFieldOf("block").forGetter(Output::block),
-                FluidOutput.CODEC.optionalFieldOf("fluid").forGetter(Output::fluid),
-                ItemStack.CODEC.listOf().optionalFieldOf("drops", List.of()).forGetter(Output::drops))
-                .apply(builder, Output::new));
-
-        public static StreamCodec<RegistryFriendlyByteBuf, Output> STREAM_CODEC = StreamCodec.composite(
-                BlockOutput.STREAM_CODEC.apply(ByteBufCodecs::optional),
-                Output::block,
-                FluidOutput.STREAM_CODEC.apply(ByteBufCodecs::optional),
-                Output::fluid,
-                ItemStack.LIST_STREAM_CODEC,
-                Output::drops,
-                Output::new);
+        public Output(Optional<BlockOutput> block, Optional<FluidOutput> fluid, List<ItemStack> drops) {
+            this.block = block;
+            this.fluid = fluid;
+            this.drops = drops == null ? Collections.emptyList() : drops;
+        }
     }
 
-    public record BlockOutput(Block block, boolean keepProperties, Map<String, String> properties) {
+    public static final class BlockOutput {
+        private final Block block;
+        private final int metadata;
+        private final boolean keepProperties;
+        private final Map<String, String> properties;
 
-        public static Codec<BlockOutput> CODEC = RecordCodecBuilder.create(builder -> builder.group(
-                BuiltInRegistries.BLOCK.byNameCodec().fieldOf("id").forGetter(BlockOutput::block),
-                Codec.BOOL.optionalFieldOf("", false).forGetter(BlockOutput::keepProperties),
-                Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("properties", Map.of())
-                        .forGetter(BlockOutput::properties))
-                .apply(builder, BlockOutput::new));
+        public BlockOutput(Block block, int metadata, boolean keepProperties, Map<String, String> properties) {
+            this.block = block;
+            this.metadata = metadata;
+            this.keepProperties = keepProperties;
+            this.properties = properties;
+        }
 
-        public static StreamCodec<RegistryFriendlyByteBuf, BlockOutput> STREAM_CODEC = StreamCodec.composite(
-                ByteBufCodecs.registry(Registries.BLOCK),
-                BlockOutput::block,
-                ByteBufCodecs.BOOL,
-                BlockOutput::keepProperties,
-                ByteBufCodecs.map(Maps::newHashMapWithExpectedSize, ByteBufCodecs.STRING_UTF8,
-                        ByteBufCodecs.STRING_UTF8),
-                BlockOutput::properties,
-                BlockOutput::new);
+        public IBlockState apply(IBlockState originalBlockState) {
+            IBlockState state = this.metadata >= 0 ? this.block.getStateFromMeta(this.metadata) : this.block.getDefaultState();
 
-        public BlockState apply(BlockState originalBlockState) {
-            BlockState state = block.defaultBlockState();
-
-            if (keepProperties) {
-                for (Property<?> property : originalBlockState.getProperties()) {
-                    state = copyProperty(originalBlockState, state, property);
-                }
+            if (this.keepProperties) {
+                state = PropertyUtils.copyProperties(originalBlockState, state);
             }
 
-            var stateDefinition = originalBlockState.getBlock().getStateDefinition();
-            state = PropertyUtils.applyProperties(stateDefinition, state, properties);
-
-            return state;
+            return PropertyUtils.applyProperties(state, this.properties);
         }
     }
 
-    public record FluidOutput(Fluid fluid, boolean keepProperties, Map<String, String> properties) {
+    public static final class FluidOutput {
+        private final Fluid fluid;
+        private final boolean keepProperties;
+        private final Map<String, String> properties;
 
-        public static Codec<FluidOutput> CODEC = RecordCodecBuilder.create(builder -> builder.group(
-                BuiltInRegistries.FLUID.byNameCodec().fieldOf("id").forGetter(FluidOutput::fluid),
-                Codec.BOOL.optionalFieldOf("", false).forGetter(FluidOutput::keepProperties),
-                Codec.unboundedMap(Codec.STRING, Codec.STRING).optionalFieldOf("properties", Map.of())
-                        .forGetter(FluidOutput::properties))
-                .apply(builder, FluidOutput::new));
+        public FluidOutput(Fluid fluid, boolean keepProperties, Map<String, String> properties) {
+            this.fluid = fluid;
+            this.keepProperties = keepProperties;
+            this.properties = properties;
+        }
 
-        public static StreamCodec<RegistryFriendlyByteBuf, FluidOutput> STREAM_CODEC = StreamCodec.composite(
-                ByteBufCodecs.registry(Registries.FLUID),
-                FluidOutput::fluid,
-                ByteBufCodecs.BOOL,
-                FluidOutput::keepProperties,
-                ByteBufCodecs.map(Maps::newHashMapWithExpectedSize, ByteBufCodecs.STRING_UTF8,
-                        ByteBufCodecs.STRING_UTF8),
-                FluidOutput::properties,
-                FluidOutput::new);
-
-        public FluidState apply(FluidState originalFluidState) {
-            FluidState state = fluid.defaultFluidState();
-
-            if (keepProperties) {
-                for (Property<?> property : originalFluidState.getProperties()) {
-                    state = copyProperty(originalFluidState, state, property);
-                }
+        public @org.jspecify.annotations.Nullable IBlockState apply(IBlockState originalBlockState) {
+            Block fluidBlock = this.fluid.getBlock();
+            if (fluidBlock == null) {
+                return null;
             }
 
-            var stateDefinition = state.getType().getStateDefinition();
-            state = PropertyUtils.applyProperties(stateDefinition, state, properties);
-
-            return state;
+            IBlockState state = fluidBlock.getDefaultState();
+            if (this.keepProperties) {
+                state = PropertyUtils.copyProperties(originalBlockState, state);
+            }
+            return PropertyUtils.applyProperties(state, this.properties);
         }
 
-        public static void toNetwork(FriendlyByteBuf buffer, FluidOutput output) {
-            buffer.writeById(BuiltInRegistries.FLUID::getId, output.fluid);
-            buffer.writeBoolean(output.keepProperties);
-            buffer.writeMap(output.properties, FriendlyByteBuf::writeUtf, (fbb, value) -> fbb.writeUtf(value));
-        }
-
-        public static FluidOutput fromNetwork(FriendlyByteBuf buffer) {
-            var fluid = buffer.readById(BuiltInRegistries.FLUID::byId);
-            var keepProperties = buffer.readBoolean();
-            var properties = buffer.readMap(FriendlyByteBuf::readUtf, fbb -> fbb.readUtf());
-            return new FluidOutput(fluid, keepProperties, properties);
+        public FluidStack apply(FluidStack originalFluidStack) {
+            int amount = originalFluidStack == null ? Fluid.BUCKET_VOLUME : originalFluidStack.amount;
+            return new FluidStack(this.fluid, amount);
         }
     }
-
 }

@@ -23,13 +23,12 @@
 
 package appeng.me.energy;
 
-import java.util.Collection;
-
-import org.jetbrains.annotations.ApiStatus;
-
 import appeng.api.networking.IGridNodeService;
 import appeng.api.networking.energy.IEnergyService;
 import appeng.me.service.EnergyService;
+import org.jetbrains.annotations.ApiStatus;
+
+import java.util.Collection;
 
 /**
  * internal use only.

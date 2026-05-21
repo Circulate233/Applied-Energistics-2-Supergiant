@@ -18,13 +18,12 @@
 
 package appeng.util.inv;
 
-import java.util.Objects;
-
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.util.inv.filter.IAEItemFilter;
+import net.minecraft.item.ItemStack;
+
+import java.util.Objects;
 
 public class FilteredInternalInventory extends BaseInternalInventory {
     private final InternalInventory delegate;
@@ -55,7 +54,6 @@ public class FilteredInternalInventory extends BaseInternalInventory {
         if (!this.filter.allowInsert(this.delegate, slot, stack)) {
             return stack;
         }
-
         return this.delegate.insertItem(slot, stack, simulate);
     }
 
@@ -64,7 +62,6 @@ public class FilteredInternalInventory extends BaseInternalInventory {
         if (!this.filter.allowExtract(this.delegate, slot, amount)) {
             return ItemStack.EMPTY;
         }
-
         return this.delegate.extractItem(slot, amount, simulate);
     }
 

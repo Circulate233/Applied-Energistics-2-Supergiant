@@ -1,0 +1,48 @@
+apply from: 'gradle/scripts/helpers.gradle'
+
+repositories {
+    // Other repositories described by default:
+    // CleanroomMC: https://maven.cleanroommc.com
+    maven {
+        name = 'CurseMaven'
+        url = 'https://cursemaven.com'
+    }
+    maven {
+        name = 'CleanroomCurseMaven'
+        url = 'https://curse.cleanroommc.com'
+    }
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+    }
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+    compileOnly "com.cleanroommc:sponge-mixin:0.20.12+mixin.0.8.7"
+    if (propertyBool('enable_lwjglx')) {
+        compileOnly "com.cleanroommc:lwjglx:1.0.0"
+    }
+
+    //CrT
+
+    // HEI
+    modImplementation "curse.maven:had-enough-items-557549:7938914"
+    // The One Probe
+    modImplementation "curse.maven:the-one-probe-245211:2667280"
+    // Baubles
+    modCompileOnly "curse.maven:baubles-227083:2518667"
+    // CodeChickenLib
+    modCompileOnly "curse.maven:codechicken-lib-1-8-242818:2779848"
+    // Forestry
+    modCompileOnly "curse.maven:forestry-59751:2684780"
+    // Chisel
+    modCompileOnly "curse.maven:chisel-235279:2915375"
+    // Inventory Tweaks
+    modCompileOnly "curse.maven:inventory-tweaks-223094:2482482"
+    // Inventory Bogo-Sorter
+    modCompileOnly "curse.maven:inventory-bogo-sorter-632327:4399738"
+    // Connected Textures Mod
+    modCompileOnly "curse.maven:ctm-267602:2915363"
+}

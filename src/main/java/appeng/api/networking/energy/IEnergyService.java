@@ -45,7 +45,7 @@ public interface IEnergyService extends IGridService, IEnergySource {
 
     /**
      * @return the average power drain over the past 10 ticks, includes idle usage during this time, and all use of
-     *         extractPower.
+     * extractPower.
      */
     double getAvgPowerUsage();
 
@@ -76,14 +76,14 @@ public interface IEnergyService extends IGridService, IEnergySource {
     double injectPower(double amt, Actionable mode);
 
     /**
-     * this is should be considered an estimate, and not relied upon for real calculations.
+     * This should be considered an estimate and not relied upon for real calculations.
      *
      * @return estimated available power.
      */
     double getStoredPower();
 
     /**
-     * this is should be considered an estimate, and not relied upon for real calculations.
+     * This should be considered an estimate and not relied upon for real calculations.
      *
      * @return estimated available power.
      */

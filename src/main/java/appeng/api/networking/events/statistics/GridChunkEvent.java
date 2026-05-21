@@ -23,25 +23,24 @@
 
 package appeng.api.networking.events.statistics;
 
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.ChunkPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.WorldServer;
 
 /**
  * An event send from the statistics grid once something about a chunk changes.
- * 
  * Listeners will not receive updates about pre-existing chunks when joining a network.
  */
 public abstract class GridChunkEvent extends GridStatisticsEvent {
 
-    private final ServerLevel level;
+    private final WorldServer level;
     private final ChunkPos chunkPos;
 
-    public GridChunkEvent(ServerLevel level, ChunkPos chunkPos) {
+    public GridChunkEvent(WorldServer level, ChunkPos chunkPos) {
         this.level = level;
         this.chunkPos = chunkPos;
     }
 
-    public ServerLevel getLevel() {
+    public WorldServer getLevel() {
         return level;
     }
 
@@ -54,7 +53,7 @@ public abstract class GridChunkEvent extends GridStatisticsEvent {
      */
     public static class GridChunkAdded extends GridChunkEvent {
 
-        public GridChunkAdded(ServerLevel level, ChunkPos chunkPos) {
+        public GridChunkAdded(WorldServer level, ChunkPos chunkPos) {
             super(level, chunkPos);
         }
 
@@ -65,7 +64,7 @@ public abstract class GridChunkEvent extends GridStatisticsEvent {
      */
     public static class GridChunkRemoved extends GridChunkEvent {
 
-        public GridChunkRemoved(ServerLevel level, ChunkPos chunkPos) {
+        public GridChunkRemoved(WorldServer level, ChunkPos chunkPos) {
             super(level, chunkPos);
         }
 

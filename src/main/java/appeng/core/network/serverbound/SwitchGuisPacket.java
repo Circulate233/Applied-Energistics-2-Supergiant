@@ -1,86 +1,211 @@
-
 package appeng.core.network.serverbound;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.inventory.MenuType;
-
-import appeng.core.network.CustomAppEngPayload;
+import appeng.api.storage.ISubGuiHost;
+import appeng.api.storage.ITerminalHost;
+import appeng.container.AEBaseContainer;
+import appeng.container.GuiIds;
+import appeng.container.ISubGui;
+import appeng.container.implementations.ContainerCraftAmount;
+import appeng.container.implementations.ContainerCraftConfirm;
+import appeng.container.implementations.ContainerCraftingStatus;
+import appeng.container.implementations.ContainerPriority;
+import appeng.container.implementations.ContainerSetStockAmount;
+import appeng.core.gui.locator.GuiHostLocator;
+import appeng.core.network.InitNetwork;
 import appeng.core.network.ServerboundPacket;
-import appeng.menu.AEBaseMenu;
-import appeng.menu.ISubMenu;
-import appeng.menu.MenuOpener;
+import appeng.core.network.clientbound.OpenGuiPacket;
+import appeng.helpers.IPriorityHost;
+import appeng.helpers.InterfaceLogicHost;
+import appeng.parts.AEBasePart;
+import appeng.tile.AEBaseTile;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.world.IWorldNameable;
+import org.jspecify.annotations.Nullable;
 
-public record SwitchGuisPacket(
-        @Nullable MenuType<? extends ISubMenu> newGui) implements ServerboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, SwitchGuisPacket> STREAM_CODEC = StreamCodec.ofMember(
-            SwitchGuisPacket::write,
-            SwitchGuisPacket::decode);
+public class SwitchGuisPacket extends ServerboundPacket {
 
-    public static final Type<SwitchGuisPacket> TYPE = CustomAppEngPayload.createType("switch_guis");
+    private GuiIds.GuiKey newGui;
+    private boolean returnToParentGui;
 
-    @Override
-    public Type<SwitchGuisPacket> type() {
-        return TYPE;
+    public SwitchGuisPacket() {
     }
 
-    @SuppressWarnings("unchecked")
-    public static SwitchGuisPacket decode(RegistryFriendlyByteBuf stream) {
-        MenuType<? extends ISubMenu> newGui = null;
-        if (stream.readBoolean()) {
-            newGui = (MenuType<? extends ISubMenu>) BuiltInRegistries.MENU.get(stream.readResourceLocation());
+    private SwitchGuisPacket(GuiIds.GuiKey newGui) {
+        this.newGui = newGui;
+        this.returnToParentGui = newGui == null;
+    }
+
+    public static SwitchGuisPacket openSubGui(GuiIds.GuiKey guiKey) {
+        return new SwitchGuisPacket(guiKey);
+    }
+
+    public static SwitchGuisPacket returnToParentGui() {
+        return new SwitchGuisPacket(null);
+    }
+
+    public static boolean openSubGui(EntityPlayer player, GuiHostLocator locator, GuiIds.GuiKey guiKey) {
+        if (player.getClass() != EntityPlayerMP.class) {
+            return false;
         }
-        return new SwitchGuisPacket(newGui);
-    }
+        EntityPlayerMP serverPlayer = (EntityPlayerMP) player;
 
-    public void write(RegistryFriendlyByteBuf data) {
-        if (newGui != null) {
-            data.writeBoolean(true);
-            data.writeResourceLocation(BuiltInRegistries.MENU.getKey(newGui));
-        } else {
-            data.writeBoolean(false);
+        Class<?> hostType = getHostType(guiKey);
+        if (hostType == null) {
+            return false;
         }
-    }
 
-    /**
-     * Opens a sub-menu for the current menu, which will allow the player to return to the previous menu.
-     */
-    public static SwitchGuisPacket openSubMenu(MenuType<? extends ISubMenu> menuType) {
-        return new SwitchGuisPacket(menuType);
-    }
-
-    /**
-     * Creates a packet that instructs the server to return to the parent menu for the currently opened sub-menu.
-     */
-    public static SwitchGuisPacket returnToParentMenu() {
-        return new SwitchGuisPacket((MenuType<? extends ISubMenu>) null);
-    }
-
-    @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (this.newGui != null) {
-            doOpenSubMenu(player);
-        } else {
-            doReturnToParentMenu(player);
+        Object host = locator.locate(player, hostType);
+        if (host == null) {
+            return false;
         }
+
+        ITextComponent title = getDefaultGuiTitle(host);
+
+        serverPlayer.closeContainer();
+        serverPlayer.getNextWindowId();
+        int windowId = serverPlayer.currentWindowId;
+
+        AEBaseContainer container = createContainer(guiKey, windowId, serverPlayer.inventory, host);
+        if (container == null) {
+            return false;
+        }
+
+        container.setLocator(locator);
+        container.setReturnedFromSubScreen(false);
+        container.setGuiTitle(title);
+        container.windowId = windowId;
+
+        InitNetwork.CHANNEL.sendTo(new OpenGuiPacket(guiKey, windowId, locator, false, title,
+            getInitialData(guiKey, host)), serverPlayer);
+
+        serverPlayer.openContainer = container;
+        serverPlayer.openContainer.windowId = windowId;
+        serverPlayer.openContainer.addListener(serverPlayer);
+
+        return true;
     }
 
-    private void doOpenSubMenu(ServerPlayer player) {
-        if (player.containerMenu instanceof AEBaseMenu bc) {
-            var locator = bc.getLocator();
-            if (locator != null) {
-                MenuOpener.open(newGui, player, locator);
+    private static @Nullable Class<?> getHostType(GuiIds.GuiKey guiKey) {
+        if (guiKey == GuiIds.GuiKey.CRAFT_AMOUNT || guiKey == GuiIds.GuiKey.CRAFT_CONFIRM) {
+            return ISubGuiHost.class;
+        }
+        if (guiKey == GuiIds.GuiKey.CRAFTING_STATUS) {
+            return ITerminalHost.class;
+        }
+        if (guiKey == GuiIds.GuiKey.SET_STOCK_AMOUNT) {
+            return InterfaceLogicHost.class;
+        }
+        if (guiKey == GuiIds.GuiKey.PRIORITY) {
+            return IPriorityHost.class;
+        }
+        return null;
+    }
+
+    private static @Nullable AEBaseContainer createContainer(GuiIds.GuiKey guiKey, int windowId, InventoryPlayer inventory,
+                                                             Object host) {
+        if (guiKey == GuiIds.GuiKey.CRAFT_AMOUNT) {
+            return new ContainerCraftAmount(windowId, inventory, (ISubGuiHost) host);
+        }
+        if (guiKey == GuiIds.GuiKey.CRAFT_CONFIRM) {
+            return new ContainerCraftConfirm(windowId, inventory, (ISubGuiHost) host);
+        }
+        if (guiKey == GuiIds.GuiKey.CRAFTING_STATUS) {
+            return new ContainerCraftingStatus(windowId, inventory, (ITerminalHost) host);
+        }
+        if (guiKey == GuiIds.GuiKey.SET_STOCK_AMOUNT) {
+            return new ContainerSetStockAmount(windowId, inventory, (InterfaceLogicHost) host);
+        }
+        if (guiKey == GuiIds.GuiKey.PRIORITY) {
+            return new ContainerPriority(windowId, inventory, (IPriorityHost) host);
+        }
+        return null;
+    }
+
+    private static @Nullable ITextComponent getDefaultGuiTitle(Object host) {
+        if (host instanceof IWorldNameable titleProvider) {
+            if (titleProvider.hasCustomName()) {
+                return titleProvider.getDisplayName();
             }
         }
+        if (host instanceof AEBaseTile tile) {
+            if (tile.hasCustomName()) {
+                return tile.getCustomName();
+            }
+        }
+        if (host instanceof AEBasePart part) {
+            if (part.hasCustomName()) {
+                return part.getCustomName();
+            }
+        }
+        return null;
     }
 
-    private void doReturnToParentMenu(ServerPlayer player) {
-        if (player.containerMenu instanceof ISubMenu subMenu) {
-            subMenu.getHost().returnToMainMenu(player, subMenu);
+    private static byte[] getInitialData(GuiIds.GuiKey guiKey, Object host) {
+        if (guiKey != GuiIds.GuiKey.PRIORITY) {
+            return new byte[0];
         }
+
+        PacketBuffer buffer = new PacketBuffer(Unpooled.buffer());
+        buffer.writeVarInt(((IPriorityHost) host).getPriority());
+        byte[] initialData = new byte[buffer.writerIndex()];
+        buffer.getBytes(0, initialData);
+        return initialData;
+    }
+
+    @Override
+    protected void read(ByteBuf buf) {
+        PacketBuffer data = new PacketBuffer(buf);
+        if (data.readBoolean()) {
+            this.newGui = GuiIds.GuiKey.fromId(data.readVarInt());
+            this.returnToParentGui = false;
+        } else {
+            this.newGui = null;
+            this.returnToParentGui = true;
+        }
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        PacketBuffer data = new PacketBuffer(buf);
+        data.writeBoolean(this.newGui != null);
+        if (this.newGui != null) {
+            data.writeVarInt(this.newGui.getGuiId());
+        }
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if (this.newGui != null) {
+            doOpenSubGui(player);
+        } else if (this.returnToParentGui) {
+            doReturnToParentGui(player);
+        }
+    }
+
+    private void doOpenSubGui(EntityPlayerMP player) {
+        if (!(player.openContainer instanceof AEBaseContainer openContainer)) {
+            return;
+        }
+
+        GuiHostLocator locator = openContainer.getLocator();
+        if (locator != null) {
+            openSubGui(player, locator, this.newGui);
+        }
+    }
+
+    private void doReturnToParentGui(EntityPlayerMP player) {
+        Class<?> containerClass = player.openContainer.getClass();
+        if (!ISubGui.class.isAssignableFrom(containerClass)) {
+            return;
+        }
+
+        ISubGui currentSubGui = (ISubGui) player.openContainer;
+        currentSubGui.getHost().returnToMainContainer(player, currentSubGui);
     }
 }

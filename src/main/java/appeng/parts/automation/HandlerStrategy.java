@@ -1,44 +1,21 @@
 package appeng.parts.automation;
 
-import javax.annotation.Nullable;
-
-import com.google.common.primitives.Ints;
-
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
-
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.me.storage.ExternalStorageFacade;
+import com.google.common.primitives.Ints;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
+
+import javax.annotation.Nullable;
 
 public abstract class HandlerStrategy<C, S> {
-    private final AEKeyType keyType;
-
-    public HandlerStrategy(AEKeyType keyType) {
-        this.keyType = keyType;
-    }
-
-    public boolean isSupported(AEKey what) {
-        return what.getType() == keyType;
-    }
-
-    public AEKeyType getKeyType() {
-        return keyType;
-    }
-
-    public abstract ExternalStorageFacade getFacade(C handler);
-
-    @Nullable
-    public abstract S getStack(AEKey what, long amount);
-
-    public abstract long insert(C handler, AEKey what, long amount, Actionable mode);
-
     public static final HandlerStrategy<IItemHandler, ItemStack> ITEMS = new HandlerStrategy<>(AEKeyType.items()) {
         @Override
         public boolean isSupported(AEKey what) {
@@ -71,7 +48,6 @@ public abstract class HandlerStrategy<C, S> {
             return null;
         }
     };
-
     public static final HandlerStrategy<IFluidHandler, FluidStack> FLUIDS = new HandlerStrategy<>(AEKeyType.fluids()) {
         @Override
         public boolean isSupported(AEKey what) {
@@ -85,8 +61,8 @@ public abstract class HandlerStrategy<C, S> {
 
         @Override
         public long insert(IFluidHandler handler, AEKey what, long amount, Actionable mode) {
-            if (what instanceof AEFluidKey itemKey && amount > 0) {
-                var stack = itemKey.toStack(Ints.saturatedCast(amount));
+            if (what instanceof AEFluidKey fluidKey && amount > 0) {
+                var stack = fluidKey.toStack(Ints.saturatedCast(amount));
                 return handler.fill(stack, mode.getFluidAction());
             }
 
@@ -101,5 +77,25 @@ public abstract class HandlerStrategy<C, S> {
             return null;
         }
     };
+    private final AEKeyType keyType;
+
+    public HandlerStrategy(AEKeyType keyType) {
+        this.keyType = keyType;
+    }
+
+    public boolean isSupported(AEKey what) {
+        return what.getType() == keyType;
+    }
+
+    public AEKeyType getKeyType() {
+        return keyType;
+    }
+
+    public abstract ExternalStorageFacade getFacade(C handler);
+
+    @Nullable
+    public abstract S getStack(AEKey what, long amount);
+
+    public abstract long insert(C handler, AEKey what, long amount, Actionable mode);
 
 }

@@ -15,49 +15,106 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.storage;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.phys.BlockHitResult;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.storage.DriveBlockEntity;
+import appeng.block.AEBaseTileBlock;
+import appeng.client.render.model.DriveModelData;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.tile.storage.TileDrive;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.common.property.ExtendedBlockState;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
 
-public class DriveBlock extends AEBaseEntityBlock<DriveBlockEntity> {
-
-    public DriveBlock() {
-        super(metalProps());
-    }
-
-    @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof DriveBlockEntity be) {
-            if (!level.isClientSide) {
-                be.openMenu(player);
-            }
-            return InteractionResult.sidedSuccess(level.isClientSide());
+public class DriveBlock extends AEBaseTileBlock<TileDrive> {
+    public static final IUnlistedProperty<DriveModelData> RENDER_STATE = new IUnlistedProperty<>() {
+        @Override
+        public String getName() {
+            return "drive_render_state";
         }
 
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        @Override
+        public boolean isValid(DriveModelData value) {
+            return true;
+        }
+
+        @Override
+        public Class<DriveModelData> getType() {
+            return DriveModelData.class;
+        }
+
+        @Override
+        public String valueToString(DriveModelData value) {
+            return String.valueOf(value);
+        }
+    };
+
+    public DriveBlock() {
+        super(Material.IRON);
+        setHardness(2.2F);
+        setResistance(11.0F);
+        setTileEntity(TileDrive.class);
+    }
+
+    @Override
+    protected BlockStateContainer createBlockState() {
+        return new ExtendedBlockState(this, getOrientationStrategy().getProperties().toArray(new IProperty<?>[0]),
+            new IUnlistedProperty<?>[]{RENDER_STATE});
+    }
+
+    @Override
+    public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        if (!(state instanceof IExtendedBlockState)) {
+            return state;
+        }
+
+        TileDrive tile = this.getTileEntity(world, pos);
+        return ((IExtendedBlockState) state).withProperty(RENDER_STATE,
+            tile == null ? DriveModelData.createEmpty(10) : DriveModelData.fromDrive(tile));
+    }
+
+    @Override
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
+
+    public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
+        return layer == BlockRenderLayer.CUTOUT;
     }
 
     @Override
     public IOrientationStrategy getOrientationStrategy() {
         return OrientationStrategies.full();
     }
+
+    @Override
+    public boolean onBlockActivated(World world, BlockPos pos, net.minecraft.block.state.IBlockState state,
+                                    EntityPlayer player, EnumHand hand, EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
+        }
+
+        TileDrive tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            if (!world.isRemote) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.DRIVE, tile);
+            }
+            return true;
+        }
+        return false;
+    }
+
 }

@@ -18,40 +18,42 @@
 
 package appeng.items.parts;
 
-import java.util.function.Function;
-
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.context.UseOnContext;
-
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.PartHelper;
 import appeng.items.AEBaseItem;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
+import java.util.function.Function;
 
 public class PartItem<T extends IPart> extends AEBaseItem implements IPartItem<T> {
 
     private final Class<T> partClass;
     private final Function<IPartItem<T>, T> factory;
 
-    public PartItem(Properties properties, Class<T> partClass, Function<IPartItem<T>, T> factory) {
-        super(properties);
+    public PartItem(Class<T> partClass, Function<IPartItem<T>, T> factory) {
         this.partClass = partClass;
         this.factory = factory;
     }
 
     @Override
-    public InteractionResult useOn(UseOnContext context) {
-        return PartHelper.usePartItem(context);
+    public EnumActionResult onItemUse(EntityPlayer player, World world, BlockPos pos, EnumHand hand, EnumFacing side,
+                                      float hitX, float hitY, float hitZ) {
+        return PartHelper.usePartItem(player.getHeldItem(hand), player, world, pos, hand, side, hitX, hitY, hitZ);
     }
 
     @Override
     public Class<T> getPartClass() {
-        return partClass;
+        return this.partClass;
     }
 
     @Override
     public T createPart() {
-        return factory.apply(this);
+        return this.factory.apply(this);
     }
-
 }

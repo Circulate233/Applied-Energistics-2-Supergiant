@@ -18,17 +18,6 @@
 
 package appeng.parts.p2p;
 
-import java.util.EnumSet;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridConnection;
@@ -45,38 +34,38 @@ import appeng.core.AppEng;
 import appeng.core.settings.TickRates;
 import appeng.hooks.ticking.TickHandler;
 import appeng.items.parts.PartModels;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
 
 public class MEP2PTunnelPart extends P2PTunnelPart<MEP2PTunnelPart> implements IGridTickable {
 
     private static final P2PModels MODELS = new P2PModels(AppEng.makeId("part/p2p/p2p_tunnel_me"));
-
-    @PartModels
-    public static List<IPartModel> getModels() {
-        return MODELS.getModels();
-    }
-
-    /**
-     * Updates to ME tunnel connections are always delayed until the end of the tick. This field stores which operation
-     * should be performed. Even if multiple updates are queued, only the most recently queued will be performed.
-     */
-    private ConnectionUpdate pendingUpdate = ConnectionUpdate.NONE;
-
-    // This maps outputs to the grid connection between the external node of this tunnel and the external node
-    // of the other tunnel. Generally only maintained for the input side. May still have content for output tunnels
-    // before cleanup.
-    private final Map<MEP2PTunnelPart, IGridConnection> connections = new IdentityHashMap<>();
-
+    private final Reference2ObjectMap<MEP2PTunnelPart, IGridConnection> connections = new Reference2ObjectOpenHashMap<>();
     private final IManagedGridNode outerNode = GridHelper
-            .createManagedNode(this, NodeListener.INSTANCE)
-            .setTagName("outer")
-            .setInWorldNode(true)
-            .setFlags(GridFlags.DENSE_CAPACITY, GridFlags.CANNOT_CARRY_COMPRESSED);
+        .createManagedNode(this, NodeListener.INSTANCE)
+        .setTagName("outer")
+        .setInWorldNode(true)
+        .setFlags(GridFlags.DENSE_CAPACITY, GridFlags.CANNOT_CARRY_COMPRESSED);
+    private ConnectionUpdate pendingUpdate = ConnectionUpdate.NONE;
 
     public MEP2PTunnelPart(IPartItem<?> partItem) {
         super(partItem);
         this.getMainNode()
-                .setFlags(GridFlags.REQUIRE_CHANNEL, GridFlags.COMPRESSED_CHANNEL)
-                .addService(IGridTickable.class, this);
+            .setFlags(GridFlags.REQUIRE_CHANNEL, GridFlags.COMPRESSED_CHANNEL)
+            .addService(IGridTickable.class, this);
+    }
+
+    @PartModels
+    public static List<IPartModel> getModels() {
+        return MODELS.getModels();
     }
 
     @Override
@@ -85,26 +74,22 @@ public class MEP2PTunnelPart extends P2PTunnelPart<MEP2PTunnelPart> implements I
     }
 
     @Override
-    public void readFromNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.readFromNBT(extra, registries);
+    public void readFromNBT(NBTTagCompound extra) {
+        super.readFromNBT(extra);
         this.outerNode.loadFromNBT(extra);
     }
 
     @Override
-    public void writeToNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.writeToNBT(extra, registries);
+    public void writeToNBT(NBTTagCompound extra) {
+        super.writeToNBT(extra);
         this.outerNode.saveToNBT(extra);
     }
 
     @Override
     public void onTunnelNetworkChange() {
         super.onTunnelNetworkChange();
-        // Trigger the delayed update of the tunnel connections. Usually this is only done for input
-        // tunnels, but if an input is converted to an output, we need to clean up the connections.
-        if (!this.isOutput() || !connections.isEmpty()) {
-            getMainNode().ifPresent((grid, node) -> {
-                grid.getTickManager().wakeDevice(node);
-            });
+        if (!this.isOutput() || !this.connections.isEmpty()) {
+            getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
         }
     }
 
@@ -122,11 +107,11 @@ public class MEP2PTunnelPart extends P2PTunnelPart<MEP2PTunnelPart> implements I
     @Override
     public void addToWorld() {
         super.addToWorld();
-        this.outerNode.create(getLevel(), getBlockEntity().getBlockPos());
+        this.outerNode.create(getLevel(), getTileEntity().getPos());
     }
 
     @Override
-    public void setPartHostInfo(Direction side, IPartHost host, BlockEntity blockEntity) {
+    public void setPartHostInfo(EnumFacing side, IPartHost host, TileEntity blockEntity) {
         super.setPartHostInfo(side, host, blockEntity);
         this.outerNode.setExposedOnSides(EnumSet.of(side));
     }
@@ -137,7 +122,7 @@ public class MEP2PTunnelPart extends P2PTunnelPart<MEP2PTunnelPart> implements I
     }
 
     @Override
-    public void onPlacement(Player player) {
+    public void onPlacement(EntityPlayer player) {
         super.onPlacement(player);
         this.outerNode.setOwningPlayer(player);
     }
@@ -149,67 +134,53 @@ public class MEP2PTunnelPart extends P2PTunnelPart<MEP2PTunnelPart> implements I
 
     @Override
     public TickRateModulation tickingRequest(IGridNode node, int ticksSinceLastCall) {
-        if (!node.isOnline()) {
-            pendingUpdate = ConnectionUpdate.DISCONNECT;
-        } else {
-            pendingUpdate = ConnectionUpdate.CONNECT;
-        }
-
+        this.pendingUpdate = node.isOnline() ? ConnectionUpdate.CONNECT : ConnectionUpdate.DISCONNECT;
         TickHandler.instance().addCallable(getLevel(), this::updateConnections);
         return TickRateModulation.SLEEP;
     }
 
     private void updateConnections() {
-        var operation = pendingUpdate;
-        pendingUpdate = ConnectionUpdate.NONE;
+        ConnectionUpdate operation = this.pendingUpdate;
+        this.pendingUpdate = ConnectionUpdate.NONE;
 
-        var mainGrid = getMainNode().getGrid();
+        IGridNode mainNode = getMainNode().getNode();
+        Object mainGrid = mainNode != null ? mainNode.getGrid() : null;
 
         if (isOutput()) {
-            // It's possible to be woken up while we're still an input, then be made an output,
-            // and THEN this method is called afterwards. Disconnect any potentially remaining
-            // connections.
             operation = ConnectionUpdate.DISCONNECT;
         } else if (mainGrid == null) {
-            // We got disconnected completely (are we being destroyed?)
             operation = ConnectionUpdate.DISCONNECT;
         }
 
         if (operation == ConnectionUpdate.DISCONNECT) {
-            for (var cw : connections.values()) {
-                cw.destroy();
+            for (IGridConnection connection : this.connections.values()) {
+                connection.destroy();
             }
-            connections.clear();
+            this.connections.clear();
         } else if (operation == ConnectionUpdate.CONNECT) {
-            var outputs = getOutputs();
-
-            // Sever existing connections to tunnels that are no longer outputs of this input or
-            // that have become invalid for other reasons.
-            var it = connections.entrySet().iterator();
+            List<MEP2PTunnelPart> outputs = getOutputs();
+            java.util.Iterator<Map.Entry<MEP2PTunnelPart, IGridConnection>> it = this.connections.entrySet()
+                                                                                                 .iterator();
             while (it.hasNext()) {
-                var entry = it.next();
-                var output = entry.getKey();
-                var connection = entry.getValue();
-
-                // The previous tunnel could have moved to a different main grid (net-split), or lost his channel.
-                // Or it may have been relinked to a different input.
+                Map.Entry<MEP2PTunnelPart, IGridConnection> entry = it.next();
+                MEP2PTunnelPart output = entry.getKey();
+                IGridConnection connection = entry.getValue();
                 if (output.getMainNode().getGrid() != mainGrid
-                        || !output.getMainNode().isOnline()
-                        || !outputs.contains(output)) {
+                    || !output.getMainNode().isOnline()
+                    || !outputs.contains(output)) {
                     connection.destroy();
                     it.remove();
                 }
             }
 
-            for (var output : outputs) {
-                // The other tunnel has no channel, or it's already connected
-                if (!output.getMainNode().isOnline() || connections.containsKey(output)) {
+            for (MEP2PTunnelPart output : outputs) {
+                if (!output.getMainNode().isOnline() || this.connections.containsKey(output)) {
                     continue;
                 }
 
-                var connection = GridHelper.createConnection(getExternalFacingNode(),
-                        output.getExternalFacingNode());
-                connections.put(output, connection);
+                IGridConnection connection = GridHelper.createConnection(getExternalFacingNode(),
+                    output.getExternalFacingNode());
+                this.connections.put(output, connection);
             }
         }
     }

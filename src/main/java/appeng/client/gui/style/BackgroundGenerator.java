@@ -1,10 +1,23 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
 package appeng.client.gui.style;
 
-import net.minecraft.client.gui.GuiGraphics;
-
-/**
- * Generates a background of arbitrary size by tiling a pre-defined background.
- */
 public final class BackgroundGenerator {
 
     private static final int BORDER = 4;
@@ -34,7 +47,7 @@ public final class BackgroundGenerator {
     private BackgroundGenerator() {
     }
 
-    public static void draw(int width, int height, GuiGraphics guiGraphics, int x, int y) {
+    public static void draw(int width, int height, int x, int y) {
         if (width < 2 * BORDER || height < 2 * BORDER) {
             return;
         }
@@ -42,50 +55,47 @@ public final class BackgroundGenerator {
         var right = x + width;
         var bottom = y + height;
 
-        // Corners first
-        TOP_LEFT.dest(x, y).blit(guiGraphics);
-        TOP_RIGHT.dest(right - BORDER, y).blit(guiGraphics);
-        BOTTOM_LEFT.dest(x, bottom - BORDER).blit(guiGraphics);
-        BOTTOM_RIGHT.dest(right - BORDER, bottom - BORDER).blit(guiGraphics);
+        TOP_LEFT.dest(x, y).blit();
+        TOP_RIGHT.dest(right - BORDER, y).blit();
+        BOTTOM_LEFT.dest(x, bottom - BORDER).blit();
+        BOTTOM_RIGHT.dest(right - BORDER, bottom - BORDER).blit();
 
         var innerWidth = width - 2 * BORDER;
         var innerHeight = height - 2 * BORDER;
 
-        // Horizontally tiled
         for (var cx = 0; cx < innerWidth; cx += TILED_SIZE) {
             var tileWidth = Math.min(TILED_SIZE, innerWidth - cx);
             TOP_MIDDLE.copy()
-                    .srcWidth(tileWidth)
-                    .dest(x + BORDER + cx, y)
-                    .blit(guiGraphics);
+                      .srcWidth(tileWidth)
+                      .dest(x + BORDER + cx, y)
+                      .blit();
             BOTTOM_MIDDLE.copy()
-                    .srcWidth(tileWidth)
-                    .dest(x + BORDER + cx, y + height - BORDER)
-                    .blit(guiGraphics);
+                         .srcWidth(tileWidth)
+                         .dest(x + BORDER + cx, y + height - BORDER)
+                         .blit();
 
-            // Both horziontally and vertically tiled
             for (var cy = 0; cy < innerHeight; cy += TILED_SIZE) {
                 var tileHeight = Math.min(TILED_SIZE, innerHeight - cy);
                 MIDDLE.copy()
-                        .srcWidth(tileWidth)
-                        .srcHeight(tileHeight)
-                        .dest(x + BORDER + cx, y + BORDER + cy)
-                        .blit(guiGraphics);
+                      .srcWidth(tileWidth)
+                      .srcHeight(tileHeight)
+                      .dest(x + BORDER + cx, y + BORDER + cy)
+                      .blit();
             }
         }
 
-        // Vertically tiled
         for (var cy = 0; cy < innerHeight; cy += TILED_SIZE) {
             var tileHeight = Math.min(TILED_SIZE, innerHeight - cy);
             LEFT.copy()
-                    .srcHeight(tileHeight)
-                    .dest(x, y + BORDER + cy)
-                    .blit(guiGraphics);
+                .srcHeight(tileHeight)
+                .dest(x, y + BORDER + cy)
+                .blit();
             RIGHT.copy()
-                    .srcHeight(tileHeight)
-                    .dest(right - BORDER, y + BORDER + cy)
-                    .blit(guiGraphics);
+                 .srcHeight(tileHeight)
+                 .dest(right - BORDER, y + BORDER + cy)
+                 .blit();
         }
     }
 
 }
+

@@ -18,26 +18,7 @@
 
 package appeng.parts.networking;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Set;
-import java.util.function.Predicate;
-
-import org.apache.commons.lang3.StringUtils;
-import org.jetbrains.annotations.Nullable;
-
-import io.netty.buffer.Unpooled;
-
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.StringTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-
+import appeng.api.ids.AEPartIds;
 import appeng.api.implementations.parts.ICablePart;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
@@ -50,10 +31,28 @@ import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
-import appeng.core.definitions.AEParts;
 import appeng.items.parts.ColoredPartItem;
 import appeng.items.tools.powered.ColorApplicatorItem;
 import appeng.parts.AEBasePart;
+import io.netty.buffer.Unpooled;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.ResourceLocation;
+import org.apache.commons.lang3.StringUtils;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Predicate;
 
 public abstract class CablePart extends AEBasePart implements ICablePart {
 
@@ -65,18 +64,53 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
         }
     };
 
-    private final int[] channelsOnSide = { 0, 0, 0, 0, 0, 0 };
+    private static final Map<AECableType, Map<AEColor, ResourceLocation>> PART_IDS = new EnumMap<>(AECableType.class);
 
-    private Set<Direction> connections = Collections.emptySet();
+    static {
+        PART_IDS.put(AECableType.GLASS, AEPartIds.CABLE_GLASS);
+        PART_IDS.put(AECableType.COVERED, AEPartIds.CABLE_COVERED);
+        PART_IDS.put(AECableType.SMART, AEPartIds.CABLE_SMART);
+        PART_IDS.put(AECableType.DENSE_COVERED, AEPartIds.CABLE_DENSE_COVERED);
+        PART_IDS.put(AECableType.DENSE_SMART, AEPartIds.CABLE_DENSE_SMART);
+    }
+
+    private final int[] channelsOnSide = {0, 0, 0, 0, 0, 0};
+    private Set<EnumFacing> connections = Collections.emptySet();
 
     public CablePart(ColoredPartItem<?> partItem) {
         super(partItem);
         this.getMainNode()
-                .setFlags(GridFlags.PREFERRED)
-                .setIdlePowerUsage(0.0)
-                .setInWorldNode(true)
-                .setExposedOnSides(EnumSet.allOf(Direction.class));
+            .setFlags(GridFlags.PREFERRED)
+            .setIdlePowerUsage(0.0)
+            .setInWorldNode(true)
+            .setExposedOnSides(EnumSet.allOf(EnumFacing.class));
         this.getMainNode().setGridColor(partItem.getColor());
+    }
+
+    protected static void addConnectionBox(IPartCollisionHelper bch, EnumFacing direction, double min, double max,
+                                           double distanceFromEnd) {
+        switch (direction) {
+            case DOWN:
+                bch.addBox(min, distanceFromEnd, min, max, min, max);
+                break;
+            case EAST:
+                bch.addBox(max, min, min, 16.0 - distanceFromEnd, max, max);
+                break;
+            case NORTH:
+                bch.addBox(min, min, distanceFromEnd, max, max, min);
+                break;
+            case SOUTH:
+                bch.addBox(min, min, max, max, max, 16.0 - distanceFromEnd);
+                break;
+            case UP:
+                bch.addBox(min, max, min, max, 16.0 - distanceFromEnd, max);
+                break;
+            case WEST:
+                bch.addBox(distanceFromEnd, min, min, min, max, max);
+                break;
+            default:
+                break;
+        }
     }
 
     @Override
@@ -102,33 +136,17 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
         getBoxes(bch, dir -> true);
     }
 
-    /**
-     * @param filterConnections Only add boxes for connections towards sides matching this. Use null to check for
-     *                          center.
-     */
-    public abstract void getBoxes(IPartCollisionHelper bch, Predicate<@Nullable Direction> filterConnections);
+    public abstract void getBoxes(IPartCollisionHelper bch, Predicate<@Nullable EnumFacing> filterConnections);
 
-    protected static void addConnectionBox(IPartCollisionHelper bch, Direction direction, double min, double max,
-            double distanceFromEnd) {
-        switch (direction) {
-            case DOWN -> bch.addBox(min, distanceFromEnd, min, max, min, max);
-            case EAST -> bch.addBox(max, min, min, 16.0 - distanceFromEnd, max, max);
-            case NORTH -> bch.addBox(min, min, distanceFromEnd, max, max, min);
-            case SOUTH -> bch.addBox(min, min, max, max, max, 16.0 - distanceFromEnd);
-            case UP -> bch.addBox(min, max, min, max, 16.0 - distanceFromEnd, max);
-            case WEST -> bch.addBox(distanceFromEnd, min, min, min, max, max);
-        }
-    }
-
-    protected void addNonDenseBoxes(IPartCollisionHelper bch, Predicate<@Nullable Direction> filterConnections,
-            double min, double max) {
+    protected void addNonDenseBoxes(IPartCollisionHelper bch, Predicate<@Nullable EnumFacing> filterConnections,
+                                    double min, double max) {
         if (filterConnections.test(null)) {
             bch.addBox(min, min, min, max, max, max);
         }
 
         var ph = this.getHost();
         if (ph != null) {
-            for (var dir : Direction.values()) {
+            for (var dir : EnumFacing.VALUES) {
                 if (!filterConnections.test(dir)) {
                     continue;
                 }
@@ -167,36 +185,30 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
     }
 
     @Override
-    public void onPlacement(Player player) {
+    public void onPlacement(EntityPlayer player) {
         super.onPlacement(player);
 
-        // Apply the color of a held color applicator on placement
-        var stack = player.getItemInHand(InteractionHand.OFF_HAND);
-        if (!stack.isEmpty() && stack.getItem() instanceof ColorApplicatorItem item) {
-            var color = item.getActiveColor(stack);
-            if (color != null && color != getCableColor() && item.consumeColor(stack, color, true)) {
-                if (changeColor(color, player) && !player.getAbilities().instabuild) {
-                    item.consumeColor(stack, color, false);
+        ItemStack stack = player.getHeldItemOffhand();
+        if (!stack.isEmpty() && stack.getItem() instanceof ColorApplicatorItem colorApp) {
+            AEColor color = colorApp.getActiveColor(stack);
+            if (color != null && color != getCableColor() && colorApp.consumeColor(stack, color, true)) {
+                if (changeColor(color, player) && !player.capabilities.isCreativeMode) {
+                    colorApp.consumeColor(stack, color, false);
                 }
             }
         }
     }
 
     @Override
-    public boolean changeColor(AEColor newColor, Player who) {
+    public boolean changeColor(AEColor newColor, EntityPlayer who) {
         if (this.getCableColor() != newColor) {
             IPartItem<?> newPart = null;
-
-            if (this.getCableConnectionType() == AECableType.GLASS) {
-                newPart = AEParts.GLASS_CABLE.item(newColor);
-            } else if (this.getCableConnectionType() == AECableType.COVERED) {
-                newPart = AEParts.COVERED_CABLE.item(newColor);
-            } else if (this.getCableConnectionType() == AECableType.SMART) {
-                newPart = AEParts.SMART_CABLE.item(newColor);
-            } else if (this.getCableConnectionType() == AECableType.DENSE_COVERED) {
-                newPart = AEParts.COVERED_DENSE_CABLE.item(newColor);
-            } else if (this.getCableConnectionType() == AECableType.DENSE_SMART) {
-                newPart = AEParts.SMART_DENSE_CABLE.item(newColor);
+            var partIds = PART_IDS.get(this.getCableConnectionType());
+            if (partIds != null) {
+                var id = partIds.get(newColor);
+                if (id != null) {
+                    newPart = IPartItem.byId(id);
+                }
             }
 
             if (newPart != null) {
@@ -205,7 +217,6 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
                 }
 
                 setPartItem(newPart);
-
                 getMainNode().setGridColor(getCableColor());
                 getHost().partChanged();
                 getHost().markForUpdate();
@@ -217,12 +228,12 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
     }
 
     @Override
-    public void setExposedOnSides(EnumSet<Direction> sides) {
+    public void setExposedOnSides(EnumSet<EnumFacing> sides) {
         this.getMainNode().setExposedOnSides(sides);
     }
 
     @Override
-    public boolean isConnected(Direction side) {
+    public boolean isConnected(EnumFacing side) {
         return this.getConnections().contains(side);
     }
 
@@ -242,13 +253,13 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
     }
 
     @Override
-    public void writeToStream(RegistryFriendlyByteBuf data) {
+    public void writeToStream(PacketBuffer data) {
         super.writeToStream(data);
 
-        boolean[] writeChannels = new boolean[Direction.values().length];
-        byte[] channelsPerSide = new byte[Direction.values().length];
+        boolean[] writeChannels = new boolean[EnumFacing.VALUES.length];
+        byte[] channelsPerSide = new byte[EnumFacing.VALUES.length];
 
-        for (var thisSide : Direction.values()) {
+        for (var thisSide : EnumFacing.VALUES) {
             var part = this.getHost().getPart(thisSide);
             if (part != null) {
                 int channels = 0;
@@ -275,7 +286,6 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
         }
         data.writeByte((byte) connectedSidesPacked);
 
-        // Only write the used channels for sides where we have a part or another cable
         for (int i = 0; i < writeChannels.length; i++) {
             if (writeChannels[i]) {
                 data.writeByte(channelsPerSide[i]);
@@ -290,12 +300,11 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
         }
 
         byte visualMaxChannels = switch (getCableConnectionType()) {
-            case NONE -> 0;
             case GLASS, SMART, COVERED -> 8;
             case DENSE_COVERED, DENSE_SMART -> 32;
+            default -> 0;
         };
 
-        // In infinite mode, we either return 0 or full strength
         if (node.getGrid().getPathingService().getChannelMode() == ChannelMode.INFINITE) {
             return channels <= 0 ? 0 : visualMaxChannels;
         }
@@ -305,9 +314,7 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
             return 0;
         }
 
-        // Generally we round down here
         var result = (byte) (Math.min(visualMaxChannels, channels * visualMaxChannels / gridMaxChannels));
-        // Except if at least 1 channel is used
         if (result == 0 && channels > 0) {
             return 1;
         } else {
@@ -316,17 +323,16 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
     }
 
     @Override
-    public boolean readFromStream(RegistryFriendlyByteBuf data) {
+    public boolean readFromStream(PacketBuffer data) {
         var changed = super.readFromStream(data);
 
         int connectedSidesPacked = data.readByte();
-        // Save previous state for change-detection
         var previousConnections = this.getConnections();
 
         boolean channelsChanged = false;
 
-        var connections = EnumSet.noneOf(Direction.class);
-        for (var d : Direction.values()) {
+        var connections = EnumSet.noneOf(EnumFacing.class);
+        for (var d : EnumFacing.VALUES) {
             boolean conOnSide = (connectedSidesPacked & (1 << d.ordinal())) != 0;
             if (conOnSide) {
                 connections.add(d);
@@ -334,9 +340,6 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
 
             int ch = 0;
 
-            // Only read channels if there's a part on this side or a cable connection
-            // This works only because cables are always read *last* from the packet update
-            // for a cable bus
             if (conOnSide || this.getHost().getPart(d) != null) {
                 ch = data.readByte() & 0xFF;
             }
@@ -352,51 +355,47 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
     }
 
     @Override
-    public void writeVisualStateToNBT(CompoundTag data) {
+    public void writeVisualStateToNBT(NBTTagCompound data) {
         super.writeVisualStateToNBT(data);
 
-        // Hacky hacky hacky, but it works. Refreshes the client-side state even if we're on the server
         if (!isClientSide()) {
             updateConnections();
-            var packet = new RegistryFriendlyByteBuf(Unpooled.buffer(), getLevel().registryAccess());
+            var packet = new PacketBuffer(Unpooled.buffer());
             writeToStream(packet);
             readFromStream(packet);
         }
 
-        for (var side : Direction.values()) {
+        for (var side : EnumFacing.VALUES) {
             if (connections.contains(side)) {
-                var sideName = "channels" + StringUtils.capitalize(side.getSerializedName());
-                data.putInt(sideName, channelsOnSide[side.ordinal()]);
+                var sideName = "channels" + StringUtils.capitalize(side.getName2());
+                data.setInteger(sideName, channelsOnSide[side.ordinal()]);
             }
         }
 
-        var connectionsTag = new ListTag();
+        var connectionsTag = new NBTTagList();
         for (var connection : connections) {
-            connectionsTag.add(StringTag.valueOf(connection.getSerializedName()));
+            connectionsTag.appendTag(new NBTTagString(connection.getName2()));
         }
-        data.put("connections", connectionsTag);
+        data.setTag("connections", connectionsTag);
     }
 
     @Override
-    public void readVisualStateFromNBT(CompoundTag data) {
+    public void readVisualStateFromNBT(NBTTagCompound data) {
         super.readVisualStateFromNBT(data);
 
-        // Restore channels per side for smart cables and also support as
-        // a convenience to set them for all sides at once
-        if (data.contains("channels")) {
-            Arrays.fill(this.channelsOnSide, data.getInt("channels"));
+        if (data.hasKey("channels")) {
+            Arrays.fill(this.channelsOnSide, data.getInteger("channels"));
         } else {
-            for (var side : Direction.values()) {
-                var sideName = "channels" + StringUtils.capitalize(side.getSerializedName());
-                channelsOnSide[side.ordinal()] = data.getInt(sideName);
+            for (var side : EnumFacing.VALUES) {
+                var sideName = "channels" + StringUtils.capitalize(side.getName2());
+                channelsOnSide[side.ordinal()] = data.getInteger(sideName);
             }
         }
 
-        // Restore adjacent connections
-        var connections = EnumSet.noneOf(Direction.class);
-        var connectionsTag = data.getList("connections", Tag.TAG_STRING);
-        for (var connectionTag : connectionsTag) {
-            var side = Direction.byName(connectionTag.getAsString());
+        var connections = EnumSet.noneOf(EnumFacing.class);
+        var connectionsTag = data.getTagList("connections", 8);
+        for (int i = 0; i < connectionsTag.tagCount(); i++) {
+            var side = EnumFacing.byName(connectionsTag.getStringTagAt(i));
             if (side != null) {
                 connections.add(side);
             }
@@ -404,7 +403,7 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
         setConnections(connections);
     }
 
-    public int getChannelsOnSide(Direction side) {
+    public int getChannelsOnSide(EnumFacing side) {
         if (!this.isPowered()) {
             return 0;
         }
@@ -415,12 +414,12 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
         this.channelsOnSide[i] = channels;
     }
 
-    Set<Direction> getConnections() {
+    Set<EnumFacing> getConnections() {
         return this.connections;
     }
 
-    void setConnections(Set<Direction> connections) {
+    void setConnections(Set<EnumFacing> connections) {
         this.connections = connections;
     }
-
 }
+

@@ -1,103 +1,97 @@
 package appeng.client.gui.widgets;
 
-import java.util.List;
-import java.util.Set;
-import java.util.function.Supplier;
-import java.util.stream.Collectors;
-
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.Component;
-
 import appeng.api.stacks.AEKeyType;
-import appeng.api.storage.ISubMenuHost;
-import appeng.client.gui.AEBaseScreen;
+import appeng.api.storage.ISubGuiHost;
+import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Icon;
-import appeng.client.gui.implementations.KeyTypeSelectionScreen;
-import appeng.menu.AEBaseMenu;
-import appeng.menu.interfaces.KeyTypeSelectionMenu;
+import appeng.client.gui.implementations.GuiKeyTypeSelection;
+import appeng.container.AEBaseContainer;
+import appeng.container.interfaces.IKeyTypeSelectionContainer;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+
+import java.util.Collections;
+import java.util.Set;
+import java.util.StringJoiner;
+import java.util.function.Supplier;
 
 public class KeyTypeSelectionButton extends IconButton {
-    public static <C extends AEBaseMenu & KeyTypeSelectionMenu, P extends AEBaseScreen<C>> KeyTypeSelectionButton create(
-            P parentScreen,
-            ISubMenuHost subMenuHost,
-            Component title) {
-        return new KeyTypeSelectionButton(
-                () -> {
-                    if (Screen.hasShiftDown()) {
-                        handleShiftClick(parentScreen.getMenu());
-                    } else {
-                        parentScreen.switchToScreen(new KeyTypeSelectionScreen<>(parentScreen, subMenuHost, title));
-                    }
-                },
-                title,
-                () -> {
-                    return Component.literal(
-                            parentScreen.getMenu().getClientKeyTypeSelection().enabledSet().stream()
-                                    .map(x -> x.getDescription().getString())
-                                    .collect(Collectors.joining(", ")));
-                });
+
+    private final ITextComponent title;
+    private final Supplier<ITextComponent> descriptionSupplier;
+
+    private KeyTypeSelectionButton(Runnable onPress, ITextComponent title, Supplier<ITextComponent> descriptionSupplier) {
+        super(onPress);
+        this.title = title;
+        this.descriptionSupplier = descriptionSupplier;
     }
 
-    private static <C extends AEBaseMenu & KeyTypeSelectionMenu> void handleShiftClick(C menu) {
-        // Compute new selection
-        Set<AEKeyType> newSelection = getNextSelection(menu.getClientKeyTypeSelection());
+    public static <C extends AEBaseContainer & IKeyTypeSelectionContainer, P extends AEBaseGui<C>> KeyTypeSelectionButton create(
+        P parentScreen,
+        ISubGuiHost subGuiHost,
+        ITextComponent title) {
+        return new KeyTypeSelectionButton(
+            () -> {
+                if (GuiScreen.isShiftKeyDown()) {
+                    handleShiftClick(parentScreen.getContainer());
+                } else {
+                    parentScreen.switchToScreen(new GuiKeyTypeSelection<>(parentScreen, subGuiHost, title));
+                }
+            },
+            title,
+            () -> {
+                StringJoiner joiner = new StringJoiner(", ");
+                for (var keyType : parentScreen.getContainer().getClientKeyTypeSelection().enabledSet()) {
+                    joiner.add(keyType.getDescription().getFormattedText());
+                }
+                return new TextComponentString(joiner.toString());
+            });
+    }
 
-        // First enable new keys
+    private static <C extends AEBaseContainer & IKeyTypeSelectionContainer> void handleShiftClick(C container) {
+        Set<AEKeyType> newSelection = getNextSelection(container.getClientKeyTypeSelection());
+
         for (var keyType : newSelection) {
-            menu.selectKeyType(keyType, true);
+            container.selectKeyType(keyType, true);
         }
-        // Only then disable old keys, to avoid disabling all keys
-        for (var keyType : menu.getClientKeyTypeSelection().enabledSet()) {
+        for (var keyType : container.getClientKeyTypeSelection().enabledSet()) {
             if (!newSelection.contains(keyType)) {
-                menu.selectKeyType(keyType, false);
+                container.selectKeyType(keyType, false);
             }
         }
     }
 
-    private static Set<AEKeyType> getNextSelection(KeyTypeSelectionMenu.SyncedKeyTypes keyTypes) {
+    private static Set<AEKeyType> getNextSelection(IKeyTypeSelectionContainer.SyncedKeyTypes keyTypes) {
         int totalCount = keyTypes.keyTypes().size();
         int enabledCount = keyTypes.enabledSet().size();
 
         if (totalCount == enabledCount) {
-            // From full selection to first key only
-            return Set.of(keyTypes.keyTypes().keySet().stream().findFirst().orElseThrow());
+            return Collections.singleton(keyTypes.keyTypes().keySet().iterator().next());
         } else if (enabledCount > 1) {
-            // From mixed to full selection
-            return Set.copyOf(keyTypes.keyTypes().keySet());
+            return new ObjectLinkedOpenHashSet<>(keyTypes.keyTypes().keySet());
         } else {
-            // Switch to next key
-            AEKeyType currentKey = keyTypes.enabledSet().get(0);
+            ObjectLinkedOpenHashSet<AEKeyType> enabledKeys = new ObjectLinkedOpenHashSet<>(keyTypes.enabledSet());
+            AEKeyType currentKey = enabledKeys.getFirst();
             boolean foundCurrent = false;
 
             for (var keyType : keyTypes.keyTypes().keySet()) {
                 if (foundCurrent) {
-                    return Set.of(keyType);
+                    return Collections.singleton(keyType);
                 }
-
                 if (keyType == currentKey) {
                     foundCurrent = true;
                 }
             }
 
-            // If it was the last, go back to full selection
-            return Set.copyOf(keyTypes.keyTypes().keySet());
+            return new ObjectLinkedOpenHashSet<>(keyTypes.keyTypes().keySet());
         }
     }
 
-    private final Component title;
-    private final Supplier<Component> descriptionSupplier;
-
-    private KeyTypeSelectionButton(Runnable onPress, Component title, Supplier<Component> descriptionSupplier) {
-        super(btn -> onPress.run());
-        this.title = title;
-        this.descriptionSupplier = descriptionSupplier;
-    }
-
     @Override
-    public List<Component> getTooltipMessage() {
-        return List.of(
-                title,
-                descriptionSupplier.get());
+    public java.util.List<ITextComponent> getTooltipMessage() {
+        return java.util.List.of(title, descriptionSupplier.get());
     }
 
     @Override

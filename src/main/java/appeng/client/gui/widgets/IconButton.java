@@ -18,114 +18,145 @@
 
 package appeng.client.gui.widgets;
 
+import appeng.client.gui.Icon;
+import appeng.client.gui.Rect2i;
+import appeng.client.gui.style.Blitter;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.audio.SoundHandler;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.RenderItem;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Collections;
 import java.util.List;
 
-import org.jetbrains.annotations.Nullable;
+public abstract class IconButton extends GuiButton implements ITooltip {
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.client.sounds.SoundManager;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
+    private final Runnable onPress;
+    private final RenderItem itemRenderer;
 
-import appeng.client.gui.Icon;
-import appeng.client.gui.style.Blitter;
+    private boolean halfSize;
+    private boolean disableClickSound;
+    private boolean disableBackground;
+    private boolean focused;
+    private ITextComponent message = new TextComponentString("");
 
-public abstract class IconButton extends Button implements ITooltip {
-
-    private boolean halfSize = false;
-
-    private boolean disableClickSound = false;
-
-    private boolean disableBackground = false;
-
-    public IconButton(OnPress onPress) {
-        super(0, 0, 16, 16, Component.empty(), onPress, Button.DEFAULT_NARRATION);
+    public IconButton(Runnable onPress) {
+        super(0, 0, 0, 16, 16, "");
+        this.onPress = onPress;
+        this.itemRenderer = Minecraft.getMinecraft().getRenderItem();
+        this.packedFGColour = 0;
     }
 
     public void setVisibility(boolean vis) {
         this.visible = vis;
-        this.active = vis;
+        this.enabled = vis;
     }
 
     @Override
-    public void playDownSound(SoundManager soundHandler) {
+    public void playPressSound(SoundHandler soundHandler) {
         if (!disableClickSound) {
-            super.playDownSound(soundHandler);
+            super.playPressSound(soundHandler);
         }
     }
 
     @Override
-    public void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float partial) {
+    public boolean mousePressed(Minecraft minecraft, int mouseX, int mouseY) {
+        boolean pressed = super.mousePressed(minecraft, mouseX, mouseY);
+        this.focused = pressed;
+        return pressed;
+    }
 
-        if (this.visible) {
-            var icon = this.getIcon();
-            var item = this.getItemOverlay();
+    @Override
+    public void mouseReleased(int mouseX, int mouseY) {
+        boolean releasedInside = this.enabled && this.visible
+            && mouseX >= this.x
+            && mouseY >= this.y
+            && mouseX < this.x + this.width
+            && mouseY < this.y + this.height;
+        super.mouseReleased(mouseX, mouseY);
+        if (releasedInside && this.onPress != null) {
+            this.onPress.run();
+        }
+    }
 
-            if (this.halfSize) {
-                this.width = 8;
-                this.height = 8;
+    @Override
+    public void drawButton(Minecraft minecraft, int mouseX, int mouseY, float partialTicks) {
+        if (!this.visible) {
+            return;
+        }
+
+        this.hovered = mouseX >= this.x && mouseY >= this.y && mouseX < this.x + this.width && mouseY < this.y + this.height;
+
+        var icon = this.getIcon();
+        var item = this.getItemOverlay();
+        int yOffset = this.hovered ? 1 : 0;
+
+        if (this.halfSize) {
+            if (!disableBackground) {
+                Icon.TOOLBAR_BUTTON_BACKGROUND.getBlitter().dest(this.x, this.y).zOffset(10).blit();
             }
+            if (item != null) {
+                renderItem(minecraft, new ItemStack(item), this.x, this.y, 20);
+            } else if (icon != null) {
+                Blitter blitter = icon.getBlitter().copy();
+                if (!this.enabled) {
+                    blitter.opacity(0.5f);
+                }
+                blitter.dest(this.x, this.y).zOffset(20).blit();
+            }
+        } else {
+            if (!disableBackground) {
+                Icon bgIcon = this.hovered ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
+                    : this.isFocused() ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS : Icon.TOOLBAR_BUTTON_BACKGROUND;
 
-            var yOffset = isHovered() ? 1 : 0;
-
-            if (this.halfSize) {
-                if (!disableBackground) {
-                    Icon.TOOLBAR_BUTTON_BACKGROUND.getBlitter().dest(getX(), getY()).zOffset(10).blit(guiGraphics);
-                }
-                if (item != null) {
-                    guiGraphics.renderItem(new ItemStack(item), getX(), getY(), 0, 20);
-                } else if (icon != null) {
-                    Blitter blitter = icon.getBlitter();
-                    if (!this.active) {
-                        blitter.opacity(0.5f);
-                    }
-                    blitter.dest(getX(), getY()).zOffset(20).blit(guiGraphics);
-                }
-            } else {
-                if (!disableBackground) {
-                    Icon bgIcon = isHovered() ? Icon.TOOLBAR_BUTTON_BACKGROUND_HOVER
-                            : isFocused() ? Icon.TOOLBAR_BUTTON_BACKGROUND_FOCUS : Icon.TOOLBAR_BUTTON_BACKGROUND;
-
-                    bgIcon.getBlitter()
-                            .dest(getX() - 1, getY() + yOffset, 18, 20)
-                            .zOffset(2)
-                            .blit(guiGraphics);
-                }
-                if (item != null) {
-                    guiGraphics.renderItem(new ItemStack(item), getX(), getY() + 1 + yOffset, 0, 3);
-                } else if (icon != null) {
-                    icon.getBlitter().dest(getX(), getY() + 1 + yOffset).zOffset(3).blit(guiGraphics);
-                }
+                bgIcon.getBlitter()
+                      .dest(this.x - 1, this.y + yOffset, 18, 20)
+                      .zOffset(2)
+                      .blit();
+            }
+            if (item != null) {
+                renderItem(minecraft, new ItemStack(item), this.x, this.y + 1 + yOffset, 3);
+            } else if (icon != null) {
+                icon.getBlitter().dest(this.x, this.y + 1 + yOffset).zOffset(3).blit();
             }
         }
     }
 
     protected abstract Icon getIcon();
 
-    /**
-     * Prioritized over {@link #getIcon()} if not null.
-     */
     @Nullable
     protected Item getItemOverlay() {
         return null;
     }
 
+    public void setMessage(ITextComponent message) {
+        this.message = message == null ? new TextComponentString("") : message;
+        this.displayString = this.message.getFormattedText();
+    }
+
+    public ITextComponent getMessageComponent() {
+        return this.message;
+    }
+
     @Override
-    public List<Component> getTooltipMessage() {
-        return Collections.singletonList(getMessage());
+    public List<ITextComponent> getTooltipMessage() {
+        return Collections.singletonList(getMessageComponent());
     }
 
     @Override
     public Rect2i getTooltipArea() {
         return new Rect2i(
-                getX(),
-                getY(),
-                this.halfSize ? 8 : 16,
-                this.halfSize ? 8 : 16);
+            this.x,
+            this.y,
+            this.halfSize ? 8 : 16,
+            this.halfSize ? 8 : 16);
     }
 
     @Override
@@ -139,6 +170,8 @@ public abstract class IconButton extends Button implements ITooltip {
 
     public void setHalfSize(boolean halfSize) {
         this.halfSize = halfSize;
+        this.width = halfSize ? 8 : 16;
+        this.height = halfSize ? 8 : 16;
     }
 
     public boolean isDisableClickSound() {
@@ -157,4 +190,24 @@ public abstract class IconButton extends Button implements ITooltip {
         this.disableBackground = disableBackground;
     }
 
+    public boolean isFocused() {
+        return this.focused;
+    }
+
+    public void setFocused(boolean focused) {
+        this.focused = focused;
+    }
+
+    private void renderItem(Minecraft minecraft, ItemStack itemStack, int x, int y, int zOffset) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(0, 0, zOffset);
+        GlStateManager.enableDepth();
+        RenderHelper.enableGUIStandardItemLighting();
+        this.itemRenderer.renderItemAndEffectIntoGUI(itemStack, x, y);
+        this.itemRenderer.renderItemOverlayIntoGUI(minecraft.fontRenderer, itemStack, x, y, null);
+        RenderHelper.disableStandardItemLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.popMatrix();
+    }
 }
+

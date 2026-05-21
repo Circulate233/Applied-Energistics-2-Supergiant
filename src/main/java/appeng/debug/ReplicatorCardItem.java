@@ -18,86 +18,53 @@
 
 package appeng.debug;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.Mth;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.spatial.ISpatialService;
-import appeng.core.AEConfig;
 import appeng.items.AEBaseItem;
 import appeng.util.InteractionUtil;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.DimensionManager;
 
 public class ReplicatorCardItem extends AEBaseItem {
 
-    public ReplicatorCardItem(Properties properties) {
-        super(properties);
-    }
+    @Override
+    public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
+        if (!world.isRemote) {
+            ItemStack stack = player.getHeldItem(hand);
+            NBTTagCompound tag = getOrCreateTag(stack);
+            int replications = tag.hasKey("r") ? (tag.getInteger("r") + 1) % 4 : 0;
+            tag.setInteger("r", replications);
+            player.sendMessage(new TextComponentString(replications + 1 + "³ Replications"));
+        }
 
-    private CompoundTag getTag(ItemStack stack) {
-        return stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY).copyTag();
-    }
-
-    private int getReplications(ItemStack stack) {
-        return getTag(stack).getInt("r");
+        return new ActionResult<>(EnumActionResult.SUCCESS, player.getHeldItem(hand));
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player playerIn, InteractionHand handIn) {
-        if (!level.isClientSide()) {
-            var stack = playerIn.getItemInHand(handIn);
-            CustomData.update(DataComponents.CUSTOM_DATA, stack, tag -> {
-                final int replications;
-                if (tag.contains("r")) {
-                    replications = (tag.getInt("r") + 1) % 4;
-                } else {
-                    replications = 0;
-                }
-                tag.putInt("r", replications);
-            });
-
-            var replications = getReplications(stack);
-            playerIn.sendSystemMessage(Component.literal(replications + 1 + "³ Replications"));
+    public EnumActionResult onItemUseFirst(EntityPlayer player, World world, BlockPos pos, EnumFacing side, float hitX,
+                                           float hitY, float hitZ, EnumHand hand) {
+        if (world.isRemote) {
+            return EnumActionResult.SUCCESS;
         }
-
-        return super.use(level, playerIn, handIn);
-    }
-
-    @Override
-    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        Level level = context.getLevel();
-        if (level.isClientSide()) {
-            // Needed, otherwise client will trigger onItemRightClick also on server...
-            return InteractionResult.sidedSuccess(level.isClientSide());
-        }
-
-        Player player = context.getPlayer();
-        BlockPos pos = context.getClickedPos();
-        Direction side = context.getClickedFace();
-        InteractionHand hand = context.getHand();
 
         if (player == null) {
-            return InteractionResult.PASS;
+            return EnumActionResult.PASS;
         }
 
         int x = pos.getX();
@@ -105,102 +72,91 @@ public class ReplicatorCardItem extends AEBaseItem {
         int z = pos.getZ();
 
         if (InteractionUtil.isInAlternateUseMode(player)) {
-            var gridHost = GridHelper.getNodeHost(level, pos);
-
+            appeng.api.networking.IInWorldGridNodeHost gridHost = GridHelper.getNodeHost(world, pos);
             if (gridHost != null) {
-                CustomData.update(DataComponents.CUSTOM_DATA, player.getItemInHand(hand), tag -> {
-                    tag.putInt("x", x);
-                    tag.putInt("y", y);
-                    tag.putInt("z", z);
-                    tag.putInt("side", side.ordinal());
-                    tag.putString("w", level.dimension().location().toString());
-                    tag.putInt("r", 0);
-                });
-
-                this.outputMsg(player, "Set replicator source");
+                NBTTagCompound tag = getOrCreateTag(player.getHeldItem(hand));
+                tag.setInteger("x", x);
+                tag.setInteger("y", y);
+                tag.setInteger("z", z);
+                tag.setInteger("side", side.ordinal());
+                tag.setInteger("dim", world.provider.getDimension());
+                tag.setInteger("r", 0);
+                outputMsg(player, "Set replicator source");
             } else {
-                this.outputMsg(player, "This does not host a grid node");
+                outputMsg(player, "This does not host a grid node");
             }
         } else {
-            var ish = getTag(player.getItemInHand(hand));
-            if (!ish.isEmpty()) {
-                final int src_x = ish.getInt("x");
-                final int src_y = ish.getInt("y");
-                final int src_z = ish.getInt("z");
-                final int src_side = ish.getInt("side");
-                final String worldId = ish.getString("w");
-                final Level src_w = level.getServer()
-                        .getLevel(ResourceKey.create(Registries.DIMENSION, ResourceLocation.parse(worldId)));
-                final int replications = ish.getInt("r") + 1;
+            NBTTagCompound tag = player.getHeldItem(hand).getTagCompound();
+            if (tag != null && !tag.isEmpty()) {
+                int srcX = tag.getInteger("x");
+                int srcY = tag.getInteger("y");
+                int srcZ = tag.getInteger("z");
+                int srcSide = tag.getInteger("side");
+                int dimension = tag.getInteger("dim");
+                int replications = tag.getInteger("r") + 1;
 
-                var gh = GridHelper.getNodeHost(src_w, new BlockPos(src_x, src_y, src_z));
+                WorldServer srcWorld = DimensionManager.getWorld(dimension);
+                if (srcWorld == null) {
+                    outputMsg(player, "Src is no longer a grid block?");
+                    return EnumActionResult.SUCCESS;
+                }
 
-                if (gh != null) {
-                    final Direction sideOff = Direction.values()[src_side];
-                    final Direction currentSideOff = side;
-                    final IGridNode n = gh.getGridNode(sideOff);
+                appeng.api.networking.IInWorldGridNodeHost gridHost = GridHelper.getNodeHost(srcWorld,
+                    new BlockPos(srcX, srcY, srcZ));
+                if (gridHost != null) {
+                    EnumFacing sourceSide = EnumFacing.VALUES[srcSide];
+                    IGridNode node = gridHost.getGridNode(sourceSide);
 
-                    if (n != null) {
-                        final IGrid g = n.getGrid();
+                    if (node != null) {
+                        IGrid grid = node.getGrid();
+                        ISpatialService spatialService = grid.getSpatialService();
 
-                        final ISpatialService sc = g.getSpatialService();
+                        if (spatialService.isValidRegion()) {
+                            BlockPos min = spatialService.getMin();
+                            BlockPos max = spatialService.getMax();
 
-                        if (sc.isValidRegion()) {
-                            var min = sc.getMin();
-                            var max = sc.getMax();
+                            int scSizeX = max.getX() - min.getX();
+                            int scSizeY = max.getY() - min.getY();
+                            int scSizeZ = max.getZ() - min.getZ();
 
-                            // TODO: Why??? Places it one block up each time...
-                            // x += currentSideOff.getXOffset();
-                            // y += currentSideOff.getYOffset();
-                            // z += currentSideOff.getZOffset();
+                            int minX = min.getX();
+                            int minY = min.getY();
+                            int minZ = min.getZ();
 
-                            final int sc_size_x = max.getX() - min.getX();
-                            final int sc_size_y = max.getY() - min.getY();
-                            final int sc_size_z = max.getZ() - min.getZ();
+                            int xRot = (int) -Math.signum(MathHelper.wrapDegrees(player.rotationYaw));
+                            int zRot = (int) Math.signum(MathHelper.wrapDegrees(player.rotationYaw + 90));
 
-                            final int min_x = min.getX();
-                            final int min_y = min.getY();
-                            final int min_z = min.getZ();
+                            for (int rx = 0; rx < replications; rx++) {
+                                for (int ry = 0; ry < replications; ry++) {
+                                    for (int rz = 0; rz < replications; rz++) {
+                                        int relX = min.getX() - srcX + x + rx * scSizeX * xRot;
+                                        int relY = min.getY() - srcY + y + ry * scSizeY;
+                                        int relZ = min.getZ() - srcZ + z + rz * scSizeZ * zRot;
 
-                            // Invert to maintain correct sign for west/east
-                            final int x_rot = (int) -Math.signum(Mth.wrapDegrees(player.getYRot()));
-                            // Rotate by 90 degree, so north/south are negative/positive
-                            final int z_rot = (int) Math.signum(Mth.wrapDegrees(player.getYRot() + 90));
+                                        for (int i = 1; i < scSizeX; i++) {
+                                            for (int j = 1; j < scSizeY; j++) {
+                                                for (int k = 1; k < scSizeZ; k++) {
+                                                    BlockPos sourcePos = new BlockPos(minX + i, minY + j, minZ + k);
+                                                    BlockPos destPos = new BlockPos(i + relX, j + relY, k + relZ);
 
-                            // Loops for replication in each direction
-                            for (int r_x = 0; r_x < replications; r_x++) {
-                                for (int r_y = 0; r_y < replications; r_y++) {
-                                    for (int r_z = 0; r_z < replications; r_z++) {
+                                                    IBlockState state = srcWorld.getBlockState(sourcePos);
+                                                    IBlockState previous = world.getBlockState(destPos);
 
-                                        // Offset x/z by the rotation index.
-                                        // For sake of simplicity always grow upwards.
-                                        final int rel_x = min.getX() - src_x + x + r_x * sc_size_x * x_rot;
-                                        final int rel_y = min.getY() - src_y + y + r_y * sc_size_y;
-                                        final int rel_z = min.getZ() - src_z + z + r_z * sc_size_z * z_rot;
-
-                                        // Copy a single SC instance completely
-                                        for (int i = 1; i < sc_size_x; i++) {
-                                            for (int j = 1; j < sc_size_y; j++) {
-                                                for (int k = 1; k < sc_size_z; k++) {
-                                                    final BlockPos p = new BlockPos(min_x + i, min_y + j,
-                                                            min_z + k);
-                                                    final BlockPos d = new BlockPos(i + rel_x, j + rel_y,
-                                                            k + rel_z);
-
-                                                    final BlockState state = src_w.getBlockState(p);
-                                                    final BlockState prev = level.getBlockState(d);
-
-                                                    level.setBlockAndUpdate(d, state);
-                                                    if (state.hasBlockEntity()) {
-                                                        final BlockEntity ote = src_w.getBlockEntity(p);
-                                                        var data = ote.saveWithId(level.registryAccess());
-                                                        var newBe = BlockEntity.loadStatic(d, state, data,
-                                                                level.registryAccess());
-                                                        if (newBe != null) {
-                                                            level.setBlockEntity(newBe);
+                                                    world.setBlockState(destPos, state, 3);
+                                                    if (state.getBlock().hasTileEntity(state)) {
+                                                        TileEntity sourceTe = srcWorld.getTileEntity(sourcePos);
+                                                        if (sourceTe != null) {
+                                                            NBTTagCompound data = sourceTe.writeToNBT(new NBTTagCompound());
+                                                            data.setInteger("x", destPos.getX());
+                                                            data.setInteger("y", destPos.getY());
+                                                            data.setInteger("z", destPos.getZ());
+                                                            TileEntity newTe = TileEntity.create(world, data);
+                                                            if (newTe != null) {
+                                                                world.setTileEntity(destPos, newTe);
+                                                            }
                                                         }
                                                     }
-                                                    level.sendBlockUpdated(d, prev, state, 3);
+                                                    world.notifyBlockUpdate(destPos, previous, state, 3);
                                                 }
                                             }
                                         }
@@ -208,29 +164,32 @@ public class ReplicatorCardItem extends AEBaseItem {
                                 }
                             }
                         } else {
-                            this.outputMsg(player, "requires valid spatial pylon setup.");
+                            outputMsg(player, "requires valid spatial pylon setup.");
                         }
                     } else {
-                        this.outputMsg(player, "No grid node?");
+                        outputMsg(player, "No grid node?");
                     }
                 } else {
-                    this.outputMsg(player, "Src is no longer a grid block?");
+                    outputMsg(player, "Src is no longer a grid block?");
                 }
             } else {
-                this.outputMsg(player, "No Source Defined");
+                outputMsg(player, "No Source Defined");
             }
         }
-        return InteractionResult.sidedSuccess(level.isClientSide());
+
+        return EnumActionResult.SUCCESS;
+    }
+
+    private NBTTagCompound getOrCreateTag(ItemStack stack) {
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            stack.setTagCompound(tag);
+        }
+        return tag;
     }
 
     private void outputMsg(Entity player, String string) {
-        player.sendSystemMessage(Component.literal(string));
-    }
-
-    @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        if (AEConfig.instance().isDebugToolsEnabled()) {
-            output.accept(this);
-        }
+        player.sendMessage(new TextComponentString(string));
     }
 }

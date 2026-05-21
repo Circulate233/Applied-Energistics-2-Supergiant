@@ -1,30 +1,11 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.crafting;
-
-import java.util.UUID;
-
-import org.jetbrains.annotations.Nullable;
 
 import appeng.api.networking.IGrid;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.me.service.CraftingService;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.UUID;
 
 public class CraftingLinkNexus {
 
@@ -41,7 +22,7 @@ public class CraftingLinkNexus {
         this.craftId = craftId;
     }
 
-    public boolean isDead(IGrid g, CraftingService craftingService) {
+    public boolean isDead(IGrid grid, CraftingService craftingService) {
         if (this.canceled || this.done) {
             return true;
         }
@@ -50,7 +31,9 @@ public class CraftingLinkNexus {
             this.tickOfDeath++;
         } else {
             final boolean hasCpu = craftingService.hasCpu(this.cpu.getCpu());
-            final boolean hasMachine = this.getRequest().getRequester().getActionableNode().getGrid() == g;
+            var requester = this.getRequest().getRequester();
+            var actionableNode = requester == null ? null : requester.getActionableNode();
+            final boolean hasMachine = actionableNode != null && actionableNode.getGrid() == grid;
 
             if (hasCpu && hasMachine) {
                 this.tickOfDeath = 0;
@@ -141,5 +124,10 @@ public class CraftingLinkNexus {
 
     public void setRequest(CraftingLink req) {
         this.req = req;
+    }
+
+    @Override
+    public String toString() {
+        return "CraftingLinkNexus{" + this.craftId + "}";
     }
 }

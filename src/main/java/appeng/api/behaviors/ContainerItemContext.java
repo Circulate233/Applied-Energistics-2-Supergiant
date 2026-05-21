@@ -1,17 +1,14 @@
 package appeng.api.behaviors;
 
-import java.util.Map;
-
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.entity.player.Player;
-
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
+import com.google.common.base.Preconditions;
+import net.minecraft.entity.player.EntityPlayer;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Map;
 
 public final class ContainerItemContext {
     private final Map<AEKeyType, Entry<?>> entries;
@@ -44,11 +41,11 @@ public final class ContainerItemContext {
         return getEntry(key).extract(key, amount, mode);
     }
 
-    public void playFillSound(Player player, AEKey key) {
+    public void playFillSound(EntityPlayer player, AEKey key) {
         getEntry(key).playFillSound(player, key);
     }
 
-    public void playEmptySound(Player player, AEKey key) {
+    public void playEmptySound(EntityPlayer player, AEKey key) {
         getEntry(key).playEmptySound(player, key);
     }
 
@@ -79,11 +76,11 @@ public final class ContainerItemContext {
             return strategy.extract(context, key, amount, mode);
         }
 
-        public void playFillSound(Player player, AEKey what) {
+        public void playFillSound(EntityPlayer player, AEKey what) {
             strategy.playFillSound(player, what);
         }
 
-        public void playEmptySound(Player player, AEKey what) {
+        public void playEmptySound(EntityPlayer player, AEKey what) {
             strategy.playEmptySound(player, what);
         }
 

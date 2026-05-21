@@ -1,71 +1,76 @@
 package appeng.items.tools.powered;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.DyedItemColor;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.BlockHitResult;
-
-import appeng.api.config.Actionable;
-import appeng.api.implementations.menuobjects.IMenuItem;
+import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.api.upgrades.Upgrades;
-import appeng.block.networking.EnergyCellBlockItem;
-import appeng.core.AEConfig;
+import appeng.container.GuiIds;
+import appeng.core.definitions.AEBlocks;
+import appeng.core.gui.GuiOpener;
+import appeng.core.gui.locator.GuiHostLocators;
+import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.core.localization.PlayerMessages;
-import appeng.items.contents.PortableCellMenuHost;
-import appeng.menu.MenuOpener;
-import appeng.menu.locator.ItemMenuHostLocator;
-import appeng.menu.locator.MenuLocators;
+import appeng.items.contents.PortableCellGuiHost;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.InteractionUtil;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
 
-public abstract class AbstractPortableCell extends PoweredContainerItem
-        implements ICellWorkbenchItem, IMenuItem {
+public abstract class AbstractPortableCell extends PoweredContainerItem implements ICellWorkbenchItem, IGuiItem {
+    private static final String COLOR_TAG = "portableCellColor";
 
-    private final MenuType<?> menuType;
+    private final GuiIds.GuiKey guiKey;
     private final int defaultColor;
+    private final double powerCapacity;
 
-    public AbstractPortableCell(MenuType<?> menuType, Properties props, int defaultColor) {
-        super(AEConfig.instance().getPortableCellBattery(), props);
-        this.menuType = menuType;
+    public AbstractPortableCell(GuiIds.GuiKey guiKey, double powerCapacity, int defaultColor) {
+        super(powerCapacity);
+        this.guiKey = guiKey;
         this.defaultColor = defaultColor;
+        this.powerCapacity = powerCapacity;
     }
 
-    /**
-     * Gets the recipe ID for crafting this particular cell.
-     */
+    public static int getColor(ItemStack stack, int tintIndex) {
+        if (tintIndex == 1 && stack.getItem() instanceof AbstractPortableCell portableCell) {
+            if (portableCell.getAECurrentPower(stack) <= 0) {
+                return CellState.ABSENT.getStateColor();
+            }
+
+            var cellInv = StorageCells.getCellInventory(stack, null);
+            var cellStatus = cellInv != null ? cellInv.getStatus() : CellState.EMPTY;
+            return cellStatus.getStateColor();
+        } else if (tintIndex == 2 && stack.getItem() instanceof AbstractPortableCell portableCell) {
+            return portableCell.getColor(stack);
+        } else {
+            return 0xFFFFFF;
+        }
+    }
+
     public abstract ResourceLocation getRecipeId();
 
     @Override
     public abstract double getChargeRate(ItemStack stack);
 
-    /**
-     * Open a Portable Cell from a slot in the player inventory, i.e. activated via hotkey.
-     *
-     * @return True if the menu was opened.
-     */
-    public boolean openFromInventory(Player player, ItemMenuHostLocator locator) {
+    public boolean openFromInventory(EntityPlayer player, ItemGuiHostLocator locator) {
         return openFromInventory(player, locator, false);
     }
 
-    protected boolean openFromInventory(Player player, ItemMenuHostLocator locator, boolean returningFromSubmenu) {
+    protected boolean openFromInventory(EntityPlayer player, ItemGuiHostLocator locator, boolean returningFromSubmenu) {
         var is = locator.locateItem(player);
         if (is.getItem() == this) {
-            return MenuOpener.open(this.menuType, player, locator,
-                    returningFromSubmenu);
+            return GuiOpener.openItemGui(player, this.guiKey, locator, returningFromSubmenu);
         } else {
             return false;
         }
@@ -73,71 +78,97 @@ public abstract class AbstractPortableCell extends PoweredContainerItem
 
     @Nullable
     @Override
-    public PortableCellMenuHost<?> getMenuHost(Player player, ItemMenuHostLocator locator,
-            @Nullable BlockHitResult hitResult) {
-        return new PortableCellMenuHost<>(this, player, locator,
-                (p, sm) -> openFromInventory(p, locator, true));
+    public PortableCellGuiHost<?> getGuiHost(EntityPlayer player, ItemGuiHostLocator locator,
+                                             @Nullable RayTraceResult hitResult) {
+        return new PortableCellGuiHost<>(this, player, locator, (p, sm) -> openFromInventory(p, locator, true));
     }
 
-    // Override to change the default color
     public int getColor(ItemStack stack) {
-        return DyedItemColor.getOrDefault(stack, defaultColor);
+        NBTTagCompound tag = stack.getTagCompound();
+        return tag != null && tag.hasKey(COLOR_TAG) ? tag.getInteger(COLOR_TAG) : defaultColor;
     }
 
     @Override
-    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        return context.isSecondaryUseActive()
-                && this.disassembleDrive(stack, context.getLevel(), context.getPlayer())
-                        ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
-                        : InteractionResult.PASS;
+    public EnumActionResult onItemUseFirst(EntityPlayer player, World world, net.minecraft.util.math.BlockPos pos,
+                                           EnumFacing side, float hitX, float hitY, float hitZ, EnumHand hand) {
+        ItemStack stack = player.getHeldItem(hand);
+        return player.isSneaking() && this.disassembleDrive(stack, world, player)
+            ? EnumActionResult.SUCCESS
+            : EnumActionResult.PASS;
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
+    public ActionResult<ItemStack> onItemRightClick(World level, EntityPlayer player, EnumHand hand) {
         if (!InteractionUtil.isInAlternateUseMode(player)
-                || !disassembleDrive(player.getItemInHand(hand), level, player)) {
-            if (!level.isClientSide()) {
-                MenuOpener.open(this.menuType, player, MenuLocators.forHand(player, hand));
+            || !disassembleDrive(player.getHeldItem(hand), level, player)) {
+            if (!level.isRemote) {
+                GuiOpener.openItemGui(player, this.guiKey, GuiHostLocators.forHand(player, hand));
             }
         }
-        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()),
-                player.getItemInHand(hand));
+        return new ActionResult<>(EnumActionResult.SUCCESS, player.getHeldItem(hand));
     }
 
-    private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
-        var playerInventory = player.getInventory();
+    private boolean disassembleDrive(ItemStack stack, World level, EntityPlayer player) {
+        var playerInventory = player.inventory;
         var disassemblyItems = StorageCellDisassemblyRecipe.getDisassemblyResult(level, stack.getItem());
-        if (disassemblyItems.isEmpty() || playerInventory.getSelected() != stack || stack.getCount() != 1) {
+        if (disassemblyItems.isEmpty() || playerInventory.getCurrentItem() != stack || stack.getCount() != 1) {
             return false;
         }
 
-        if (level.isClientSide()) {
-            return true; // Further checks cannot be done on the client
+        if (level.isRemote) {
+            return true;
         }
 
         var inv = StorageCells.getCellInventory(stack, null);
         if (inv != null && !inv.getAvailableStacks().isEmpty()) {
-            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
-            return true; // Prevents the UI from opening and overlaying the error message
+            player.sendStatusMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            return true;
         }
 
-        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
+        playerInventory.setInventorySlotContents(playerInventory.currentItem, ItemStack.EMPTY);
 
         double remainingEnergy = getAECurrentPower(stack);
         for (var recipeStack : disassemblyItems) {
             var droppedStack = recipeStack.copy();
-            // Dump remaining energy into whatever can accept it
-            if (remainingEnergy > 0 && droppedStack.getItem() instanceof EnergyCellBlockItem energyCell) {
-                remainingEnergy = energyCell.injectAEPower(droppedStack, remainingEnergy, Actionable.MODULATE);
-            }
-
-            playerInventory.placeItemBackInInventory(droppedStack);
+            remainingEnergy = transferEnergyToResult(droppedStack, remainingEnergy);
+            playerInventory.placeItemBackInInventory(level, droppedStack);
         }
 
-        // Drop upgrades
-        getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
+        getUpgrades(stack).forEach(upgrade -> playerInventory.placeItemBackInInventory(level, upgrade));
 
         return true;
+    }
+
+    private double transferEnergyToResult(ItemStack stack, double remainingEnergy) {
+        if (remainingEnergy <= 0 || stack.getItem() != AEBlocks.ENERGY_CELL.item()) {
+            return remainingEnergy;
+        }
+
+        var energyCell = AEBlocks.ENERGY_CELL.block();
+        if (energyCell == null) {
+            return remainingEnergy;
+        }
+
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            stack.setTagCompound(tag);
+        }
+
+        NBTTagCompound blockEntityTag = tag.hasKey("BlockEntityTag", 10)
+            ? tag.getCompoundTag("BlockEntityTag")
+            : new NBTTagCompound();
+
+        double maxPower = energyCell.getMaxPower();
+        double storedPower = blockEntityTag.getDouble("internalCurrentPower");
+        double insertedPower = Math.clamp(maxPower - storedPower, 0, remainingEnergy);
+        if (insertedPower > 0) {
+            blockEntityTag.setDouble("internalCurrentPower", storedPower + insertedPower);
+            blockEntityTag.setDouble("internalMaxPower", maxPower);
+            tag.setTag("BlockEntityTag", blockEntityTag);
+        }
+
+        return remainingEnergy - insertedPower;
     }
 
     @Override
@@ -146,27 +177,6 @@ public abstract class AbstractPortableCell extends PoweredContainerItem
     }
 
     public void onUpgradesChanged(ItemStack stack, IUpgradeInventory upgrades) {
-        // The energy card is crafted with a dense energy cell, while the base portable just uses a normal energy cell.
-        // Since the dense cells capacity is 8x the normal capacity, the result should be 9x normal.
-        setAEMaxPowerMultiplier(stack, 1 + Upgrades.getEnergyCardMultiplier(upgrades) * 8);
-    }
-
-    public static int getColor(ItemStack stack, int tintIndex) {
-        if (tintIndex == 1 && stack.getItem() instanceof AbstractPortableCell portableCell) {
-            // If the cell is out of power, always display empty
-            if (portableCell.getAECurrentPower(stack) <= 0) {
-                return CellState.ABSENT.getStateColor();
-            }
-
-            // Determine LED color
-            var cellInv = StorageCells.getCellInventory(stack, null);
-            var cellStatus = cellInv != null ? cellInv.getStatus() : CellState.EMPTY;
-            return cellStatus.getStateColor();
-        } else if (tintIndex == 2 && stack.getItem() instanceof AbstractPortableCell portableCell) {
-            return portableCell.getColor(stack);
-        } else {
-            // White
-            return 0xFFFFFF;
-        }
+        setAEMaxPower(stack, powerCapacity * (1 + Upgrades.getEnergyCardMultiplier(upgrades) * 8));
     }
 }

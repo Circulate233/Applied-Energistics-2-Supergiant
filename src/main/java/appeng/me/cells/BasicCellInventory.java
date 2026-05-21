@@ -18,416 +18,315 @@
 
 package appeng.me.cells;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongMaps;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
-
 import appeng.api.config.Actionable;
-import appeng.api.config.FuzzyMode;
-import appeng.api.config.IncludeExclude;
 import appeng.api.ids.AEComponents;
 import appeng.api.networking.security.IActionSource;
-import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
-import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
-import appeng.api.upgrades.IUpgradeInventory;
-import appeng.core.definitions.AEItems;
-import appeng.util.ConfigInventory;
-import appeng.util.prioritylist.FuzzyPriorityList;
-import appeng.util.prioritylist.IPartitionList;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Objects;
 
 public class BasicCellInventory implements StorageCell {
-    private static final int MAX_ITEM_TYPES = 63;
+    private static final String ITEM_COUNT_TAG = "ic";
+    private static final String ITEM_SLOT_TAG = "it";
+    private static final String ITEM_SLOT_KEY_TAG = "k";
+    private static final String ITEM_SLOT_AMOUNT_TAG = "a";
+    private static final String ITEM_SLOT_TYPE_TAG = "t";
+
+    private final ItemStack itemStack;
+    private final IBasicCellItem cellType;
+    private final ISaveProvider saveProvider;
+    private final Object2LongMap<AEKey> cellItems = new Object2LongOpenHashMap<>();
+    private long storedItemCount;
+    private long storedItems;
+    private boolean persisted = true;
+
+    // The cell type's channel matches, so this cast is safe
+    private BasicCellInventory(ItemStack itemStack, IBasicCellItem cellType, @Nullable ISaveProvider saveProvider) {
+        this.itemStack = itemStack;
+        this.cellType = cellType;
+        this.saveProvider = saveProvider;
+        loadCellItems();
+    }
+
+    public static boolean isCell(ItemStack stack) {
+        return !stack.isEmpty()
+            && stack.getItem() instanceof IBasicCellItem cellItem
+            && cellItem.isStorageCell(stack);
+    }
 
     @Nullable
-    private final ISaveProvider container;
-    private final AEKeyType keyType;
-    private final IPartitionList partitionList;
-    private final IncludeExclude partitionListMode;
-    private int maxItemTypes;
-    private int storedItems;
-    private long storedItemCount;
-    private Object2LongMap<AEKey> storedAmounts;
-    private final ItemStack i;
-    private final IBasicCellItem cellType;
-    private final long maxItemsPerType; // max items per type, basically infinite unless there is a distribution card.
-    private final boolean hasVoidUpgrade;
-    private boolean isPersisted = true;
-
-    private BasicCellInventory(IBasicCellItem cellType, ItemStack o, @Nullable ISaveProvider container) {
-        this.i = o;
-        this.cellType = cellType;
-        this.maxItemTypes = this.cellType.getTotalTypes(this.i);
-
-        if (this.maxItemTypes > MAX_ITEM_TYPES) {
-            this.maxItemTypes = MAX_ITEM_TYPES;
-        }
-        if (this.maxItemTypes < 1) {
-            this.maxItemTypes = 1;
-        }
-
-        this.container = container;
-        var storedStacks = getStoredStacks();
-        this.storedItems = storedStacks.size();
-        this.storedItemCount = storedStacks.stream().mapToLong(GenericStack::amount).sum();
-        this.storedAmounts = null;
-        this.keyType = cellType.getKeyType();
-
-        // Updates the partition list and mode based on installed upgrades and the configured filter.
-        var builder = IPartitionList.builder();
-
-        var upgrades = getUpgradesInventory();
-        var config = getConfigInventory();
-
-        boolean hasInverter = upgrades.isInstalled(AEItems.INVERTER_CARD);
-        boolean isFuzzy = upgrades.isInstalled(AEItems.FUZZY_CARD);
-        if (isFuzzy) {
-            builder.fuzzyMode(getFuzzyMode());
-        }
-
-        builder.addAll(config.keySet());
-
-        partitionListMode = (hasInverter ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST);
-        partitionList = builder.build();
-
-        // Check for equal distribution card.
-        if (upgrades.isInstalled(AEItems.EQUAL_DISTRIBUTION_CARD)) {
-            // Compute max possible amount of types based on whitelist size, and bound by type limit.
-            long maxTypes = Integer.MAX_VALUE;
-            if (!isFuzzy && partitionListMode == IncludeExclude.WHITELIST && !config.keySet().isEmpty()) {
-                maxTypes = config.keySet().size();
-            }
-            maxTypes = Math.min(maxTypes, this.maxItemTypes);
-
-            long totalStorage = (getTotalBytes() - getBytesPerType() * maxTypes) * keyType.getAmountPerByte();
-            // Technically not exactly evenly distributed, but close enough!
-            this.maxItemsPerType = Math.max(0, (totalStorage + maxTypes - 1) / maxTypes);
-        } else {
-            this.maxItemsPerType = Long.MAX_VALUE;
-        }
-
-        this.hasVoidUpgrade = upgrades.isInstalled(AEItems.VOID_CARD);
-    }
-
-    private List<GenericStack> getStoredStacks() {
-        return i.getOrDefault(AEComponents.STORAGE_CELL_INV, List.of());
-    }
-
-    public IncludeExclude getPartitionListMode() {
-        return partitionListMode;
-    }
-
-    public boolean isPreformatted() {
-        return !partitionList.isEmpty();
-    }
-
-    public boolean isFuzzy() {
-        return partitionList instanceof FuzzyPriorityList;
-    }
-
-    public static BasicCellInventory createInventory(ItemStack o, @Nullable ISaveProvider container) {
-        Objects.requireNonNull(o, "Cannot create cell inventory for null itemstack");
-
-        if (!(o.getItem() instanceof IBasicCellItem cellType)) {
+    public static BasicCellInventory createInventory(ItemStack stack, @Nullable ISaveProvider saveProvider) {
+        if (!isCell(stack)) {
+// This is not an error. Items may decide to not be a storage cell temporarily.
             return null;
         }
-
-        if (!cellType.isStorageCell(o)) {
-            // This is not an error. Items may decide to not be a storage cell temporarily.
-            return null;
-        }
-
-        // The cell type's channel matches, so this cast is safe
-        return new BasicCellInventory(cellType, o, container);
-    }
-
-    public static boolean isCell(ItemStack input) {
-        return getStorageCell(input) != null;
-    }
-
-    private static IBasicCellItem getStorageCell(ItemStack input) {
-        if (input != null && input.getItem() instanceof IBasicCellItem basicCellItem) {
-            return basicCellItem;
-        }
-
-        return null;
-    }
-
-    @Override
-    public boolean canFitInsideCell() {
-        return cellType.storableInStorageCell() || getAvailableStacks().isEmpty();
-    }
-
-    protected Object2LongMap<AEKey> getCellItems() {
-        if (this.storedAmounts == null) {
-            this.storedAmounts = new Object2LongOpenHashMap<>();
-            this.loadCellItems();
-        }
-
-        return this.storedAmounts;
-    }
-
-    @Override
-    public void persist() {
-        if (this.isPersisted) {
-            return;
-        }
-
-        // add new pretty stuff...
-        var itemCount = 0L;
-        var stacks = new ArrayList<GenericStack>(storedAmounts.size());
-
-        for (var entry : this.storedAmounts.object2LongEntrySet()) {
-            long amount = entry.getLongValue();
-            itemCount += amount;
-
-            if (amount > 0) {
-                stacks.add(new GenericStack(entry.getKey(), amount));
-            }
-        }
-
-        if (stacks.isEmpty()) {
-            i.remove(AEComponents.STORAGE_CELL_INV);
-        } else {
-            i.set(AEComponents.STORAGE_CELL_INV, stacks);
-        }
-
-        this.storedItems = (short) this.storedAmounts.size();
-
-        this.storedItemCount = itemCount;
-        this.isPersisted = true;
-    }
-
-    protected void saveChanges() {
-        // recalculate values
-        this.storedItems = (short) this.storedAmounts.size();
-        this.storedItemCount = 0;
-        for (var storedAmount : this.storedAmounts.values()) {
-            this.storedItemCount += storedAmount;
-        }
-
-        this.isPersisted = false;
-        if (this.container != null) {
-            this.container.saveChanges();
-        } else {
-            // if there is no ISaveProvider, store to NBT immediately
-            this.persist();
-        }
+        return new BasicCellInventory(stack, (IBasicCellItem) stack.getItem(), saveProvider);
     }
 
     private void loadCellItems() {
-        var stacks = getStoredStacks();
-        for (var stack : stacks) {
-            storedAmounts.put(stack.what(), stack.amount());
+        cellItems.clear();
+        storedItemCount = 0;
+        storedItems = 0;
+
+        NBTTagCompound tag = getOrCreateTag();
+        if (AEComponents.STORAGE_CELL_INV_COMPONENT.isPresentIn(tag)) {
+            for (GenericStack stack : GenericStack.readList(
+                Objects.requireNonNull(AEComponents.STORAGE_CELL_INV_COMPONENT.readFrom(tag)))) {
+                if (stack != null && stack.amount() > 0) {
+                    cellItems.put(stack.what(), stack.amount());
+                    storedItemCount += stack.amount();
+                    storedItems++;
+                }
+            }
+            return;
         }
+
+        if (!tag.hasKey(ITEM_SLOT_TAG, 9)) {
+            return;
+        }
+
+        NBTTagList list = tag.getTagList(ITEM_SLOT_TAG, 10);
+        for (int i = 0; i < list.tagCount(); i++) {
+            NBTTagCompound entry = list.getCompoundTagAt(i);
+            var keyType = AEKeyTypes.get(new net.minecraft.util.ResourceLocation(entry.getString(ITEM_SLOT_TYPE_TAG)));
+            AEKey key = keyType.loadKeyFromTag(entry.getCompoundTag(ITEM_SLOT_KEY_TAG));
+            long amount = entry.getLong(ITEM_SLOT_AMOUNT_TAG);
+            if (key != null && amount > 0) {
+                cellItems.put(key, amount);
+                storedItemCount += amount;
+                storedItems++;
+            }
+        }
+    }
+
+    private void saveCellItems() {
+        NBTTagCompound tag = getOrCreateTag();
+        tag.setLong(ITEM_COUNT_TAG, storedItemCount);
+        NBTTagList legacyList = new NBTTagList();
+        ObjectList<GenericStack> stacks = new ObjectArrayList<>(cellItems.size());
+        for (Object2LongMap.Entry<AEKey> entry : cellItems.object2LongEntrySet()) {
+            if (entry.getLongValue() <= 0) {
+                continue;
+            }
+            stacks.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+            NBTTagCompound itemTag = new NBTTagCompound();
+            itemTag.setString(ITEM_SLOT_TYPE_TAG, entry.getKey().getType().getId().toString());
+            itemTag.setTag(ITEM_SLOT_KEY_TAG, entry.getKey().toTag());
+            itemTag.setLong(ITEM_SLOT_AMOUNT_TAG, entry.getLongValue());
+            legacyList.appendTag(itemTag);
+        }
+        if (stacks.isEmpty()) {
+            tag.removeTag(AEComponents.STORAGE_CELL_INV_COMPONENT.name());
+        } else {
+            AEComponents.STORAGE_CELL_INV_COMPONENT.writeTo(tag, GenericStack.writeList(stacks));
+        }
+        tag.setTag(ITEM_SLOT_TAG, legacyList);
+    }
+
+    private NBTTagCompound getOrCreateTag() {
+        if (!itemStack.hasTagCompound()) {
+            itemStack.setTagCompound(new NBTTagCompound());
+        }
+        return Objects.requireNonNull(itemStack.getTagCompound());
+    }
+
+    @Override
+    public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+        if (amount <= 0 || !cellType.getKeyType().contains(what)) {
+            return 0;
+        }
+        if (cellType.isBlackListed(itemStack, what)) {
+            return 0;
+        }
+
+        long currentAmount = cellItems.getLong(what);
+        long remainingItemCount = getRemainingItemCount();
+        if (currentAmount <= 0) {
+            if (!canHoldNewItem()) {
+                return 0;
+            }
+            remainingItemCount -= (long) getBytesPerType() * what.getAmountPerByte();
+            if (remainingItemCount <= 0) {
+                return 0;
+            }
+        }
+
+        long inserted = Math.min(amount, remainingItemCount);
+        if (mode == Actionable.MODULATE && inserted > 0) {
+            cellItems.put(what, currentAmount + inserted);
+            storedItemCount += inserted;
+            if (currentAmount <= 0) {
+                storedItems++;
+            }
+            saveChanges();
+        }
+        return inserted;
+    }
+
+    @Override
+    public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
+        long currentAmount = cellItems.getLong(what);
+        if (amount <= 0 || currentAmount <= 0) {
+            return 0;
+        }
+
+        long extracted = Math.min(amount, currentAmount);
+        if (mode == Actionable.MODULATE) {
+            long remaining = currentAmount - extracted;
+            if (remaining > 0) {
+                cellItems.put(what, remaining);
+            } else {
+                cellItems.removeLong(what);
+                storedItems--;
+            }
+            storedItemCount -= extracted;
+            saveChanges();
+        }
+        return extracted;
     }
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
-        for (var entry : Object2LongMaps.fastIterable(this.getCellItems())) {
+        for (Object2LongMap.Entry<AEKey> entry : cellItems.object2LongEntrySet()) {
             out.add(entry.getKey(), entry.getLongValue());
         }
     }
 
+    public KeyCounter getAvailableStacks() {
+        var result = new KeyCounter();
+        getAvailableStacks(result);
+        return result;
+    }
+
     @Override
-    public double getIdleDrain() {
-        return this.cellType.getIdleDrain();
-    }
-
-    public FuzzyMode getFuzzyMode() {
-        return this.cellType.getFuzzyMode(this.i);
-    }
-
-    public ConfigInventory getConfigInventory() {
-        return this.cellType.getConfigInventory(this.i);
-    }
-
-    public IUpgradeInventory getUpgradesInventory() {
-        return this.cellType.getUpgrades(this.i);
-    }
-
-    public int getBytesPerType() {
-        return this.cellType.getBytesPerType(this.i);
-    }
-
-    public boolean canHoldNewItem() {
-        final long bytesFree = this.getFreeBytes();
-        return (bytesFree > this.getBytesPerType()
-                || bytesFree == this.getBytesPerType() && this.getUnusedItemCount() > 0)
-                && this.getRemainingItemTypes() > 0;
-    }
-
-    public long getTotalBytes() {
-        return this.cellType.getBytes(this.i);
-    }
-
-    public long getFreeBytes() {
-        return this.getTotalBytes() - this.getUsedBytes();
-    }
-
-    public long getTotalItemTypes() {
-        return this.maxItemTypes;
-    }
-
-    public long getStoredItemCount() {
-        return this.storedItemCount;
-    }
-
-    public long getStoredItemTypes() {
-        return this.storedItems;
-    }
-
-    public long getRemainingItemTypes() {
-        var basedOnStorage = this.getFreeBytes() / this.getBytesPerType();
-        var baseOnTotal = this.getTotalItemTypes() - this.getStoredItemTypes();
-        return Math.min(basedOnStorage, baseOnTotal);
-    }
-
-    public long getUsedBytes() {
-        var bytesForItemCount = (this.getStoredItemCount() + this.getUnusedItemCount()) / keyType.getAmountPerByte();
-        return this.getStoredItemTypes() * this.getBytesPerType() + bytesForItemCount;
-    }
-
-    public long getRemainingItemCount() {
-        final long remaining = this.getFreeBytes() * keyType.getAmountPerByte() + this.getUnusedItemCount();
-        return remaining > 0 ? remaining : 0;
-    }
-
-    public int getUnusedItemCount() {
-        final int div = (int) (this.getStoredItemCount() % keyType.getAmountPerByte());
-
-        if (div == 0) {
-            return 0;
-        }
-
-        return keyType.getAmountPerByte() - div;
+    public ITextComponent getDescription() {
+        return itemStack.getTextComponent();
     }
 
     @Override
     public CellState getStatus() {
-        if (this.getStoredItemTypes() == 0) {
+        if (storedItems == 0) {
             return CellState.EMPTY;
         }
-        if (this.canHoldNewItem()) {
+        if (canHoldNewItem()) {
             return CellState.NOT_EMPTY;
         }
-        if (this.getRemainingItemCount() > 0) {
+        if (getRemainingItemCount() > 0) {
             return CellState.TYPES_FULL;
         }
         return CellState.FULL;
     }
 
     @Override
-    public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
-        if (amount == 0 || !keyType.contains(what)) {
-            return 0;
-        }
-
-        if (!this.partitionList.matchesFilter(what, this.partitionListMode)) {
-            return 0;
-        }
-
-        if (this.cellType.isBlackListed(this.i, what)) {
-            return 0;
-        }
-
-        // Run regular insert logic and then apply void upgrade to the returned value.
-        long inserted = innerInsert(what, amount, mode);
-
-        // In the event that a void card is being used on a (full) unformatted cell, ensure it doesn't void any items
-        // that the cell isn't even storing and cannot store to begin with
-        if (!isPreformatted() && hasVoidUpgrade && !canHoldNewItem()) {
-            return getCellItems().containsKey(what) ? amount : inserted;
-        }
-
-        return hasVoidUpgrade ? amount : inserted;
-    }
-
-    // Inner insert for items that pass the filter.
-    private long innerInsert(AEKey what, long amount, Actionable mode) {
-        // Prevent non-empty storage cells from being recursively stored inside this cell
-        if (what instanceof AEItemKey itemKey) {
-            var stack = itemKey.toStack();
-
-            var cellInv = StorageCells.getCellInventory(stack, null);
-            if (cellInv != null && !cellInv.canFitInsideCell()) {
-                return 0;
-            }
-        }
-
-        var currentAmount = this.getCellItems().getLong(what);
-        long remainingItemCount = this.getRemainingItemCount();
-
-        // Deduct the required storage for a new type if the type is new
-        if (currentAmount <= 0) {
-            if (!canHoldNewItem()) {
-                // No space for more types
-                return 0;
-            }
-
-            remainingItemCount -= (long) this.getBytesPerType() * keyType.getAmountPerByte();
-            if (remainingItemCount <= 0) {
-                return 0;
-            }
-        }
-
-        // Apply max items per type
-        remainingItemCount = Math.max(0, Math.min(this.maxItemsPerType - currentAmount, remainingItemCount));
-
-        if (amount > remainingItemCount) {
-            amount = remainingItemCount;
-        }
-
-        if (mode == Actionable.MODULATE) {
-            getCellItems().put(what, currentAmount + amount);
-            this.saveChanges();
-        }
-
-        return amount;
+    public double getIdleDrain() {
+        return cellType.getIdleDrain();
     }
 
     @Override
-    public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
-        var currentAmount = getCellItems().getLong(what);
-        if (currentAmount > 0) {
-            if (amount >= currentAmount) {
-                if (mode == Actionable.MODULATE) {
-                    getCellItems().remove(what, currentAmount);
-                    this.saveChanges();
-                }
+    public boolean canFitInsideCell() {
+        return cellType.storableInStorageCell() || (storedItems == 0 && storedItemCount == 0);
+// if there is no ISaveProvider, store to NBT immediately
+    }
 
-                return currentAmount;
+    @Override
+    public void persist() {
+        if (this.persisted) {
+            return;
+        }
+
+        saveCellItems();
+        this.persisted = true;
+    }
+
+    private void saveChanges() {
+        recalculateStoredAmounts();
+        this.persisted = false;
+        if (saveProvider != null) {
+            saveProvider.saveChanges();
+        } else {
+            persist();
+        }
+    }
+
+    private void recalculateStoredAmounts() {
+        this.storedItemCount = 0;
+        this.storedItems = 0;
+        ObjectList<AEKey> emptyKeys = new ObjectArrayList<>();
+        for (Object2LongMap.Entry<AEKey> entry : cellItems.object2LongEntrySet()) {
+            long amount = entry.getLongValue();
+            if (amount > 0) {
+                this.storedItemCount += amount;
+                this.storedItems++;
             } else {
-                if (mode == Actionable.MODULATE) {
-                    getCellItems().put(what, currentAmount - amount);
-                    this.saveChanges();
-                }
-
-                return amount;
+                emptyKeys.add(entry.getKey());
             }
         }
-
-        return 0;
+        for (AEKey emptyKey : emptyKeys) {
+            cellItems.removeLong(emptyKey);
+        }
     }
 
-    @Override
-    public Component getDescription() {
-        return i.getHoverName();
+    private boolean canHoldNewItem() {
+        return getStoredItemTypes() < getTotalItemTypes() && getRemainingItemCount() > 0;
+    }
+
+    public long getTotalBytes() {
+        return cellType.getBytes(itemStack);
+    }
+
+    public int getBytesPerType() {
+        return cellType.getBytesPerType(itemStack);
+    }
+
+    public long getTotalItemTypes() {
+        return cellType.getTotalTypes(itemStack);
+    }
+
+    public long getStoredItemCount() {
+        return storedItemCount;
+    }
+
+    public long getStoredItemTypes() {
+        return storedItems;
+    }
+
+    public long getFreeBytes() {
+        return getTotalBytes() - getUsedBytes();
+    }
+
+    public long getUsedBytes() {
+        var bytesForItemCount = (getStoredItemCount() + getUnusedItemCount()) / cellType.getKeyType().getAmountPerByte();
+        return getStoredItemTypes() * getBytesPerType() + bytesForItemCount;
+    }
+
+    public long getRemainingItemCount() {
+        final long remaining = getFreeBytes() * cellType.getKeyType().getAmountPerByte() + getUnusedItemCount();
+// Technically not exactly evenly distributed, but close enough!
+        return Math.max(remaining, 0);
+    }
+
+    public int getUnusedItemCount() {
+        final int div = (int) (getStoredItemCount() % cellType.getKeyType().getAmountPerByte());
+        if (div == 0) {
+            return 0;
+        }
+        return cellType.getKeyType().getAmountPerByte() - div;
     }
 }

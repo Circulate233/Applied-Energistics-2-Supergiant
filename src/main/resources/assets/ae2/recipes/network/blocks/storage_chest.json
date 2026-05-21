@@ -1,0 +1,33 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "c c",
+    "ded"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "blockGlass"
+    },
+    "b": {
+      "item": "ae2:terminal"
+    },
+    "c": {
+      "item": "ae2:fluix_glass_cable"
+    },
+    "d": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "e": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    }
+  },
+  "result": {
+    "item": "ae2:chest",
+    "count": 1
+  }
+}
+

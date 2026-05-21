@@ -1,18 +1,16 @@
 package appeng.client.gui.me.items;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-
 import appeng.api.config.ActionItems;
 import appeng.client.Point;
 import appeng.client.gui.Icon;
+import appeng.client.gui.Rect2i;
 import appeng.client.gui.WidgetContainer;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.Scrollbar;
-import appeng.core.localization.GuiText;
-import appeng.menu.SlotSemantics;
+import appeng.container.SlotSemantics;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
 
 public class ProcessingEncodingPanel extends EncodingModePanel {
     private static final Blitter BG = Blitter.texture("guis/pattern_modes.png").src(0, 70, 124, 66);
@@ -21,68 +19,62 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
     private final ActionButton cycleOutputBtn;
     private final Scrollbar scrollbar;
 
-    public ProcessingEncodingPanel(PatternEncodingTermScreen<?> screen, WidgetContainer widgets) {
+    public ProcessingEncodingPanel(GuiPatternEncodingTerm screen, WidgetContainer widgets) {
         super(screen, widgets);
+        this.clearBtn = new ActionButton(ActionItems.S_CLOSE, this.container::clear);
+        this.clearBtn.setHalfSize(true);
+        this.clearBtn.setDisableBackground(true);
+        widgets.add("processingClearPattern", this.clearBtn);
 
-        // Add buttons for the processing mode
-        clearBtn = new ActionButton(ActionItems.S_CLOSE, act -> menu.clear());
-        clearBtn.setHalfSize(true);
-        clearBtn.setDisableBackground(true);
-        widgets.add("processingClearPattern", clearBtn);
-
-        this.cycleOutputBtn = new ActionButton(
-                ActionItems.S_CYCLE_PROCESSING_OUTPUT,
-                act -> menu.cycleProcessingOutput());
+        this.cycleOutputBtn = new ActionButton(ActionItems.S_CYCLE_PROCESSING_OUTPUT,
+            this.container::cycleProcessingOutput);
         this.cycleOutputBtn.setHalfSize(true);
         this.cycleOutputBtn.setDisableBackground(true);
         widgets.add("processingCycleOutput", this.cycleOutputBtn);
 
         this.scrollbar = widgets.addScrollBar("processingPatternModeScrollbar", Scrollbar.SMALL);
-        // The scrollbar ranges from 0 to the number of rows not visible
-        this.scrollbar.setRange(0, menu.getProcessingInputSlots().length / 3 - 3, 3);
+        this.scrollbar.setRange(0, Math.max(0, this.container.getProcessingInputSlots().length / 3 - 3), 3);
         this.scrollbar.setCaptureMouseWheel(false);
-
     }
 
     @Override
     public void updateBeforeRender() {
-        // Update the processing slot position/visibility
-        screen.repositionSlots(SlotSemantics.PROCESSING_INPUTS);
-        screen.repositionSlots(SlotSemantics.PROCESSING_OUTPUTS);
+        this.screen.repositionSlots(SlotSemantics.PROCESSING_INPUTS);
+        this.screen.repositionSlots(SlotSemantics.PROCESSING_OUTPUTS);
 
-        for (int i = 0; i < menu.getProcessingInputSlots().length; i++) {
-            var slot = menu.getProcessingInputSlots()[i];
-            var effectiveRow = (i / 3) - scrollbar.getCurrentScroll();
-
+        int scroll = this.scrollbar.getCurrentScroll();
+        for (int i = 0; i < this.container.getProcessingInputSlots().length; i++) {
+            var slot = this.container.getProcessingInputSlots()[i];
+            int effectiveRow = i / 3 - scroll;
             slot.setActive(effectiveRow >= 0 && effectiveRow < 3);
-            slot.y -= scrollbar.getCurrentScroll() * 18;
+            slot.yPos -= scroll * 18;
         }
-        for (int i = 0; i < menu.getProcessingOutputSlots().length; i++) {
-            var slot = menu.getProcessingOutputSlots()[i];
-            var effectiveRow = i - scrollbar.getCurrentScroll();
-
+        for (int i = 0; i < this.container.getProcessingOutputSlots().length; i++) {
+            var slot = this.container.getProcessingOutputSlots()[i];
+            int effectiveRow = i - scroll;
             slot.setActive(effectiveRow >= 0 && effectiveRow < 3);
-            slot.y -= scrollbar.getCurrentScroll() * 18;
+            slot.yPos -= scroll * 18;
         }
 
+        this.cycleOutputBtn.setVisibility(this.visible && this.container.canCycleProcessingOutputs());
         updateTooltipVisibility();
     }
 
     @Override
-    public void drawBackgroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
-        BG.dest(bounds.getX() + 8, bounds.getY() + bounds.getHeight() - 165).blit(guiGraphics);
+    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+        BG.dest(bounds.x() + this.position.x() - 1, bounds.y() + this.position.y() + 1).blit();
     }
 
     @Override
     public boolean onMouseWheel(Point mousePos, double delta) {
-        return scrollbar.onMouseWheel(mousePos, delta);
+        return this.scrollbar.onMouseWheel(mousePos, delta);
     }
 
     private void updateTooltipVisibility() {
-        widgets.setTooltipAreaEnabled("processing-primary-output", visible && scrollbar.getCurrentScroll() == 0);
-        widgets.setTooltipAreaEnabled("processing-optional-output1", visible && scrollbar.getCurrentScroll() > 0);
-        widgets.setTooltipAreaEnabled("processing-optional-output2", visible);
-        widgets.setTooltipAreaEnabled("processing-optional-output3", visible);
+        this.widgets.setTooltipAreaEnabled("processing-primary-output", this.visible && this.scrollbar.getCurrentScroll() == 0);
+        this.widgets.setTooltipAreaEnabled("processing-optional-output1", this.visible && this.scrollbar.getCurrentScroll() > 0);
+        this.widgets.setTooltipAreaEnabled("processing-optional-output2", this.visible);
+        this.widgets.setTooltipAreaEnabled("processing-optional-output3", this.visible);
     }
 
     @Override
@@ -91,21 +83,18 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
     }
 
     @Override
-    public Component getTabTooltip() {
-        return GuiText.ProcessingPattern.text();
+    public ITextComponent getTabTooltip() {
+        return new TextComponentTranslation("gui.ae2.ProcessingPattern");
     }
 
     @Override
     public void setVisible(boolean visible) {
         super.setVisible(visible);
-
-        scrollbar.setVisible(visible);
-        clearBtn.setVisibility(visible);
-        cycleOutputBtn.setVisibility(menu.canCycleProcessingOutputs());
-
-        screen.setSlotsHidden(SlotSemantics.PROCESSING_INPUTS, !visible);
-        screen.setSlotsHidden(SlotSemantics.PROCESSING_OUTPUTS, !visible);
-
+        this.scrollbar.setVisible(visible);
+        this.clearBtn.setVisibility(visible);
+        this.cycleOutputBtn.setVisibility(visible && this.container.canCycleProcessingOutputs());
+        this.screen.setSlotsHidden(SlotSemantics.PROCESSING_INPUTS, !visible);
+        this.screen.setSlotsHidden(SlotSemantics.PROCESSING_OUTPUTS, !visible);
         updateTooltipVisibility();
     }
 }

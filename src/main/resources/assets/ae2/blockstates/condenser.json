@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "normal": {
+      "model": "ae2:condenser"
+    },
+    "inventory": {
+      "model": "ae2:item/condenser"
+    }
+  }
+}

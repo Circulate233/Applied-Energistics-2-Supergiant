@@ -1,120 +1,61 @@
 package appeng.recipes.transform;
 
-import com.mojang.serialization.DataResult;
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.NonNullList;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.FluidTags;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.level.Level;
-
-import appeng.blockentity.qnb.QuantumBridgeBlockEntity;
-import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
-import appeng.recipes.AERecipeTypes;
+import appeng.tile.qnb.TileQuantumBridge;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.Ingredient;
 
-public final class TransformRecipe implements Recipe<TransformRecipeInput> {
-    @Deprecated(forRemoval = true, since = "1.21.1")
-    public static final ResourceLocation TYPE_ID = AppEng.makeId("transform");
-    @Deprecated(forRemoval = true, since = "1.21.1")
-    public static final RecipeType<TransformRecipe> TYPE = AERecipeTypes.TRANSFORM;
+import java.util.List;
 
-    public static final MapCodec<TransformRecipe> CODEC = RecordCodecBuilder.mapCodec(builder -> {
-        return builder.group(
-                Ingredient.CODEC_NONEMPTY
-                        .listOf()
-                        .fieldOf("ingredients")
-                        .flatXmap(ingredients -> {
-                            return DataResult
-                                    .success(NonNullList.of(Ingredient.EMPTY, ingredients.toArray(Ingredient[]::new)));
-                        }, DataResult::success)
-                        .forGetter(r -> r.ingredients),
-                ItemStack.CODEC.fieldOf("result").forGetter(r -> r.output),
-                TransformCircumstance.CODEC
-                        .optionalFieldOf("circumstance", TransformCircumstance.fluid(FluidTags.WATER))
-                        .forGetter(t -> t.circumstance))
-                .apply(builder, TransformRecipe::new);
-    });
+public final class TransformRecipe {
+    private final List<Ingredient> ingredients;
+    private final ItemStack output;
+    private final TransformCircumstance circumstance;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, TransformRecipe> STREAM_CODEC = StreamCodec.composite(
-            Ingredient.CONTENTS_STREAM_CODEC.apply(ByteBufCodecs.collection(NonNullList::createWithCapacity)),
-            TransformRecipe::getIngredients,
-            ItemStack.STREAM_CODEC,
-            TransformRecipe::getResultItem,
-            TransformCircumstance.STREAM_CODEC,
-            TransformRecipe::getCircumstance,
-            TransformRecipe::new);
-
-    public final NonNullList<Ingredient> ingredients;
-    public final ItemStack output;
-    public final TransformCircumstance circumstance;
-
-    public TransformRecipe(NonNullList<Ingredient> ingredients, ItemStack output,
-            TransformCircumstance circumstance) {
-        this.ingredients = ingredients;
-        this.output = output;
+    public TransformRecipe(List<Ingredient> ingredients, ItemStack output, TransformCircumstance circumstance) {
+        this.ingredients = new ObjectArrayList<>(ingredients);
+        this.output = output.copy();
         this.circumstance = circumstance;
     }
 
-    @Override
-    public NonNullList<Ingredient> getIngredients() {
-        return ingredients;
+    public List<Ingredient> getIngredients() {
+        return this.ingredients;
     }
 
-    public TransformCircumstance getCircumstance() {
-        return circumstance;
-    }
-
-    @Override
-    public boolean matches(TransformRecipeInput container, Level level) {
-        return false;
-    }
-
-    @Override
-    public ItemStack assemble(TransformRecipeInput container, HolderLookup.Provider registries) {
-        ItemStack result = getResultItem(registries).copy();
-        if (AEItems.QUANTUM_ENTANGLED_SINGULARITY.is(result) && result.getCount() > 1) {
-            QuantumBridgeBlockEntity.assignFrequency(result);
+    public ItemStack getResultItem() {
+        ItemStack result = this.output.copy();
+        if (AEItems.QUANTUM_ENTANGLED_SINGULARITY.is(result)) {
+            TileQuantumBridge.assignFrequency(result);
         }
         return result;
     }
 
-    @Override
-    public boolean canCraftInDimensions(int width, int height) {
-        return false;
+    public TransformCircumstance getCircumstance() {
+        return this.circumstance;
     }
 
-    @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) {
-        return getResultItem();
-    }
+    public boolean matches(List<ItemStack> inputs) {
+        if (inputs.size() < this.ingredients.size()) {
+            return false;
+        }
 
-    public ItemStack getResultItem() {
-        return output;
-    }
+        boolean[] used = new boolean[inputs.size()];
+        for (var ingredient : this.ingredients) {
+            boolean matched = false;
+            for (int i = 0; i < inputs.size(); i++) {
+                if (!used[i] && ingredient.apply(inputs.get(i))) {
+                    used[i] = true;
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                return false;
+            }
+        }
 
-    @Override
-    public RecipeSerializer<?> getSerializer() {
-        return TransformRecipeSerializer.INSTANCE;
-    }
-
-    @Override
-    public RecipeType<?> getType() {
-        return TYPE;
-    }
-
-    @Override
-    public boolean isSpecial() {
         return true;
     }
 }
+

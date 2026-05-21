@@ -1,6 +1,6 @@
 {
-  "pack": {
-    "pack_format": 8,
-    "description": "Resources used for Applied Energistics 2"
-  }
+	"pack": {
+		"description": "${mod_name} Resources",
+		"pack_format": 3
+	}
 }

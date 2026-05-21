@@ -15,173 +15,59 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.networking;
-
-import java.util.Locale;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.StringRepresentable;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SimpleWaterloggedBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.block.state.properties.EnumProperty;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.api.orientation.RelativeSide;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.networking.WirelessAccessPointBlockEntity;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.WirelessAccessPointMenu;
-import appeng.menu.locator.MenuLocators;
+import appeng.block.AEBaseTileBlock;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.tile.networking.TileWirelessAccessPoint;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.BlockFaceShape;
+import net.minecraft.block.properties.PropertyEnum;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.IStringSerializable;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 
-public class WirelessAccessPointBlock extends AEBaseEntityBlock<WirelessAccessPointBlockEntity>
-        implements SimpleWaterloggedBlock {
+public class WirelessAccessPointBlock extends AEBaseTileBlock<TileWirelessAccessPoint> {
 
-    public enum State implements StringRepresentable {
-        OFF, ON, HAS_CHANNEL;
-
-        @Override
-        public String getSerializedName() {
-            return this.name().toLowerCase(Locale.ROOT);
-        }
-    }
-
-    public static final EnumProperty<State> STATE = EnumProperty.create("state", State.class);
-
-    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+    public static final PropertyEnum<State> STATE = PropertyEnum.create("state", State.class);
+    private static final AxisAlignedBB DOWN_AABB = new AxisAlignedBB(3.0 / 16.0, 5.0 / 16.0, 3.0 / 16.0,
+        13.0 / 16.0, 1.0, 13.0 / 16.0);
+    private static final AxisAlignedBB EAST_AABB = new AxisAlignedBB(0.0, 3.0 / 16.0, 3.0 / 16.0,
+        11.0 / 16.0, 13.0 / 16.0, 13.0 / 16.0);
+    private static final AxisAlignedBB NORTH_AABB = new AxisAlignedBB(3.0 / 16.0, 3.0 / 16.0, 5.0 / 16.0,
+        13.0 / 16.0, 13.0 / 16.0, 1.0);
+    private static final AxisAlignedBB SOUTH_AABB = new AxisAlignedBB(3.0 / 16.0, 3.0 / 16.0, 0.0,
+        13.0 / 16.0, 13.0 / 16.0, 11.0 / 16.0);
+    private static final AxisAlignedBB UP_AABB = new AxisAlignedBB(3.0 / 16.0, 0.0, 3.0 / 16.0,
+        13.0 / 16.0, 11.0 / 16.0, 13.0 / 16.0);
+    private static final AxisAlignedBB WEST_AABB = new AxisAlignedBB(5.0 / 16.0, 3.0 / 16.0, 3.0 / 16.0,
+        1.0, 13.0 / 16.0, 13.0 / 16.0);
 
     public WirelessAccessPointBlock() {
-        super(glassProps().noOcclusion().forceSolidOn());
-        this.registerDefaultState(this.defaultBlockState().setValue(STATE, State.OFF)
-                .setValue(WATERLOGGED, false));
+        super(Material.IRON);
+        this.setHardness(2.2F);
+        this.setResistance(11.0F);
+        this.setTileEntity(TileWirelessAccessPoint.class);
+        this.setOpaque();
+        this.setFullSize();
+        this.setLightOpacity(0);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(STATE, State.OFF));
     }
 
     @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, WirelessAccessPointBlockEntity be) {
-        State teState = State.OFF;
-
-        if (be.isActive()) {
-            teState = State.HAS_CHANNEL;
-        } else if (be.isPowered()) {
-            teState = State.ON;
-        }
-
-        return currentState.setValue(STATE, teState);
-    }
-
-    @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(STATE);
-        builder.add(WATERLOGGED);
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        var be = this.getBlockEntity(level, pos);
-
-        if (be != null) {
-            if (!level.isClientSide()) {
-                MenuOpener.open(WirelessAccessPointMenu.TYPE, player, MenuLocators.forBlockEntity(be));
-            }
-            return InteractionResult.sidedSuccess(level.isClientSide());
-        }
-
-        return super.useWithoutItem(state, level, pos, player, hitResult);
-    }
-
-    @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return getVoxelShape(state);
-    }
-
-    @Override
-    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return getVoxelShape(state);
-    }
-
-    @NotNull
-    private VoxelShape getVoxelShape(BlockState state) {
-        var orientation = getOrientation(state);
-        var forward = orientation.getSide(RelativeSide.FRONT);
-
-        double minX = 0;
-        double minY = 0;
-        double minZ = 0;
-        double maxX = 1;
-        double maxY = 1;
-        double maxZ = 1;
-
-        switch (forward) {
-            case DOWN -> {
-                minZ = minX = 3.0 / 16.0;
-                maxZ = maxX = 13.0 / 16.0;
-                maxY = 1.0;
-                minY = 5.0 / 16.0;
-            }
-            case EAST -> {
-                minZ = minY = 3.0 / 16.0;
-                maxZ = maxY = 13.0 / 16.0;
-                maxX = 11.0 / 16.0;
-                minX = 0.0;
-            }
-            case NORTH -> {
-                minY = minX = 3.0 / 16.0;
-                maxY = maxX = 13.0 / 16.0;
-                maxZ = 1.0;
-                minZ = 5.0 / 16.0;
-            }
-            case SOUTH -> {
-                minY = minX = 3.0 / 16.0;
-                maxY = maxX = 13.0 / 16.0;
-                maxZ = 11.0 / 16.0;
-                minZ = 0.0;
-            }
-            case UP -> {
-                minZ = minX = 3.0 / 16.0;
-                maxZ = maxX = 13.0 / 16.0;
-                maxY = 11.0 / 16.0;
-                minY = 0.0;
-            }
-            case WEST -> {
-                minZ = minY = 3.0 / 16.0;
-                maxZ = maxY = 13.0 / 16.0;
-                maxX = 1.0;
-                minX = 5.0 / 16.0;
-            }
-            default -> {
-            }
-        }
-
-        return Shapes.create(new AABB(minX, minY, minZ, maxX, maxY, maxZ));
-    }
-
-    @Override
-    public boolean propagatesSkylightDown(BlockState state, BlockGetter reader, BlockPos pos) {
-        return true;
+    protected BlockStateContainer createBlockState() {
+        return createBlockState(STATE);
     }
 
     @Override
@@ -190,28 +76,110 @@ public class WirelessAccessPointBlock extends AEBaseEntityBlock<WirelessAccessPo
     }
 
     @Override
-    @Nullable
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        var fluidState = context.getLevel().getFluidState(context.getClickedPos());
-        return super.getStateForPlacement(context)
-                .setValue(WATERLOGGED, fluidState.getType() == Fluids.WATER);
-    }
-
-    @Override
-    public FluidState getFluidState(BlockState blockState) {
-        return blockState.getValue(WATERLOGGED).booleanValue()
-                ? Fluids.WATER.getSource(false)
-                : super.getFluidState(blockState);
-    }
-
-    @Override
-    public BlockState updateShape(BlockState blockState, Direction facing, BlockState facingState, LevelAccessor level,
-            BlockPos currentPos, BlockPos facingPos) {
-        if (blockState.getValue(WATERLOGGED).booleanValue()) {
-            level.scheduleTick(currentPos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
         }
 
-        return super.updateShape(blockState, facing, facingState, level, currentPos, facingPos);
+        TileWirelessAccessPoint tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            if (!world.isRemote) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.WIRELESS_ACCESS_POINT, tile);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileWirelessAccessPoint tileEntity) {
+        State nextState = State.OFF;
+        if (tileEntity.isActive()) {
+            nextState = State.HAS_CHANNEL;
+        } else if (tileEntity.isPowered()) {
+            nextState = State.ON;
+        }
+        return currentState.withProperty(STATE, nextState);
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public IBlockState getActualState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        TileWirelessAccessPoint tile = this.getTileEntity(world, pos);
+        if (tile == null) {
+            return super.getActualState(state, world, pos).withProperty(STATE, State.OFF);
+        }
+
+        State nextState = State.OFF;
+        if (tile.isActive()) {
+            nextState = State.HAS_CHANNEL;
+        } else if (tile.isPowered()) {
+            nextState = State.ON;
+        }
+
+        return super.getActualState(state, world, pos).withProperty(STATE, nextState);
+    }
+
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return super.getMetaFromState(state);
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        return super.getStateFromMeta(meta).withProperty(STATE, State.OFF);
+    }
+
+    @Override
+    public AxisAlignedBB getBoundingBox(IBlockState state, IBlockAccess source, BlockPos pos) {
+        return switch (this.getOrientationStrategy().getFacing(state)) {
+            case DOWN -> DOWN_AABB;
+            case EAST -> EAST_AABB;
+            case NORTH -> NORTH_AABB;
+            case SOUTH -> SOUTH_AABB;
+            case WEST -> WEST_AABB;
+            default -> UP_AABB;
+        };
+    }
+
+    @Override
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
+
+    public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
+        return layer == BlockRenderLayer.CUTOUT;
+    }
+
+    @Override
+    public boolean isFullCube(IBlockState state) {
+        return false;
+    }
+
+    @Override
+    public boolean isOpaqueCube(IBlockState state) {
+        return false;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public BlockFaceShape getBlockFaceShape(IBlockAccess worldIn, IBlockState state, BlockPos pos, EnumFacing face) {
+        return BlockFaceShape.UNDEFINED;
+    }
+
+    public enum State implements IStringSerializable {
+        OFF,
+        ON,
+        HAS_CHANNEL;
+
+        @Override
+        public String getName() {
+            return this.name().toLowerCase(java.util.Locale.ROOT);
+        }
     }
 
 }
+
+

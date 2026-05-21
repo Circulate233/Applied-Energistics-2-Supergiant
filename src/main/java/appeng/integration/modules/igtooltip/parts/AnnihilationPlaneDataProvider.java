@@ -1,53 +1,51 @@
 package appeng.integration.modules.igtooltip.parts;
 
-import net.minecraft.core.registries.Registries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.enchantment.Enchantment;
-
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.core.localization.InGameTooltip;
 import appeng.parts.automation.AnnihilationPlanePart;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraftforge.common.util.Constants;
 
 public class AnnihilationPlaneDataProvider
-        implements BodyProvider<AnnihilationPlanePart>, ServerDataProvider<AnnihilationPlanePart> {
+    implements BodyProvider<AnnihilationPlanePart>, ServerDataProvider<AnnihilationPlanePart> {
     private static final String TAG_ENCHANTMENTS = "planeEnchantments";
 
     @Override
     public void buildTooltip(AnnihilationPlanePart plane, TooltipContext context, TooltipBuilder tooltip) {
         var serverData = context.serverData();
-        if (serverData.contains(TAG_ENCHANTMENTS, Tag.TAG_COMPOUND)) {
+        if (serverData.hasKey(TAG_ENCHANTMENTS, Constants.NBT.TAG_COMPOUND)) {
             tooltip.addLine(InGameTooltip.EnchantedWith.text());
 
-            var enchantments = serverData.getCompound(TAG_ENCHANTMENTS);
-            var enchantmentRegistry = context.registries().lookupOrThrow(Registries.ENCHANTMENT);
-            for (var enchantmentId : enchantments.getAllKeys()) {
-                var enchantment = enchantmentRegistry.get(ResourceKey.create(
-                        Registries.ENCHANTMENT,
-                        ResourceLocation.parse(enchantmentId)));
-                var level = enchantments.getInt(enchantmentId);
-                enchantment.ifPresent(holder -> {
-                    tooltip.addLine(Enchantment.getFullname(holder, level));
-                });
+            var enchantments = serverData.getCompoundTag(TAG_ENCHANTMENTS);
+            for (var enchantmentId : enchantments.getKeySet()) {
+                var enchantment = Enchantment.getEnchantmentByLocation(enchantmentId);
+                var level = enchantments.getInteger(enchantmentId);
+                if (enchantment != null) {
+                    tooltip.addLine(new TextComponentString(enchantment.getTranslatedName(level)));
+                }
             }
         }
     }
 
     @Override
-    public void provideServerData(Player player, AnnihilationPlanePart plane, CompoundTag serverData) {
+    public void provideServerData(EntityPlayer player, AnnihilationPlanePart plane, NBTTagCompound serverData) {
         var enchantments = plane.getEnchantments();
         if (enchantments != null && !enchantments.isEmpty()) {
-            var enchantmentsTag = new CompoundTag();
-            for (var entry : enchantments.entrySet()) {
-                enchantmentsTag.putInt(entry.getKey().getRegisteredName(), entry.getIntValue());
+            var enchantmentsTag = new NBTTagCompound();
+            for (Object2IntMap.Entry<Enchantment> entry : enchantments.object2IntEntrySet()) {
+                var registryName = entry.getKey().getRegistryName();
+                if (registryName != null) {
+                    enchantmentsTag.setInteger(registryName.toString(), entry.getIntValue());
+                }
             }
-            serverData.put(TAG_ENCHANTMENTS, enchantmentsTag);
+            serverData.setTag(TAG_ENCHANTMENTS, enchantmentsTag);
         }
     }
 }

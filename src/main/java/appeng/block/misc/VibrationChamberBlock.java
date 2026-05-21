@@ -18,46 +18,42 @@
 
 package appeng.block.misc;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.phys.BlockHitResult;
-
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.misc.VibrationChamberBlockEntity;
-import appeng.core.AEConfig;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.VibrationChamberMenu;
-import appeng.menu.locator.MenuLocators;
+import appeng.block.AEBaseTileBlock;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.tile.misc.TileVibrationChamber;
+import appeng.util.InteractionUtil;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-public final class VibrationChamberBlock extends AEBaseEntityBlock<VibrationChamberBlockEntity> {
-
-    // Indicates that the vibration chamber is currently working
-    public static final BooleanProperty ACTIVE = BooleanProperty.create("active");
+public class VibrationChamberBlock extends AEBaseTileBlock<TileVibrationChamber> {
+    public static final PropertyBool ACTIVE = PropertyBool.create("active");
 
     public VibrationChamberBlock() {
-        super(metalProps().strength(4.2F));
-        this.registerDefaultState(this.defaultBlockState().setValue(ACTIVE, false));
+        super(Material.IRON);
+        setHardness(4.2F);
+        setResistance(11.0F);
+        setTileEntity(TileVibrationChamber.class);
+        setDefaultState(this.blockState.getBaseState().withProperty(ACTIVE, false));
     }
 
     @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, VibrationChamberBlockEntity be) {
-        return currentState.setValue(ACTIVE, be.isOn);
+    protected BlockStateContainer createBlockState() {
+        return createBlockState(ACTIVE);
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(ACTIVE);
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileVibrationChamber tileEntity) {
+        return currentState.withProperty(ACTIVE, tileEntity.isOn);
     }
 
     @Override
@@ -66,55 +62,20 @@ public final class VibrationChamberBlock extends AEBaseEntityBlock<VibrationCham
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof VibrationChamberBlockEntity be) {
-            if (!level.isClientSide) {
-                MenuOpener.open(VibrationChamberMenu.TYPE, player, MenuLocators.forBlockEntity(be));
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
+        }
+
+        if (!world.isRemote && !InteractionUtil.isInAlternateUseMode(player)) {
+            TileVibrationChamber tile = this.getTileEntity(world, pos);
+            if (tile != null) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.VIBRATION_CHAMBER, tile);
             }
-            return InteractionResult.sidedSuccess(level.isClientSide());
         }
 
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        return true;
     }
 
-    @Override
-    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource r) {
-        if (!AEConfig.instance().isEnableEffects()) {
-            return;
-        }
-
-        var tc = this.getBlockEntity(level, pos);
-        if (tc != null && tc.isOn) {
-            double f1 = pos.getX() + 0.5F;
-            double f2 = pos.getY() + 0.5F;
-            double f3 = pos.getZ() + 0.5F;
-
-            var front = tc.getFront();
-            var top = tc.getTop();
-
-            // Cross-Product of forward/up directional vector
-            final int west_x = front.getStepY() * top.getStepZ() - front.getStepZ() * top.getStepY();
-            final int west_y = front.getStepZ() * top.getStepX() - front.getStepX() * top.getStepZ();
-            final int west_z = front.getStepX() * top.getStepY() - front.getStepY() * top.getStepX();
-
-            f1 += front.getStepX() * 0.6;
-            f2 += front.getStepY() * 0.6;
-            f3 += front.getStepZ() * 0.6;
-
-            final double ox = r.nextDouble();
-            final double oy = r.nextDouble() * 0.2f;
-
-            f1 += top.getStepX() * (-0.3 + oy);
-            f2 += top.getStepY() * (-0.3 + oy);
-            f3 += top.getStepZ() * (-0.3 + oy);
-
-            f1 += west_x * (0.3 * ox - 0.15);
-            f2 += west_y * (0.3 * ox - 0.15);
-            f3 += west_z * (0.3 * ox - 0.15);
-
-            level.addParticle(ParticleTypes.SMOKE, f1, f2, f3, 0.0D, 0.0D, 0.0D);
-            level.addParticle(ParticleTypes.FLAME, f1, f2, f3, 0.0D, 0.0D, 0.0D);
-        }
-    }
 }

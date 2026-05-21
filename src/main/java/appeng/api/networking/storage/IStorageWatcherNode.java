@@ -43,7 +43,7 @@ public interface IStorageWatcherNode extends IGridNodeService {
 
     /**
      * Called when a watched item changes amounts.
-     * 
+     *
      * @param what   What has changed
      * @param amount New amount in the network
      */

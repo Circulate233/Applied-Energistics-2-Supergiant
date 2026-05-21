@@ -18,14 +18,13 @@
 
 package appeng.me.service.helpers;
 
-import java.util.LongSummaryStatistics;
-
-import net.minecraft.CrashReportCategory;
-import net.minecraft.util.Mth;
-
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickingRequest;
+import net.minecraft.crash.CrashReportCategory;
+import net.minecraft.util.math.MathHelper;
+
+import java.util.LongSummaryStatistics;
 
 public class TickTracker implements Comparable<TickTracker> {
 
@@ -67,10 +66,10 @@ public class TickTracker implements Comparable<TickTracker> {
     public void addEntityCrashInfo(CrashReportCategory category) {
         node.fillCrashReportCategory(category);
 
-        category.setDetail("CurrentTickRate", this.getCurrentRate());
-        category.setDetail("MinTickRate", this.getRequest().minTickRate());
-        category.setDetail("MaxTickRate", this.getRequest().maxTickRate());
-        category.setDetail("ConnectedSides", this.getNode().getConnectedSides());
+        category.addCrashSection("CurrentTickRate", this.getCurrentRate());
+        category.addCrashSection("MinTickRate", this.getRequest().minTickRate());
+        category.addCrashSection("MaxTickRate", this.getRequest().maxTickRate());
+        category.addCrashSection("ConnectedSides", this.getNode().getConnectedSides());
     }
 
     public int getCurrentRate() {
@@ -78,7 +77,7 @@ public class TickTracker implements Comparable<TickTracker> {
     }
 
     public void setCurrentRate(int currentRate) {
-        this.currentRate = Mth.clamp(currentRate, request.minTickRate(), request.maxTickRate());
+        this.currentRate = MathHelper.clamp(currentRate, request.minTickRate(), request.maxTickRate());
     }
 
     public void setTickOnNextTick() {

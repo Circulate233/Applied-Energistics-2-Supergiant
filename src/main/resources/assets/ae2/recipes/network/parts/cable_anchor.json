@@ -1,0 +1,46 @@
+{
+  "type": "ae2:quartz_cutting",
+  "ingredients": [
+    {
+      "tag": "ae2:knife"
+    },
+    [
+      {
+        "type": "forge:ore_dict",
+        "ore": "ingotCopper"
+      },
+      {
+        "type": "forge:ore_dict",
+        "ore": "ingotTin"
+      },
+      {
+        "type": "forge:ore_dict",
+        "ore": "ingotIron"
+      },
+      {
+        "type": "forge:ore_dict",
+        "ore": "ingotGold"
+      },
+      {
+        "type": "forge:ore_dict",
+        "ore": "ingotBrass"
+      },
+      {
+        "type": "forge:ore_dict",
+        "ore": "ingotNickel"
+      },
+      {
+        "type": "forge:ore_dict",
+        "ore": "ingotAluminium"
+      },
+      {
+        "type": "forge:ore_dict",
+        "ore": "ingotAluminum"
+      }
+    ]
+  ],
+  "result": {
+    "id": "ae2:cable_anchor",
+    "count": 4
+  }
+}

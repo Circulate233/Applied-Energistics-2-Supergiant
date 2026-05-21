@@ -18,13 +18,6 @@
 
 package appeng.parts.automation;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.inventory.MenuType;
-
 import appeng.api.behaviors.StackImportStrategy;
 import appeng.api.networking.IGrid;
 import appeng.api.parts.IPartCollisionHelper;
@@ -32,14 +25,17 @@ import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
+import appeng.container.GuiIds;
 import appeng.core.definitions.AEItems;
 import appeng.core.settings.TickRates;
-import appeng.menu.implementations.IOBusMenu;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.WorldServer;
+import org.jetbrains.annotations.Nullable;
 
 public class ImportBusPart extends IOBusPart implements KeyTypeSelectionHost {
+    private final KeyTypeSelection keyTypeSelection;
     @Nullable
     private StackImportStrategy importStrategy;
-    private final KeyTypeSelection keyTypeSelection;
 
     public ImportBusPart(IPartItem<?> partItem) {
         super(TickRates.ImportBus, StackWorldBehaviors.withImportStrategy(), partItem);
@@ -56,19 +52,19 @@ public class ImportBusPart extends IOBusPart implements KeyTypeSelectionHost {
     @Override
     protected boolean doBusWork(IGrid grid) {
         if (importStrategy == null) {
-            var self = this.getHost().getBlockEntity();
-            var fromPos = self.getBlockPos().relative(this.getSide());
+            var self = this.getHost().getTileEntity();
+            var fromPos = self.getPos().offset(this.getSide());
             var fromSide = getSide().getOpposite();
-            importStrategy = StackWorldBehaviors.createImportFacade((ServerLevel) getLevel(), fromPos, fromSide,
-                    keyTypeSelection.enabledPredicate());
+            importStrategy = StackWorldBehaviors.createImportFacade((WorldServer) getLevel(), fromPos, fromSide,
+                keyTypeSelection.enabledPredicate());
         }
 
         var context = new StackTransferContextImpl(
-                grid.getStorageService(),
-                grid.getEnergyService(),
-                this.source,
-                getOperationsPerTick(),
-                getFilter());
+            grid.getStorageService(),
+            grid.getEnergyService(),
+            this.source,
+            getOperationsPerTick(),
+            getFilter());
 
         context.setInverted(this.isUpgradedWith(AEItems.INVERTER_CARD));
         importStrategy.transfer(context);
@@ -77,8 +73,8 @@ public class ImportBusPart extends IOBusPart implements KeyTypeSelectionHost {
     }
 
     @Override
-    protected MenuType<?> getMenuType() {
-        return IOBusMenu.IMPORT_TYPE;
+    protected GuiIds.GuiKey getGuiKey() {
+        return GuiIds.GuiKey.IMPORT_BUS;
     }
 
     @Override
@@ -100,14 +96,14 @@ public class ImportBusPart extends IOBusPart implements KeyTypeSelectionHost {
     }
 
     @Override
-    public void readFromNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.readFromNBT(extra, registries);
-        keyTypeSelection.readFromNBT(extra, registries);
+    public void readFromNBT(NBTTagCompound extra) {
+        super.readFromNBT(extra);
+        keyTypeSelection.readFromNBT(extra);
     }
 
     @Override
-    public void writeToNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.writeToNBT(extra, registries);
+    public void writeToNBT(NBTTagCompound extra) {
+        super.writeToNBT(extra);
         keyTypeSelection.writeToNBT(extra);
     }
 
@@ -116,3 +112,4 @@ public class ImportBusPart extends IOBusPart implements KeyTypeSelectionHost {
         return keyTypeSelection;
     }
 }
+

@@ -1,17 +1,15 @@
 package appeng.api.upgrades;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.level.ItemLike;
-
 import appeng.util.inv.AppEngInternalInventory;
+import net.minecraft.item.Item;
+import org.jetbrains.annotations.Nullable;
 
 class MachineUpgradeInventory extends UpgradeInventory {
     @Nullable
     private final MachineUpgradesChanged changeCallback;
 
-    public MachineUpgradeInventory(ItemLike item, int slots, @Nullable MachineUpgradesChanged changeCallback) {
-        super(item.asItem(), slots);
+    public MachineUpgradeInventory(Item item, int slots, @Nullable MachineUpgradesChanged changeCallback) {
+        super(item, slots);
         this.changeCallback = changeCallback;
     }
 

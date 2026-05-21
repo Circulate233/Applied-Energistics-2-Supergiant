@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "powered_on=false": {
+      "model": "ae2:spatial_pylon"
+    },
+    "powered_on=true": {
+      "model": "ae2:spatial_pylon"
+    }
+  }
+}

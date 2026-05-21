@@ -1,11 +1,10 @@
 package appeng.integration.modules.igtooltip;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.network.chat.MutableComponent;
-
 import appeng.api.networking.IGridNode;
 import appeng.core.localization.InGameTooltip;
+import appeng.core.localization.LocalizationEnum;
+import net.minecraft.util.text.ITextComponent;
+import org.jetbrains.annotations.Nullable;
 
 public enum GridNodeState {
     OFFLINE(InGameTooltip.DeviceOffline),
@@ -13,14 +12,10 @@ public enum GridNodeState {
     MISSING_CHANNEL(InGameTooltip.DeviceMissingChannel),
     ONLINE(InGameTooltip.DeviceOnline);
 
-    private final InGameTooltip text;
+    private final LocalizationEnum text;
 
-    GridNodeState(InGameTooltip text) {
+    GridNodeState(LocalizationEnum text) {
         this.text = text;
-    }
-
-    public MutableComponent textComponent() {
-        return text.text();
     }
 
     public static GridNodeState fromNode(@Nullable IGridNode gridNode) {
@@ -35,6 +30,10 @@ public enum GridNodeState {
             }
         }
         return state;
+    }
+
+    public ITextComponent textComponent() {
+        return text.text();
     }
 
 }

@@ -18,12 +18,12 @@
 
 package appeng.client.gui.widgets;
 
-import java.util.Set;
-
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
 import appeng.api.stacks.AEKeyType;
+
+import java.util.Set;
 
 public interface ISortSource {
     SortOrder getSortBy();
@@ -34,3 +34,4 @@ public interface ISortSource {
 
     Set<AEKeyType> getSortKeyTypes();
 }
+

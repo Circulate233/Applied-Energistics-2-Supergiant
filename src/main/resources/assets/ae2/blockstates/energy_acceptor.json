@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "normal": {
+      "model": "ae2:energy_acceptor"
+    },
+    "inventory": {
+      "model": "ae2:item/energy_acceptor"
+    }
+  }
+}

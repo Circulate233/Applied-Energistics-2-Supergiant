@@ -18,28 +18,32 @@
 
 package appeng.init.client;
 
-import net.minecraft.core.Registry;
-import net.minecraft.core.particles.ParticleType;
-
 import appeng.client.render.effects.ParticleTypes;
-import appeng.core.AppEng;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.util.ResourceLocation;
 
 public final class InitParticleTypes {
+    public static final ResourceLocation CRAFTING_ID = id("crafting_fx");
+    public static final ResourceLocation ENERGY_ID = id("energy_fx");
+    public static final ResourceLocation LIGHTNING_ARC_ID = id("lightning_arc_fx");
+    public static final ResourceLocation LIGHTNING_ID = id("lightning_fx");
+    public static final ResourceLocation MATTER_CANNON_ID = id("matter_cannon_fx");
+    public static final ResourceLocation VIBRANT_ID = id("vibrant_fx");
 
     private InitParticleTypes() {
     }
 
-    public static void init(Registry<ParticleType<?>> registry) {
-        register(registry, ParticleTypes.CRAFTING, "crafting_fx");
-        register(registry, ParticleTypes.ENERGY, "energy_fx");
-        register(registry, ParticleTypes.LIGHTNING_ARC, "lightning_arc_fx");
-        register(registry, ParticleTypes.LIGHTNING, "lightning_fx");
-        register(registry, ParticleTypes.MATTER_CANNON, "matter_cannon_fx");
-        register(registry, ParticleTypes.VIBRANT, "vibrant_fx");
+    public static void init() {
+        ParticleTypes.clearCachedSprites();
     }
 
-    private static void register(Registry<ParticleType<?>> registry, ParticleType<?> type, String name) {
-        Registry.register(registry, AppEng.makeId(name), type);
+    public static void registerTextures(TextureMap textureMap) {
+        ParticleTypes.clearCachedSprites();
+        ParticleTypes.registerTextures(textureMap);
     }
 
+    private static ResourceLocation id(String name) {
+        return appeng.core.AppEng.makeId(name);
+    }
 }
+

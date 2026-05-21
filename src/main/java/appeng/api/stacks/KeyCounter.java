@@ -23,22 +23,20 @@
 
 package appeng.api.stacks;
 
+import appeng.api.config.FuzzyMode;
+import com.google.common.collect.Iterators;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-
-import com.google.common.collect.Iterators;
-
-import org.jetbrains.annotations.Nullable;
-
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
-
-import appeng.api.config.FuzzyMode;
 
 /**
  * Associates a generic value of type T with AE keys and makes key/value pairs searchable with fuzzy mode semantics.
@@ -108,13 +106,12 @@ public final class KeyCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
     /**
      * Removes the given key from this counter, and returns the old value (or 0).
      */
-    public long remove(AEKey key) {
+    public void remove(AEKey key) {
         var subIndex = getSubIndex(key);
         var ret = subIndex.remove(key);
         if (subIndex.isEmpty()) {
             lists.remove(key.getPrimaryKey());
         }
-        return ret;
     }
 
     public void set(AEKey key, long amount) {
@@ -160,17 +157,17 @@ public final class KeyCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
     }
 
     @Override
-    public Iterator<Object2LongMap.Entry<AEKey>> iterator() {
+    public @NotNull Iterator<Object2LongMap.Entry<AEKey>> iterator() {
         return Iterators.concat(
-                Iterators.transform(lists.values().iterator(), VariantCounter::iterator));
+            Iterators.transform(lists.values().iterator(), VariantCounter::iterator));
     }
 
     private VariantCounter getSubIndex(AEKey key) {
         // We check before the call to computeIfAbsent, otherwise we'd need a capturing lambda.
         if (key.getFuzzySearchMaxValue() > 0) {
-            return lists.computeIfAbsent(key.getPrimaryKey(), k -> new VariantCounter.FuzzyVariantMap());
+            return lists.computeIfAbsent(key.getPrimaryKey(), ignored -> new VariantCounter.FuzzyVariantMap());
         } else {
-            return lists.computeIfAbsent(key.getPrimaryKey(), k -> new VariantCounter.UnorderedVariantMap());
+            return lists.computeIfAbsent(key.getPrimaryKey(), ignored -> new VariantCounter.UnorderedVariantMap());
         }
     }
 
@@ -217,7 +214,7 @@ public final class KeyCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
     }
 
     public Set<AEKey> keySet() {
-        var keys = new HashSet<AEKey>(size());
+        var keys = new ObjectOpenHashSet<AEKey>(size());
         for (var list : lists.values()) {
             for (var entry : list) {
                 keys.add(entry.getKey());

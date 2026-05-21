@@ -18,36 +18,35 @@
 
 package appeng.util.inv;
 
-import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.inventories.InternalInventory;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.item.ItemStack;
 
 /**
  * Exposes the main player inventory and hotbar as an {@link InternalInventory}.
  */
 public class PlayerInternalInventory implements InternalInventory {
-    private final Inventory inventory;
+    private final InventoryPlayer inventory;
 
-    public PlayerInternalInventory(Inventory inventory) {
+    public PlayerInternalInventory(InventoryPlayer inventory) {
         this.inventory = inventory;
     }
 
     @Override
     public int size() {
-        return Inventory.INVENTORY_SIZE;
+        return this.inventory.mainInventory.size();
     }
 
     @Override
     public ItemStack getStackInSlot(int slotIndex) {
-        return inventory.getItem(slotIndex);
+        return this.inventory.mainInventory.get(slotIndex);
     }
 
     @Override
     public void setItemDirect(int slotIndex, ItemStack stack) {
-        inventory.setItem(slotIndex, stack);
+        this.inventory.mainInventory.set(slotIndex, stack);
         if (!stack.isEmpty()) {
-            inventory.getItem(slotIndex).setPopTime(5);
+            stack.setAnimationsToGo(5);
         }
     }
 }

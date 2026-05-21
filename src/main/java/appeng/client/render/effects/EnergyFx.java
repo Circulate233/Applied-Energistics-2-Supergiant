@@ -15,114 +15,73 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.effects;
 
-import com.mojang.blaze3d.vertex.VertexConsumer;
-
-import net.minecraft.client.Camera;
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleProvider;
-import net.minecraft.client.particle.ParticleRenderType;
-import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.particle.TextureSheetParticle;
-import net.minecraft.util.Mth;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.World;
 
-@OnlyIn(Dist.CLIENT)
-public class EnergyFx extends TextureSheetParticle {
+public class EnergyFx extends Particle {
 
-    private final int startBlkX;
-    private final int startBlkY;
-    private final int startBlkZ;
+    private final int startBlockX;
+    private final int startBlockY;
+    private final int startBlockZ;
 
-    public EnergyFx(ClientLevel level, double par2, double par4, double par6,
-            SpriteSet sprite) {
-        super(level, par2, par4, par6);
-        this.gravity = 0;
-        this.bCol = 1;
-        this.gCol = 1;
-        this.rCol = 1;
-        this.alpha = 1.4f;
-        this.quadSize = 3.5f;
-        this.pickSprite(sprite);
+    public EnergyFx(World world, double x, double y, double z, double motionX, double motionY, double motionZ,
+                    TextureAtlasSprite sprite, EnergyParticleData data) {
+        super(world, x, y, z);
 
-        this.startBlkX = Mth.floor(this.x);
-        this.startBlkY = Mth.floor(this.y);
-        this.startBlkZ = Mth.floor(this.z);
+        this.particleRed = 1.0f;
+        this.particleGreen = 1.0f;
+        this.particleBlue = 1.0f;
+        this.particleAlpha = 1.4f;
+        this.particleScale *= 3.5f;
+        this.particleGravity = 0.0f;
+        this.canCollide = false;
+        this.motionX = motionX;
+        this.motionY = motionY;
+        this.motionZ = motionZ;
+        if (sprite != null) {
+            this.setParticleTexture(sprite);
+        }
+
+        if (data.forItem()) {
+            this.posX += -0.2 * data.direction().getXOffset();
+            this.posY += -0.2 * data.direction().getYOffset();
+            this.posZ += -0.2 * data.direction().getZOffset();
+            this.particleScale *= 0.8f;
+        }
+
+        this.startBlockX = MathHelper.floor(this.posX);
+        this.startBlockY = MathHelper.floor(this.posY);
+        this.startBlockZ = MathHelper.floor(this.posZ);
     }
 
     @Override
-    public ParticleRenderType getRenderType() {
-        return ParticleRenderType.PARTICLE_SHEET_TRANSLUCENT;
+    public int getFXLayer() {
+        return 1;
     }
 
     @Override
-    public float getQuadSize(float scaleFactor) {
-        return 0.1f * this.quadSize;
-    }
+    public void renderParticle(BufferBuilder buffer, net.minecraft.entity.Entity entityIn, float partialTicks,
+                               float rotationX, float rotationZ, float rotationYZ, float rotationXY, float rotationXZ) {
+        int blockX = MathHelper.floor(this.posX);
+        int blockY = MathHelper.floor(this.posY);
+        int blockZ = MathHelper.floor(this.posZ);
 
-    @Override
-    public void render(VertexConsumer buffer, Camera renderInfo, float partialTicks) {
-        float x = (float) (this.xo + (this.x - this.xo) * partialTicks);
-        float y = (float) (this.yo + (this.y - this.yo) * partialTicks);
-        float z = (float) (this.zo + (this.z - this.zo) * partialTicks);
-
-        final int blkX = Mth.floor(x);
-        final int blkY = Mth.floor(y);
-        final int blkZ = Mth.floor(z);
-
-        if (blkX == this.startBlkX && blkY == this.startBlkY && blkZ == this.startBlkZ) {
-            super.render(buffer, renderInfo, partialTicks);
+        if (blockX == this.startBlockX && blockY == this.startBlockY && blockZ == this.startBlockZ) {
+            super.renderParticle(buffer, entityIn, partialTicks, rotationX, rotationZ, rotationYZ, rotationXY,
+                rotationXZ);
         }
     }
 
     @Override
-    public void tick() {
-        super.tick();
+    public void onUpdate() {
+        super.onUpdate();
         this.onGround = false;
-
-        this.quadSize *= 0.89f;
-        this.alpha *= 0.89f;
+        this.particleScale *= 0.89f;
+        this.particleAlpha *= 0.89f;
     }
-
-    public void setMotionX(float motionX) {
-        this.xd = motionX;
-    }
-
-    public void setMotionY(float motionY) {
-        this.yd = motionY;
-    }
-
-    public void setMotionZ(float motionZ) {
-        this.zd = motionZ;
-    }
-
-    @OnlyIn(Dist.CLIENT)
-    public static class Factory implements ParticleProvider<EnergyParticleData> {
-        private final SpriteSet spriteSet;
-
-        public Factory(SpriteSet spriteSet) {
-            this.spriteSet = spriteSet;
-        }
-
-        @Override
-        public Particle createParticle(EnergyParticleData data, ClientLevel level, double x, double y, double z,
-                double xSpeed, double ySpeed, double zSpeed) {
-            EnergyFx result = new EnergyFx(level, x, y, z, spriteSet);
-            result.setMotionX((float) xSpeed);
-            result.setMotionY((float) ySpeed);
-            result.setMotionZ((float) zSpeed);
-            if (data.forItem()) {
-                result.x += -0.2 * data.direction().getStepX();
-                result.y += -0.2 * data.direction().getStepY();
-                result.z += -0.2 * data.direction().getStepZ();
-                result.quadSize *= 0.8f;
-            }
-            return result;
-        }
-    }
-
 }

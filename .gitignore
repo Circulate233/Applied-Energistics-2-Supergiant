@@ -1,48 +1,27 @@
-# exclude all
-/*
+.gradle
+**/build/
+!src/**/build/
+run/
+out/
 
-# include important folders
-# need gradle 
-!gradle/
-!gradlew
-!gradlew.bat
-!build.gradle
-!settings.gradle
-!gradle.properties
-!crowdin.yml
+# Ignore Gradle GUI config
+gradle-app.setting
 
-# Scripts
-!/scripts
-/scripts/node_modules
-!/buildSrc
-/buildSrc/build
-/buildSrc/.gradle
+# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
+!gradle-wrapper.jar
 
-# include markdowns
-!*.md
-!LICENSE
+# Avoid ignore Gradle wrappper properties
+!gradle-wrapper.properties
 
-# include sourcecode
-!docs/
-!src/
-src/generated/resources/.cache
-out
-build
-!/libs/
-!/guidebook
-/guidebook/sandbox
+# Cache of project
+.gradletasknamecache
 
-# include git important files
-!.gitmodules
-!.gitignore
-!.gitattributes
-!.git-blame-ignore-revs
+# Eclipse Gradle plugin generated files
+# Eclipse Core
+.project
+# JDT-specific (Eclipse Java Development Tools)
+.classpath
 
-# code format to reduce noise in git commits
-!codeformat/
+# IDEA config
+.idea
 
-# Github specific files and directories
-!.github/
-
-# Explicit ignores
-Thumbs.db

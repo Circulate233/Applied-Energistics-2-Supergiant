@@ -1,44 +1,20 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.helpers;
-
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.entity.BlockEntity;
 
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
+import appeng.container.GuiIds;
+import appeng.container.ISubGui;
+import appeng.core.gui.GuiOpener;
+import appeng.core.gui.locator.GuiHostLocator;
 import appeng.helpers.externalstorage.GenericStackInv;
-import appeng.menu.ISubMenu;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.InterfaceMenu;
-import appeng.menu.locator.MenuHostLocator;
+import appeng.parts.AEBasePart;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.tileentity.TileEntity;
 
-/**
- * Interface that must be implemented by machines hosting {@link InterfaceLogic}.
- */
 public interface InterfaceLogicHost extends IConfigurableObject, IUpgradeableObject, IPriorityHost, IConfigInvHost {
-    /**
-     * @return The block entity that is in-world and hosts the interface.
-     */
-    BlockEntity getBlockEntity();
+    TileEntity getTileEntity();
 
     void saveChanges();
 
@@ -73,12 +49,20 @@ public interface InterfaceLogicHost extends IConfigurableObject, IUpgradeableObj
         return getInterfaceLogic().getStorage();
     }
 
-    default void openMenu(Player player, MenuHostLocator locator) {
-        MenuOpener.open(InterfaceMenu.TYPE, player, locator);
+    default void openGui(EntityPlayer player, GuiHostLocator locator) {
+        openGui(player, locator, false);
+    }
+
+    default void openGui(EntityPlayer player, GuiHostLocator ignoredLocator, boolean returnedFromSubScreen) {
+        if (this instanceof AEBasePart part) {
+            GuiOpener.openPartGui(player, GuiIds.GuiKey.INTERFACE, part, returnedFromSubScreen);
+        } else {
+            GuiOpener.openGui(player, GuiIds.GuiKey.INTERFACE, getTileEntity(), returnedFromSubScreen);
+        }
     }
 
     @Override
-    default void returnToMainMenu(Player player, ISubMenu subMenu) {
-        MenuOpener.returnTo(InterfaceMenu.TYPE, player, subMenu.getLocator());
+    default void returnToMainContainer(EntityPlayer player, ISubGui subGui) {
+        openGui(player, subGui.getLocator(), true);
     }
 }

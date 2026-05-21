@@ -23,14 +23,20 @@
 
 package appeng.api.util;
 
-import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.world.World;
 
 /**
- * Implement on block entity or part to suppress the default network tool behavior.
+ * Implement on a tile entity or part to suppress the default network tool behavior.
  */
 public interface INetworkToolAware {
     /**
-     * Return false to suppress the default network tool behavior when it is used on this block entity or part.
+     * Return false to suppress the default network tool behavior when it is used on this tile entity or part.
      */
-    boolean showNetworkInfo(UseOnContext context);
+    boolean showNetworkInfo(EntityPlayer player, World world, BlockPos pos, EnumHand hand, ItemStack stack,
+                            RayTraceResult hit);
 }

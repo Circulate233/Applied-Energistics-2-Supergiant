@@ -1,0 +1,12 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:cable_interface"
+    }
+  ],
+  "result": {
+    "item": "ae2:interface",
+    "count": 1
+  }
+}

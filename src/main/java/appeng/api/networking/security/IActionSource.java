@@ -23,23 +23,20 @@
 
 package appeng.api.networking.security;
 
-import java.util.Optional;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.entity.player.Player;
-
 import appeng.me.helpers.BaseActionSource;
 import appeng.me.helpers.MachineSource;
 import appeng.me.helpers.PlayerSource;
+import net.minecraft.entity.player.EntityPlayer;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Optional;
 
 /**
  * The source of any action.
- *
- * This can either be a {@link Player} or an {@link IActionHost}.
- *
+ * <p>
+ * This can either be a {@link EntityPlayer} or an {@link IActionHost}.
+ * <p>
  * In most cases this is used for security checks, but can be used to validate the source itself.
- *
  */
 public interface IActionSource {
     /**
@@ -52,54 +49,53 @@ public interface IActionSource {
     /**
      * Create a source for a player.
      */
-    static IActionSource ofPlayer(Player player) {
+    @SuppressWarnings("unused")
+    static IActionSource ofPlayer(EntityPlayer player) {
         return ofPlayer(player, null);
     }
 
     /**
      * Create a source for a player and optionally a machine too (the machine the request is happening through).
      */
-    static IActionSource ofPlayer(Player player, @Nullable IActionHost maybeHost) {
+    static IActionSource ofPlayer(EntityPlayer player, @Nullable IActionHost maybeHost) {
         return new PlayerSource(player, maybeHost);
     }
 
     /**
      * Create a source for a machine.
      */
+    @SuppressWarnings("unused")
     static IActionSource ofMachine(IActionHost machine) {
         return new MachineSource(machine);
     }
 
     /**
      * If present, AE will consider the player being the source for the action.
-     *
+     * <p>
      * This will take precedence over {@link IActionSource#machine()} in any case.
      *
      * @return An optional player issuing the action.
      */
-
-    Optional<Player> player();
+    Optional<EntityPlayer> player();
 
     /**
      * If present, it indicates the {@link IActionHost} of the source.
-     *
+     * <p>
      * Should {@link IActionSource#player()} be absent, it will consider a machine as source.
-     *
+     * <p>
      * It is recommended to include the machine even when a player is present.
      *
      * @return An optional machine issuing the action or acting as proxy for a player.
      */
-
     Optional<IActionHost> machine();
 
     /**
      * An {@link IActionSource} can have multiple optional contexts.
-     *
+     * <p>
      * It is strongly recommended to limit the uses for absolutely necessary cases.
-     *
+     * <p>
      * Currently there are no public contexts made available by AE. An example would be the context interfaces use
      * internally to avoid looping items between each other.
      */
-
     <T> Optional<T> context(Class<T> key);
 }

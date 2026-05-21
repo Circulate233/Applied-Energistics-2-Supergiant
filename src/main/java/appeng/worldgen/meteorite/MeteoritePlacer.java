@@ -18,26 +18,6 @@
 
 package appeng.worldgen.meteorite;
 
-import java.util.List;
-import java.util.stream.Stream;
-
-import net.minecraft.Util;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.BlockPos.MutableBlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.AmethystClusterBlock;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.ChunkAccess;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.AABB;
-
 import appeng.core.AEConfig;
 import appeng.core.definitions.AEBlocks;
 import appeng.worldgen.meteorite.fallout.Fallout;
@@ -45,20 +25,26 @@ import appeng.worldgen.meteorite.fallout.FalloutCopy;
 import appeng.worldgen.meteorite.fallout.FalloutMode;
 import appeng.worldgen.meteorite.fallout.FalloutSand;
 import appeng.worldgen.meteorite.fallout.FalloutSnow;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockDirectional;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraft.world.gen.structure.StructureBoundingBox;
+
+import java.util.List;
 
 public final class MeteoritePlacer {
-    public static void place(LevelAccessor level, PlacedMeteoriteSettings settings, BoundingBox boundingBox,
-            RandomSource random) {
-        var placer = new MeteoritePlacer(level, settings, boundingBox, random);
-        placer.place();
-    }
-
-    private final BlockState skyStone;
-    private final List<BlockState> quartzBlocks;
-    private final List<BlockState> quartzBuds;
+    private final IBlockState skyStone;
+    private final List<IBlockState> quartzBlocks;
+    private final List<IBlockState> quartzBuds;
     private final MeteoriteBlockPutter putter = new MeteoriteBlockPutter();
-    private final LevelAccessor level;
-    private final RandomSource random;
+    private final World level;
+    private final java.util.Random random;
     private final Fallout type;
     private final BlockPos pos;
     private final int x;
@@ -71,58 +57,65 @@ public final class MeteoritePlacer {
     private final CraterType craterType;
     private final boolean pureCrater;
     private final boolean craterLake;
-    private final BoundingBox boundingBox;
+    private final StructureBoundingBox boundingBox;
 
-    private MeteoritePlacer(LevelAccessor level, PlacedMeteoriteSettings settings, BoundingBox boundingBox,
-            RandomSource random) {
+    private MeteoritePlacer(World level, PlacedMeteoriteSettings settings, StructureBoundingBox boundingBox,
+                            java.util.Random random) {
         this.boundingBox = boundingBox;
         this.level = level;
         this.random = random;
-        this.pos = settings.getPos();
-        this.x = settings.getPos().getX();
-        this.y = settings.getPos().getY();
-        this.z = settings.getPos().getZ();
-        this.meteoriteSize = settings.getMeteoriteRadius();
+        this.pos = settings.pos();
+        this.x = settings.pos().getX();
+        this.y = settings.pos().getY();
+        this.z = settings.pos().getZ();
+        this.meteoriteSize = settings.meteoriteRadius();
         this.placeCrater = settings.shouldPlaceCrater();
-        this.craterType = settings.getCraterType();
-        this.pureCrater = settings.isPureCrater();
-        this.craterLake = settings.isCraterLake();
+        this.craterType = settings.craterType();
+        this.pureCrater = settings.pureCrater();
+        this.craterLake = settings.craterLake();
         this.squaredMeteoriteSize = this.meteoriteSize * this.meteoriteSize;
 
         double realCrater = this.meteoriteSize * 2 + 5;
         this.crater = realCrater * realCrater;
 
         this.quartzBlocks = getQuartzBudList();
-        this.quartzBuds = Stream.of(
-                AEBlocks.SMALL_QUARTZ_BUD,
-                AEBlocks.MEDIUM_QUARTZ_BUD,
-                AEBlocks.LARGE_QUARTZ_BUD).map(def -> def.block().defaultBlockState()).toList();
-        this.skyStone = AEBlocks.SKY_STONE_BLOCK.block().defaultBlockState();
+        this.quartzBuds = java.util.Arrays.asList(
+            AEBlocks.SMALL_QUARTZ_BUD.block().getDefaultState(),
+            AEBlocks.MEDIUM_QUARTZ_BUD.block().getDefaultState(),
+            AEBlocks.LARGE_QUARTZ_BUD.block().getDefaultState());
+        this.skyStone = AEBlocks.SKY_STONE_BLOCK.block().getDefaultState();
 
-        this.type = getFallout(level, boundingBox.getCenter(), settings.getFallout());
+        this.type = getFallout(level, new BlockPos(
+            (boundingBox.minX + boundingBox.maxX) / 2,
+            (boundingBox.minY + boundingBox.maxY) / 2,
+            (boundingBox.minZ + boundingBox.maxZ) / 2), settings.fallout());
     }
 
-    private List<BlockState> getQuartzBudList() {
+    public static void place(World world, PlacedMeteoriteSettings settings, StructureBoundingBox boundingBox,
+                             java.util.Random random) {
+        MeteoritePlacer placer = new MeteoritePlacer(world, settings, boundingBox, random);
+        placer.place();
+    }
+
+    private List<IBlockState> getQuartzBudList() {
         if (AEConfig.instance().isSpawnFlawlessOnlyEnabled()) {
-            return Stream.of(AEBlocks.FLAWLESS_BUDDING_QUARTZ).map(def -> def.block().defaultBlockState()).toList();
+            return java.util.Collections.singletonList(AEBlocks.FLAWLESS_BUDDING_QUARTZ.block().getDefaultState());
         }
-        return Stream.of(
-                AEBlocks.QUARTZ_BLOCK,
-                AEBlocks.DAMAGED_BUDDING_QUARTZ,
-                AEBlocks.CHIPPED_BUDDING_QUARTZ,
-                AEBlocks.FLAWED_BUDDING_QUARTZ,
-                AEBlocks.FLAWLESS_BUDDING_QUARTZ).map(def -> def.block().defaultBlockState()).toList();
+        return java.util.Arrays.asList(
+            AEBlocks.QUARTZ_BLOCK.block().getDefaultState(),
+            AEBlocks.DAMAGED_BUDDING_QUARTZ.block().getDefaultState(),
+            AEBlocks.CHIPPED_BUDDING_QUARTZ.block().getDefaultState(),
+            AEBlocks.FLAWED_BUDDING_QUARTZ.block().getDefaultState(),
+            AEBlocks.FLAWLESS_BUDDING_QUARTZ.block().getDefaultState());
     }
 
     public void place() {
-        // creator
         if (placeCrater) {
             this.placeCrater();
         }
 
         this.placeMeteorite();
 
-        // collapse blocks...
         if (placeCrater) {
             this.decay();
         }
@@ -132,54 +125,50 @@ public final class MeteoritePlacer {
     }
 
     private int minX(int x) {
-        if (x < boundingBox.minX()) {
-            return boundingBox.minX();
-        } else if (x > boundingBox.maxX()) {
-            return boundingBox.maxX();
+        if (x < boundingBox.minX) {
+            return boundingBox.minX;
+        } else if (x > boundingBox.maxX) {
+            return boundingBox.maxX;
         }
         return x;
     }
 
     private int minZ(int x) {
-        if (x < boundingBox.minZ()) {
-            return boundingBox.minZ();
-        } else if (x > boundingBox.maxZ()) {
-            return boundingBox.maxZ();
+        if (x < boundingBox.minZ) {
+            return boundingBox.minZ;
+        } else if (x > boundingBox.maxZ) {
+            return boundingBox.maxZ;
         }
         return x;
     }
 
     private int maxX(int x) {
-        if (x < boundingBox.minX()) {
-            return boundingBox.minX();
-        } else if (x > boundingBox.maxX()) {
-            return boundingBox.maxX();
+        if (x < boundingBox.minX) {
+            return boundingBox.minX;
+        } else if (x > boundingBox.maxX) {
+            return boundingBox.maxX;
         }
         return x;
     }
 
     private int maxZ(int x) {
-        if (x < boundingBox.minZ()) {
-            return boundingBox.minZ();
-        } else if (x > boundingBox.maxZ()) {
-            return boundingBox.maxZ();
+        if (x < boundingBox.minZ) {
+            return boundingBox.minZ;
+        } else if (x > boundingBox.maxZ) {
+            return boundingBox.maxZ;
         }
         return x;
     }
 
     private void placeCrater() {
-        final int maxY = level.getMaxBuildHeight();
-        MutableBlockPos blockPos = new MutableBlockPos();
-        BlockState filler = craterType.getFiller().defaultBlockState();
+        int maxY = level.getActualHeight();
+        BlockPos.MutableBlockPos blockPos = new BlockPos.MutableBlockPos();
+        IBlockState filler = craterType.getFiller().getDefaultState();
 
         for (int j = y - 5; j <= maxY; j++) {
-            blockPos.setY(j);
-
-            for (int i = boundingBox.minX(); i <= boundingBox.maxX(); i++) {
-                blockPos.setX(i);
-
-                for (int k = boundingBox.minZ(); k <= boundingBox.maxZ(); k++) {
-                    blockPos.setZ(k);
+            for (int i = boundingBox.minX; i <= boundingBox.maxX; i++) {
+                for (int k = boundingBox.minZ; k <= boundingBox.maxZ; k++) {
+                    blockPos.setPos(i, j, k);
                     final double dx = i - x;
                     final double dz = k - z;
                     final double h = y - this.meteoriteSize + 1 + this.type.adjustCrater();
@@ -187,14 +176,12 @@ public final class MeteoritePlacer {
                     final double distanceFrom = dx * dx + dz * dz;
 
                     if (j > h + distanceFrom * 0.02) {
-                        BlockState currentBlock = level.getBlockState(blockPos);
+                        IBlockState currentBlock = level.getBlockState(blockPos);
 
-                        if (craterType != CraterType.NORMAL && j < y && currentBlock.isSolid()) {
-                            if (j > h + distanceFrom * 0.02) {
-                                this.putter.put(level, blockPos, filler);
-                            }
+                        if (craterType != CraterType.NORMAL && j < y && currentBlock.isFullBlock()) {
+                            this.putter.put(level, blockPos, filler);
                         } else {
-                            this.putter.put(level, blockPos, Blocks.AIR.defaultBlockState());
+                            this.putter.put(level, blockPos, Blocks.AIR.getDefaultState());
                         }
 
                     }
@@ -202,25 +189,23 @@ public final class MeteoritePlacer {
             }
         }
 
-        for (var e : level.getEntitiesOfClass(ItemEntity.class,
-                new AABB(minX(x - 30), y - 5, minZ(z - 30), maxX(x + 30), y + 30, maxZ(z + 30)))) {
-            e.discard();
+        for (EntityItem e : level.getEntitiesWithinAABB(EntityItem.class,
+            new AxisAlignedBB(minX(x - 30), y - 5, minZ(z - 30), maxX(x + 30), y + 30, maxZ(z + 30)))) {
+            e.setDead();
         }
     }
 
     private void placeMeteorite() {
-        // spawn meteor
         this.placeMeteoriteSkyStone();
 
-        // If the meteorite's center is within the BB of the current placer, place the chest
-        if (boundingBox.isInside(pos)) {
+        if (boundingBox.isVecInside(pos)) {
             placeChest();
         }
     }
 
     private void placeChest() {
         if (AEConfig.instance().isSpawnPressesInMeteoritesEnabled()) {
-            this.putter.put(level, pos, AEBlocks.MYSTERIOUS_CUBE.block().defaultBlockState());
+            this.putter.put(level, pos, AEBlocks.MYSTERIOUS_CUBE.block().getDefaultState());
         }
     }
 
@@ -230,30 +215,24 @@ public final class MeteoritePlacer {
         final int meteorZLength = minZ(z - 8);
         final int meteorZHeight = maxZ(z + 8);
 
-        MutableBlockPos pos = new MutableBlockPos();
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         for (int i = meteorXLength; i <= meteorXHeight; i++) {
-            pos.setX(i);
             for (int j = y - 8; j < y + 8; j++) {
-                pos.setY(j);
                 for (int k = meteorZLength; k <= meteorZHeight; k++) {
-                    pos.setZ(k);
-                    var dx = i - x;
-                    var dy = j - y;
-                    var dz = k - z;
+                    pos.setPos(i, j, k);
+                    int dx = i - x;
+                    int dy = j - y;
+                    int dz = k - z;
 
                     if (dx * dx * 0.7 + dy * dy * (j > y ? 1.4 : 0.8) + dz * dz * 0.7 < this.squaredMeteoriteSize) {
-                        // Leave a tiny room in the center
                         if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && Math.abs(dz) <= 1) {
                             if (dy == -1) {
-                                // Certus
-                                var certusIndex = random.nextInt(quartzBlocks.size());
+                                int certusIndex = random.nextInt(quartzBlocks.size());
                                 this.putter.put(level, pos, quartzBlocks.get(certusIndex));
-                                // Add a bud on top if it's not a regular certus block (index 0), and not the center.
-                                // (70% chance)
-                                if (certusIndex != 0 && (dx != 0 || dz != 0) && random.nextFloat() <= 0.7) {
-                                    var bud = Util.getRandom(quartzBuds, random);
-                                    var budState = bud.setValue(AmethystClusterBlock.FACING, Direction.UP);
-                                    this.putter.put(level, pos.offset(0, 1, 0), budState);
+                                if (certusIndex != 0 && (dx != 0 || dz != 0) && random.nextFloat() <= 0.7F) {
+                                    IBlockState bud = quartzBuds.get(random.nextInt(quartzBuds.size()))
+                                                                .withProperty(BlockDirectional.FACING, EnumFacing.UP);
+                                    this.putter.put(level, pos.up(), bud);
                                 }
                             }
                         } else {
@@ -273,58 +252,51 @@ public final class MeteoritePlacer {
         final int meteorZLength = minZ(z - 30);
         final int meteorZHeight = maxZ(z + 30);
 
-        MutableBlockPos blockPos = new MutableBlockPos();
-        MutableBlockPos blockPosUp = new MutableBlockPos();
-        MutableBlockPos blockPosDown = new MutableBlockPos();
+        BlockPos.MutableBlockPos blockPos = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos blockPosUp = new BlockPos.MutableBlockPos();
+        BlockPos.MutableBlockPos blockPosDown = new BlockPos.MutableBlockPos();
         for (int i = meteorXLength; i <= meteorXHeight; i++) {
-            blockPos.setX(i);
-            blockPosUp.setX(i);
-            blockPosDown.setX(i);
             for (int k = meteorZLength; k <= meteorZHeight; k++) {
-                blockPos.setZ(k);
-                blockPosUp.setZ(k);
-                blockPosDown.setZ(k);
                 for (int j = y - 9; j < y + 30; j++) {
-                    blockPos.setY(j);
-                    blockPosUp.setY(j + 1);
-                    blockPosDown.setY(j - 1);
-                    BlockState state = level.getBlockState(blockPos);
+                    blockPos.setPos(i, j, k);
+                    blockPosUp.setPos(i, j + 1, k);
+                    blockPosDown.setPos(i, j - 1, k);
+                    IBlockState state = level.getBlockState(blockPos);
                     Block blk = level.getBlockState(blockPos).getBlock();
 
                     if (this.pureCrater && blk == craterType.getFiller()) {
                         continue;
                     }
 
-                    // TODO reconsider
-                    if (state.canBeReplaced()) {
-                        if (!level.isEmptyBlock(blockPosUp)) {
-                            final BlockState stateUp = level.getBlockState(blockPosUp);
-                            level.setBlock(blockPos, stateUp, Block.UPDATE_ALL);
+                    if (state.getMaterial().isReplaceable()) {
+                        if (!level.isAirBlock(blockPosUp)) {
+                            final IBlockState stateUp = level.getBlockState(blockPosUp);
+                            level.setBlockState(blockPos, stateUp, 3);
                         } else if (randomShit < 100 * this.crater) {
                             final double dx = i - x;
                             final double dy = j - y;
                             final double dz = k - z;
                             final double dist = dx * dx + dy * dy + dz * dz;
 
-                            final BlockState xf = level.getBlockState(blockPosDown);
-                            if (!xf.canBeReplaced()) {
+                            final IBlockState xf = level.getBlockState(blockPosDown);
+                            if (!xf.getMaterial().isReplaceable()) {
                                 final double extraRange = random.nextDouble() * 0.6;
                                 final double height = this.crater * (extraRange + 0.2)
-                                        - Math.abs(dist - this.crater * 1.7);
+                                    - Math.abs(dist - this.crater * 1.7);
 
-                                if (!xf.isAir() && height > 0 && random.nextDouble() > 0.6) {
+                                if (!xf.getMaterial().isLiquid() && !xf.getBlock().isAir(xf, level, blockPosDown)
+                                    && height > 0 && random.nextDouble() > 0.6) {
                                     randomShit++;
                                     this.type.getRandomFall(level, blockPos);
                                 }
                             }
                         }
-                    } else if (level.isEmptyBlock(blockPosUp) && random.nextDouble() > 0.4) { // decay.
+                    } else if (level.isAirBlock(blockPosUp) && random.nextDouble() > 0.4) {
                         final double dx = i - x;
                         final double dy = j - y;
                         final double dz = k - z;
                         double dr2 = dx * dx + dy * dy + dz * dz;
 
-                        // Don't touch the center room!
                         if (!(Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && Math.abs(dz) <= 1) && dr2 < this.crater * 1.6) {
                             this.type.getRandomInset(level, blockPos);
                         }
@@ -334,23 +306,14 @@ public final class MeteoritePlacer {
         }
     }
 
-    /**
-     * If it finds a single water block at y62, it will replace any air blocks below the sea level with water.
-     */
     private void placeCraterLake() {
         final int maxY = level.getSeaLevel() - 1;
-        MutableBlockPos blockPos = new MutableBlockPos();
-        ChunkAccess currentChunk;
+        BlockPos.MutableBlockPos blockPos = new BlockPos.MutableBlockPos();
 
-        for (int currentX = boundingBox.minX(); currentX <= boundingBox.maxX(); currentX++) {
-            blockPos.setX(currentX);
-
-            for (int currentZ = boundingBox.minZ(); currentZ <= boundingBox.maxZ(); currentZ++) {
-                blockPos.setZ(currentZ);
-                currentChunk = level.getChunk(blockPos);
-
+        for (int currentX = boundingBox.minX; currentX <= boundingBox.maxX; currentX++) {
+            for (int currentZ = boundingBox.minZ; currentZ <= boundingBox.maxZ; currentZ++) {
                 for (int currentY = y - 5; currentY <= maxY; currentY++) {
-                    blockPos.setY(currentY);
+                    blockPos.setPos(currentX, currentY, currentZ);
 
                     final double dx = currentX - x;
                     final double dz = currentZ - z;
@@ -359,42 +322,43 @@ public final class MeteoritePlacer {
                     final double distanceFrom = dx * dx + dz * dz;
 
                     if (currentY > h + distanceFrom * 0.02) {
-                        BlockState currentBlock = currentChunk.getBlockState(blockPos);
+                        IBlockState currentBlock = level.getBlockState(blockPos);
                         if (currentBlock.getBlock() == Blocks.AIR) {
-                            this.putter.put(level, blockPos, Blocks.WATER.defaultBlockState());
+                            this.putter.put(level, blockPos, Blocks.WATER.getDefaultState());
 
                             if (currentY == maxY) {
-                                level.scheduleTick(blockPos, Fluids.WATER, 0);
+                                level.scheduleUpdate(blockPos, Blocks.WATER, 0);
                             }
                         }
                     } else if (maxY + (maxY - currentY) * 2 + 2 > h + distanceFrom * 0.02) {
-                        pillarDownSlopeBlocks(currentChunk, blockPos);
+                        pillarDownSlopeBlocks(blockPos);
                     }
                 }
             }
         }
     }
 
-    private void pillarDownSlopeBlocks(ChunkAccess currentChunk, MutableBlockPos blockPos) {
-        MutableBlockPos enclosingBlockPos = new MutableBlockPos();
-        enclosingBlockPos.set(blockPos);
+    private void pillarDownSlopeBlocks(BlockPos.MutableBlockPos blockPos) {
+        BlockPos.MutableBlockPos enclosingBlockPos = new BlockPos.MutableBlockPos(blockPos.getX(), blockPos.getY(),
+            blockPos.getZ());
 
         for (int i = 0; i < 20; i++) {
-            if (placeEnclosingBlock(currentChunk, enclosingBlockPos)) {
+            if (placeEnclosingBlock(enclosingBlockPos)) {
                 break;
             }
-            enclosingBlockPos.move(Direction.DOWN);
+            enclosingBlockPos.move(EnumFacing.DOWN);
         }
     }
 
-    private boolean placeEnclosingBlock(ChunkAccess currentChunk, MutableBlockPos enclosingBlockPos) {
-        BlockState currentState = currentChunk.getBlockState(enclosingBlockPos);
+    private boolean placeEnclosingBlock(BlockPos.MutableBlockPos enclosingBlockPos) {
+        IBlockState currentState = level.getBlockState(enclosingBlockPos);
         if (currentState.getBlock() == Blocks.AIR ||
-                (currentState.getFluidState().isEmpty() &&
-                        (currentState.canBeReplaced() || currentState.is(BlockTags.REPLACEABLE)))) {
+            (!currentState.getMaterial().isLiquid() &&
+                (currentState.getMaterial().isReplaceable()
+                    || currentState.getBlock().isReplaceable(level, enclosingBlockPos)))) {
 
-            if (craterType == CraterType.LAVA && level.getRandom().nextFloat() < 0.075f) {
-                this.putter.put(level, enclosingBlockPos, Blocks.MAGMA_BLOCK.defaultBlockState());
+            if (craterType == CraterType.LAVA && level.rand.nextFloat() < 0.075f) {
+                this.putter.put(level, enclosingBlockPos, Blocks.MAGMA.getDefaultState());
             } else {
                 this.type.getRandomFall(level, enclosingBlockPos);
             }
@@ -404,7 +368,7 @@ public final class MeteoritePlacer {
         return false;
     }
 
-    private Fallout getFallout(LevelAccessor level, BlockPos pos, FalloutMode mode) {
+    private Fallout getFallout(World level, BlockPos pos, FalloutMode mode) {
         return switch (mode) {
             case SAND -> new FalloutSand(level, pos, this.putter, this.skyStone, random);
             case TERRACOTTA -> new FalloutCopy(level, pos, this.putter, this.skyStone, random);
@@ -412,5 +376,4 @@ public final class MeteoritePlacer {
             default -> new Fallout(this.putter, this.skyStone, random);
         };
     }
-
 }

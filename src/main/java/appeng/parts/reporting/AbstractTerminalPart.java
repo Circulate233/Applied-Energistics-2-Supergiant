@@ -18,17 +18,6 @@
 
 package appeng.parts.reporting;
 
-import java.util.List;
-
-import org.jetbrains.annotations.MustBeInvokedByOverriders;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.config.Settings;
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
@@ -44,26 +33,21 @@ import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigManagerBuilder;
 import appeng.api.util.KeyTypeSelection;
 import appeng.api.util.KeyTypeSelectionHost;
-import appeng.menu.ISubMenu;
-import appeng.menu.MenuOpener;
-import appeng.menu.locator.MenuLocators;
-import appeng.menu.me.common.MEStorageMenu;
+import appeng.container.GuiIds;
+import appeng.container.ISubGui;
+import appeng.core.gui.GuiOpener;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.math.Vec3d;
+import org.jetbrains.annotations.MustBeInvokedByOverriders;
 
-/**
- * Anything resembling an network terminal with view cells can reuse this.
- * <p>
- * Note this applies only to terminals like the ME Terminal. It does not apply for more specialized terminals like the
- * Pattern Access Terminal.
- *
- * @author AlgorithmX2
- * @author yueh
- * @version rv3
- * @since rv3
- */
+import java.util.List;
+
 public abstract class AbstractTerminalPart extends AbstractDisplayPart
-        implements ITerminalHost, IViewCellStorage, InternalInventoryHost, KeyTypeSelectionHost {
+    implements ITerminalHost, IViewCellStorage, InternalInventoryHost, KeyTypeSelectionHost {
 
     private final IConfigManager cm;
     private final KeyTypeSelection keyTypeSelection = new KeyTypeSelection(this::saveChanges, keyType -> true);
@@ -72,7 +56,7 @@ public abstract class AbstractTerminalPart extends AbstractDisplayPart
     public AbstractTerminalPart(IPartItem<?> partItem) {
         super(partItem, true);
 
-        var builder = IConfigManager.builder(this::saveChanges);
+        IConfigManagerBuilder builder = IConfigManager.builder(this::saveChanges);
         registerSettings(builder);
         this.cm = builder.build();
     }
@@ -87,7 +71,7 @@ public abstract class AbstractTerminalPart extends AbstractDisplayPart
     @Override
     public void addAdditionalDrops(List<ItemStack> drops, boolean wrenched) {
         super.addAdditionalDrops(drops, wrenched);
-        for (var is : this.viewCell) {
+        for (ItemStack is : this.viewCell) {
             if (!is.isEmpty()) {
                 drops.add(is);
             }
@@ -97,7 +81,7 @@ public abstract class AbstractTerminalPart extends AbstractDisplayPart
     @Override
     public void clearContent() {
         super.clearContent();
-        viewCell.clear();
+        this.viewCell.clear();
     }
 
     @Override
@@ -115,41 +99,41 @@ public abstract class AbstractTerminalPart extends AbstractDisplayPart
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.readFromNBT(data, registries);
-        this.cm.readFromNBT(data, registries);
-        this.keyTypeSelection.readFromNBT(data, registries);
-        this.viewCell.readFromNBT(data, "viewCell", registries);
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
+        this.cm.readFromNBT(data);
+        this.keyTypeSelection.readFromNBT(data);
+        this.viewCell.readFromNBT(data, "viewCell");
     }
 
     @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.writeToNBT(data, registries);
-        this.cm.writeToNBT(data, registries);
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+        this.cm.writeToNBT(data);
         this.keyTypeSelection.writeToNBT(data);
-        this.viewCell.writeToNBT(data, "viewCell", registries);
+        this.viewCell.writeToNBT(data, "viewCell");
     }
 
     @Override
-    public boolean onUseWithoutItem(Player player, Vec3 pos) {
-        if (!super.onUseWithoutItem(player, pos) && !player.level().isClientSide) {
-            MenuOpener.open(getMenuType(player), player, MenuLocators.forPart(this));
+    public boolean onUseWithoutItem(EntityPlayer player, Vec3d pos) {
+        if (!super.onUseWithoutItem(player, pos) && !player.world.isRemote) {
+            GuiOpener.openPartGui(player, getGuiKey(player), this);
         }
         return true;
     }
 
     @Override
-    public void returnToMainMenu(Player player, ISubMenu subMenu) {
-        MenuOpener.open(getMenuType(player), player, subMenu.getLocator(), true);
+    public void returnToMainContainer(EntityPlayer player, ISubGui subGui) {
+        GuiOpener.openPartGui(player, getGuiKey(player), this, true);
     }
 
     @Override
-    public ItemStack getMainMenuIcon() {
-        return new ItemStack(getPartItem());
+    public ItemStack getMainContainerIcon() {
+        return new ItemStack(getPartItem().asItem());
     }
 
-    public MenuType<?> getMenuType(Player player) {
-        return MEStorageMenu.TYPE;
+    public GuiIds.GuiKey getGuiKey(EntityPlayer player) {
+        return GuiIds.GuiKey.ME_STORAGE_TERMINAL;
     }
 
     @Override

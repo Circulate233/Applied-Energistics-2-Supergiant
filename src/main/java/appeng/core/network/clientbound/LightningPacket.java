@@ -1,55 +1,73 @@
-
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
 package appeng.core.network.clientbound;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.client.render.effects.ParticleTypes;
-import appeng.core.AEConfig;
+import appeng.core.AppEngBase;
 import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.PacketBuffer;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public record LightningPacket(
-        double x,
-        double y,
-        double z) implements ClientboundPacket {
+public class LightningPacket extends ClientboundPacket {
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, LightningPacket> STREAM_CODEC = StreamCodec.ofMember(
-            LightningPacket::write,
-            LightningPacket::decode);
+    private double x;
+    private double y;
+    private double z;
 
-    public static final Type<LightningPacket> TYPE = CustomAppEngPayload.createType("lightning");
-
-    @Override
-    public Type<LightningPacket> type() {
-        return TYPE;
+    public LightningPacket() {
     }
 
-    public static LightningPacket decode(RegistryFriendlyByteBuf stream) {
-        var x = stream.readFloat();
-        var y = stream.readFloat();
-        var z = stream.readFloat();
-        return new LightningPacket(x, y, z);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeFloat((float) x);
-        data.writeFloat((float) y);
-        data.writeFloat((float) z);
+    public LightningPacket(double x, double y, double z) {
+        this.x = x;
+        this.y = y;
+        this.z = z;
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        try {
-            if (AEConfig.instance().isEnableEffects()) {
-                player.getCommandSenderWorld().addParticle(ParticleTypes.LIGHTNING, this.x, this.y, this.z, 0.0f, 0.0f,
-                        0.0f);
-            }
-        } catch (Exception ignored) {
+    protected void read(ByteBuf buf) {
+        var stream = new PacketBuffer(buf);
+        this.x = stream.readFloat();
+        this.y = stream.readFloat();
+        this.z = stream.readFloat();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var data = new PacketBuffer(buf);
+        data.writeFloat((float) this.x);
+        data.writeFloat((float) this.y);
+        data.writeFloat((float) this.z);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.world == null) {
+            return;
         }
+
+        if (!AppEngBase.runtime().shouldSpawnParticleEffects(minecraft.world)) {
+            return;
+        }
+
+        ParticleTypes.LIGHTNING.spawn(minecraft.world, this.x, this.y, this.z, 0.0f, 0.0f, 0.0f, null);
     }
 }

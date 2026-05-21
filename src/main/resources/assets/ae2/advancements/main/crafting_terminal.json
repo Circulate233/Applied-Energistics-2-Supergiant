@@ -1,0 +1,26 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:crafting_terminal"
+    },
+    "title": {
+      "translate": "achievement.ae2.CraftingTerminal"
+    },
+    "description": {
+      "translate": "achievement.ae2.CraftingTerminal.desc"
+    }
+  },
+  "parent": "ae2:main/controller",
+  "criteria": {
+    "certus": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:crafting_terminal"
+          }
+        ]
+      }
+    }
+  }
+}

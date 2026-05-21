@@ -18,10 +18,10 @@
 
 package appeng.me.storage;
 
-import net.minecraft.network.chat.Component;
-
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import appeng.core.localization.GuiText;
+import net.minecraft.util.text.ITextComponent;
 
 /**
  * An immutable inventory that is empty.
@@ -35,10 +35,11 @@ public class NullInventory implements MEStorage {
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        MEStorage.super.getAvailableStacks(out);
     }
 
     @Override
-    public Component getDescription() {
-        return Component.empty();
+    public ITextComponent getDescription() {
+        return GuiText.Nothing.text();
     }
 }

@@ -18,70 +18,54 @@
 
 package appeng.block.qnb;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
-import appeng.blockentity.qnb.QuantumBridgeBlockEntity;
 import appeng.client.EffectType;
+import appeng.container.GuiIds;
 import appeng.core.AppEng;
-import appeng.core.AppEngClient;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.QNBMenu;
-import appeng.menu.locator.MenuLocators;
+import appeng.core.gui.GuiOpener;
+import appeng.tile.qnb.TileQuantumBridge;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
+import java.util.Random;
 
 public class QuantumLinkChamberBlock extends QuantumBaseBlock {
 
-    private static final VoxelShape SHAPE;
-
-    static {
-        final double onePixel = 2.0 / 16.0;
-        SHAPE = Shapes.create(
-                new AABB(onePixel, onePixel, onePixel, 1.0 - onePixel, 1.0 - onePixel, 1.0 - onePixel));
-    }
-
     public QuantumLinkChamberBlock() {
-        super(glassProps());
+        super(Material.GLASS);
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource rand) {
-        final QuantumBridgeBlockEntity bridge = this.getBlockEntity(level, pos);
-        if (bridge != null && bridge.hasQES() && AppEngClient.instance().shouldAddParticles(rand)) {
-            AppEng.instance().spawnEffect(EffectType.Energy, level, pos.getX() + 0.5, pos.getY() + 0.5,
-                    pos.getZ() + 0.5,
-                    null);
+    @SideOnly(Side.CLIENT)
+    public void randomDisplayTick(IBlockState state, World world, BlockPos pos, Random rand) {
+        TileQuantumBridge bridge = this.getTileEntity(world, pos);
+        if (bridge != null && bridge.hasQES() && AppEng.instance().getClientWorld() != null) {
+            AppEng.instance().spawnEffect(EffectType.Energy, world, pos.getX() + 0.5, pos.getY() + 0.5,
+                pos.getZ() + 0.5, null);
         }
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof QuantumBridgeBlockEntity be) {
-            if (!level.isClientSide()) {
-                MenuOpener.open(QNBMenu.TYPE, player, MenuLocators.forBlockEntity(be));
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
+        }
+
+        TileQuantumBridge bridge = this.getTileEntity(world, pos);
+        if (bridge != null) {
+            if (!world.isRemote) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.QNB, bridge);
             }
-            return InteractionResult.sidedSuccess(level.isClientSide());
+            return true;
         }
 
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        return false;
     }
-
-    @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return SHAPE;
-    }
-
 }

@@ -1,60 +1,108 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.server;
 
-import static net.minecraft.commands.Commands.literal;
-
-import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-
-import net.minecraft.commands.CommandSourceStack;
-
 import appeng.core.AEConfig;
-import appeng.core.AppEng;
+import com.google.common.base.Joiner;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
+import net.minecraft.server.MinecraftServer;
 
-public final class AECommand {
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
-    public void register(CommandDispatcher<CommandSourceStack> dispatcher) {
+public final class AECommand extends CommandBase {
+    private final MinecraftServer server;
 
-        var builder = literal("ae2");
-        for (var command : Commands.values()) {
-            add(builder, command);
+    public AECommand(MinecraftServer server) {
+        this.server = server;
+    }
+
+    @Override
+    public int getRequiredPermissionLevel() {
+        return 0;
+    }
+
+    @Override
+    public String getName() {
+        return "ae2";
+    }
+
+    @Override
+    public String getUsage(ICommandSender sender) {
+        return "commands.ae2.usage";
+    }
+
+    @Override
+    public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException {
+        if (args.length == 0) {
+            throw new WrongUsageException("commands.ae2.usage");
         }
 
-        dispatcher.register(builder);
+        String action = args[0].toLowerCase(Locale.ROOT);
+
+        if ("help".equals(action)) {
+            if (args.length == 1) {
+                throw new WrongUsageException("commands.ae2.usage");
+            }
+
+            Commands command = Commands.fromName(args[1]);
+            if (command == null) {
+                throw new WrongUsageException("commands.ae2.usage");
+            }
+
+            throw new WrongUsageException(command.command.getHelp(this.server));
+        }
+
+        if ("list".equals(action)) {
+            throw new WrongUsageException(Joiner.on(", ").join(Commands.values()));
+        }
+
+        Commands command = Commands.fromName(action);
+        if (command == null) {
+            throw new WrongUsageException("commands.ae2.usage");
+        }
+
+        if (!sender.canUseCommand(command.level, this.getName())) {
+            throw new WrongUsageException("commands.ae2.permissions");
+        }
+
+        if (command.test && !AEConfig.instance().isDebugToolsEnabled()) {
+            throw new WrongUsageException("commands.ae2.permissions");
+        }
+
+        command.command.call(this.server, args, sender);
     }
 
-    private void add(LiteralArgumentBuilder<CommandSourceStack> builder, Commands subCommand) {
-        var subCommandBuilder = literal(subCommand.literal())
-                .requires(src -> {
-                    if (subCommand.test && !AEConfig.instance().isDebugToolsEnabled()) {
-                        return false;
-                    }
-                    return src.hasPermission(subCommand.level);
-                });
-        subCommand.command.addArguments(subCommandBuilder);
-        subCommandBuilder.executes(ctx -> {
-            subCommand.command.call(AppEng.instance().getCurrentServer(), ctx, ctx.getSource());
-            return 1;
-        });
-        builder.then(subCommandBuilder);
-
+    @Override
+    public boolean checkPermission(MinecraftServer server, ICommandSender sender) {
+        return true;
     }
 
+    @Override
+    public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args,
+                                          net.minecraft.util.math.BlockPos targetPos) {
+        if (args.length == 1) {
+            ObjectList<String> candidates = new ObjectArrayList<>();
+            candidates.add("help");
+            candidates.add("list");
+            for (Commands command : Commands.values()) {
+                candidates.add(command.getName());
+            }
+            return getListOfStringsMatchingLastWord(args, candidates);
+        }
+
+        if (args.length == 2 && "help".equalsIgnoreCase(args[0])) {
+            ObjectList<String> candidates = new ObjectArrayList<>();
+            for (Commands command : Commands.values()) {
+                candidates.add(command.getName());
+            }
+            return getListOfStringsMatchingLastWord(args, candidates);
+        }
+
+        return Collections.emptyList();
+    }
 }

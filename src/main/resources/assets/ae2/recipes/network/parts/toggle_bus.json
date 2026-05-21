@@ -1,0 +1,24 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    " a ",
+    "bcb",
+    " a "
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "dustRedstone"
+    },
+    "b": {
+      "item": "ae2:fluix_glass_cable"
+    },
+    "c": {
+      "item": "minecraft:lever"
+    }
+  },
+  "result": {
+    "item": "ae2:toggle_bus",
+    "count": 1
+  }
+}

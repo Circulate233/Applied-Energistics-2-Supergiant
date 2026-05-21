@@ -15,34 +15,44 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.misc;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.BlockHitResult;
+import appeng.block.AEBaseTileBlock;
+import appeng.core.gui.locator.GuiHostLocators;
+import appeng.tile.misc.TileInterface;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.misc.InterfaceBlockEntity;
-import appeng.menu.locator.MenuLocators;
+public class InterfaceBlock extends AEBaseTileBlock<TileInterface> {
 
-public class InterfaceBlock extends AEBaseEntityBlock<InterfaceBlockEntity> {
     public InterfaceBlock() {
-        super(metalProps());
+        super(Material.IRON);
+        setHardness(2.2F);
+        setResistance(11.0F);
+        setTileEntity(TileInterface.class);
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof InterfaceBlockEntity be) {
-            if (!level.isClientSide()) {
-                be.openMenu(player, MenuLocators.forBlockEntity(be));
-            }
-            return InteractionResult.sidedSuccess(level.isClientSide());
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
         }
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+
+        TileInterface tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            if (!world.isRemote) {
+                tile.openGui(player, GuiHostLocators.forTile(tile));
+            }
+            return true;
+        }
+        return false;
     }
 }
+
+

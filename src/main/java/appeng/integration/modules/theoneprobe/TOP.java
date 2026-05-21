@@ -18,14 +18,19 @@
 
 package appeng.integration.modules.theoneprobe;
 
-import net.neoforged.fml.InterModComms;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.event.lifecycle.InterModEnqueueEvent;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.event.FMLInterModComms;
 
-public class TOP {
-    public static void enqueueIMC(final InterModEnqueueEvent event) {
-        if (ModList.get().isLoaded("theoneprobe")) {
-            InterModComms.sendTo("theoneprobe", "getTheOneProbe", TheOneProbeModule::new);
+public final class TOP {
+    private static final String MOD_ID = "theoneprobe";
+    private static final String MODULE_CLASS = "appeng.integration.modules.theoneprobe.TheOneProbeModule";
+
+    private TOP() {
+    }
+
+    public static void enqueueIMC() {
+        if (Loader.isModLoaded(MOD_ID)) {
+            FMLInterModComms.sendFunctionMessage(MOD_ID, "getTheOneProbe", MODULE_CLASS);
         }
     }
 }

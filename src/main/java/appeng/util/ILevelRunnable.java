@@ -1,6 +1,6 @@
 /*
  * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,32 +15,13 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.util;
 
-import java.util.concurrent.Callable;
+import net.minecraft.world.World;
 
-import org.jetbrains.annotations.Nullable;
+import javax.annotation.Nullable;
 
-import net.minecraft.world.level.Level;
-
-/**
- * An interface similar to {@link Callable}, but allowing to pass the {@link Level} when calling.
- *
- * @author yueh
- * @version rv3
- * @see Callable
- * @since rv3
- */
 @FunctionalInterface
 public interface ILevelRunnable {
-    /**
-     * Similar to {@link Callable#call()}
-     *
-     * @param level this param is given to not hold a reference to the level but let the caller handle it. Do not expect
-     *              a level here thus can be <tt>null</tt>.
-     * @throws Exception if the call fails
-     * @see Runnable#run()
-     */
-    void call(@Nullable Level level) throws Exception;
+    void call(@Nullable World level);
 }

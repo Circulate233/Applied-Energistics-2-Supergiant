@@ -23,9 +23,8 @@
 
 package appeng.api.parts;
 
+import net.minecraft.util.EnumFacing;
 import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
 
 /**
  * Reports a selected part from the IPartHost
@@ -47,7 +46,7 @@ public class SelectedPart {
      * side the part is mounted too, or null for cables.
      */
     @Nullable
-    public final Direction side;
+    public final EnumFacing side;
 
     public SelectedPart() {
         this.part = null;
@@ -55,13 +54,13 @@ public class SelectedPart {
         this.side = null;
     }
 
-    public SelectedPart(IPart part, Direction side) {
+    public SelectedPart(IPart part, @org.jspecify.annotations.Nullable EnumFacing side) {
         this.part = part;
         this.facade = null;
         this.side = side;
     }
 
-    public SelectedPart(IFacadePart facade, Direction side) {
+    public SelectedPart(IFacadePart facade, @org.jspecify.annotations.Nullable EnumFacing side) {
         this.part = null;
         this.facade = facade;
         this.side = side;

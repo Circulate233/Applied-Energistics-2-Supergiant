@@ -18,128 +18,98 @@
 
 package appeng.debug;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.component.CustomData;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.levelgen.structure.BoundingBox;
-
-import appeng.core.AEConfig;
 import appeng.items.AEBaseItem;
 import appeng.util.InteractionUtil;
-import appeng.util.Platform;
 import appeng.worldgen.meteorite.CraterType;
 import appeng.worldgen.meteorite.MeteoritePlacer;
 import appeng.worldgen.meteorite.PlacedMeteoriteSettings;
 import appeng.worldgen.meteorite.debug.MeteoriteSpawner;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.play.server.SPacketChunkData;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.chunk.Chunk;
+import net.minecraft.world.gen.structure.StructureBoundingBox;
 
 public class MeteoritePlacerItem extends AEBaseItem {
 
     private static final String MODE_TAG = "mode";
 
-    public MeteoritePlacerItem(Properties properties) {
-        super(properties);
+    @Override
+    public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
+        ItemStack stack = player.getHeldItem(hand);
+
+        if (!world.isRemote && InteractionUtil.isInAlternateUseMode(player)) {
+            NBTTagCompound tag = stack.getTagCompound();
+            if (tag == null) {
+                tag = new NBTTagCompound();
+                stack.setTagCompound(tag);
+            }
+
+            byte mode = tag.hasKey(MODE_TAG) ? tag.getByte(MODE_TAG) : (byte) CraterType.NORMAL.ordinal();
+            tag.setByte(MODE_TAG, (byte) ((mode + 1) % CraterType.values().length));
+            player.sendMessage(new TextComponentString(getCraterType(stack).name()));
+            return new ActionResult<>(EnumActionResult.SUCCESS, stack);
+        }
+
+        return new ActionResult<>(EnumActionResult.PASS, stack);
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        if (level.isClientSide()) {
-            return InteractionResultHolder.pass(player.getItemInHand(hand));
+    public EnumActionResult onItemUseFirst(EntityPlayer player, World world, BlockPos pos, EnumFacing side, float hitX,
+                                           float hitY, float hitZ, EnumHand hand) {
+        if (world.isRemote || player == null) {
+            return EnumActionResult.PASS;
         }
 
-        if (InteractionUtil.isInAlternateUseMode(player)) {
-            final ItemStack itemStack = player.getItemInHand(hand);
-            CustomData.update(DataComponents.CUSTOM_DATA, itemStack, tag -> {
-                if (tag.contains(MODE_TAG)) {
-                    final byte mode = tag.getByte("mode");
-                    tag.putByte(MODE_TAG, (byte) ((mode + 1) % CraterType.values().length));
-                } else {
-                    tag.putByte(MODE_TAG, (byte) CraterType.NORMAL.ordinal());
-                }
-            });
-
-            var craterType = getCraterType(itemStack);
-
-            player.sendSystemMessage(Component.literal(craterType.name()));
-
-            return InteractionResultHolder.success(itemStack);
-        }
-
-        return super.use(level, player, hand);
-    }
-
-    private CraterType getCraterType(ItemStack stack) {
-        var customData = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-        var tag = customData.copyTag();
-        return CraterType.values()[tag.getByte(MODE_TAG)];
-    }
-
-    @Override
-    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        if (context.getLevel().isClientSide()) {
-            return InteractionResult.PASS;
-        }
-
-        ServerPlayer player = (ServerPlayer) context.getPlayer();
-        ServerLevel level = (ServerLevel) context.getLevel();
-        BlockPos pos = context.getClickedPos();
-
-        if (player == null) {
-            return InteractionResult.PASS;
-        }
-
-        // See MeteoriteStructure for original code
-        float coreRadius = level.getRandom().nextFloat() * 6.0f + 2;
-        boolean pureCrater = level.getRandom().nextFloat() > 0.5f;
+        ItemStack stack = player.getHeldItem(hand);
+        float coreRadius = world.rand.nextFloat() * 6.0f + 2;
+        boolean pureCrater = world.rand.nextFloat() > 0.5f;
         CraterType craterType = getCraterType(stack);
 
         MeteoriteSpawner spawner = new MeteoriteSpawner();
-        PlacedMeteoriteSettings spawned = spawner.trySpawnMeteoriteAtSuitableHeight(level, pos, coreRadius, craterType,
-                pureCrater);
+        PlacedMeteoriteSettings spawned = spawner.trySpawnMeteoriteAtSuitableHeight(world, pos, coreRadius, craterType,
+            pureCrater);
 
         if (spawned == null) {
-            player.sendSystemMessage(Component.literal("Un-suitable Location."));
-            return InteractionResult.FAIL;
+            player.sendMessage(new TextComponentString("Un-suitable Location."));
+            return EnumActionResult.FAIL;
         }
 
-        // Since we don't know yet if the meteorite will be underground or not,
-        // we have to assume maximum size
         int range = (int) Math.ceil((coreRadius * 2 + 5) * 5f);
+        StructureBoundingBox boundingBox = new StructureBoundingBox(pos.getX() - range, pos.getY() - 10,
+            pos.getZ() - range, pos.getX() + range, pos.getY() + 10, pos.getZ() + range);
 
-        BoundingBox boundingBox = new BoundingBox(pos.getX() - range, pos.getY() - 10, pos.getZ() - range,
-                pos.getX() + range, pos.getY() + 10, pos.getZ() + range);
-
-        MeteoritePlacer.place(level, spawned, boundingBox, level.random);
-
-        player.sendSystemMessage(Component.literal("Spawned at y=" + spawned.getPos().getY() + " range=" + range));
-
-        // The placer will not send chunks to the player since it's used as part
-        // of world-gen normally, so we'll have to do it ourselves. Since this
-        // is a debug tool, we'll not care about being terribly efficient here
-        ChunkPos.rangeClosed(new ChunkPos(spawned.getPos()), 1).forEach(cp -> {
-            LevelChunk c = level.getChunk(cp.x, cp.z);
-            player.connection.send(Platform.getFullChunkPacket(c));
-        });
-
-        return InteractionResult.sidedSuccess(level.isClientSide());
+        MeteoritePlacer.place(world, spawned, boundingBox, world.rand);
+        syncVisibleChunksToPlayer((WorldServer) world, (EntityPlayerMP) player, spawned.pos());
+        player.sendMessage(new TextComponentString(
+            "Spawned at y=" + spawned.pos().getY() + " range=" + range));
+        return EnumActionResult.SUCCESS;
     }
 
-    @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        if (AEConfig.instance().isDebugToolsEnabled()) {
-            output.accept(this);
+    private void syncVisibleChunksToPlayer(WorldServer world, EntityPlayerMP player, BlockPos center) {
+        ChunkPos centerChunk = new ChunkPos(center);
+        for (int chunkX = centerChunk.x - 1; chunkX <= centerChunk.x + 1; chunkX++) {
+            for (int chunkZ = centerChunk.z - 1; chunkZ <= centerChunk.z + 1; chunkZ++) {
+                Chunk chunk = world.getChunk(chunkX, chunkZ);
+                player.connection.sendPacket(new SPacketChunkData(chunk, 65535));
+            }
         }
+    }
+
+    private CraterType getCraterType(ItemStack stack) {
+        NBTTagCompound tag = stack.getTagCompound();
+        return tag == null ? CraterType.values()[CraterType.NORMAL.ordinal()]
+            : CraterType.values()[tag.getByte(MODE_TAG)];
     }
 }

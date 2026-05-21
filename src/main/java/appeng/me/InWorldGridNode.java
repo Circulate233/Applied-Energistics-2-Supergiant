@@ -18,41 +18,34 @@
 
 package appeng.me;
 
-import java.io.IOException;
-import java.util.EnumSet;
-import java.util.Set;
-
-import com.google.gson.stream.JsonWriter;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.BlockPos.MutableBlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-
-import it.unimi.dsi.fastutil.objects.Reference2IntMap;
-
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.util.AEColor;
 import appeng.core.AELog;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+
+import java.util.EnumSet;
+import java.util.Set;
 
 /**
- * A grid node that is accessible from within the level will also look actively for connections to nodes that are
- * adjacent in the level.
+ * A grid node that is accessible from within the world will also look actively for connections to nodes that are
+ * adjacent in the world.
  */
 public class InWorldGridNode extends GridNode {
 
     private final BlockPos location;
 
-    private final EnumSet<Direction> exposedOnSides = EnumSet.noneOf(Direction.class);
+    private final EnumSet<EnumFacing> exposedOnSides = EnumSet.noneOf(EnumFacing.class);
 
-    public <T> InWorldGridNode(ServerLevel level,
-            BlockPos location,
-            T owner,
-            IGridNodeListener<T> listener,
-            Set<GridFlags> flags) {
+    public <T> InWorldGridNode(WorldServer level,
+                               BlockPos location,
+                               T owner,
+                               IGridNodeListener<T> listener,
+                               Set<GridFlags> flags) {
         super(level, owner, listener, flags);
         this.location = location;
     }
@@ -62,11 +55,11 @@ public class InWorldGridNode extends GridNode {
         // Clean up any connections that we might have left over to nodes that we can no longer reach
         cleanupConnections();
 
-        // Find adjacent nodes in the level based on the sides of the host this node is exposed on
-        var pos = new MutableBlockPos();
-        sides: for (var direction : exposedOnSides) {
-            pos.setWithOffset(location, direction);
-            var adjacentNode = (GridNode) GridHelper.getExposedNode(getLevel(), pos, direction.getOpposite());
+        // Find adjacent nodes in the world based on the sides of the host this node is exposed on
+        sides:
+        for (EnumFacing direction : exposedOnSides) {
+            BlockPos pos = location.offset(direction);
+            GridNode adjacentNode = (GridNode) GridHelper.getExposedNode(getLevel(), pos, direction.getOpposite());
             if (adjacentNode == null) {
                 continue;
             }
@@ -88,7 +81,7 @@ public class InWorldGridNode extends GridNode {
                         continue sides;
                     } else {
                         AELog.warn("Grid node %s did not disconnect properly and is now replaced with %s",
-                                os, adjacentNode);
+                            os, adjacentNode);
                         c.destroy();
                     }
                     break;
@@ -104,27 +97,6 @@ public class InWorldGridNode extends GridNode {
         return super.toString() + " @ " + location.getX() + "," + location.getY() + "," + location.getZ();
     }
 
-    @Override
-    protected void exportProperties(JsonWriter writer, Reference2IntMap<Object> machineIds,
-            Reference2IntMap<IGridNode> nodeIds)
-            throws IOException {
-        super.exportProperties(writer, machineIds, nodeIds);
-
-        writer.name("location");
-        writer.beginArray();
-        writer.value(location.getX());
-        writer.value(location.getY());
-        writer.value(location.getZ());
-        writer.endArray();
-
-        writer.name("exposedSides");
-        var sidesSet = new StringBuilder();
-        for (var side : exposedOnSides) {
-            sidesSet.append(side.name().charAt(0));
-        }
-        writer.value(sidesSet.toString());
-    }
-
     private void cleanupConnections() {
         // NOTE: this makes a defensive copy of the connections
         for (var connection : getConnections()) {
@@ -132,26 +104,31 @@ public class InWorldGridNode extends GridNode {
                 continue; // Purely internal connections are never cleaned up
             }
 
-            var ourSide = connection.getDirection(this);
+            EnumFacing ourSide = connection.getDirection(this);
             // If our external side is no longer exposed, the connection is invalid
             if (!isExposedOnSide(ourSide)) {
                 connection.destroy();
                 continue;
             }
 
-            var theirSide = ourSide.getOpposite();
+            EnumFacing theirSide = null;
+            if (ourSide != null) {
+                theirSide = ourSide.getOpposite();
+            }
             IGridNode otherNode = connection.getOtherSide(this);
-            if (!(otherNode instanceof InWorldGridNode otherInWorldNode) || !otherInWorldNode.isExposedOnSide(theirSide)
-                    || !hasCompatibleColor(otherNode)) {
+            if (!(otherNode instanceof InWorldGridNode otherInWorldNode)) {
                 connection.destroy();
                 continue;
+            }
+            if (!otherInWorldNode.isExposedOnSide(theirSide) || !hasCompatibleColor(otherNode)) {
+                connection.destroy();
             }
         }
     }
 
     private boolean hasCompatibleColor(IGridNode otherNode) {
-        var ourColor = getGridColor();
-        var theirColor = otherNode.getGridColor();
+        AEColor ourColor = getGridColor();
+        AEColor theirColor = otherNode.getGridColor();
         return ourColor == AEColor.TRANSPARENT || theirColor == AEColor.TRANSPARENT || ourColor == theirColor;
     }
 
@@ -159,7 +136,7 @@ public class InWorldGridNode extends GridNode {
         return location;
     }
 
-    public void setExposedOnSides(Set<Direction> directions) {
+    public void setExposedOnSides(Set<EnumFacing> directions) {
         if (!exposedOnSides.equals(directions)) {
             exposedOnSides.clear();
             exposedOnSides.addAll(directions);
@@ -167,7 +144,7 @@ public class InWorldGridNode extends GridNode {
         }
     }
 
-    public boolean isExposedOnSide(Direction side) {
+    public boolean isExposedOnSide(EnumFacing side) {
         return getMyGrid() != null && exposedOnSides.contains(side);
     }
 

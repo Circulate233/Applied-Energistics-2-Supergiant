@@ -18,43 +18,40 @@
 
 package appeng.client.gui.me.crafting;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import net.minecraft.network.chat.Component;
-
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.util.AEColor;
-import appeng.client.gui.AEBaseScreen;
-import appeng.core.AEConfig;
+import appeng.client.gui.AEBaseGui;
+import appeng.container.me.crafting.CraftingStatusEntry;
 import appeng.core.localization.GuiText;
-import appeng.menu.me.crafting.CraftingStatusEntry;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.util.text.ITextComponent;
+
+import java.util.List;
+import java.util.Objects;
 
 public class CraftingStatusTableRenderer extends AbstractTableRenderer<CraftingStatusEntry> {
-
     private static final int BACKGROUND_ALPHA = 0x5A000000;
 
-    public CraftingStatusTableRenderer(AEBaseScreen<?> screen, int x, int y) {
+    public CraftingStatusTableRenderer(AEBaseGui<?> screen, int x, int y) {
         super(screen, x, y, 6);
     }
 
     @Override
-    protected List<Component> getEntryDescription(CraftingStatusEntry entry) {
-        List<Component> lines = new ArrayList<>(3);
-        if (entry.getStoredAmount() > 0) {
-            String amount = entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.SLOT);
+    protected List<ITextComponent> getEntryDescription(CraftingStatusEntry entry) {
+        AEKey what = Objects.requireNonNull(entry.what());
+        List<ITextComponent> lines = new ObjectArrayList<>(3);
+        if (entry.storedAmount() > 0) {
+            String amount = what.getType().formatAmount(entry.storedAmount(), AmountFormat.SLOT);
             lines.add(GuiText.FromStorage.text(amount));
         }
-
-        if (entry.getActiveAmount() > 0) {
-            String amount = entry.getWhat().formatAmount(entry.getActiveAmount(), AmountFormat.SLOT);
+        if (entry.activeAmount() > 0) {
+            String amount = what.getType().formatAmount(entry.activeAmount(), AmountFormat.SLOT);
             lines.add(GuiText.Crafting.text(amount));
         }
-
-        if (entry.getPendingAmount() > 0) {
-            String amount = entry.getWhat().formatAmount(entry.getPendingAmount(), AmountFormat.SLOT);
+        if (entry.pendingAmount() > 0) {
+            String amount = what.getType().formatAmount(entry.pendingAmount(), AmountFormat.SLOT);
             lines.add(GuiText.Scheduled.text(amount));
         }
         return lines;
@@ -62,41 +59,35 @@ public class CraftingStatusTableRenderer extends AbstractTableRenderer<CraftingS
 
     @Override
     protected AEKey getEntryStack(CraftingStatusEntry entry) {
-        return entry.getWhat();
+        return Objects.requireNonNull(entry.what());
     }
 
     @Override
-    protected List<Component> getEntryTooltip(CraftingStatusEntry entry) {
-        List<Component> lines = AEKeyRendering.getTooltip(entry.getWhat());
-
-        // The tooltip compares the unabbreviated amounts
-        if (entry.getStoredAmount() > 0) {
-            lines.add(GuiText.FromStorage
-                    .text(entry.getWhat().formatAmount(entry.getStoredAmount(), AmountFormat.FULL)));
+    protected List<ITextComponent> getEntryTooltip(CraftingStatusEntry entry) {
+        AEKey what = Objects.requireNonNull(entry.what());
+        List<ITextComponent> lines = AEKeyRendering.getTooltip(what);
+        if (entry.storedAmount() > 0) {
+            lines.add(GuiText.FromStorage.text(
+                what.getType().formatAmount(entry.storedAmount(), AmountFormat.FULL)));
         }
-        if (entry.getActiveAmount() > 0) {
-            lines.add(GuiText.Crafting
-                    .text(entry.getWhat().formatAmount(entry.getActiveAmount(), AmountFormat.FULL)));
+        if (entry.activeAmount() > 0) {
+            lines.add(GuiText.Crafting.text(
+                what.getType().formatAmount(entry.activeAmount(), AmountFormat.FULL)));
         }
-        if (entry.getPendingAmount() > 0) {
+        if (entry.pendingAmount() > 0) {
             lines.add(GuiText.Scheduled.text(
-                    entry.getWhat().formatAmount(entry.getPendingAmount(), AmountFormat.FULL)));
+                what.getType().formatAmount(entry.pendingAmount(), AmountFormat.FULL)));
         }
-
         return lines;
-
     }
 
     @Override
     protected int getEntryBackgroundColor(CraftingStatusEntry entry) {
-        if (AEConfig.instance().isUseColoredCraftingStatus()) {
-            if (entry.getActiveAmount() > 0) {
-                return AEColor.GREEN.blackVariant | BACKGROUND_ALPHA;
-            } else if (entry.getPendingAmount() > 0) {
-                return AEColor.YELLOW.blackVariant | BACKGROUND_ALPHA;
-            }
+        if (entry.activeAmount() > 0) {
+            return AEColor.GREEN.blackVariant | BACKGROUND_ALPHA;
+        } else if (entry.pendingAmount() > 0) {
+            return AEColor.YELLOW.blackVariant | BACKGROUND_ALPHA;
         }
         return 0;
     }
-
 }

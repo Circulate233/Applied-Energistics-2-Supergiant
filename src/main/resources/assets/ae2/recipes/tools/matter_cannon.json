@@ -1,0 +1,27 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aab",
+    "cd ",
+    "a  "
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "b": {
+      "item": "ae2:formation_core"
+    },
+    "c": {
+      "item": "ae2:cell_component_4k"
+    },
+    "d": {
+      "item": "ae2:energy_cell"
+    }
+  },
+  "result": {
+    "item": "ae2:matter_cannon",
+    "count": 1
+  }
+}

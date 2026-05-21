@@ -18,20 +18,16 @@
 
 package appeng.api.stacks;
 
-import java.util.Objects;
-import java.util.stream.Stream;
-
-import com.mojang.serialization.MapCodec;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
-
 import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.oredict.OreDictionary;
+
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 final class AEItemKeys extends AEKeyType {
     private static final ResourceLocation ID = AppEng.makeId("i");
@@ -43,20 +39,15 @@ final class AEItemKeys extends AEKeyType {
     }
 
     @Override
-    public MapCodec<? extends AEKey> codec() {
-        return AEItemKey.MAP_CODEC;
-    }
-
-    @Override
-    public AEItemKey readFromPacket(RegistryFriendlyByteBuf input) {
+    public AEItemKey readFromPacket(PacketBuffer input) {
         Objects.requireNonNull(input);
 
         return AEItemKey.fromPacket(input);
     }
 
     @Override
-    public AEItemKey loadKeyFromTag(HolderLookup.Provider registries, CompoundTag tag) {
-        return AEItemKey.fromTag(registries, tag);
+    public AEItemKey loadKeyFromTag(NBTTagCompound tag) {
+        return AEItemKey.fromTag(tag);
     }
 
     @Override
@@ -65,7 +56,7 @@ final class AEItemKeys extends AEKeyType {
     }
 
     @Override
-    public Stream<TagKey<?>> getTagNames() {
-        return BuiltInRegistries.ITEM.getTagNames().map(t -> t);
+    public Stream<String> getTagNames() {
+        return Arrays.stream(OreDictionary.getOreNames());
     }
 }

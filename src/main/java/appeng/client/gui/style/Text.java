@@ -18,48 +18,28 @@
 
 package appeng.client.gui.style;
 
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 
-/**
- * Text that will be drawn on top of a {@link appeng.client.gui.AEBaseScreen}.
- */
 public class Text {
 
-    /**
-     * The text to display.
-     */
-    private Component text = Component.empty();
+    private ITextComponent text = new TextComponentString("");
 
-    /**
-     * The color to show the text in.
-     */
     private PaletteColor color = PaletteColor.DEFAULT_TEXT_COLOR;
 
-    /**
-     * The position of the text on the screen.
-     */
     private Position position;
 
-    /**
-     * Alignment relative to the computed x position.
-     */
     private TextAlignment align = TextAlignment.LEFT;
 
-    /**
-     * Allows text to be scaled.
-     */
     private float scale = 1.0f;
 
-    /**
-     * Allows text to be word-wrapped to fit a given maximum width.
-     */
     private int maxWidth = 0;
 
-    public Component getText() {
+    public ITextComponent getText() {
         return text;
     }
 
-    public void setText(Component text) {
+    public void setText(ITextComponent text) {
         this.text = text;
     }
 
@@ -103,3 +83,4 @@ public class Text {
         this.maxWidth = maxWidth;
     }
 }
+

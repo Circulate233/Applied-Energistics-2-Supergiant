@@ -18,25 +18,6 @@
 
 package appeng.debug;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import com.google.common.collect.Iterables;
-import com.google.common.math.StatsAccumulator;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.Level;
-
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IAEPowerStorage;
@@ -44,38 +25,79 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.pathing.ControllerState;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
-import appeng.blockentity.AEBaseBlockEntity;
-import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.hooks.ticking.TickHandler;
 import appeng.items.AEBaseItem;
 import appeng.me.Grid;
 import appeng.me.GridNode;
-import appeng.me.helpers.IGridConnectedBlockEntity;
+import appeng.me.helpers.IGridConnectedTile;
 import appeng.me.service.TickManagerService;
 import appeng.parts.networking.CablePart;
 import appeng.parts.p2p.P2PTunnelPart;
+import appeng.tile.AEBaseTile;
+import appeng.tile.networking.TileController;
 import appeng.util.InteractionUtil;
 import appeng.util.Platform;
+import com.google.common.collect.Iterables;
+import com.google.common.math.StatsAccumulator;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.World;
+
+import java.util.Set;
 
 public class DebugCardItem extends AEBaseItem {
 
-    public DebugCardItem(Properties properties) {
-        super(properties);
+    public DebugCardItem() {
+        this.setMaxStackSize(1);
+    }
+
+    private static TextComponentString style(TextComponentString component, TextFormatting... formattings) {
+        Style style = new Style();
+        for (var formatting : formattings) {
+            if (formatting.isColor()) {
+                style.setColor(formatting);
+            } else if (formatting == TextFormatting.BOLD) {
+                style.setBold(true);
+            } else if (formatting == TextFormatting.ITALIC) {
+                style.setItalic(true);
+            } else if (formatting == TextFormatting.UNDERLINE) {
+                style.setUnderlined(true);
+            } else if (formatting == TextFormatting.STRIKETHROUGH) {
+                style.setStrikethrough(true);
+            } else if (formatting == TextFormatting.OBFUSCATED) {
+                style.setObfuscated(true);
+            }
+        }
+        component.setStyle(style);
+        return component;
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand usedHand) {
-        if (InteractionUtil.isInAlternateUseMode(player) && !level.isClientSide) {
+    public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
+        if (InteractionUtil.isInAlternateUseMode(player) && !world.isRemote) {
             int grids = 0;
 
             var stats = new StatsAccumulator();
-            for (Grid g : TickHandler.instance().getGridList()) {
-                grids++;
-                stats.add(g.size());
+            for (var grid : TickHandler.instance().getGridList()) {
+                if (grid instanceof Grid) {
+                    grids++;
+                    stats.add(grid.size());
+                }
             }
 
             divider(player);
-            outputMessage(player, "Grids", ChatFormatting.BOLD);
+            outputMessage(player, "Grids", TextFormatting.BOLD);
             this.outputSecondaryMessage(player, "Grids", Integer.toString(grids));
             if (stats.count() > 0) {
                 this.outputSecondaryMessage(player, "Total Nodes", "" + (long) stats.sum());
@@ -83,41 +105,36 @@ public class DebugCardItem extends AEBaseItem {
                 this.outputSecondaryMessage(player, "Max Nodes", "" + (long) stats.max());
             }
             divider(player);
-            outputMessage(player, "Ticking", ChatFormatting.BOLD);
+            outputMessage(player, "Ticking", TextFormatting.BOLD);
             this.outputSecondaryMessage(player, "Current Tick: ",
-                    Long.toString(TickHandler.instance().getCurrentTick()));
+                Long.toString(TickHandler.instance().getCurrentTick()));
             for (var line : TickHandler.instance().getBlockEntityReport()) {
-                player.sendSystemMessage(line);
+                player.sendMessage(line);
             }
         }
 
-        return InteractionResultHolder.sidedSuccess(player.getItemInHand(usedHand), level.isClientSide);
+        return new ActionResult<>(EnumActionResult.SUCCESS, player.getHeldItem(hand));
     }
 
     @Override
-    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        if (context.getLevel().isClientSide()) {
-            return InteractionResult.PASS;
+    public EnumActionResult onItemUseFirst(EntityPlayer player, World world, BlockPos pos, EnumFacing side, float hitX,
+                                           float hitY, float hitZ, EnumHand hand) {
+        if (world.isRemote) {
+            return EnumActionResult.PASS;
         }
-
-        Player player = context.getPlayer();
-        Level level = context.getLevel();
-        BlockPos pos = context.getClickedPos();
-        Direction side = context.getClickedFace();
 
         if (player == null || InteractionUtil.isInAlternateUseMode(player)) {
-            return InteractionResult.PASS;
+            return EnumActionResult.PASS;
         }
 
-        var gh = GridHelper.getNodeHost(level, pos);
+        var gh = GridHelper.getNodeHost(world, pos);
         if (gh != null) {
             divider(player);
             var node = (GridNode) gh.getGridNode(side);
-            // If we couldn't get a world-accessible node, fall back to getting it via internal APIs
             if (node == null) {
-                if (gh instanceof IGridConnectedBlockEntity gridConnectedBlockEntity) {
-                    node = (GridNode) gridConnectedBlockEntity.getMainNode().getNode();
-                    this.outputMessage(player, "Main node of IGridConnectedBlockEntity");
+                if (gh instanceof IGridConnectedTile gridConnectedTile) {
+                    node = (GridNode) gridConnectedTile.getMainNode().getNode();
+                    this.outputMessage(player, "Main node of IGridConnectedTile");
                 }
             }
             if (node != null) {
@@ -125,9 +142,9 @@ public class DebugCardItem extends AEBaseItem {
                 final Grid g = node.getInternalGrid();
                 final IGridNode center = g.getPivot();
                 this.outputPrimaryMessage(player, "Grid Powered",
-                        String.valueOf(g.getEnergyService().isNetworkPowered()));
+                    String.valueOf(g.getEnergyService().isNetworkPowered()));
                 this.outputPrimaryMessage(player, "Grid Booted",
-                        String.valueOf(!g.getPathingService().isNetworkBooting()));
+                    String.valueOf(!g.getPathingService().isNetworkBooting()));
                 this.outputPrimaryMessage(player, "Nodes in grid", String.valueOf(Iterables.size(g.getNodes())));
                 this.outputSecondaryMessage(player, "Grid Pivot Node", String.valueOf(center));
 
@@ -146,7 +163,7 @@ public class DebugCardItem extends AEBaseItem {
                     String message = "#: " + o;
 
                     if (totalAverageTime > 0) {
-                        message += "; average: " + Platform.formatTimeMeasurement((long) totalAverageTime);
+                        message += "; average: " + Platform.formatTimeMeasurement(totalAverageTime);
                     }
                     if (singleMaximumTime > 0) {
                         message += "; max: " + Platform.formatTimeMeasurement(singleMaximumTime);
@@ -164,18 +181,19 @@ public class DebugCardItem extends AEBaseItem {
                 var pg = g.getPathingService();
                 if (pg.getControllerState() == ControllerState.CONTROLLER_ONLINE) {
 
-                    Set<IGridNode> next = new HashSet<>();
+                    Set<IGridNode> next = new ReferenceOpenHashSet<>();
                     next.add(node);
 
                     final int maxLength = 10000;
 
                     int length = 0;
-                    outer: while (!next.isEmpty()) {
+                    outer:
+                    while (!next.isEmpty()) {
                         final Iterable<IGridNode> current = next;
-                        next = new HashSet<>();
+                        next = new ReferenceOpenHashSet<>();
 
                         for (IGridNode n : current) {
-                            if (n.getOwner() instanceof ControllerBlockEntity) {
+                            if (n.getOwner() instanceof TileController) {
                                 break outer;
                             }
 
@@ -204,7 +222,7 @@ public class DebugCardItem extends AEBaseItem {
             this.outputMessage(player, "Not Networked Block");
         }
 
-        var te = level.getBlockEntity(pos);
+        TileEntity te = world.getTileEntity(pos);
         if (te instanceof IPartHost partHost) {
             this.outputMessage(player, "-- CableBus Details");
             outputSecondaryMessage(player, "In World", Boolean.toString(partHost.isInWorld()));
@@ -213,22 +231,23 @@ public class DebugCardItem extends AEBaseItem {
             partHost.markForUpdate();
             if (center != null) {
                 final GridNode n = (GridNode) center.getGridNode();
-                this.outputSecondaryMessage(player, "Node Channels", Integer.toString(n.getUsedChannels()));
-                for (var entry : n.getInWorldConnections().entrySet()) {
-                    this.outputSecondaryMessage(player, "Channels " + entry.getKey().getName(),
+                if (n != null) {
+                    this.outputSecondaryMessage(player, "Node Channels", Integer.toString(n.getUsedChannels()));
+                    for (var entry : n.getInWorldConnections().entrySet()) {
+                        this.outputSecondaryMessage(player, "Channels " + entry.getKey().getName(),
                             Integer.toString(entry.getValue().getUsedChannels()));
+                    }
                 }
             }
-            // Print which sides of the cable are connected
             if (center instanceof CablePart cablePart) {
-                var msg = Component.literal("");
-                for (var v : Direction.values()) {
-                    msg.append(Component.literal(v.name().substring(0, 1))
-                            .withStyle(cablePart.isConnected(v) ? ChatFormatting.GREEN : ChatFormatting.DARK_GRAY));
+                var msg = new TextComponentString("");
+                for (var v : EnumFacing.values()) {
+                    msg.appendSibling(
+                        style(new TextComponentString(v.name().substring(0, 1)),
+                            cablePart.isConnected(v) ? TextFormatting.GREEN : TextFormatting.DARK_GRAY));
                 }
-                player.sendSystemMessage(Component.literal("Connected Sides: ")
-                        .withStyle(ChatFormatting.GRAY)
-                        .append(msg));
+                player.sendMessage(style(new TextComponentString("Connected Sides: "), TextFormatting.GRAY)
+                    .appendSibling(msg));
             }
         }
 
@@ -241,46 +260,45 @@ public class DebugCardItem extends AEBaseItem {
                 if (node != null) {
                     final IEnergyService eg = node.getGrid().getEnergyService();
                     this.outputSecondaryMessage(player, "GridEnergy",
-                            +eg.getStoredPower() + " : " + eg.getEnergyDemand(Double.MAX_VALUE));
+                        eg.getStoredPower() + " : " + eg.getEnergyDemand(Double.MAX_VALUE));
                 }
             }
         }
 
-        if (te instanceof AEBaseBlockEntity be) {
+        if (te instanceof AEBaseTile be) {
             this.outputMessage(player, "-- Delayed Init Details");
             outputSecondaryMessage(player, "QueuedForReady", "" + be.getQueuedForReady());
             outputSecondaryMessage(player, "ReadyInvoked", "" + be.getReadyInvoked());
         }
 
-        return InteractionResult.sidedSuccess(level.isClientSide());
+        return EnumActionResult.SUCCESS;
     }
 
-    private void divider(Player player) {
-        this.outputMessage(player, "---------------------------------------------", ChatFormatting.BOLD,
-                ChatFormatting.DARK_PURPLE);
+    private void divider(EntityPlayer player) {
+        this.outputMessage(player, "---------------------------------------------", TextFormatting.BOLD,
+            TextFormatting.DARK_PURPLE);
     }
 
-    private void outputMessage(Entity player, String string, ChatFormatting... chatFormattings) {
-        player.sendSystemMessage(Component.literal(string).withStyle(chatFormattings));
+    private void outputMessage(Entity player, String string, TextFormatting... chatFormattings) {
+        player.sendMessage(style(new TextComponentString(string), chatFormattings));
     }
 
     private void outputMessage(Entity player, String string) {
-        player.sendSystemMessage(Component.literal(string));
+        player.sendMessage(new TextComponentString(string));
     }
 
     private void outputPrimaryMessage(Entity player, String label, String value) {
-        this.outputLabeledMessage(player, label, value, ChatFormatting.BOLD, ChatFormatting.LIGHT_PURPLE);
+        this.outputLabeledMessage(player, label, value, TextFormatting.BOLD, TextFormatting.LIGHT_PURPLE);
     }
 
     private void outputSecondaryMessage(Entity player, String label, String value) {
-        this.outputLabeledMessage(player, label, value, ChatFormatting.GRAY);
+        this.outputLabeledMessage(player, label, value, TextFormatting.GRAY);
     }
 
     private void outputLabeledMessage(Entity player, String label, String value,
-            ChatFormatting... chatFormattings) {
-        player.sendSystemMessage(Component.literal("")
-                .append(Component.literal(label + ": ").withStyle(chatFormattings))
-                .append(value));
+                                      TextFormatting... chatFormattings) {
+        player.sendMessage(new TextComponentString("")
+            .appendSibling(style(new TextComponentString(label + ": "), chatFormattings))
+            .appendText(value));
     }
-
 }

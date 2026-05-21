@@ -23,20 +23,21 @@
 
 package appeng.api.parts;
 
+import net.minecraft.util.ResourceLocation;
+
 import java.util.Collections;
 import java.util.List;
-
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * A container to store a collection of {@link ResourceLocation} as models for a part as well as other properties.
  */
 public interface IPartModel {
+    IPartModel EMPTY = new IPartModel() {
+    };
 
     /**
      * A solid {@link IPartModel} indicates that the rendering requires a cable connection, which will also result in
      * creating an intersection for the cable.
-     *
      * This should be true for pretty much all parts.
      *
      * @return true for a solid part.

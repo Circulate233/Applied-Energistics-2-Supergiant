@@ -1,0 +1,30 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "bcb",
+    "aba"
+  ],
+  "key": {
+    "a": [
+      {
+        "type": "forge:ore_dict",
+        "ore": "gemCertusQuartz"
+      },
+      {
+        "item": "ae2:charged_certus_quartz_crystal"
+      }
+    ],
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "dustFluix"
+    },
+    "c": {
+      "item": "ae2:quartz_glass"
+    }
+  },
+  "result": {
+    "item": "ae2:energy_cell",
+    "count": 1
+  }
+}

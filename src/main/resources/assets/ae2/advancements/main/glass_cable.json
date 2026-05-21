@@ -1,0 +1,26 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:fluix_glass_cable"
+    },
+    "title": {
+      "translate": "achievement.ae2.GlassCable"
+    },
+    "description": {
+      "translate": "achievement.ae2.GlassCable.desc"
+    }
+  },
+  "parent": "ae2:main/fluix",
+  "criteria": {
+    "certus": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:fluix_glass_cable"
+          }
+        ]
+      }
+    }
+  }
+}

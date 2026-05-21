@@ -18,12 +18,18 @@
 
 package appeng.block.networking;
 
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.networking.CreativeEnergyCellBlockEntity;
+import appeng.block.AEBaseTileBlock;
+import appeng.tile.networking.TileCreativeEnergyCell;
+import net.minecraft.block.material.Material;
 
-public class CreativeEnergyCellBlock extends AEBaseEntityBlock<CreativeEnergyCellBlockEntity> {
+public class CreativeEnergyCellBlock extends AEBaseTileBlock<TileCreativeEnergyCell> {
 
     public CreativeEnergyCellBlock() {
-        super(glassProps());
+        super(Material.GLASS);
+        this.setHardness(0.5F);
+        this.setResistance(3.0F);
+        this.setTileEntity(TileCreativeEnergyCell.class);
     }
 }
+
+

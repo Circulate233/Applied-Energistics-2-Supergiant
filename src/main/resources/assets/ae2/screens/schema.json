@@ -373,11 +373,6 @@
           "CRAFTING_RESULT",
           "PROCESSING_INPUTS",
           "PROCESSING_OUTPUTS",
-          "SMITHING_TABLE_TEMPLATE",
-          "SMITHING_TABLE_BASE",
-          "SMITHING_TABLE_ADDITION",
-          "SMITHING_TABLE_RESULT",
-          "STONECUTTING_INPUT",
           "MISSING_INGREDIENT"
         ]
       }
@@ -459,10 +454,6 @@
       "additionalProperties": {
         "$ref": "#/definitions/blitter"
       }
-    },
-    "helpTopic": {
-      "description": "Overrides the default help topic for this screen. This will be resolved as a link to a page in the guidebook and may contain an optional fragment (#some-heading) to directly link to a heading or anchor in the page.",
-      "type": "string"
     },
     "terminalStyle": {
       "description": "If this screen is a terminal, this defines required properties to display it properly",

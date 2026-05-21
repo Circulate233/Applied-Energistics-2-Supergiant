@@ -18,29 +18,26 @@
 
 package appeng.parts.p2p;
 
-import java.util.Objects;
-
-import net.minecraft.core.Direction;
-import net.neoforged.neoforge.capabilities.BlockCapability;
-
 import appeng.api.parts.IPartItem;
 import appeng.parts.PartAdjacentApi;
+import appeng.util.Platform;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraftforge.common.capabilities.Capability;
 
 /**
- * Base class for simple capability-based p2p tunnels. Don't forget to set the 3 handlers in the constructor of the
- * child class!
+ * Base class for simple capability-based p2p tunnels.
  */
 public abstract class CapabilityP2PTunnelPart<P extends CapabilityP2PTunnelPart<P, T>, T> extends P2PTunnelPart<P> {
     private final PartAdjacentApi<T> adjacentCapability;
-    // Prevents recursive access to the adjacent capability in case P2P input/output faces touch
-    private int accessDepth = 0;
     private final CapabilityGuard capabilityGuard = new CapabilityGuard();
     private final EmptyCapabilityGuard emptyCapabilityGuard = new EmptyCapabilityGuard();
     protected T inputHandler;
     protected T outputHandler;
     protected T emptyHandler;
+    private int accessDepth = 0;
 
-    public CapabilityP2PTunnelPart(IPartItem<?> partItem, BlockCapability<T, Direction> capability) {
+    public CapabilityP2PTunnelPart(IPartItem<?> partItem, Capability<T> capability) {
         super(partItem);
         this.adjacentCapability = new PartAdjacentApi<>(this, capability, this::forwardCapabilityInvalidation);
     }
@@ -51,49 +48,67 @@ public abstract class CapabilityP2PTunnelPart<P extends CapabilityP2PTunnelPart<
     }
 
     public T getExposedApi() {
-        if (isOutput()) {
-            return outputHandler;
-        } else {
-            return inputHandler;
-        }
+        return isOutput() ? outputHandler : inputHandler;
     }
 
-    /**
-     * Return the capability connected to this side of this P2P connection. If this method is called again on this
-     * tunnel while the returned object has not been closed, further calls to {@link CapabilityGuard#get()} will return
-     * a dummy capability.
-     */
     protected final CapabilityGuard getAdjacentCapability() {
         accessDepth++;
         return capabilityGuard;
     }
 
-    /**
-     * Returns the capability attached to the input side of this tunnel's P2P connection. If this method is called again
-     * on this tunnel while the returned object has not been closed, further calls to {@link CapabilityGuard#get()} will
-     * return a dummy capability.
-     */
     protected final CapabilityGuard getInputCapability() {
         P input = getInput();
         return input == null ? emptyCapabilityGuard : input.getAdjacentCapability();
     }
 
+    protected void forwardCapabilityInvalidation() {
+        if (getTileEntity() == null || getLevel() == null) {
+            return;
+        }
+
+        if (isOutput()) {
+            P input = getInput();
+            if (input != null && input.getTileEntity() != null) {
+                Platform.notifyBlocksOfNeighbors(input.getLevel(), input.getTileEntity().getPos());
+                input.getHost().markForUpdate();
+            }
+        } else {
+            for (P output : getOutputs()) {
+                if (output.getTileEntity() != null) {
+                    Platform.notifyBlocksOfNeighbors(output.getLevel(), output.getTileEntity().getPos());
+                    output.getHost().markForUpdate();
+                }
+            }
+        }
+    }
+
+    @Override
+    public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
+        this.adjacentCapability.onNeighborChanged(neighbor);
+    }
+
+    @Override
+    public void onTunnelNetworkChange() {
+        if (getTileEntity() != null) {
+            Platform.notifyBlocksOfNeighbors(getLevel(), getTileEntity().getPos());
+            getHost().markForUpdate();
+        }
+    }
+
     protected class CapabilityGuard implements AutoCloseable {
-        /**
-         * Get the capability, or a null handler if not available. Use within the scope of the enclosing AdjCapability.
-         */
         public T get() {
             if (accessDepth == 0) {
-                throw new IllegalStateException("get was called after closing the wrapper");
+                throw new IllegalStateException("Capability guard was used after closing");
             } else if (accessDepth == 1) {
                 if (isActive()) {
-                    return Objects.requireNonNullElse(adjacentCapability.find(), emptyHandler);
+                    T adjacent = adjacentCapability.find();
+                    if (adjacent != null) {
+                        return adjacent;
+                    }
+                    return emptyHandler;
                 }
-
                 return emptyHandler;
             } else {
-                // This capability is already in use (as the nesting is > 1), so we return an empty handler to prevent
-                // infinite recursion.
                 return emptyHandler;
             }
         }
@@ -101,15 +116,12 @@ public abstract class CapabilityP2PTunnelPart<P extends CapabilityP2PTunnelPart<
         @Override
         public void close() {
             if (--accessDepth < 0) {
-                throw new IllegalStateException("Close has been called multiple times");
+                throw new IllegalStateException("Capability guard closed multiple times");
             }
         }
     }
 
-    /**
-     * This specialization is used when the tunnel is not connected.
-     */
-    protected class EmptyCapabilityGuard extends CapabilityGuard implements AutoCloseable {
+    protected class EmptyCapabilityGuard extends CapabilityGuard {
         @Override
         public void close() {
         }
@@ -119,26 +131,6 @@ public abstract class CapabilityP2PTunnelPart<P extends CapabilityP2PTunnelPart<
             return emptyHandler;
         }
     }
-
-    protected void forwardCapabilityInvalidation() {
-        if (isOutput()) {
-            P input = getInput();
-
-            if (input != null) {
-                input.getBlockEntity().invalidateCapabilities();
-            }
-        } else {
-            for (P output : getOutputs()) {
-                output.getBlockEntity().invalidateCapabilities();
-            }
-        }
-    }
-
-    @Override
-    public void onTunnelNetworkChange() {
-        // This might be invoked while the network is being unloaded,
-        // however the capability system should handle this fine.
-        // (Not OK for block updates though, thankfully we don't need them anymore!)
-        getBlockEntity().invalidateCapabilities();
-    }
 }
+
+

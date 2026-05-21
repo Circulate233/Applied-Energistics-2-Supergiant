@@ -18,33 +18,24 @@
 
 package appeng.block.qnb;
 
+import appeng.core.AppEng;
+import com.google.common.collect.ImmutableSet;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModel;
+import net.minecraftforge.client.model.ModelLoaderRegistry;
+import net.minecraftforge.common.model.IModelState;
+import net.minecraftforge.common.model.TRSRTransformation;
+
+import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.function.Function;
 
-import com.google.common.collect.ImmutableSet;
-
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelState;
-import net.minecraft.client.resources.model.UnbakedModel;
-import net.minecraft.resources.ResourceLocation;
-
-import appeng.client.render.BasicUnbakedModel;
-import appeng.core.AppEng;
-
-public class QnbFormedModel implements BasicUnbakedModel {
+public class QnbFormedModel implements IModel {
 
     private static final ResourceLocation MODEL_RING = AppEng.makeId("block/qnb/ring");
-
-    @org.jetbrains.annotations.Nullable
-    @Override
-    public BakedModel bake(ModelBaker modelBaker, Function<Material, TextureAtlasSprite> textureGetter,
-            ModelState modelState) {
-        BakedModel ringModel = modelBaker.bake(MODEL_RING, modelState);
-        return new QnbFormedBakedModel(ringModel, textureGetter);
-    }
 
     @Override
     public Collection<ResourceLocation> getDependencies() {
@@ -52,7 +43,23 @@ public class QnbFormedModel implements BasicUnbakedModel {
     }
 
     @Override
-    public void resolveParents(Function<ResourceLocation, UnbakedModel> function) {
+    public Collection<ResourceLocation> getTextures() {
+        return QnbFormedBakedModel.getRequiredTextures();
     }
 
+    @Override
+    public IBakedModel bake(@Nonnull IModelState state, @Nonnull VertexFormat format,
+                            @Nonnull Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        try {
+            IBakedModel ringModel = ModelLoaderRegistry.getModel(MODEL_RING).bake(state, format, bakedTextureGetter);
+            return new QnbFormedBakedModel(ringModel, format, bakedTextureGetter);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to bake quantum network bridge formed model.", e);
+        }
+    }
+
+    @Override
+    public IModelState getDefaultState() {
+        return TRSRTransformation.identity();
+    }
 }

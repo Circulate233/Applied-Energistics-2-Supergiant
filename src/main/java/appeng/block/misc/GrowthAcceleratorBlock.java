@@ -15,48 +15,36 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.misc;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.misc.GrowthAcceleratorBlockEntity;
+import appeng.api.orientation.RelativeSide;
+import appeng.block.AEBaseTileBlock;
 import appeng.client.render.effects.ParticleTypes;
 import appeng.core.AEConfig;
-import appeng.core.AppEngClient;
-import appeng.util.Platform;
+import appeng.core.AppEngBase;
+import appeng.tile.misc.TileGrowthAccelerator;
+import net.minecraft.block.SoundType;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.world.World;
 
-public class GrowthAcceleratorBlock extends AEBaseEntityBlock<GrowthAcceleratorBlockEntity> {
+import java.util.Random;
 
-    public static final BooleanProperty POWERED = BooleanProperty.create("powered");
+public class GrowthAcceleratorBlock extends AEBaseTileBlock<TileGrowthAccelerator> {
+    public static final PropertyBool POWERED = PropertyBool.create("powered");
 
     public GrowthAcceleratorBlock() {
-        super(metalProps());
-        this.registerDefaultState(this.defaultBlockState().setValue(POWERED, false));
-    }
-
-    @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState,
-            GrowthAcceleratorBlockEntity be) {
-        return currentState.setValue(POWERED, be.isPowered());
-    }
-
-    @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(POWERED);
+        super(Material.ROCK);
+        this.setSoundType(SoundType.METAL);
+        this.setHardness(2.2F);
+        this.setResistance(11.0F);
+        this.setTileEntity(TileGrowthAccelerator.class);
+        this.setDefaultState(this.getDefaultState().withProperty(POWERED, Boolean.FALSE));
     }
 
     @Override
@@ -64,77 +52,95 @@ public class GrowthAcceleratorBlock extends AEBaseEntityBlock<GrowthAcceleratorB
         return OrientationStrategies.facing();
     }
 
-    @OnlyIn(Dist.CLIENT)
     @Override
-    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource r) {
-        if (!AEConfig.instance().isEnableEffects()) {
+    protected net.minecraft.block.state.BlockStateContainer createBlockState() {
+        return createBlockState(POWERED);
+    }
+
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return super.getMetaFromState(state) | (state.getValue(POWERED) ? 8 : 0);
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        return super.getStateFromMeta(meta).withProperty(POWERED, (meta & 8) == 8);
+    }
+
+    @Override
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileGrowthAccelerator tileEntity) {
+        return currentState.withProperty(POWERED, tileEntity.isPowered());
+    }
+
+    @Override
+    public void randomDisplayTick(IBlockState state, World world, BlockPos pos, Random random) {
+        if (!AEConfig.instance().isEnableEffects() || !AppEngBase.runtime().shouldAddParticles(random)) {
             return;
         }
 
-        final GrowthAcceleratorBlockEntity cga = this.getBlockEntity(level, pos);
-
-        if (cga != null && cga.isPowered() && AppEngClient.instance().shouldAddParticles(r)) {
-            final double d0 = r.nextFloat() - 0.5F;
-            final double d1 = r.nextFloat() - 0.5F;
-
-            var up = cga.getTop();
-            var forward = cga.getFront();
-            var west = Platform.crossProduct(forward, up);
-
-            double rx = 0.5 + pos.getX();
-            double ry = 0.5 + pos.getY();
-            double rz = 0.5 + pos.getZ();
-
-            rx += up.getStepX() * d0;
-            ry += up.getStepY() * d0;
-            rz += up.getStepZ() * d0;
-
-            final int x = pos.getX();
-            final int y = pos.getY();
-            final int z = pos.getZ();
-
-            double dz = 0;
-            double dx = 0;
-            BlockPos pt = null;
-
-            switch (r.nextInt(4)) {
-                case 0 -> {
-                    dx = 0.6;
-                    dz = d1;
-                    pt = new BlockPos(x + west.getStepX(), y + west.getStepY(), z + west.getStepZ());
-                }
-                case 1 -> {
-                    dx = d1;
-                    dz += 0.6;
-                    pt = new BlockPos(x + forward.getStepX(), y + forward.getStepY(), z + forward.getStepZ());
-                }
-                case 2 -> {
-                    dx = d1;
-                    dz = -0.6;
-                    pt = new BlockPos(x - forward.getStepX(), y - forward.getStepY(), z - forward.getStepZ());
-                }
-                case 3 -> {
-                    dx = -0.6;
-                    dz = d1;
-                    pt = new BlockPos(x - west.getStepX(), y - west.getStepY(), z - west.getStepZ());
-                }
-            }
-
-            if (!level.getBlockState(pt).isAir()) {
-                return;
-            }
-
-            rx += dx * west.getStepX();
-            ry += dx * west.getStepY();
-            rz += dx * west.getStepZ();
-
-            rx += dz * forward.getStepX();
-            ry += dz * forward.getStepY();
-            rz += dz * forward.getStepZ();
-
-            Minecraft.getInstance().particleEngine.createParticle(ParticleTypes.LIGHTNING, rx, ry, rz, 0.0D, 0.0D,
-                    0.0D);
+        TileGrowthAccelerator tile = this.getTileEntity(world, pos);
+        if (tile == null || !tile.isPowered()) {
+            return;
         }
-    }
 
+        final double d0 = random.nextFloat() - 0.5F;
+        final double d1 = random.nextFloat() - 0.5F;
+
+        var up = tile.getOrientation().getSide(RelativeSide.TOP);
+        var forward = tile.getOrientation().getSide(RelativeSide.FRONT);
+        Vec3i west = forward.getDirectionVec().crossProduct(up.getDirectionVec());
+
+        double rx = 0.5 + pos.getX();
+        double ry = 0.5 + pos.getY();
+        double rz = 0.5 + pos.getZ();
+
+        rx += up.getXOffset() * d0;
+        ry += up.getYOffset() * d0;
+        rz += up.getZOffset() * d0;
+
+        double dz = 0;
+        double dx = 0;
+        BlockPos particlePos = null;
+
+        switch (random.nextInt(4)) {
+            case 0:
+                dx = 0.6;
+                dz = d1;
+                particlePos = pos.add(west.getX(), west.getY(), west.getZ());
+                break;
+            case 1:
+                dx = d1;
+                dz = 0.6;
+                particlePos = pos.offset(forward);
+                break;
+            case 2:
+                dx = d1;
+                dz = -0.6;
+                particlePos = pos.offset(forward.getOpposite());
+                break;
+            case 3:
+                dx = -0.6;
+                dz = d1;
+                particlePos = pos.add(-west.getX(), -west.getY(), -west.getZ());
+                break;
+            default:
+                break;
+        }
+
+        if (particlePos == null || !world.isAirBlock(particlePos)) {
+            return;
+        }
+
+        rx += dx * west.getX();
+        ry += dx * west.getY();
+        rz += dx * west.getZ();
+
+        rx += dz * forward.getXOffset();
+        ry += dz * forward.getYOffset();
+        rz += dz * forward.getZOffset();
+
+        ParticleTypes.LIGHTNING.spawn(world, rx, ry, rz, 0.0D, 0.0D, 0.0D, null);
+    }
 }
+
+

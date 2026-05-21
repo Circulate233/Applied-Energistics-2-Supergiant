@@ -18,14 +18,12 @@
 
 package appeng.api.implementations.items;
 
-import org.jetbrains.annotations.ApiStatus;
-
-import net.minecraft.core.Direction;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-
 import appeng.api.parts.IFacadePart;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Implemented on AE2 {@link Item facade items}.
@@ -40,7 +38,7 @@ public interface IFacadeItem {
      * @param side the Direction the IFacadePart is for
      * @return the created IFacadePart
      */
-    IFacadePart createPartFromItemStack(ItemStack is, Direction side);
+    IFacadePart createPartFromItemStack(ItemStack is, EnumFacing side);
 
     /**
      * get the ItemStack texture the facade was created with
@@ -56,6 +54,6 @@ public interface IFacadeItem {
      * @param is the facade ItemStack you want the texture from
      * @return the texture as BlockState
      */
-    BlockState getTextureBlockState(ItemStack is);
+    IBlockState getTextureBlockState(ItemStack is);
 
 }

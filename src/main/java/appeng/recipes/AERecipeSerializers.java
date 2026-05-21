@@ -1,46 +1,52 @@
 package appeng.recipes;
 
-import net.minecraft.core.registries.Registries;
-import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.neoforged.neoforge.registries.DeferredRegister;
-
 import appeng.core.AppEng;
 import appeng.recipes.entropy.EntropyRecipeSerializer;
-import appeng.recipes.game.AddItemUpgradeRecipeSerializer;
 import appeng.recipes.game.CraftingUnitTransformRecipeSerializer;
-import appeng.recipes.game.FacadeRecipe;
-import appeng.recipes.game.RemoveItemUpgradeRecipeSerializer;
 import appeng.recipes.game.StorageCellDisassemblyRecipeSerializer;
-import appeng.recipes.game.StorageCellUpgradeRecipeSerializer;
 import appeng.recipes.handlers.ChargerRecipeSerializer;
 import appeng.recipes.handlers.InscriberRecipeSerializer;
 import appeng.recipes.mattercannon.MatterCannonAmmoSerializer;
-import appeng.recipes.quartzcutting.QuartzCuttingRecipeSerializer;
 import appeng.recipes.transform.TransformRecipeSerializer;
+import com.google.gson.JsonObject;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.common.crafting.JsonContext;
+
+import java.util.Map;
 
 public final class AERecipeSerializers {
+    private static final Map<ResourceLocation, IAERecipeFactory> FACTORIES = new Object2ObjectOpenHashMap<>();
+
+    static {
+        register(AppEng.makeId("charger"), new ChargerRecipeSerializer());
+        register(AppEng.makeId("inscriber"), new InscriberRecipeSerializer());
+        register(AppEng.makeId("matter_cannon"), new MatterCannonAmmoSerializer());
+        register(AppEng.makeId("transform"), new TransformRecipeSerializer());
+        register(AppEng.makeId("cell_disassembly"), new StorageCellDisassemblyRecipeSerializer());
+        register(AppEng.makeId("storage_cell_disassembly"), new StorageCellDisassemblyRecipeSerializer());
+        register(AppEng.makeId("crafting_unit_transform"), new CraftingUnitTransformRecipeSerializer());
+        register(AppEng.makeId("entropy"), new EntropyRecipeSerializer());
+    }
+
     private AERecipeSerializers() {
     }
 
-    public static final DeferredRegister<RecipeSerializer<?>> DR = DeferredRegister
-            .create(Registries.RECIPE_SERIALIZER, AppEng.MOD_ID);
-
-    static {
-        register("inscriber", InscriberRecipeSerializer.INSTANCE);
-        register("facade", FacadeRecipe.SERIALIZER);
-        register("entropy", EntropyRecipeSerializer.INSTANCE);
-        register("matter_cannon", MatterCannonAmmoSerializer.INSTANCE);
-        register("transform", TransformRecipeSerializer.INSTANCE);
-        register("charger", ChargerRecipeSerializer.INSTANCE);
-        register("storage_cell_upgrade", StorageCellUpgradeRecipeSerializer.INSTANCE);
-        register("add_item_upgrade", AddItemUpgradeRecipeSerializer.INSTANCE);
-        register("remove_item_upgrade", RemoveItemUpgradeRecipeSerializer.INSTANCE);
-        register("quartz_cutting", QuartzCuttingRecipeSerializer.INSTANCE);
-        register("crafting_unit_transform", CraftingUnitTransformRecipeSerializer.INSTANCE);
-        register("storage_cell_disassembly", StorageCellDisassemblyRecipeSerializer.INSTANCE);
+    public static void register(ResourceLocation id, IAERecipeFactory factory) {
+        FACTORIES.put(id, factory);
     }
 
-    private static void register(String id, RecipeSerializer<?> serializer) {
-        DR.register(id, () -> serializer);
+    public static void register(JsonObject json, JsonContext ctx) {
+        if (!appeng.recipes.serializers.JsonRecipeUtils.shouldLoad(json)) {
+            return;
+        }
+
+        String type = ctx.appendModId(json.get("type").getAsString());
+        IAERecipeFactory factory = FACTORIES.get(new ResourceLocation(type));
+        if (factory == null) {
+            return;
+        }
+
+        factory.register(json, ctx);
     }
 }

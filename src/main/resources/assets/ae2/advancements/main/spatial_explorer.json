@@ -1,0 +1,21 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:spatial_cell_component_128"
+    },
+    "title": {
+      "translate": "achievement.ae2.SpatialIOExplorer"
+    },
+    "description": {
+      "translate": "achievement.ae2.SpatialIOExplorer.desc"
+    },
+    "show_toast": false,
+    "announce_to_chat": false
+  },
+  "parent": "ae2:main/spatial_ioport",
+  "criteria": {
+    "explorer": {
+      "trigger": "ae2:spatial_explorer"
+    }
+  }
+}

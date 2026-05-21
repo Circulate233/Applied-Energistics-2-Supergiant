@@ -18,26 +18,22 @@
 
 package appeng.client.gui.widgets;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.gui.ComponentPath;
-import net.minecraft.client.gui.navigation.FocusNavigationEvent;
-import net.minecraft.network.chat.Component;
-
 import appeng.client.gui.Icon;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.client.Minecraft;
+import net.minecraft.util.text.ITextComponent;
+
+import java.util.List;
 
 /**
  * Displays a small icon that shows validation errors for some input control.
  */
 public class ValidationIcon extends IconButton {
 
-    private final List<Component> tooltip = new ArrayList<>();
+    private final List<ITextComponent> tooltip = new ObjectArrayList<>();
 
     public ValidationIcon() {
-        super(btn -> {
+        super(() -> {
         });
         setDisableBackground(true);
         setDisableClickSound(true);
@@ -52,11 +48,11 @@ public class ValidationIcon extends IconButton {
     }
 
     @Override
-    public List<Component> getTooltipMessage() {
+    public List<ITextComponent> getTooltipMessage() {
         return tooltip;
     }
 
-    public void setTooltip(List<Component> lines) {
+    public void setTooltip(List<ITextComponent> lines) {
         this.tooltip.clear();
         this.tooltip.addAll(lines);
     }
@@ -66,10 +62,10 @@ public class ValidationIcon extends IconButton {
         return Icon.INVALID;
     }
 
-    @Nullable
     @Override
-    public ComponentPath nextFocusPath(FocusNavigationEvent focusNavigationEvent) {
-        // Cannot focus this element
-        return null;
+    public boolean mousePressed(Minecraft minecraft, int mouseX, int mouseY) {
+        return false;
     }
 }
+
+

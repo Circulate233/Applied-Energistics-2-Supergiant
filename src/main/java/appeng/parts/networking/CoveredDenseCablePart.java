@@ -31,5 +31,4 @@ public class CoveredDenseCablePart extends DenseCablePart {
     public AECableType getCableConnectionType() {
         return AECableType.DENSE_COVERED;
     }
-
 }

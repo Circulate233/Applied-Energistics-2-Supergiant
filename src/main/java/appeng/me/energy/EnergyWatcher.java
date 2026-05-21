@@ -18,15 +18,14 @@
 
 package appeng.me.energy;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
-
-import com.google.common.base.Preconditions;
-
 import appeng.api.networking.energy.IEnergyWatcher;
 import appeng.api.networking.energy.IEnergyWatcherNode;
 import appeng.me.service.EnergyService;
+import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+
+import java.util.Iterator;
 
 /**
  * Maintain my interests, and a global watch list, they should always be fully synchronized.
@@ -35,7 +34,7 @@ public class EnergyWatcher implements IEnergyWatcher {
 
     private final EnergyService service;
     private final IEnergyWatcherNode watcherHost;
-    private final Set<EnergyThreshold> myInterests = new HashSet<>();
+    private final ObjectSet<EnergyThreshold> myInterests = new ObjectOpenHashSet<>();
 
     public EnergyWatcher(EnergyService service, IEnergyWatcherNode host) {
         this.service = service;
@@ -51,16 +50,18 @@ public class EnergyWatcher implements IEnergyWatcher {
     }
 
     @Override
-    public boolean add(double amount) {
+    public void add(double amount) {
         Preconditions.checkArgument(amount >= 0, "amount must be >= 0");
 
         final EnergyThreshold eh = new EnergyThreshold(amount, this);
 
         if (this.myInterests.contains(eh)) {
-            return false;
+            return;
         }
 
-        return this.service.registerEnergyInterest(eh) && this.myInterests.add(eh);
+        if (this.service.registerEnergyInterest(eh)) {
+            this.myInterests.add(eh);
+        }
     }
 
     @Override
@@ -74,7 +75,7 @@ public class EnergyWatcher implements IEnergyWatcher {
 
     @Override
     public void reset() {
-        for (Iterator<EnergyThreshold> iterator = this.myInterests.iterator(); iterator.hasNext();) {
+        for (Iterator<EnergyThreshold> iterator = this.myInterests.iterator(); iterator.hasNext(); ) {
             final EnergyThreshold threshold = iterator.next();
 
             this.service.unregisterEnergyInterest(threshold);

@@ -1,0 +1,17 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aaa",
+    "a a",
+    "aaa"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:sky_stone_block"
+    }
+  },
+  "result": {
+    "item": "ae2:sky_stone_chest",
+    "count": 1
+  }
+}

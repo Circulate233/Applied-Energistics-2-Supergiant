@@ -1,0 +1,17 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "type": "forge:ore_dict",
+      "ore": "ingotGold"
+    },
+    "top": {
+      "item": "ae2:logic_processor_press"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "id": "ae2:printed_logic_processor",
+    "count": 1
+  }
+}

@@ -23,28 +23,24 @@
 
 package appeng.api.networking.crafting;
 
-import java.util.Collection;
-import java.util.Set;
-import java.util.concurrent.Future;
-
-import com.google.common.collect.ImmutableSet;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.level.Level;
-
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridService;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.AEKeyFilter;
+import com.google.common.collect.ImmutableSet;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.Set;
+import java.util.concurrent.Future;
 
 public interface ICraftingService extends IGridService {
 
     /**
      * @param whatToCraft requested craft
-     *
      * @return an unmodifiable collection of crafting patterns for the item in question.
      */
     Collection<IPatternDetails> getCraftingFor(AEKey whatToCraft);
@@ -73,11 +69,13 @@ public interface ICraftingService extends IGridService {
      *
      * @param cc to-be-added crafting pattern provider
      */
+    @SuppressWarnings("unused")
     void addGlobalCraftingProvider(ICraftingProvider cc);
 
     /**
      * Removes a provider added with {@link #addGlobalCraftingProvider(ICraftingProvider)}.
      */
+    @SuppressWarnings("unused")
     void removeGlobalCraftingProvider(ICraftingProvider cc);
 
     /**
@@ -86,6 +84,7 @@ public interface ICraftingService extends IGridService {
      * @throws IllegalArgumentException If the given provider has not been {@link #addGlobalCraftingProvider
      *                                  registered}.
      */
+    @SuppressWarnings("unused")
     void refreshGlobalCraftingProvider(ICraftingProvider provider);
 
     /**
@@ -103,12 +102,11 @@ public interface ICraftingService extends IGridService {
      * @param simRequester source
      * @param craftWhat    result
      * @param strategy     usually {@link CalculationStrategy#REPORT_MISSING_ITEMS} for player requests
-     *
      * @return a future which will at an undetermined point in the future get you the {@link ICraftingPlan} do not wait
-     *         on this, your be waiting forever.
+     * on this, your be waiting forever.
      */
-    Future<ICraftingPlan> beginCraftingCalculation(Level level, ICraftingSimulationRequester simRequester,
-            AEKey craftWhat, long amount, CalculationStrategy strategy);
+    Future<ICraftingPlan> beginCraftingCalculation(World level, ICraftingSimulationRequester simRequester,
+                                                   AEKey craftWhat, long amount, CalculationStrategy strategy);
 
     /**
      * Submit the job to the Crafting system for processing.
@@ -120,25 +118,24 @@ public interface ICraftingService extends IGridService {
      * @param job               - the crafting job from beginCraftingJob
      * @param requestingMachine - a machine if its being requested via automation, may be null.
      * @param target            - can be null
-     * @param prioritizePower   - if cpu is null, this determine if the system should prioritize power, or if it should
+     * @param prioritizePower   - if cpu is null, this determines if the system should prioritize power, or if it
+     *                          should
      *                          find the lower end cpus.
      * @param src               - the action source to use when starting the job, this will be used for extracting
      *                          items, should usually be the same as the one provided to beginCraftingJob.
-     *
      * @return the success/failure state, and a crafting link in case if successful and there was a requestingMachine.
      */
     ICraftingSubmitResult submitJob(ICraftingPlan job, @Nullable ICraftingRequester requestingMachine,
-            @Nullable ICraftingCPU target,
-            boolean prioritizePower, IActionSource src);
+                                    @Nullable ICraftingCPU target,
+                                    boolean prioritizePower, IActionSource src);
 
     /**
-     * @return list of all the crafting cpus on the grid
+     * @return set of all the crafting cpus on the grid
      */
     ImmutableSet<ICraftingCPU> getCpus();
 
     /**
      * @param what to be requested item
-     *
      * @return true if the item can be requested via a crafting emitter.
      */
     boolean canEmitFor(AEKey what);
@@ -155,7 +152,6 @@ public interface ICraftingService extends IGridService {
      * item is expected to be emitted. The final output of a job does not count as being requested.
      *
      * @param what item being crafted
-     *
      * @return true if it is being crafting
      */
     boolean isRequesting(AEKey what);
@@ -164,9 +160,9 @@ public interface ICraftingService extends IGridService {
      * Gets the total amount being requested across all crafting cpus of a grid.
      *
      * @param what the key for which the requested amount should be returned
-     *
      * @return The total amount being requested.
      */
+    @SuppressWarnings("unused")
     long getRequestedAmount(AEKey what);
 
     /**

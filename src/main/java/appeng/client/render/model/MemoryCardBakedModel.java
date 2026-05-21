@@ -18,55 +18,52 @@
 
 package appeng.client.render.model;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
-
-import javax.annotation.Nullable;
-
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableList;
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.renderer.block.model.ItemTransforms;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IMemoryCard;
 import appeng.api.implementations.items.MemoryCardColors;
 import appeng.api.util.AEColor;
 import appeng.client.render.cablebus.CubeBuilder;
 import appeng.core.AELog;
+import appeng.items.tools.MemoryCardItem;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.world.World;
+import net.minecraftforge.common.model.TRSRTransformation;
+import org.apache.commons.lang3.tuple.Pair;
 
-class MemoryCardBakedModel implements BakedModel {
-    private final BakedModel baseModel;
+import javax.annotation.Nullable;
+import javax.vecmath.Matrix4f;
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 
+@SuppressWarnings("deprecation")
+class MemoryCardBakedModel implements IBakedModel {
+    private final VertexFormat format;
+    private final IBakedModel baseModel;
     private final TextureAtlasSprite texture;
-
     private final MemoryCardColors colors;
-
     private final Cache<MemoryCardColors, MemoryCardBakedModel> modelCache;
-
     private final ImmutableList<BakedQuad> generalQuads;
 
-    MemoryCardBakedModel(BakedModel baseModel, TextureAtlasSprite texture) {
-        this(baseModel, texture, MemoryCardColors.DEFAULT, createCache());
+    MemoryCardBakedModel(VertexFormat format, IBakedModel baseModel, TextureAtlasSprite texture) {
+        this(format, baseModel, texture, MemoryCardColors.DEFAULT, createCache());
     }
 
-    private MemoryCardBakedModel(BakedModel baseModel, TextureAtlasSprite texture, MemoryCardColors colors,
-            Cache<MemoryCardColors, MemoryCardBakedModel> modelCache) {
+    private MemoryCardBakedModel(VertexFormat format, IBakedModel baseModel, TextureAtlasSprite texture,
+                                 MemoryCardColors colors, Cache<MemoryCardColors, MemoryCardBakedModel> modelCache) {
+        this.format = format;
         this.baseModel = baseModel;
         this.texture = texture;
         this.colors = colors;
@@ -79,29 +76,25 @@ class MemoryCardBakedModel implements BakedModel {
     }
 
     @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand) {
-
-        List<BakedQuad> quads = this.baseModel.getQuads(state, side, rand, ModelData.EMPTY, null);
-
+    public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
+        List<BakedQuad> quads = this.baseModel.getQuads(state, side, rand);
         if (side != null) {
             return quads;
         }
 
-        List<BakedQuad> result = new ArrayList<>(quads.size() + this.generalQuads.size());
+        List<BakedQuad> result = new ObjectArrayList<>(quads.size() + this.generalQuads.size());
         result.addAll(quads);
         result.addAll(this.generalQuads);
         return result;
     }
 
     private List<BakedQuad> buildGeneralQuads() {
-        CubeBuilder builder = new CubeBuilder();
-
+        CubeBuilder builder = new CubeBuilder(this.format);
         builder.setTexture(this.texture);
 
         for (int x = 0; x < 4; x++) {
             for (int y = 0; y < 2; y++) {
-                final AEColor color = this.colors.get(x, y);
-
+                AEColor color = this.colors.get(x, y);
                 builder.setColorRGB(color.mediumVariant);
                 builder.addCube(8 + x, 8 + 1 - y, 7.5f, 8 + x + 1, 8 + 1 - y + 1, 8.5f);
             }
@@ -111,8 +104,8 @@ class MemoryCardBakedModel implements BakedModel {
     }
 
     @Override
-    public boolean useAmbientOcclusion() {
-        return this.baseModel.useAmbientOcclusion();
+    public boolean isAmbientOcclusion() {
+        return this.baseModel.isAmbientOcclusion();
     }
 
     @Override
@@ -121,39 +114,33 @@ class MemoryCardBakedModel implements BakedModel {
     }
 
     @Override
-    public boolean usesBlockLight() {
-        return false;// TODO
+    public boolean isBuiltInRenderer() {
+        return this.baseModel.isBuiltInRenderer();
     }
 
     @Override
-    public boolean isCustomRenderer() {
-        return this.baseModel.isCustomRenderer();
+    public TextureAtlasSprite getParticleTexture() {
+        return this.baseModel.getParticleTexture();
     }
 
     @Override
-    public TextureAtlasSprite getParticleIcon() {
-        return this.baseModel.getParticleIcon();
+    public ItemCameraTransforms getItemCameraTransforms() {
+        return this.baseModel.getItemCameraTransforms();
     }
 
     @Override
-    public ItemTransforms getTransforms() {
-        return this.baseModel.getTransforms();
-    }
-
-    @Override
-    public ItemOverrides getOverrides() {
-        return new ItemOverrides() {
+    public ItemOverrideList getOverrides() {
+        return new ItemOverrideList(Collections.emptyList()) {
             @Override
-            public BakedModel resolve(BakedModel originalModel, ItemStack stack, ClientLevel level,
-                    LivingEntity entity, int seed) {
+            public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world,
+                                               EntityLivingBase entity) {
                 try {
-                    if (stack.getItem() instanceof IMemoryCard memoryCard) {
-                        var colors = stack.getOrDefault(AEComponents.MEMORY_CARD_COLORS, MemoryCardColors.DEFAULT);
-
+                    if (stack.getItem() instanceof IMemoryCard) {
+                        MemoryCardColors colors = MemoryCardItem.getMemoryCardColors(stack);
                         return MemoryCardBakedModel.this.modelCache.get(colors,
-                                () -> new MemoryCardBakedModel(MemoryCardBakedModel.this.baseModel,
-                                        MemoryCardBakedModel.this.texture, colors,
-                                        MemoryCardBakedModel.this.modelCache));
+                            () -> new MemoryCardBakedModel(MemoryCardBakedModel.this.format,
+                                MemoryCardBakedModel.this.baseModel, MemoryCardBakedModel.this.texture, colors,
+                                MemoryCardBakedModel.this.modelCache));
                     }
                 } catch (ExecutionException e) {
                     AELog.error(e);
@@ -165,10 +152,11 @@ class MemoryCardBakedModel implements BakedModel {
     }
 
     @Override
-    public BakedModel applyTransform(ItemDisplayContext transformType, PoseStack poseStack,
-            boolean applyLeftHandTransform) {
-        baseModel.applyTransform(transformType, poseStack, applyLeftHandTransform);
-        return this;
+    public Pair<? extends IBakedModel, Matrix4f> handlePerspective(ItemCameraTransforms.TransformType type) {
+        Pair<? extends IBakedModel, Matrix4f> pair = this.baseModel.handlePerspective(type);
+        if (pair != null) {
+            return Pair.of(this, pair.getValue());
+        }
+        return Pair.of(this, TRSRTransformation.identity().getMatrix());
     }
-
 }

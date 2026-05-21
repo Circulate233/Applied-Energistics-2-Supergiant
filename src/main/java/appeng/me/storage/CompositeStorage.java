@@ -1,9 +1,22 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
 package appeng.me.storage;
-
-import java.util.Map;
-import java.util.Objects;
-
-import net.minecraft.network.chat.Component;
 
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
@@ -13,6 +26,12 @@ import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.localization.GuiText;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+
+import java.util.Map;
+import java.util.Objects;
 
 /**
  * Combines several ME storages that each handle only a given key-space.
@@ -27,6 +46,10 @@ public class CompositeStorage implements MEStorage, ITickingMonitor {
     public CompositeStorage(Map<AEKeyType, MEStorage> storages) {
         this.storages = storages;
         this.cache = new InventoryCache();
+    }
+
+    public CompositeStorage() {
+        this(new Object2ObjectOpenHashMap<>());
     }
 
     public void setStorages(Map<AEKeyType, MEStorage> storages) {
@@ -63,22 +86,18 @@ public class CompositeStorage implements MEStorage, ITickingMonitor {
         return extracted;
     }
 
-    /**
-     * Describes the types of storage represented by this object.
-     */
     @Override
-    public Component getDescription() {
-        var types = Component.literal("");
+    public ITextComponent getDescription() {
+        ITextComponent types = new TextComponentString("");
         boolean first = true;
         for (var keyType : storages.keySet()) {
             if (!first) {
-                types.append(", ");
+                types.appendText(", ");
             } else {
                 first = false;
             }
-            types.append(keyType.getDescription());
+            types.appendSibling(keyType.getDescription());
         }
-
         return GuiText.ExternalStorage.text(types);
     }
 
@@ -107,26 +126,24 @@ public class CompositeStorage implements MEStorage, ITickingMonitor {
         private KeyCounter backBuffer = new KeyCounter();
 
         public boolean update() {
-            // Flip back & front buffer and start building a new list
+// Flip back & front buffer and start building a new list
             var tmp = backBuffer;
             backBuffer = frontBuffer;
             frontBuffer = tmp;
             frontBuffer.reset();
 
-            // Rebuild the front buffer
+// Rebuild the front buffer
             for (var storage : storages.values()) {
                 storage.getAvailableStacks(frontBuffer);
             }
 
             boolean changed = false;
-            // Diff the front-buffer against the backbuffer
             for (var entry : frontBuffer) {
                 var old = backBuffer.get(entry.getKey());
                 if (old == 0 || old != entry.getLongValue()) {
                     changed = true;
                 }
             }
-            // Account for removals
             for (var oldEntry : backBuffer) {
                 if (frontBuffer.get(oldEntry.getKey()) == 0) {
                     changed = true;
@@ -140,10 +157,6 @@ public class CompositeStorage implements MEStorage, ITickingMonitor {
 
         public void getAvailableKeys(KeyCounter out) {
             out.addAll(frontBuffer);
-        }
-
-        public boolean contains(AEKey what) {
-            return frontBuffer.get(what) > 0;
         }
     }
 }

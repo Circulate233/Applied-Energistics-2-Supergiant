@@ -1,72 +1,74 @@
-
 package appeng.core.network.clientbound;
-
-import java.util.UUID;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 
 import appeng.api.stacks.AEKey;
 import appeng.client.gui.me.common.PendingCraftingJobs;
 import appeng.client.gui.me.common.PinnedKeys;
 import appeng.core.AEConfig;
 import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.PacketBuffer;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
+import java.util.UUID;
 
 /**
  * Confirms to the player that a crafting job has started.
  */
-public record CraftingJobStatusPacket(
-        UUID jobId,
-        AEKey what,
-        long requestedAmount,
-        long remainingAmount,
-        Status status
+public class CraftingJobStatusPacket extends ClientboundPacket {
+    private UUID jobId;
+    private AEKey what;
+    private long requestedAmount;
+    private long remainingAmount;
+    private Status status;
 
-) implements ClientboundPacket {
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, CraftingJobStatusPacket> STREAM_CODEC = StreamCodec
-            .ofMember(
-                    CraftingJobStatusPacket::write,
-                    CraftingJobStatusPacket::decode);
-
-    public static final Type<CraftingJobStatusPacket> TYPE = CustomAppEngPayload.createType("crafting_job_status");
-
-    @Override
-    public Type<CraftingJobStatusPacket> type() {
-        return TYPE;
+    public CraftingJobStatusPacket() {
     }
 
-    public static CraftingJobStatusPacket decode(RegistryFriendlyByteBuf stream) {
-        var jobId = stream.readUUID();
-        var status = stream.readEnum(Status.class);
-        var what = AEKey.readKey(stream);
-        var requestedAmount = stream.readLong();
-        var remainingAmount = stream.readLong();
-        return new CraftingJobStatusPacket(jobId, what, requestedAmount, remainingAmount, status);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeUUID(jobId);
-        data.writeEnum(status);
-        AEKey.writeKey(data, what);
-        data.writeLong(requestedAmount);
-        data.writeLong(remainingAmount);
+    public CraftingJobStatusPacket(UUID jobId, AEKey what, long requestedAmount, long remainingAmount,
+                                   Status status) {
+        this.jobId = jobId;
+        this.what = what;
+        this.requestedAmount = requestedAmount;
+        this.remainingAmount = remainingAmount;
+        this.status = status;
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        if (status == Status.STARTED) {
+    protected void read(ByteBuf buf) {
+        var data = new PacketBuffer(buf);
+        this.jobId = data.readUniqueId();
+        this.status = data.readEnumValue(Status.class);
+        this.what = AEKey.readKey(data);
+        this.requestedAmount = data.readLong();
+        this.remainingAmount = data.readLong();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var data = new PacketBuffer(buf);
+        data.writeUniqueId(this.jobId);
+        data.writeEnumValue(this.status);
+        AEKey.writeKey(data, this.what);
+        data.writeLong(this.requestedAmount);
+        data.writeLong(this.remainingAmount);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (this.what == null) {
+            return;
+        }
+
+        if (this.status == Status.STARTED) {
             if (AEConfig.instance().isPinAutoCraftedItems()) {
-                PinnedKeys.pinKey(what, PinnedKeys.PinReason.CRAFTING);
+                PinnedKeys.pinKey(this.what, PinnedKeys.PinReason.CRAFTING);
             }
         }
 
-        PendingCraftingJobs.jobStatus(jobId, what, requestedAmount, remainingAmount, status);
+        PendingCraftingJobs.jobStatus(this.jobId, this.what, this.requestedAmount, this.remainingAmount, this.status);
     }
 
     public enum Status {

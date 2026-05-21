@@ -18,203 +18,244 @@
 
 package appeng.block.crafting;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.phys.BlockHitResult;
-
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.crafting.CraftingBlockEntity;
+import appeng.block.AEBaseTileBlock;
+import appeng.client.render.crafting.CraftingCubeState;
+import appeng.container.GuiIds;
 import appeng.core.definitions.AEBlocks;
-import appeng.core.localization.PlayerMessages;
-import appeng.menu.MenuOpener;
-import appeng.menu.locator.MenuLocators;
-import appeng.menu.me.crafting.CraftingCPUMenu;
+import appeng.core.gui.GuiOpener;
 import appeng.recipes.game.CraftingUnitTransformRecipe;
+import appeng.tile.crafting.TileCraftingUnit;
 import appeng.util.InteractionUtil;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.common.property.ExtendedBlockState;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
 
-public abstract class AbstractCraftingUnitBlock<T extends CraftingBlockEntity> extends AEBaseEntityBlock<T> {
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractCraftingUnitBlock.class);
+import java.util.EnumSet;
+import java.util.Objects;
 
-    public static final BooleanProperty FORMED = BooleanProperty.create("formed");
-    public static final BooleanProperty POWERED = BooleanProperty.create("powered");
+public abstract class AbstractCraftingUnitBlock<T extends TileCraftingUnit> extends AEBaseTileBlock<T> {
+    public static final PropertyBool FORMED = PropertyBool.create("formed");
+    public static final PropertyBool POWERED = PropertyBool.create("powered");
+    public static final IUnlistedProperty<CraftingCubeState> STATE = new IUnlistedProperty<>() {
+        @Override
+        public String getName() {
+            return "state";
+        }
+
+        @Override
+        public boolean isValid(CraftingCubeState value) {
+            return true;
+        }
+
+        @Override
+        public Class<CraftingCubeState> getType() {
+            return CraftingCubeState.class;
+        }
+
+        @Override
+        public String valueToString(CraftingCubeState value) {
+            return String.valueOf(value);
+        }
+    };
 
     public final ICraftingUnitType type;
 
-    public AbstractCraftingUnitBlock(Properties props, ICraftingUnitType type) {
-        super(props);
+    protected AbstractCraftingUnitBlock(ICraftingUnitType type, Class<T> tileEntityClass) {
+        super(Material.IRON);
         this.type = type;
-        this.registerDefaultState(defaultBlockState().setValue(FORMED, false).setValue(POWERED, false));
+        this.setHardness(2.2F);
+        this.setResistance(11.0F);
+        this.setTileEntity(tileEntityClass);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(FORMED, Boolean.FALSE)
+                                            .withProperty(POWERED, Boolean.FALSE));
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(POWERED);
-        builder.add(FORMED);
+    protected BlockStateContainer createBlockState() {
+        ObjectList<IProperty<?>> properties = new ObjectArrayList<>(getOrientationStrategy().getProperties());
+        properties.add(POWERED);
+        properties.add(FORMED);
+        return new ExtendedBlockState(this, properties.toArray(new IProperty<?>[0]), getUnlistedProperties());
+    }
+
+    protected IUnlistedProperty<?>[] getUnlistedProperties() {
+        return new IUnlistedProperty<?>[]{STATE};
     }
 
     @Override
-    public BlockState updateShape(BlockState stateIn, Direction facing, BlockState facingState, LevelAccessor level,
-            BlockPos currentPos, BlockPos facingPos) {
-        BlockEntity te = level.getBlockEntity(currentPos);
-        if (te != null) {
-            te.requestModelDataUpdate();
+    public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        if (!(state instanceof IExtendedBlockState)) {
+            return state;
         }
-        return super.updateShape(stateIn, facing, facingState, level, currentPos, facingPos);
+
+        EnumSet<EnumFacing> connections = EnumSet.noneOf(EnumFacing.class);
+        for (EnumFacing facing : EnumFacing.values()) {
+            if (this.isConnected(world, pos, facing)) {
+                connections.add(facing);
+            }
+        }
+
+        return ((IExtendedBlockState) state).withProperty(STATE, new CraftingCubeState(connections));
+    }
+
+    private boolean isConnected(IBlockAccess world, BlockPos pos, EnumFacing side) {
+        return world.getBlockState(pos.offset(side)).getBlock() instanceof AbstractCraftingUnitBlock;
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block blockIn,
-            BlockPos fromPos, boolean isMoving) {
-        final CraftingBlockEntity cp = this.getBlockEntity(level, pos);
-        if (cp != null) {
-            cp.updateMultiBlock(fromPos);
+    public int getMetaFromState(IBlockState state) {
+        int meta = 0;
+        if (state.getValue(POWERED)) {
+            meta |= 1;
+        }
+        if (state.getValue(FORMED)) {
+            meta |= 2;
+        }
+        return meta;
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        return this.getDefaultState()
+                   .withProperty(POWERED, (meta & 1) == 1)
+                   .withProperty(FORMED, (meta & 2) == 2);
+    }
+
+    @Override
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, T tileEntity) {
+        return currentState.withProperty(POWERED, tileEntity.isPowered()).withProperty(FORMED, tileEntity.isFormed());
+    }
+
+    @Override
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
+
+    public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
+        return layer == BlockRenderLayer.CUTOUT;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void neighborChanged(IBlockState state, World world, BlockPos pos, Block blockIn, BlockPos fromPos) {
+        super.neighborChanged(state, world, pos, blockIn, fromPos);
+        T tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            tile.updateMultiBlock(fromPos);
         }
     }
 
     @Override
-    public void onRemove(BlockState state, Level level, BlockPos pos, BlockState newState, boolean isMoving) {
-        if (newState.getBlock() == state.getBlock()) {
-            return; // Just a block state change
+    public void breakBlock(World world, BlockPos pos, IBlockState state) {
+        T tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            tile.breakCluster();
         }
-
-        final CraftingBlockEntity cp = this.getBlockEntity(level, pos);
-        if (cp != null) {
-            cp.breakCluster();
-        }
-
-        super.onRemove(state, level, pos, newState, isMoving);
+        super.breakBlock(world, pos, state);
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (InteractionUtil.isInAlternateUseMode(player)) {
-            var result = this.removeUpgrade(level, player, pos, AEBlocks.CRAFTING_UNIT.block().defaultBlockState());
-            if (result != InteractionResult.FAIL)
-                return result;
-        }
-
-        if (level.getBlockEntity(pos) instanceof CraftingBlockEntity be && be.isFormed() && be.isActive()) {
-            if (!level.isClientSide()) {
-                MenuOpener.open(CraftingCPUMenu.TYPE, player, MenuLocators.forBlockEntity(be));
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing side, float hitX, float hitY, float hitZ) {
+        ItemStack heldItem = player.getHeldItem(hand);
+        if (heldItem.isEmpty()) {
+            if (InteractionUtil.isInAlternateUseMode(player)) {
+                Block craftingUnitBlock = Objects.requireNonNull(AEBlocks.CRAFTING_UNIT.block());
+                return this.removeUpgrade(world, pos, player, craftingUnitBlock.getDefaultState())
+                    != EnumActionResult.PASS;
             }
 
-            return InteractionResult.sidedSuccess(level.isClientSide());
-        }
-
-        return super.useWithoutItem(state, level, pos, player, hitResult);
-    }
-
-    @Override
-    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos,
-            Player player, InteractionHand hand, BlockHitResult hit) {
-        if (this.upgrade(heldItem, state, level, pos, player, hit))
-            return ItemInteractionResult.sidedSuccess(level.isClientSide());
-        return super.useItemOn(heldItem, state, level, pos, player, hand, hit);
-    }
-
-    public boolean upgrade(ItemStack heldItem, BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hit) {
-        if (heldItem.isEmpty()) {
-            return false;
-        }
-
-        var upgradedBlock = CraftingUnitTransformRecipe.getUpgradedBlock(level, heldItem);
-        if (upgradedBlock == null) {
-            return false;
-        }
-
-        if (!(upgradedBlock instanceof AbstractCraftingUnitBlock<?>)) {
-            LOG.warn("Upgraded block for crafting unit upgrade with {} is not a crafting block: {}",
-                    heldItem, upgradedBlock);
-            return false;
-        }
-
-        if (upgradedBlock == state.getBlock()) {
-            return false;
-        }
-
-        // If Upgrading is possible - but disassembly isn't, this will still make the hand animation play.
-        if (level.isClientSide()) {
+            T tile = this.getTileEntity(world, pos);
+            if (tile != null && tile.isFormed() && tile.isActive()) {
+                if (!world.isRemote) {
+                    GuiOpener.openGui(player, GuiIds.GuiKey.CRAFTING_CPU, tile);
+                }
+                return true;
+            }
+        } else if (this.upgrade(world, pos, state, player, side, heldItem)) {
             return true;
         }
 
-        var newState = upgradedBlock.defaultBlockState();
-
-        // Makes sure Crafting Monitors are looking at the player.
-        newState = newState.trySetValue(BlockStateProperties.FACING, hit.getDirection());
-
-        // Crafting Unit doesn't have a disassembly recipe, so we can ignore the drops.
-        InteractionResult result = state.getBlock() == AEBlocks.CRAFTING_UNIT.block()
-                ? this.transform(level, pos, newState) ? InteractionResult.SUCCESS : InteractionResult.FAIL
-                : this.removeUpgrade(level, player, pos, newState);
-
-        if (result == InteractionResult.FAIL)
-            return false;
-        // Pass => Crafting Unit is busy!
-        if (result == InteractionResult.PASS)
-            return true;
-        heldItem.consume(1, player);
-        return true;
+        return super.onBlockActivated(world, pos, state, player, hand, side, hitX, hitY, hitZ);
     }
 
-    public InteractionResult removeUpgrade(Level level, Player player, BlockPos pos, BlockState newState) {
-        if (this.type == CraftingUnitType.UNIT || level.isClientSide())
-            return InteractionResult.FAIL;
+    private boolean upgrade(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumFacing side,
+                            ItemStack heldItem) {
+        Block upgradedBlock = CraftingUnitTransformRecipe.getUpgradedBlock(heldItem);
+        if (!(upgradedBlock instanceof AbstractCraftingUnitBlock<?> craftingBlock) || upgradedBlock == state.getBlock()) {
+            return false;
+        }
 
-        var removedUpgrade = CraftingUnitTransformRecipe.getRemovedUpgrade(level, this);
+        T tile = this.getTileEntity(world, pos);
+        if (tile != null && tile.getCluster() != null && tile.getCluster().isBusy()) {
+            if (!world.isRemote) {
+                player.sendStatusMessage(new TextComponentString("Crafting CPU is busy"), true);
+            }
+            return true;
+        }
+
+        if (world.isRemote) {
+            return true;
+        }
+
+        IBlockState newState = craftingBlock.getDefaultState();
+        if (!craftingBlock.getOrientationStrategy().getProperties().isEmpty()) {
+            newState = craftingBlock.getOrientationStrategy().setFacing(newState, side);
+        }
+
+        if (this.transform(world, pos, newState)) {
+            heldItem.shrink(1);
+            return true;
+        }
+        return false;
+    }
+
+    private EnumActionResult removeUpgrade(World world, BlockPos pos, EntityPlayer player, IBlockState newState) {
+        if (this.type == CraftingUnitType.UNIT || world.isRemote) {
+            return EnumActionResult.PASS;
+        }
+
+        ItemStack removedUpgrade = CraftingUnitTransformRecipe.getRemovedUpgrade(this);
         if (removedUpgrade.isEmpty()) {
-            return InteractionResult.FAIL;
+            return EnumActionResult.PASS;
         }
 
-        var cb = this.getBlockEntity(level, pos);
-        if (cb != null && cb.getCluster() != null && cb.getCluster().isBusy()) {
-            player.displayClientMessage(PlayerMessages.CraftingCpuBusy.text().withColor(0xFF1F1F), true);
-            return InteractionResult.PASS;
+        T tile = this.getTileEntity(world, pos);
+        if (tile != null && tile.getCluster() != null && tile.getCluster().isBusy()) {
+            player.sendStatusMessage(new TextComponentString("Crafting CPU is busy"), true);
+            return EnumActionResult.SUCCESS;
         }
 
-        if (!this.transform(level, pos, newState)) {
-            return InteractionResult.FAIL;
+        if (!this.transform(world, pos, newState)) {
+            return EnumActionResult.PASS;
         }
 
-        player.getInventory().placeItemBackInInventory(removedUpgrade);
+        if (!player.inventory.addItemStackToInventory(removedUpgrade.copy())) {
+            player.dropItem(removedUpgrade.copy(), false);
+        }
 
-        return InteractionResult.SUCCESS;
+        return EnumActionResult.SUCCESS;
     }
 
-    private boolean transform(Level level, BlockPos pos, BlockState state) {
-        if (level.isClientSide() || !level.removeBlock(pos, false) || !level.setBlock(pos, state, UPDATE_ALL)) {
-            return false;
-        }
-
-        level.playSound(
-                null,
-                pos.getX(),
-                pos.getY(),
-                pos.getZ(),
-                SoundEvents.ITEM_FRAME_REMOVE_ITEM,
-                SoundSource.BLOCKS,
-                0.5f,
-                1f);
-        return true;
+    private boolean transform(World world, BlockPos pos, IBlockState newState) {
+        return !world.isRemote && world.setBlockState(pos, newState, 3);
     }
 }

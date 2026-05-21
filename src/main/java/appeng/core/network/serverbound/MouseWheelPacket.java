@@ -1,44 +1,48 @@
 package appeng.core.network.serverbound;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.InteractionHand;
-
-import appeng.core.network.CustomAppEngPayload;
 import appeng.core.network.ServerboundPacket;
 import appeng.helpers.IMouseWheelItem;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketBuffer;
 
-public record MouseWheelPacket(boolean wheelUp) implements ServerboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, MouseWheelPacket> STREAM_CODEC = StreamCodec.ofMember(
-            MouseWheelPacket::write,
-            MouseWheelPacket::decode);
+public class MouseWheelPacket extends ServerboundPacket {
 
-    public static final Type<MouseWheelPacket> TYPE = CustomAppEngPayload.createType("mouse_wheel");
+    private boolean wheelUp;
 
-    @Override
-    public Type<MouseWheelPacket> type() {
-        return TYPE;
+    public MouseWheelPacket() {
     }
 
-    public static MouseWheelPacket decode(RegistryFriendlyByteBuf byteBuf) {
-        var wheelUp = byteBuf.readBoolean();
-        return new MouseWheelPacket(wheelUp);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeBoolean(wheelUp);
+    public MouseWheelPacket(boolean wheelUp) {
+        this.wheelUp = wheelUp;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        var mainHand = player.getItemInHand(InteractionHand.MAIN_HAND);
-        var offHand = player.getItemInHand(InteractionHand.OFF_HAND);
+    protected void read(ByteBuf buf) {
+        this.wheelUp = new PacketBuffer(buf).readBoolean();
+    }
 
-        if (mainHand.getItem() instanceof IMouseWheelItem mouseWheelItem) {
-            mouseWheelItem.onWheel(mainHand, wheelUp);
-        } else if (offHand.getItem() instanceof IMouseWheelItem mouseWheelItem) {
-            mouseWheelItem.onWheel(offHand, wheelUp);
+    @Override
+    protected void write(ByteBuf buf) {
+        new PacketBuffer(buf).writeBoolean(this.wheelUp);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if (handleStack(player.getHeldItemMainhand())) {
+            return;
         }
+
+        handleStack(player.getHeldItemOffhand());
+    }
+
+    private boolean handleStack(ItemStack stack) {
+        if (!stack.isEmpty() && stack.getItem() instanceof IMouseWheelItem mouseWheelItem) {
+            mouseWheelItem.onWheel(stack, this.wheelUp);
+            return true;
+        }
+
+        return false;
     }
 }

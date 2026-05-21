@@ -18,18 +18,18 @@
 
 package appeng.util.inv;
 
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.inventories.BaseInternalInventory;
 import appeng.api.inventories.InternalInventory;
+import net.minecraft.item.ItemStack;
 
 /**
  * Exposes several internal inventories as one larger internal inventory.
  */
 public class CombinedInternalInventory extends BaseInternalInventory {
-    private final InternalInventory[] inventories; // the handlers
-    private final int[] baseIndex; // index-offsets of the different handlers
-    private final int slotCount; // number of total slots
+    private final InternalInventory[] inventories;
+    // index-offsets of the different handlers
+    private final int[] baseIndex;
+    private final int slotCount;
 
     public CombinedInternalInventory(InternalInventory... inventories) {
         this.inventories = inventories;
@@ -40,9 +40,9 @@ public class CombinedInternalInventory extends BaseInternalInventory {
             this.baseIndex[i] = index;
         }
         this.slotCount = index;
+// returns the handler index for the slot
     }
 
-    // returns the handler index for the slot
     private int getIndexForSlot(int slot) {
         if (slot < 0) {
             return -1;

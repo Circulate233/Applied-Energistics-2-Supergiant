@@ -18,14 +18,6 @@
 
 package appeng.crafting.inv;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-
-import com.google.common.collect.Iterables;
-
-import org.jetbrains.annotations.Nullable;
-
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
 import appeng.api.crafting.IPatternDetails;
@@ -34,6 +26,12 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.CraftingCalculation;
 import appeng.crafting.CraftingPlan;
+import com.google.common.collect.Iterables;
+import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collections;
 
 public abstract class CraftingSimulationState implements ICraftingSimulationState {
     /**
@@ -49,25 +47,39 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
      * List of items to emit.
      */
     private final KeyCounter emittedItems;
-    /**
-     * Byte count.
-     */
-    private double bytes = 0;
-    private final Map<IPatternDetails, Long> crafts = new HashMap<>();
+    private final Object2LongMap<IPatternDetails> crafts = new Object2LongOpenHashMap<>();
     /**
      * Minimum amount of each item that needs to be extracted from the network. This is the maximum of (unmodified -
      * modifiable).
      */
     private final KeyCounter requiredExtract;
+    /**
+     * Byte count.
+     */
+    private double bytes = 0;
 
     protected CraftingSimulationState() {
         this.unmodifiedCache = new KeyCounter();
         this.modifiableCache = new KeyCounter();
         this.emittedItems = new KeyCounter();
         this.requiredExtract = new KeyCounter();
+        this.crafts.defaultReturnValue(0);
     }
 
-    protected abstract long simulateExtractParent(AEKey what, long amount);
+    public static CraftingPlan buildCraftingPlan(CraftingSimulationState state,
+                                                 CraftingCalculation calculation, long calculatedAmount) {
+        return new CraftingPlan(
+            new GenericStack(calculation.getOutput(), calculatedAmount),
+            (long) Math.ceil(state.bytes),
+            calculation.isSimulation(),
+            calculation.hasMultiplePaths(),
+            state.requiredExtract,
+            state.emittedItems,
+            calculation.getMissingItems(),
+            state.crafts);
+    }
+
+    protected abstract long simulateExtractParent(AEKey what);
 
     protected abstract Iterable<AEKey> findFuzzyParent(AEKey input);
 
@@ -77,7 +89,7 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
 
             for (var keyToCache : findFuzzyParent(what)) {
                 // not cached yet.
-                var extracted = simulateExtractParent(keyToCache, Long.MAX_VALUE);
+                var extracted = simulateExtractParent(keyToCache);
                 if (extracted != 0) {
                     insertedAny = true;
                 }
@@ -132,7 +144,8 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
             return Collections.emptyList();
         cacheFuzzy(input);
 
-        return Iterables.transform(modifiableCache.findFuzzy(input, FuzzyMode.IGNORE_ALL), Map.Entry::getKey);
+        return Iterables.transform(modifiableCache.findFuzzy(input, FuzzyMode.IGNORE_ALL),
+            it.unimi.dsi.fastutil.objects.Object2LongMap.Entry::getKey);
     }
 
     @Override
@@ -188,21 +201,8 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
 
         parent.addBytes(bytes);
 
-        for (var entry : crafts.entrySet()) {
-            parent.addCrafting(entry.getKey(), entry.getValue());
+        for (Object2LongMap.Entry<IPatternDetails> entry : crafts.object2LongEntrySet()) {
+            parent.addCrafting(entry.getKey(), entry.getLongValue());
         }
-    }
-
-    public static CraftingPlan buildCraftingPlan(CraftingSimulationState state,
-            CraftingCalculation calculation, long calculatedAmount) {
-        return new CraftingPlan(
-                new GenericStack(calculation.getOutput(), calculatedAmount),
-                (long) Math.ceil(state.bytes),
-                calculation.isSimulation(),
-                calculation.hasMultiplePaths(),
-                state.requiredExtract,
-                state.emittedItems,
-                calculation.getMissingItems(),
-                state.crafts);
     }
 }

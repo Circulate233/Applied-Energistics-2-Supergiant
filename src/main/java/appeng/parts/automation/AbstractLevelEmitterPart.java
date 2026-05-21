@@ -18,23 +18,9 @@
 
 package appeng.parts.automation;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.Setting;
 import appeng.api.config.Settings;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
@@ -43,10 +29,20 @@ import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigManagerBuilder;
 import appeng.util.Platform;
 import appeng.util.SettingsFrom;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumParticleTypes;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Random;
 
 public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
-    private boolean prevState;
     protected long lastReportedValue;
+    private boolean prevState;
     private long reportingValue;
 
     private boolean clientSideOn;
@@ -80,13 +76,13 @@ public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
     }
 
     @Override
-    public void writeToStream(RegistryFriendlyByteBuf data) {
+    public void writeToStream(PacketBuffer data) {
         super.writeToStream(data);
         data.writeBoolean(prevState);
     }
 
     @Override
-    public boolean readFromStream(RegistryFriendlyByteBuf data) {
+    public boolean readFromStream(PacketBuffer data) {
         var changed = super.readFromStream(data);
         var wasOn = this.clientSideOn;
         this.clientSideOn = data.readBoolean();
@@ -94,14 +90,14 @@ public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
     }
 
     @Override
-    public void writeVisualStateToNBT(CompoundTag data) {
+    public void writeVisualStateToNBT(NBTTagCompound data) {
         super.writeVisualStateToNBT(data);
 
-        data.putBoolean("on", isLevelEmitterOn());
+        data.setBoolean("on", isLevelEmitterOn());
     }
 
     @Override
-    public void readVisualStateFromNBT(CompoundTag data) {
+    public void readVisualStateFromNBT(NBTTagCompound data) {
         super.readVisualStateFromNBT(data);
 
         this.clientSideOn = data.getBoolean("on");
@@ -111,10 +107,10 @@ public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
         var isOn = this.isLevelEmitterOn();
         if (this.prevState != isOn) {
             this.getHost().markForUpdate();
-            var te = this.getHost().getBlockEntity();
+            var te = this.getHost().getTileEntity();
             this.prevState = isOn;
-            Platform.notifyBlocksOfNeighbors(te.getLevel(), te.getBlockPos());
-            Platform.notifyBlocksOfNeighbors(te.getLevel(), te.getBlockPos().relative(this.getSide()));
+            Platform.notifyBlocksOfNeighbors(te.getWorld(), te.getPos());
+            Platform.notifyBlocksOfNeighbors(te.getWorld(), te.getPos().offset(this.getSide()));
         }
     }
 
@@ -142,16 +138,16 @@ public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
     }
 
     @Override
-    public final void animateTick(Level level, BlockPos pos, RandomSource r) {
+    public final void animateTick(World level, BlockPos pos, Random r) {
         if (this.isLevelEmitterOn()) {
-            final Direction d = this.getSide();
+            final EnumFacing d = this.getSide();
 
-            final double d0 = d.getStepX() * 0.45F + (r.nextFloat() - 0.5F) * 0.2D;
-            final double d1 = d.getStepY() * 0.45F + (r.nextFloat() - 0.5F) * 0.2D;
-            final double d2 = d.getStepZ() * 0.45F + (r.nextFloat() - 0.5F) * 0.2D;
+            final double d0 = d.getXOffset() * 0.45F + (r.nextFloat() - 0.5F) * 0.2D;
+            final double d1 = d.getYOffset() * 0.45F + (r.nextFloat() - 0.5F) * 0.2D;
+            final double d2 = d.getZOffset() * 0.45F + (r.nextFloat() - 0.5F) * 0.2D;
 
-            level.addParticle(DustParticleOptions.REDSTONE, 0.5 + pos.getX() + d0, 0.5 + pos.getY() + d1,
-                    0.5 + pos.getZ() + d2, 0.0D, 0.0D, 0.0D);
+            level.spawnParticle(EnumParticleTypes.REDSTONE, 0.5 + pos.getX() + d0, 0.5 + pos.getY() + d1,
+                0.5 + pos.getZ() + d2, 0.0D, 0.0D, 0.0D);
         }
     }
 
@@ -169,9 +165,8 @@ public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
         }
 
         final boolean flipState = this.getConfigManager()
-                .getSetting(Settings.REDSTONE_EMITTER) == RedstoneMode.LOW_SIGNAL;
-        return flipState ? this.reportingValue >= this.lastReportedValue + 1
-                : this.reportingValue < this.lastReportedValue + 1;
+                                      .getSetting(Settings.REDSTONE_EMITTER) == RedstoneMode.LOW_SIGNAL;
+        return flipState == (this.reportingValue >= this.lastReportedValue + 1);
     }
 
     @Override
@@ -180,19 +175,19 @@ public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.readFromNBT(data, registries);
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
         this.lastReportedValue = data.getLong("lastReportedValue");
         this.reportingValue = data.getLong("reportingValue");
         this.prevState = data.getBoolean("prevState");
     }
 
     @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.writeToNBT(data, registries);
-        data.putLong("lastReportedValue", this.lastReportedValue);
-        data.putLong("reportingValue", this.reportingValue);
-        data.putBoolean("prevState", this.prevState);
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+        data.setLong("lastReportedValue", this.lastReportedValue);
+        data.setLong("reportingValue", this.reportingValue);
+        data.setBoolean("prevState", this.prevState);
     }
 
     @Override
@@ -216,21 +211,20 @@ public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
     }
 
     @Override
-    public void importSettings(SettingsFrom mode, DataComponentMap input, @Nullable Player player) {
+    public void importSettings(SettingsFrom mode, NBTTagCompound input, @Nullable EntityPlayer player) {
         super.importSettings(mode, input, player);
 
-        var reportingValue = input.get(AEComponents.EXPORTED_LEVEL_EMITTER_VALUE);
-        if (reportingValue != null) {
-            setReportingValue(reportingValue);
+        if (mode == SettingsFrom.MEMORY_CARD && input.hasKey("reportingValue")) {
+            setReportingValue(input.getLong("reportingValue"));
         }
     }
 
     @Override
-    public void exportSettings(SettingsFrom mode, DataComponentMap.Builder builder) {
+    public void exportSettings(SettingsFrom mode, NBTTagCompound builder) {
         super.exportSettings(mode, builder);
 
         if (mode == SettingsFrom.MEMORY_CARD) {
-            builder.set(AEComponents.EXPORTED_LEVEL_EMITTER_VALUE, reportingValue);
+            builder.setLong("reportingValue", reportingValue);
         }
     }
 
@@ -244,3 +238,4 @@ public abstract class AbstractLevelEmitterPart extends UpgradeablePart {
         return false; // We handle this completely in our enabled flag
     }
 }
+

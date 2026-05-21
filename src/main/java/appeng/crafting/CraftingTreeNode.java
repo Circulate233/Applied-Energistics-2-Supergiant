@@ -18,14 +18,6 @@
 
 package appeng.crafting;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.level.Level;
-
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
@@ -37,6 +29,12 @@ import appeng.crafting.execution.InputTemplate;
 import appeng.crafting.inv.ChildCraftingSimulationState;
 import appeng.crafting.inv.CraftingSimulationState;
 import appeng.crafting.inv.ICraftingInventory;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * A crafting tree node is what represents a single requested stack in the crafting process. It can either be the
@@ -53,21 +51,21 @@ public class CraftingTreeNode {
     private final CraftingCalculation job;
     // parent node.
     private final CraftingTreeProcess parent;
-    private final Level level;
+    private final World level;
     /**
      * "Template" of the item this node is making. For top-level node: the count is always 1. For child nodes: the count
      * is that of the template of the corresponding input.
      */
     private final AEKey what;
     private final long amount;
+    private final boolean canEmit;
     /**
      * The patterns that can make this node. Null if they haven't been computed yet.
      */
-    private ArrayList<CraftingTreeProcess> nodes = null;
-    private final boolean canEmit;
+    private List<CraftingTreeProcess> nodes = null;
 
     public CraftingTreeNode(ICraftingService cc, CraftingCalculation job, AEKey what, long amount,
-            CraftingTreeProcess par, int slot) {
+                            CraftingTreeProcess par, int slot) {
         this.parent = par;
         this.parentInput = slot == -1 ? null : par.details.getInputs()[slot];
         this.level = job.getLevel();
@@ -87,17 +85,15 @@ public class CraftingTreeNode {
 
         if (patterns.isEmpty() && parentInput != null) {
             // No pattern for the exact encoded input. Try to find a pattern for a substitute ingredient. ;)
-            long acceptableAmount = parentInput.getPossibleInputs()[0].amount();
+            long acceptableAmount = parentInput.possibleInputs()[0].amount();
 
-            for (var possibleInput : parentInput.getPossibleInputs()) {
+            for (var possibleInput : parentInput.possibleInputs()) {
                 if (possibleInput.amount() != acceptableAmount) {
                     // Skip if the amounts don't match (don't want to replace 1000 water by 1000 buckets for example).
                     continue;
                 }
 
-                var fuzzy = cc.getFuzzyCraftable(possibleInput.what(), fuzzyCandidate -> {
-                    return this.parentInput.isValid(fuzzyCandidate, level);
-                });
+                var fuzzy = cc.getFuzzyCraftable(possibleInput.what(), fuzzyCandidate -> this.parentInput.isValid(fuzzyCandidate, level));
 
                 if (fuzzy != null) {
                     return fuzzy;
@@ -115,7 +111,7 @@ public class CraftingTreeNode {
         }
 
         if (this.nodes == null) {
-            this.nodes = new ArrayList<>();
+            this.nodes = new ObjectArrayList<>();
 
             var gridNode = this.job.simRequester.getGridNode();
 
@@ -143,7 +139,7 @@ public class CraftingTreeNode {
         }
 
         for (var input : details.getInputs()) {
-            if (this.what.matches(input.getPossibleInputs()[0])) {
+            if (this.what.matches(input.possibleInputs()[0])) {
                 return false;
             }
         }
@@ -157,7 +153,7 @@ public class CraftingTreeNode {
 
     /**
      * Request items. Will always succeed or throw an exception.
-     * 
+     *
      * @param inv             Current simulated inventory.
      * @param requestedAmount How many items. The raw amount for top-level requests, or the number of inputs for
      *                        requests that have a parent.
@@ -165,8 +161,8 @@ public class CraftingTreeNode {
      * @throws CraftBranchFailure If the request failed.
      */
     void request(CraftingSimulationState inv, long requestedAmount,
-            @Nullable KeyCounter containerItems)
-            throws CraftBranchFailure, InterruptedException {
+                 @Nullable KeyCounter containerItems)
+        throws CraftBranchFailure, InterruptedException {
         this.job.handlePausing();
 
         inv.addStackBytes(what, amount, requestedAmount);
@@ -208,7 +204,7 @@ public class CraftingTreeNode {
         long totalRequestedItems = requestedAmount * this.amount;
         if (this.nodes.size() == 1) {
             // Single branch: just query as much as we can and let it throw if that's not possible.
-            final CraftingTreeProcess pro = this.nodes.get(0);
+            final CraftingTreeProcess pro = this.nodes.getFirst();
             var craftedPerPattern = pro.getOutputCount(this.what);
 
             while (pro.possible && totalRequestedItems > 0) {
@@ -233,17 +229,17 @@ public class CraftingTreeNode {
                 } else {
                     var pattern = pro.details.getDefinition();
                     String outputs = pro.details.getOutputs()
-                            .stream()
-                            .map(GenericStack::toString)
-                            .collect(Collectors.joining(", "));
+                                                .stream()
+                                                .map(GenericStack::toString)
+                                                .collect(Collectors.joining(", "));
                     String errorMessage = """
-                            Unexpected error in the crafting calculation: can't find created items.
-                            This is an AE2 bug, please report it, with the following important information:
-
-                            - Found none of %s. Remaining request: %d of %d*%d.
-                            - Tried crafting %d times the pattern %s.
-                            - Pattern outputs: %s.
-                            """.formatted(what, totalRequestedItems, requestedAmount, amount, times, pattern, outputs);
+                        Unexpected error in the crafting calculation: can't find created items.
+                        This is an AE2 bug, please report it, with the following important information:
+                        
+                        - Found none of %s. Remaining request: %d of %d*%d.
+                        - Tried crafting %d times the pattern %s.
+                        - Pattern outputs: %s.
+                        """.formatted(what, totalRequestedItems, requestedAmount, amount, times, pattern, outputs);
                     throw new UnsupportedOperationException(errorMessage);
                 }
             }
@@ -287,7 +283,7 @@ public class CraftingTreeNode {
 
     // Only item stacks are supported.
     private void addContainerItems(AEKey template, long multiplier,
-            @Nullable KeyCounter outputList) {
+                                   @Nullable KeyCounter outputList) {
         if (outputList != null) {
             var containerItem = parentInput.getRemainingKey(template);
             if (containerItem != null) {
@@ -298,7 +294,7 @@ public class CraftingTreeNode {
 
     /**
      * Get all stack templates that can be used for this node.
-     * 
+     *
      * @param inv Crafting inventory, used for fuzzy matching.
      */
     private Iterable<InputTemplate> getValidItemTemplates(ICraftingInventory inv) {

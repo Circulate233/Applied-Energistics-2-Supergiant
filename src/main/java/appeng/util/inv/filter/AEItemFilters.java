@@ -18,9 +18,8 @@
 
 package appeng.util.inv.filter;
 
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.inventories.InternalInventory;
+import net.minecraft.item.ItemStack;
 
 public class AEItemFilters {
     public static final IAEItemFilter INSERT_ONLY = new InsertOnlyFilter();
@@ -37,14 +36,14 @@ public class AEItemFilters {
 
         @Override
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
-            return true;
+            return IAEItemFilter.super.allowInsert(inv, slot, stack);
         }
     }
 
     private static class ExtractOnlyFilter implements IAEItemFilter {
         @Override
         public boolean allowExtract(InternalInventory inv, int slot, int amount) {
-            return true;
+            return IAEItemFilter.super.allowExtract(inv, slot, amount);
         }
 
         @Override

@@ -1,47 +1,42 @@
-
 package appeng.core.network.serverbound;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-
-import appeng.core.network.CustomAppEngPayload;
+import appeng.container.implementations.ContainerCraftAmount;
 import appeng.core.network.ServerboundPacket;
-import appeng.menu.me.crafting.CraftAmountMenu;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
 
-public record ConfirmAutoCraftPacket(int amount,
-        boolean craftMissingAmount,
-        boolean autoStart) implements ServerboundPacket {
+public class ConfirmAutoCraftPacket extends ServerboundPacket {
+    private int amount;
+    private boolean craftMissingAmount;
+    private boolean autoStart;
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, ConfirmAutoCraftPacket> STREAM_CODEC = StreamCodec
-            .ofMember(
-                    ConfirmAutoCraftPacket::write,
-                    ConfirmAutoCraftPacket::decode);
-
-    public static final Type<ConfirmAutoCraftPacket> TYPE = CustomAppEngPayload.createType("confirm_auto_craft");
-
-    @Override
-    public Type<ConfirmAutoCraftPacket> type() {
-        return TYPE;
+    public ConfirmAutoCraftPacket() {
     }
 
-    public static ConfirmAutoCraftPacket decode(RegistryFriendlyByteBuf stream) {
-        var amount = stream.readInt();
-        var craftMissingAmount = stream.readBoolean();
-        var autoStart = stream.readBoolean();
-        return new ConfirmAutoCraftPacket(amount, craftMissingAmount, autoStart);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeInt(amount);
-        data.writeBoolean(craftMissingAmount);
-        data.writeBoolean(autoStart);
+    public ConfirmAutoCraftPacket(int amount, boolean craftMissingAmount, boolean autoStart) {
+        this.amount = amount;
+        this.craftMissingAmount = craftMissingAmount;
+        this.autoStart = autoStart;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (player.containerMenu instanceof CraftAmountMenu menu) {
-            menu.confirm(amount, craftMissingAmount, autoStart);
+    protected void read(ByteBuf buf) {
+        this.amount = buf.readInt();
+        this.craftMissingAmount = buf.readBoolean();
+        this.autoStart = buf.readBoolean();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        buf.writeInt(this.amount);
+        buf.writeBoolean(this.craftMissingAmount);
+        buf.writeBoolean(this.autoStart);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        if (player.openContainer instanceof ContainerCraftAmount container) {
+            container.confirm(this.amount, this.craftMissingAmount, this.autoStart);
         }
     }
 }

@@ -1,180 +1,204 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.block.misc;
 
-import java.util.EnumMap;
-import java.util.Map;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.SimpleWaterloggedBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.block.state.properties.DirectionProperty;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
+import appeng.api.orientation.IOrientationStrategy;
+import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import appeng.block.AEBaseBlock;
-import appeng.client.render.effects.ParticleTypes;
+import appeng.client.EffectType;
 import appeng.core.AEConfig;
-import appeng.core.AppEngClient;
+import appeng.core.AppEngBase;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockDirectional;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public class QuartzFixtureBlock extends AEBaseBlock implements SimpleWaterloggedBlock {
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Random;
 
-    // Cache VoxelShapes for each facing
-    private static final Map<Direction, VoxelShape> SHAPES;
+@SuppressWarnings("deprecation")
+public class QuartzFixtureBlock extends AEBaseBlock {
+    public static final PropertyBool ODD = PropertyBool.create("odd");
 
-    static {
-        SHAPES = new EnumMap<>(Direction.class);
-
-        for (Direction facing : Direction.values()) {
-            final double xOff = -0.3 * facing.getStepX();
-            final double yOff = -0.3 * facing.getStepY();
-            final double zOff = -0.3 * facing.getStepZ();
-            VoxelShape shape = Shapes
-                    .create(new AABB(xOff + 0.3, yOff + 0.3, zOff + 0.3, xOff + 0.7, yOff + 0.7, zOff + 0.7));
-            SHAPES.put(facing, shape);
-        }
-    }
-
-    public static final DirectionProperty FACING = BlockStateProperties.FACING;
-
-    // Used to alternate between two variants of the fixture on adjacent blocks
-    public static final BooleanProperty ODD = BooleanProperty.create("odd");
-
-    public static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+    private static final AxisAlignedBB DOWN_AABB = createAabb(EnumFacing.DOWN);
+    private static final AxisAlignedBB UP_AABB = createAabb(EnumFacing.UP);
+    private static final AxisAlignedBB NORTH_AABB = createAabb(EnumFacing.NORTH);
+    private static final AxisAlignedBB SOUTH_AABB = createAabb(EnumFacing.SOUTH);
+    private static final AxisAlignedBB WEST_AABB = createAabb(EnumFacing.WEST);
+    private static final AxisAlignedBB EAST_AABB = createAabb(EnumFacing.EAST);
 
     public QuartzFixtureBlock() {
-        super(fixtureProps().lightLevel(b -> 15));
+        super(Material.GLASS);
+        this.setOpaque();
+        this.setFullSize();
+        this.setHardness(0.3F);
+        this.setResistance(1.5F);
+        this.setLightLevel(1.0F);
+        this.setDefaultState(this.blockState.getBaseState()
+                                            .withProperty(BlockDirectional.FACING, EnumFacing.UP)
+                                            .withProperty(ODD, false));
+    }
 
-        this.registerDefaultState(
-                defaultBlockState().setValue(FACING, Direction.UP).setValue(ODD, false).setValue(WATERLOGGED, false));
+    private static AxisAlignedBB createAabb(EnumFacing facing) {
+        double xOff = -0.3D * facing.getXOffset();
+        double yOff = -0.3D * facing.getYOffset();
+        double zOff = -0.3D * facing.getZOffset();
+        return new AxisAlignedBB(xOff + 0.3D, yOff + 0.3D, zOff + 0.3D, xOff + 0.7D, yOff + 0.7D, zOff + 0.7D);
+    }
+
+    private static EnumFacing[] getNearestLookingDirections(EntityLivingBase placer) {
+        if (placer == null) {
+            return EnumFacing.values();
+        }
+
+        Vec3d look = placer.getLookVec();
+        List<EnumFacing> ordered = new ObjectArrayList<>(6);
+        List<AxisFacing> axisFacings = Arrays.asList(
+            new AxisFacing(Math.abs(look.x), look.x >= 0.0D ? EnumFacing.EAST : EnumFacing.WEST),
+            new AxisFacing(Math.abs(look.y), look.y >= 0.0D ? EnumFacing.UP : EnumFacing.DOWN),
+            new AxisFacing(Math.abs(look.z), look.z >= 0.0D ? EnumFacing.SOUTH : EnumFacing.NORTH));
+        axisFacings.sort(Comparator.comparingDouble(AxisFacing::magnitude).reversed());
+
+        for (AxisFacing axisFacing : axisFacings) {
+            ordered.add(axisFacing.facing);
+        }
+        for (AxisFacing axisFacing : axisFacings) {
+            ordered.add(axisFacing.facing.getOpposite());
+        }
+
+        return ordered.toArray(new EnumFacing[0]);
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        builder.add(FACING, ODD, WATERLOGGED);
+    public IOrientationStrategy getOrientationStrategy() {
+        return OrientationStrategies.facingNoPlayerRotation();
     }
 
-    // For reference, see WallTorchBlock
     @Override
-    @Nullable
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        BlockState state = super.getStateForPlacement(context);
-        BlockPos pos = context.getClickedPos();
-        FluidState fluidState = context.getLevel().getFluidState(pos);
+    protected BlockStateContainer createBlockState() {
+        return this.createBlockState(ODD);
+    }
 
-        // Set the even/odd property
-        boolean oddPlacement = (pos.getX() + pos.getY() + pos.getZ()) % 2 != 0;
-        state = state.setValue(ODD, oddPlacement).setValue(WATERLOGGED, fluidState.getType() == Fluids.WATER);
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return state.getValue(BlockDirectional.FACING).getIndex() | (state.getValue(ODD) ? 8 : 0);
+    }
 
-        var levelReader = context.getLevel();
-        var adirection = context.getNearestLookingDirections();
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        int facingIndex = meta & 7;
+        if (facingIndex > 5) {
+            facingIndex = 0;
+        }
+        return this.getDefaultState()
+                   .withProperty(BlockDirectional.FACING, EnumFacing.byIndex(facingIndex))
+                   .withProperty(ODD, (meta & 8) != 0);
+    }
 
-        for (var direction : adirection) {
-            var placedState = state.setValue(FACING, direction.getOpposite());
-            if (canSurvive(placedState, levelReader, pos)) {
+    @Override
+    public IBlockState getStateForPlacement(World world, BlockPos pos, EnumFacing facing, float hitX, float hitY,
+                                            float hitZ, int meta, EntityLivingBase placer, EnumHand hand) {
+        IBlockState state = this.getDefaultState().withProperty(ODD, ((pos.getX() + pos.getY() + pos.getZ()) & 1) != 0);
+
+        for (EnumFacing lookDirection : getNearestLookingDirections(placer)) {
+            IBlockState placedState = state.withProperty(BlockDirectional.FACING, lookDirection.getOpposite());
+            if (this.canBlockStay(world, pos, placedState)) {
                 return placedState;
             }
         }
 
-        return null;
-    }
-
-    // Break the fixture if the block it is attached to is changed so that it could
-    // no longer be placed
-    @Override
-    public BlockState updateShape(BlockState state, Direction direction, BlockState facingState, LevelAccessor level,
-            BlockPos currentPos, BlockPos facingPos) {
-        if (state.getValue(WATERLOGGED).booleanValue()) {
-            level.scheduleTick(currentPos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+        for (EnumFacing direction : EnumFacing.values()) {
+            IBlockState placedState = state.withProperty(BlockDirectional.FACING, direction);
+            if (this.canBlockStay(world, pos, placedState)) {
+                return placedState;
+            }
         }
 
-        if (direction.getOpposite() == state.getValue(FACING) && !state.canSurvive(level, currentPos)) {
-            return Blocks.AIR.defaultBlockState();
+        return state.withProperty(BlockDirectional.FACING, facing);
+    }
+
+    @Override
+    public AxisAlignedBB getBoundingBox(IBlockState state, IBlockAccess source, BlockPos pos) {
+        return switch (state.getValue(BlockDirectional.FACING)) {
+            case DOWN -> DOWN_AABB;
+            case NORTH -> NORTH_AABB;
+            case SOUTH -> SOUTH_AABB;
+            case WEST -> WEST_AABB;
+            case EAST -> EAST_AABB;
+            default -> UP_AABB;
+        };
+    }
+
+    @Override
+    public boolean canPlaceBlockAt(World world, BlockPos pos) {
+        for (EnumFacing facing : EnumFacing.values()) {
+            if (this.canBlockStay(world, pos, this.getDefaultState().withProperty(BlockDirectional.FACING, facing))) {
+                return true;
+            }
         }
-
-        return state;
+        return false;
     }
 
     @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        Direction facing = state.getValue(FACING);
-        return SHAPES.get(facing);
+    public boolean canPlaceBlockOnSide(World world, BlockPos pos, EnumFacing side) {
+        return this.canBlockStay(world, pos, this.getDefaultState().withProperty(BlockDirectional.FACING, side));
+    }
+
+    public boolean canBlockStay(World world, BlockPos pos, IBlockState state) {
+        EnumFacing facing = state.getValue(BlockDirectional.FACING);
+        BlockPos supportPos = pos.offset(facing.getOpposite());
+        IBlockState supportState = world.getBlockState(supportPos);
+        return supportState.getBlock().isSideSolid(supportState, world, supportPos, facing);
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource r) {
+    public void neighborChanged(IBlockState state, World world, BlockPos pos, Block blockIn, BlockPos fromPos) {
+        if (!this.canBlockStay(world, pos, state) && !world.isRemote) {
+            this.dropBlockAsItem(world, pos, state, 0);
+            world.setBlockToAir(pos);
+        }
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void randomDisplayTick(IBlockState state, World world, BlockPos pos, Random random) {
         if (!AEConfig.instance().isEnableEffects()) {
             return;
         }
 
-        if (r.nextFloat() < 0.98) {
+        if (random.nextFloat() < 0.98F) {
             return;
         }
 
-        var orientation = getOrientation(state);
-
-        var top = orientation.getSide(RelativeSide.TOP);
-        final double xOff = -0.3 * top.getStepX();
-        final double yOff = -0.3 * top.getStepY();
-        final double zOff = -0.3 * top.getStepZ();
+        EnumFacing top = this.getOrientation(state).getSide(RelativeSide.TOP);
+        double xOff = -0.3D * top.getXOffset();
+        double yOff = -0.3D * top.getYOffset();
+        double zOff = -0.3D * top.getZOffset();
         for (int bolts = 0; bolts < 3; bolts++) {
-            if (AppEngClient.instance().shouldAddParticles(r)) {
-                level.addParticle(ParticleTypes.LIGHTNING, xOff + 0.5 + pos.getX(), yOff + 0.5 + pos.getY(),
-                        zOff + 0.5 + pos.getZ(), 0, 0, 0);
+            if (AppEngBase.runtime().shouldAddParticles(random)) {
+                AppEngBase.runtime().spawnEffect(EffectType.Lightning, world,
+                    xOff + 0.5D + pos.getX(),
+                    yOff + 0.5D + pos.getY(),
+                    zOff + 0.5D + pos.getZ(),
+                    null);
             }
         }
     }
 
-    @Override
-    public boolean canSurvive(BlockState state, LevelReader level, BlockPos pos) {
-        var facing = state.getValue(FACING);
-        var blockPos = pos.relative(facing.getOpposite());
-        return canSupportCenter(level, blockPos, facing);
+    private record AxisFacing(double magnitude, EnumFacing facing) {
     }
-
-    @Override
-    public FluidState getFluidState(BlockState blockState) {
-        return blockState.getValue(WATERLOGGED).booleanValue()
-                ? Fluids.WATER.getSource(false)
-                : super.getFluidState(blockState);
-    }
-
 }

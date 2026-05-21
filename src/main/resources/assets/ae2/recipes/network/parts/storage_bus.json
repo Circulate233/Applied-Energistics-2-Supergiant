@@ -1,0 +1,23 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "minecraft:piston"
+    },
+    [
+      {
+        "item": "ae2:cable_interface"
+      },
+      {
+        "item": "ae2:interface"
+      }
+    ],
+    {
+      "item": "minecraft:piston"
+    }
+  ],
+  "result": {
+    "item": "ae2:storage_bus",
+    "count": 1
+  }
+}

@@ -23,9 +23,8 @@
 
 package appeng.api.networking;
 
+import net.minecraft.util.EnumFacing;
 import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
 
 /**
  * Access to AE's internal grid connections.
@@ -47,7 +46,7 @@ public interface IGridConnection {
 
     /**
      * @return True if this connection was established via the grid node host's sides, and
-     *         {@link #getDirection(IGridNode)} returns a non-null value.
+     * {@link #getDirection(IGridNode)} returns a non-null value.
      */
     boolean isInWorld();
 
@@ -58,10 +57,10 @@ public interface IGridConnection {
      * @return the direction of the connection, if {@link #isInWorld()} is true, otherwise null.
      */
     @Nullable
-    Direction getDirection(IGridNode sourceNode);
+    EnumFacing getDirection(IGridNode sourceNode);
 
     /**
-     * by destroying a connection you may create new grids, and trigger un-expected behavior, you should only destroy
+     * By destroying a connection you may create new grids and trigger unexpected behavior. You should only destroy
      * connections if you created them.
      */
     void destroy();
@@ -77,7 +76,7 @@ public interface IGridConnection {
     IGridNode b();
 
     /**
-     * @return how many channels pass over this connections.
+     * @return how many channels pass over these connections.
      */
     int getUsedChannels();
 }

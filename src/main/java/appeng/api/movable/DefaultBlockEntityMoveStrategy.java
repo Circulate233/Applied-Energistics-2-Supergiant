@@ -23,43 +23,44 @@
 
 package appeng.api.movable;
 
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-
 /**
- * The default strategy for moving block entities in/out of spatial storage. Can be extended to create custom logic that
+ * The default strategy for moving tile entities in/out of spatial storage. Can be extended to create custom logic that
  * runs after {@link #completeMove} or prevents moving specific entities in {@link IBlockEntityMoveStrategy#beginMove}
  * by returning null.
  * <p/>
- * The default strategy uses {@link BlockEntity#saveWithId(HolderLookup.Provider)} in
- * {@link IBlockEntityMoveStrategy#beginMove} to persist the block entity data before it is removed, and then creates a
- * new block entity at the target position using
- * {@link BlockEntity#loadStatic(BlockPos, BlockState, CompoundTag, HolderLookup.Provider)} in {@link #completeMove}.
+ * The default strategy uses {@link TileEntity#writeToNBT(NBTTagCompound)} in
+ * {@link IBlockEntityMoveStrategy#beginMove} to persist the tile entity data before it is removed, and then creates a
+ * new tile entity at the target position using
+ * {@link TileEntity#create(World, NBTTagCompound)} in {@link #completeMove}.
  */
 public abstract class DefaultBlockEntityMoveStrategy implements IBlockEntityMoveStrategy {
 
     @Nullable
     @Override
-    public CompoundTag beginMove(BlockEntity blockEntity, HolderLookup.Provider registries) {
-        return blockEntity.saveWithId(registries);
+    public NBTTagCompound beginMove(TileEntity tileEntity) {
+        return tileEntity.writeToNBT(new NBTTagCompound());
     }
 
     @Override
-    public boolean completeMove(BlockEntity blockEntity, BlockState state, CompoundTag savedData, Level newLevel,
-            BlockPos newPosition) {
-        var be = BlockEntity.loadStatic(newPosition, state, savedData, newLevel.registryAccess());
-        if (be != null) {
-            newLevel.setBlockEntity(be);
-            return true;
-        } else {
+    public boolean completeMove(TileEntity blockEntity, IBlockState state, NBTTagCompound savedData, World newLevel,
+                                BlockPos newPosition) {
+        savedData.setInteger("x", newPosition.getX());
+        savedData.setInteger("y", newPosition.getY());
+        savedData.setInteger("z", newPosition.getZ());
+        var tileEntity = TileEntity.create(newLevel, savedData);
+        if (tileEntity == null) {
             return false;
         }
+
+        newLevel.setTileEntity(newPosition, tileEntity);
+        return true;
     }
 
 }

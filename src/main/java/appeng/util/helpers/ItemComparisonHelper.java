@@ -18,48 +18,61 @@
 
 package appeng.util.helpers;
 
+import appeng.api.config.FuzzyMode;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-
-import appeng.api.config.FuzzyMode;
-
-/**
- * A helper class for comparing {@link Item}, {@link ItemStack} or NBT
- */
 public final class ItemComparisonHelper {
 
     private ItemComparisonHelper() {
     }
 
-    /**
-     * Compare the two {@link ItemStack}s based on the same {@link Item} and damage value.
-     * <p>
-     * In case of the item being damageable, only the {@link Item} will be considered. If not it will also compare both
-     * damage values.
-     * <p>
-     * Ignores NBT.
-     *
-     * @return true, if both are equal.
-     */
     public static boolean isEqualItemType(ItemStack that, ItemStack other) {
-        return !that.isEmpty() && !other.isEmpty() && that.getItem() == other.getItem();
+        if (!that.isEmpty() && !other.isEmpty() && that.getItem() == other.getItem()) {
+            if (that.isItemStackDamageable()) {
+                return true;
+            }
+            return that.getItemDamage() == other.getItemDamage();
+        }
+        return false;
     }
 
-    /**
-     * recursive test for NBT Equality, this was faster then trying to compare / generate hashes, its also more reliable
-     * then the vanilla version which likes to fail when NBT Compound data changes order, it is pretty expensive
-     * performance wise, so try an use shared tag compounds as long as the system remains in AE.
-     */
-    public boolean isNbtTagEqual(@Nullable CompoundTag left, @Nullable CompoundTag right) {
+    public static boolean isSameItem(ItemStack left, ItemStack right) {
+        return ItemStack.areItemsEqual(left, right) && isNbtTagEqual(left.getTagCompound(), right.getTagCompound());
+    }
+
+    public static boolean isFuzzyEqualItem(ItemStack a, ItemStack b, FuzzyMode mode) {
+        if (a.isEmpty() && b.isEmpty()) {
+            return true;
+        }
+
+        if (a.isEmpty() || b.isEmpty()) {
+            return false;
+        }
+
+        if (a.getItem() == b.getItem() && a.getItem().isDamageable()) {
+            if (mode == FuzzyMode.IGNORE_ALL) {
+                return true;
+            } else if (mode == FuzzyMode.PERCENT_99) {
+                return (a.getItemDamage() > 0) == (b.getItemDamage() > 0);
+            } else {
+                float percentDamagedOfA = (float) a.getItemDamage() / (float) a.getMaxDamage();
+                float percentDamagedOfB = (float) b.getItemDamage() / (float) b.getMaxDamage();
+                return (percentDamagedOfA > mode.breakPoint) == (percentDamagedOfB > mode.breakPoint);
+            }
+        }
+
+        return a.isItemEqual(b);
+    }
+
+    public static boolean isNbtTagEqual(@Nullable NBTTagCompound left, @Nullable NBTTagCompound right) {
         if (left == right) {
             return true;
         }
 
-        final boolean isLeftEmpty = left == null || left.isEmpty();
-        final boolean isRightEmpty = right == null || right.isEmpty();
+        boolean isLeftEmpty = left == null || left.isEmpty();
+        boolean isRightEmpty = right == null || right.isEmpty();
 
         if (isLeftEmpty && isRightEmpty) {
             return true;
@@ -71,38 +84,4 @@ public final class ItemComparisonHelper {
 
         return left.equals(right);
     }
-
-    /**
-     * Similar to {@link ItemStack#isSameItemSameComponents}, but it can further check, if both are equal considering a
-     * {@link FuzzyMode}.
-     *
-     * @param mode how to compare the two {@link ItemStack}s
-     * @return true, if both are matching the mode
-     */
-    public static boolean isFuzzyEqualItem(ItemStack a, ItemStack b, FuzzyMode mode) {
-        if (a.isEmpty() && b.isEmpty()) {
-            return true;
-        }
-
-        if (a.isEmpty() || b.isEmpty()) {
-            return false;
-        }
-
-        // test damageable items..
-        if (a.getItem() == b.getItem() && a.isDamageableItem()) {
-            if (mode == FuzzyMode.IGNORE_ALL) {
-                return true;
-            } else if (mode == FuzzyMode.PERCENT_99) {
-                return a.getDamageValue() > 0 == b.getDamageValue() > 0;
-            } else {
-                final float percentDamagedOfA = (float) a.getDamageValue() / a.getMaxDamage();
-                final float percentDamagedOfB = (float) b.getDamageValue() / b.getMaxDamage();
-
-                return percentDamagedOfA > mode.breakPoint == percentDamagedOfB > mode.breakPoint;
-            }
-        }
-
-        return ItemStack.isSameItem(a, b);
-    }
-
 }

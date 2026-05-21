@@ -1,0 +1,12 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:inverted_toggle_bus"
+    }
+  ],
+  "result": {
+    "item": "ae2:toggle_bus",
+    "count": 1
+  }
+}

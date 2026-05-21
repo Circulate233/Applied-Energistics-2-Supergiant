@@ -18,26 +18,30 @@
 
 package appeng.client.render;
 
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModel;
+import net.minecraftforge.common.model.IModelState;
+import net.minecraftforge.common.model.TRSRTransformation;
+
 import java.util.Collection;
 import java.util.Collections;
-import java.util.function.Function;
-
-import net.minecraft.client.resources.model.UnbakedModel;
-import net.minecraft.resources.ResourceLocation;
 
 /**
  * An unbaked model that has standard models as a dependency and produces a custom baked model as a result.
  */
-public interface BasicUnbakedModel extends UnbakedModel {
+public interface BasicUnbakedModel extends IModel {
     @Override
     default Collection<ResourceLocation> getDependencies() {
         return Collections.emptyList();
     }
 
     @Override
-    default void resolveParents(Function<ResourceLocation, UnbakedModel> function) {
-        for (ResourceLocation dependency : getDependencies()) {
-            function.apply(dependency).resolveParents(function);
-        }
+    default Collection<ResourceLocation> getTextures() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    default IModelState getDefaultState() {
+        return TRSRTransformation.identity();
     }
 }

@@ -23,16 +23,14 @@
 
 package appeng.api.ids;
 
+import appeng.api.util.AEColor;
+import com.google.common.collect.ImmutableMap;
+import net.minecraft.util.ResourceLocation;
+
 import java.util.Map;
 
-import com.google.common.collect.ImmutableMap;
-
-import net.minecraft.resources.ResourceLocation;
-
-import appeng.api.util.AEColor;
-
 /**
- * Contains {@link net.minecraft.world.item.Item} ids for various cable bus parts defined by AE2.
+ * Contains {@link net.minecraft.item.Item} ids for various cable bus parts defined by AE2.
  */
 @SuppressWarnings("unused")
 public final class AEPartIds {
@@ -59,24 +57,24 @@ public final class AEPartIds {
     public static final ResourceLocation CABLE_GLASS_BLACK = id("black_glass_cable");
     public static final ResourceLocation CABLE_GLASS_TRANSPARENT = id("fluix_glass_cable");
     public static final Map<AEColor, ResourceLocation> CABLE_GLASS = ImmutableMap.<AEColor, ResourceLocation>builder()
-            .put(AEColor.WHITE, CABLE_GLASS_WHITE)
-            .put(AEColor.ORANGE, CABLE_GLASS_ORANGE)
-            .put(AEColor.MAGENTA, CABLE_GLASS_MAGENTA)
-            .put(AEColor.LIGHT_BLUE, CABLE_GLASS_LIGHT_BLUE)
-            .put(AEColor.YELLOW, CABLE_GLASS_YELLOW)
-            .put(AEColor.LIME, CABLE_GLASS_LIME)
-            .put(AEColor.PINK, CABLE_GLASS_PINK)
-            .put(AEColor.GRAY, CABLE_GLASS_GRAY)
-            .put(AEColor.LIGHT_GRAY, CABLE_GLASS_LIGHT_GRAY)
-            .put(AEColor.CYAN, CABLE_GLASS_CYAN)
-            .put(AEColor.PURPLE, CABLE_GLASS_PURPLE)
-            .put(AEColor.BLUE, CABLE_GLASS_BLUE)
-            .put(AEColor.BROWN, CABLE_GLASS_BROWN)
-            .put(AEColor.GREEN, CABLE_GLASS_GREEN)
-            .put(AEColor.RED, CABLE_GLASS_RED)
-            .put(AEColor.BLACK, CABLE_GLASS_BLACK)
-            .put(AEColor.TRANSPARENT, CABLE_GLASS_TRANSPARENT)
-            .build();
+                                                                                 .put(AEColor.WHITE, CABLE_GLASS_WHITE)
+                                                                                 .put(AEColor.ORANGE, CABLE_GLASS_ORANGE)
+                                                                                 .put(AEColor.MAGENTA, CABLE_GLASS_MAGENTA)
+                                                                                 .put(AEColor.LIGHT_BLUE, CABLE_GLASS_LIGHT_BLUE)
+                                                                                 .put(AEColor.YELLOW, CABLE_GLASS_YELLOW)
+                                                                                 .put(AEColor.LIME, CABLE_GLASS_LIME)
+                                                                                 .put(AEColor.PINK, CABLE_GLASS_PINK)
+                                                                                 .put(AEColor.GRAY, CABLE_GLASS_GRAY)
+                                                                                 .put(AEColor.LIGHT_GRAY, CABLE_GLASS_LIGHT_GRAY)
+                                                                                 .put(AEColor.CYAN, CABLE_GLASS_CYAN)
+                                                                                 .put(AEColor.PURPLE, CABLE_GLASS_PURPLE)
+                                                                                 .put(AEColor.BLUE, CABLE_GLASS_BLUE)
+                                                                                 .put(AEColor.BROWN, CABLE_GLASS_BROWN)
+                                                                                 .put(AEColor.GREEN, CABLE_GLASS_GREEN)
+                                                                                 .put(AEColor.RED, CABLE_GLASS_RED)
+                                                                                 .put(AEColor.BLACK, CABLE_GLASS_BLACK)
+                                                                                 .put(AEColor.TRANSPARENT, CABLE_GLASS_TRANSPARENT)
+                                                                                 .build();
 
     public static final ResourceLocation CABLE_COVERED_WHITE = id("white_covered_cable");
     public static final ResourceLocation CABLE_COVERED_ORANGE = id("orange_covered_cable");
@@ -96,24 +94,24 @@ public final class AEPartIds {
     public static final ResourceLocation CABLE_COVERED_BLACK = id("black_covered_cable");
     public static final ResourceLocation CABLE_COVERED_TRANSPARENT = id("fluix_covered_cable");
     public static final Map<AEColor, ResourceLocation> CABLE_COVERED = ImmutableMap.<AEColor, ResourceLocation>builder()
-            .put(AEColor.WHITE, CABLE_COVERED_WHITE)
-            .put(AEColor.ORANGE, CABLE_COVERED_ORANGE)
-            .put(AEColor.MAGENTA, CABLE_COVERED_MAGENTA)
-            .put(AEColor.LIGHT_BLUE, CABLE_COVERED_LIGHT_BLUE)
-            .put(AEColor.YELLOW, CABLE_COVERED_YELLOW)
-            .put(AEColor.LIME, CABLE_COVERED_LIME)
-            .put(AEColor.PINK, CABLE_COVERED_PINK)
-            .put(AEColor.GRAY, CABLE_COVERED_GRAY)
-            .put(AEColor.LIGHT_GRAY, CABLE_COVERED_LIGHT_GRAY)
-            .put(AEColor.CYAN, CABLE_COVERED_CYAN)
-            .put(AEColor.PURPLE, CABLE_COVERED_PURPLE)
-            .put(AEColor.BLUE, CABLE_COVERED_BLUE)
-            .put(AEColor.BROWN, CABLE_COVERED_BROWN)
-            .put(AEColor.GREEN, CABLE_COVERED_GREEN)
-            .put(AEColor.RED, CABLE_COVERED_RED)
-            .put(AEColor.BLACK, CABLE_COVERED_BLACK)
-            .put(AEColor.TRANSPARENT, CABLE_COVERED_TRANSPARENT)
-            .build();
+                                                                                   .put(AEColor.WHITE, CABLE_COVERED_WHITE)
+                                                                                   .put(AEColor.ORANGE, CABLE_COVERED_ORANGE)
+                                                                                   .put(AEColor.MAGENTA, CABLE_COVERED_MAGENTA)
+                                                                                   .put(AEColor.LIGHT_BLUE, CABLE_COVERED_LIGHT_BLUE)
+                                                                                   .put(AEColor.YELLOW, CABLE_COVERED_YELLOW)
+                                                                                   .put(AEColor.LIME, CABLE_COVERED_LIME)
+                                                                                   .put(AEColor.PINK, CABLE_COVERED_PINK)
+                                                                                   .put(AEColor.GRAY, CABLE_COVERED_GRAY)
+                                                                                   .put(AEColor.LIGHT_GRAY, CABLE_COVERED_LIGHT_GRAY)
+                                                                                   .put(AEColor.CYAN, CABLE_COVERED_CYAN)
+                                                                                   .put(AEColor.PURPLE, CABLE_COVERED_PURPLE)
+                                                                                   .put(AEColor.BLUE, CABLE_COVERED_BLUE)
+                                                                                   .put(AEColor.BROWN, CABLE_COVERED_BROWN)
+                                                                                   .put(AEColor.GREEN, CABLE_COVERED_GREEN)
+                                                                                   .put(AEColor.RED, CABLE_COVERED_RED)
+                                                                                   .put(AEColor.BLACK, CABLE_COVERED_BLACK)
+                                                                                   .put(AEColor.TRANSPARENT, CABLE_COVERED_TRANSPARENT)
+                                                                                   .build();
 
     public static final ResourceLocation CABLE_SMART_WHITE = id("white_smart_cable");
     public static final ResourceLocation CABLE_SMART_ORANGE = id("orange_smart_cable");
@@ -133,24 +131,24 @@ public final class AEPartIds {
     public static final ResourceLocation CABLE_SMART_BLACK = id("black_smart_cable");
     public static final ResourceLocation CABLE_SMART_TRANSPARENT = id("fluix_smart_cable");
     public static final Map<AEColor, ResourceLocation> CABLE_SMART = ImmutableMap.<AEColor, ResourceLocation>builder()
-            .put(AEColor.WHITE, CABLE_SMART_WHITE)
-            .put(AEColor.ORANGE, CABLE_SMART_ORANGE)
-            .put(AEColor.MAGENTA, CABLE_SMART_MAGENTA)
-            .put(AEColor.LIGHT_BLUE, CABLE_SMART_LIGHT_BLUE)
-            .put(AEColor.YELLOW, CABLE_SMART_YELLOW)
-            .put(AEColor.LIME, CABLE_SMART_LIME)
-            .put(AEColor.PINK, CABLE_SMART_PINK)
-            .put(AEColor.GRAY, CABLE_SMART_GRAY)
-            .put(AEColor.LIGHT_GRAY, CABLE_SMART_LIGHT_GRAY)
-            .put(AEColor.CYAN, CABLE_SMART_CYAN)
-            .put(AEColor.PURPLE, CABLE_SMART_PURPLE)
-            .put(AEColor.BLUE, CABLE_SMART_BLUE)
-            .put(AEColor.BROWN, CABLE_SMART_BROWN)
-            .put(AEColor.GREEN, CABLE_SMART_GREEN)
-            .put(AEColor.RED, CABLE_SMART_RED)
-            .put(AEColor.BLACK, CABLE_SMART_BLACK)
-            .put(AEColor.TRANSPARENT, CABLE_SMART_TRANSPARENT)
-            .build();
+                                                                                 .put(AEColor.WHITE, CABLE_SMART_WHITE)
+                                                                                 .put(AEColor.ORANGE, CABLE_SMART_ORANGE)
+                                                                                 .put(AEColor.MAGENTA, CABLE_SMART_MAGENTA)
+                                                                                 .put(AEColor.LIGHT_BLUE, CABLE_SMART_LIGHT_BLUE)
+                                                                                 .put(AEColor.YELLOW, CABLE_SMART_YELLOW)
+                                                                                 .put(AEColor.LIME, CABLE_SMART_LIME)
+                                                                                 .put(AEColor.PINK, CABLE_SMART_PINK)
+                                                                                 .put(AEColor.GRAY, CABLE_SMART_GRAY)
+                                                                                 .put(AEColor.LIGHT_GRAY, CABLE_SMART_LIGHT_GRAY)
+                                                                                 .put(AEColor.CYAN, CABLE_SMART_CYAN)
+                                                                                 .put(AEColor.PURPLE, CABLE_SMART_PURPLE)
+                                                                                 .put(AEColor.BLUE, CABLE_SMART_BLUE)
+                                                                                 .put(AEColor.BROWN, CABLE_SMART_BROWN)
+                                                                                 .put(AEColor.GREEN, CABLE_SMART_GREEN)
+                                                                                 .put(AEColor.RED, CABLE_SMART_RED)
+                                                                                 .put(AEColor.BLACK, CABLE_SMART_BLACK)
+                                                                                 .put(AEColor.TRANSPARENT, CABLE_SMART_TRANSPARENT)
+                                                                                 .build();
 
     public static final ResourceLocation CABLE_DENSE_COVERED_WHITE = id("white_covered_dense_cable");
     public static final ResourceLocation CABLE_DENSE_COVERED_ORANGE = id("orange_covered_dense_cable");
@@ -170,24 +168,24 @@ public final class AEPartIds {
     public static final ResourceLocation CABLE_DENSE_COVERED_BLACK = id("black_covered_dense_cable");
     public static final ResourceLocation CABLE_DENSE_COVERED_TRANSPARENT = id("fluix_covered_dense_cable");
     public static final Map<AEColor, ResourceLocation> CABLE_DENSE_COVERED = ImmutableMap
-            .<AEColor, ResourceLocation>builder().put(AEColor.WHITE, CABLE_DENSE_COVERED_WHITE)
-            .put(AEColor.ORANGE, CABLE_DENSE_COVERED_ORANGE)
-            .put(AEColor.MAGENTA, CABLE_DENSE_COVERED_MAGENTA)
-            .put(AEColor.LIGHT_BLUE, CABLE_DENSE_COVERED_LIGHT_BLUE)
-            .put(AEColor.YELLOW, CABLE_DENSE_COVERED_YELLOW)
-            .put(AEColor.LIME, CABLE_DENSE_COVERED_LIME)
-            .put(AEColor.PINK, CABLE_DENSE_COVERED_PINK)
-            .put(AEColor.GRAY, CABLE_DENSE_COVERED_GRAY)
-            .put(AEColor.LIGHT_GRAY, CABLE_DENSE_COVERED_LIGHT_GRAY)
-            .put(AEColor.CYAN, CABLE_DENSE_COVERED_CYAN)
-            .put(AEColor.PURPLE, CABLE_DENSE_COVERED_PURPLE)
-            .put(AEColor.BLUE, CABLE_DENSE_COVERED_BLUE)
-            .put(AEColor.BROWN, CABLE_DENSE_COVERED_BROWN)
-            .put(AEColor.GREEN, CABLE_DENSE_COVERED_GREEN)
-            .put(AEColor.RED, CABLE_DENSE_COVERED_RED)
-            .put(AEColor.BLACK, CABLE_DENSE_COVERED_BLACK)
-            .put(AEColor.TRANSPARENT, CABLE_DENSE_COVERED_TRANSPARENT)
-            .build();
+        .<AEColor, ResourceLocation>builder().put(AEColor.WHITE, CABLE_DENSE_COVERED_WHITE)
+        .put(AEColor.ORANGE, CABLE_DENSE_COVERED_ORANGE)
+        .put(AEColor.MAGENTA, CABLE_DENSE_COVERED_MAGENTA)
+        .put(AEColor.LIGHT_BLUE, CABLE_DENSE_COVERED_LIGHT_BLUE)
+        .put(AEColor.YELLOW, CABLE_DENSE_COVERED_YELLOW)
+        .put(AEColor.LIME, CABLE_DENSE_COVERED_LIME)
+        .put(AEColor.PINK, CABLE_DENSE_COVERED_PINK)
+        .put(AEColor.GRAY, CABLE_DENSE_COVERED_GRAY)
+        .put(AEColor.LIGHT_GRAY, CABLE_DENSE_COVERED_LIGHT_GRAY)
+        .put(AEColor.CYAN, CABLE_DENSE_COVERED_CYAN)
+        .put(AEColor.PURPLE, CABLE_DENSE_COVERED_PURPLE)
+        .put(AEColor.BLUE, CABLE_DENSE_COVERED_BLUE)
+        .put(AEColor.BROWN, CABLE_DENSE_COVERED_BROWN)
+        .put(AEColor.GREEN, CABLE_DENSE_COVERED_GREEN)
+        .put(AEColor.RED, CABLE_DENSE_COVERED_RED)
+        .put(AEColor.BLACK, CABLE_DENSE_COVERED_BLACK)
+        .put(AEColor.TRANSPARENT, CABLE_DENSE_COVERED_TRANSPARENT)
+        .build();
 
     public static final ResourceLocation CABLE_DENSE_SMART_WHITE = id("white_smart_dense_cable");
     public static final ResourceLocation CABLE_DENSE_SMART_ORANGE = id("orange_smart_dense_cable");
@@ -207,24 +205,24 @@ public final class AEPartIds {
     public static final ResourceLocation CABLE_DENSE_SMART_BLACK = id("black_smart_dense_cable");
     public static final ResourceLocation CABLE_DENSE_SMART_TRANSPARENT = id("fluix_smart_dense_cable");
     public static final Map<AEColor, ResourceLocation> CABLE_DENSE_SMART = ImmutableMap
-            .<AEColor, ResourceLocation>builder().put(AEColor.WHITE, CABLE_DENSE_SMART_WHITE)
-            .put(AEColor.ORANGE, CABLE_DENSE_SMART_ORANGE)
-            .put(AEColor.MAGENTA, CABLE_DENSE_SMART_MAGENTA)
-            .put(AEColor.LIGHT_BLUE, CABLE_DENSE_SMART_LIGHT_BLUE)
-            .put(AEColor.YELLOW, CABLE_DENSE_SMART_YELLOW)
-            .put(AEColor.LIME, CABLE_DENSE_SMART_LIME)
-            .put(AEColor.PINK, CABLE_DENSE_SMART_PINK)
-            .put(AEColor.GRAY, CABLE_DENSE_SMART_GRAY)
-            .put(AEColor.LIGHT_GRAY, CABLE_DENSE_SMART_LIGHT_GRAY)
-            .put(AEColor.CYAN, CABLE_DENSE_SMART_CYAN)
-            .put(AEColor.PURPLE, CABLE_DENSE_SMART_PURPLE)
-            .put(AEColor.BLUE, CABLE_DENSE_SMART_BLUE)
-            .put(AEColor.BROWN, CABLE_DENSE_SMART_BROWN)
-            .put(AEColor.GREEN, CABLE_DENSE_SMART_GREEN)
-            .put(AEColor.RED, CABLE_DENSE_SMART_RED)
-            .put(AEColor.BLACK, CABLE_DENSE_SMART_BLACK)
-            .put(AEColor.TRANSPARENT, CABLE_DENSE_SMART_TRANSPARENT)
-            .build();
+        .<AEColor, ResourceLocation>builder().put(AEColor.WHITE, CABLE_DENSE_SMART_WHITE)
+        .put(AEColor.ORANGE, CABLE_DENSE_SMART_ORANGE)
+        .put(AEColor.MAGENTA, CABLE_DENSE_SMART_MAGENTA)
+        .put(AEColor.LIGHT_BLUE, CABLE_DENSE_SMART_LIGHT_BLUE)
+        .put(AEColor.YELLOW, CABLE_DENSE_SMART_YELLOW)
+        .put(AEColor.LIME, CABLE_DENSE_SMART_LIME)
+        .put(AEColor.PINK, CABLE_DENSE_SMART_PINK)
+        .put(AEColor.GRAY, CABLE_DENSE_SMART_GRAY)
+        .put(AEColor.LIGHT_GRAY, CABLE_DENSE_SMART_LIGHT_GRAY)
+        .put(AEColor.CYAN, CABLE_DENSE_SMART_CYAN)
+        .put(AEColor.PURPLE, CABLE_DENSE_SMART_PURPLE)
+        .put(AEColor.BLUE, CABLE_DENSE_SMART_BLUE)
+        .put(AEColor.BROWN, CABLE_DENSE_SMART_BROWN)
+        .put(AEColor.GREEN, CABLE_DENSE_SMART_GREEN)
+        .put(AEColor.RED, CABLE_DENSE_SMART_RED)
+        .put(AEColor.BLACK, CABLE_DENSE_SMART_BLACK)
+        .put(AEColor.TRANSPARENT, CABLE_DENSE_SMART_TRANSPARENT)
+        .build();
 
     ///
     /// Buses
@@ -272,6 +270,6 @@ public final class AEPartIds {
     public static final ResourceLocation LIGHT_P2P_TUNNEL = id("light_p2p_tunnel");
 
     private static ResourceLocation id(String id) {
-        return ResourceLocation.fromNamespaceAndPath(AEConstants.MOD_ID, id);
+        return new ResourceLocation(AEConstants.MOD_ID, id);
     }
 }

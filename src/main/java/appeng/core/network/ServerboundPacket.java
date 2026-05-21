@@ -1,16 +1,27 @@
 package appeng.core.network;
 
-import net.minecraft.server.level.ServerPlayer;
-import net.neoforged.neoforge.network.handling.IPayloadContext;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 
-public interface ServerboundPacket extends CustomAppEngPayload {
-    default void handleOnServer(IPayloadContext context) {
-        context.enqueueWork(() -> {
-            if (context.player() instanceof ServerPlayer serverPlayer) {
-                handleOnServer(serverPlayer);
-            }
-        });
+public abstract class ServerboundPacket implements IMessage {
+
+    @Override
+    public final void fromBytes(ByteBuf buf) {
+        this.read(buf);
     }
 
-    void handleOnServer(ServerPlayer player);
+    @Override
+    public final void toBytes(ByteBuf buf) {
+        this.write(buf);
+    }
+
+    protected void read(ByteBuf buf) {
+    }
+
+    protected void write(ByteBuf buf) {
+    }
+
+    public void handleServer(EntityPlayerMP player) {
+    }
 }

@@ -1,6 +1,6 @@
 /*
  * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,271 +15,185 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.tesr;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-
-import org.joml.Quaternionf;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
-import net.minecraft.client.renderer.entity.ItemRenderer;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
-import appeng.api.orientation.BlockOrientation;
-import appeng.blockentity.misc.InscriberBlockEntity;
+import appeng.client.render.BlockEntityRenderHelper;
 import appeng.core.AppEng;
 import appeng.recipes.handlers.InscriberProcessType;
 import appeng.recipes.handlers.InscriberRecipe;
+import appeng.tile.misc.TileInscriber;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.event.TextureStitchEvent;
+import org.lwjgl.opengl.GL11;
 
-/**
- * Renders the dynamic parts of an inscriber (the presses, the animation and the item being smashed)
- */
-public final class InscriberTESR implements BlockEntityRenderer<InscriberBlockEntity> {
+import javax.annotation.Nullable;
 
+public final class InscriberTESR extends TileEntitySpecialRenderer<TileInscriber> {
     private static final float ITEM_RENDER_SCALE = 1.0f / 1.2f;
+    private static final ResourceLocation TEXTURE_INSIDE = AppEng.makeId("block/inscriber_inside");
 
-    private static final Material TEXTURE_INSIDE = new Material(InventoryMenu.BLOCK_ATLAS,
-            AppEng.makeId("block/inscriber_inside"));
+    @Nullable
+    private static TextureAtlasSprite textureInside;
 
-    public InscriberTESR(BlockEntityRendererProvider.Context context) {
+    public static void registerTexture(TextureStitchEvent.Pre event) {
+        textureInside = event.getMap().registerSprite(TEXTURE_INSIDE);
     }
 
     @Override
-    public void render(InscriberBlockEntity blockEntity, float partialTicks, PoseStack ms, MultiBufferSource buffers,
-            int combinedLight, int combinedOverlay) {
+    public void render(TileInscriber tile, double x, double y, double z, float partialTicks, int destroyStage,
+                       float alpha) {
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x, y, z);
+        GlStateManager.translate(0.5F, 0.5F, 0.5F);
+        var orientation = tile.getOrientation();
+        BlockEntityRenderHelper.applyOrientation(orientation);
+        GlStateManager.translate(-0.5F, -0.5F, -0.5F);
 
-        // render inscriber
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.disableLighting();
+        GlStateManager.disableRescaleNormal();
 
-        ms.pushPose();
-        ms.translate(0.5F, 0.5F, 0.5F);
-        BlockOrientation orientation = BlockOrientation.get(blockEntity);
-        ms.mulPose(orientation.getQuaternion());
-        ms.translate(-0.5F, -0.5F, -0.5F);
+        Minecraft mc = Minecraft.getMinecraft();
+        mc.renderEngine.bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
 
-        // render sides of stamps
+        int br = tile.getWorld().getCombinedLight(tile.getPos(), 0);
+        int lightX = br % 65536;
+        int lightY = br / 65536;
+        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lightX, lightY);
 
         long absoluteProgress = 0;
-
-        if (blockEntity.isSmash()) {
-            final long currentTime = System.currentTimeMillis();
-            absoluteProgress = currentTime - blockEntity.getClientStart();
+        if (tile.isSmash()) {
+            absoluteProgress = System.currentTimeMillis() - tile.getClientStart();
             if (absoluteProgress > 800) {
-                blockEntity.setSmash(false);
-                if (blockEntity.isRepeatSmash()) {
-                    blockEntity.setSmash(true);
-                }
+                absoluteProgress = 800;
             }
         }
 
-        final float relativeProgress = absoluteProgress % 800 / 400.0f;
+        float relativeProgress = absoluteProgress % 800 / 400.0f;
         float progress = relativeProgress;
-
         if (progress > 1.0f) {
-            progress = 1.0f - easeDecompressMotion(progress - 1.0f);
-        } else {
-            progress = easeCompressMotion(progress);
+            progress = 1.0f - (progress - 1.0f);
+        }
+        float press = 0.2f - progress / 5.0f;
+
+        BufferBuilder buffer = Tessellator.getInstance().getBuffer();
+        buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX);
+
+        float middle = 0.52f;
+        float twoPixels = 2.0f / 16.0f;
+        float base = 0.4f;
+
+        TextureAtlasSprite sprite = textureInside;
+        if (sprite != null) {
+            buffer.pos(twoPixels, middle + press, twoPixels).tex(sprite.getInterpolatedU(2), sprite.getInterpolatedV(13))
+                  .endVertex();
+            buffer.pos(1.0 - twoPixels, middle + press, twoPixels)
+                  .tex(sprite.getInterpolatedU(14), sprite.getInterpolatedV(13)).endVertex();
+            buffer.pos(1.0 - twoPixels, middle + press, 1.0 - twoPixels)
+                  .tex(sprite.getInterpolatedU(14), sprite.getInterpolatedV(2)).endVertex();
+            buffer.pos(twoPixels, middle + press, 1.0 - twoPixels).tex(sprite.getInterpolatedU(2), sprite.getInterpolatedV(2))
+                  .endVertex();
+
+            buffer.pos(twoPixels, middle + base, twoPixels)
+                  .tex(sprite.getInterpolatedU(2), sprite.getInterpolatedV(3 - 16 * (press - base))).endVertex();
+            buffer.pos(1.0 - twoPixels, middle + base, twoPixels)
+                  .tex(sprite.getInterpolatedU(14), sprite.getInterpolatedV(3 - 16 * (press - base))).endVertex();
+            buffer.pos(1.0 - twoPixels, middle + press, twoPixels).tex(sprite.getInterpolatedU(14), sprite.getInterpolatedV(3))
+                  .endVertex();
+            buffer.pos(twoPixels, middle + press, twoPixels).tex(sprite.getInterpolatedU(2), sprite.getInterpolatedV(3))
+                  .endVertex();
+
+            middle -= 0.04f;
+            buffer.pos(1.0 - twoPixels, middle - press, twoPixels).tex(sprite.getInterpolatedU(2), sprite.getInterpolatedV(13))
+                  .endVertex();
+            buffer.pos(twoPixels, middle - press, twoPixels).tex(sprite.getInterpolatedU(14), sprite.getInterpolatedV(13))
+                  .endVertex();
+            buffer.pos(twoPixels, middle - press, 1.0 - twoPixels)
+                  .tex(sprite.getInterpolatedU(14), sprite.getInterpolatedV(2)).endVertex();
+            buffer.pos(1.0 - twoPixels, middle - press, 1.0 - twoPixels)
+                  .tex(sprite.getInterpolatedU(2), sprite.getInterpolatedV(2)).endVertex();
+
+            buffer.pos(1.0 - twoPixels, middle - base, twoPixels)
+                  .tex(sprite.getInterpolatedU(2), sprite.getInterpolatedV(3 - 16 * (press - base))).endVertex();
+            buffer.pos(twoPixels, middle - base, twoPixels)
+                  .tex(sprite.getInterpolatedU(14), sprite.getInterpolatedV(3 - 16 * (press - base))).endVertex();
+            buffer.pos(twoPixels, middle - press, twoPixels).tex(sprite.getInterpolatedU(14), sprite.getInterpolatedV(3))
+                  .endVertex();
+            buffer.pos(1.0 - twoPixels, middle - press, twoPixels).tex(sprite.getInterpolatedU(2), sprite.getInterpolatedV(3))
+                  .endVertex();
         }
 
-        float press = 0.2f;
-        press -= progress / 5.0f;
-
-        float middle = 0.5f;
-        middle += 0.02f;
-        final float TwoPx = 2.0f / 16.0f;
-        final float base = 0.4f;
-
-        final TextureAtlasSprite tas = TEXTURE_INSIDE.sprite();
-
-        VertexConsumer buffer = buffers.getBuffer(RenderType.solid());
-
-        // Bottom of Top Stamp
-        addVertex(buffer, ms, tas, TwoPx, middle + press, TwoPx, 0.875f, 0.125f, combinedOverlay, combinedLight,
-                Direction.DOWN);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + press, TwoPx, 0.125f, 0.125f, combinedOverlay, combinedLight,
-                Direction.DOWN);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + press, 1.0f - TwoPx, 0.125f, 0.875f, combinedOverlay,
-                combinedLight,
-                Direction.DOWN);
-        addVertex(buffer, ms, tas, TwoPx, middle + press, 1.0f - TwoPx, 0.875f, 0.875f, combinedOverlay, combinedLight,
-                Direction.DOWN);
-
-        // Front of Top Stamp
-        addVertex(buffer, ms, tas, TwoPx, middle + base, TwoPx, 0.125f, 0.125f - (press - base), combinedOverlay,
-                combinedLight, Direction.NORTH);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + base, TwoPx, 0.875f, 0.125f - (press - base),
-                combinedOverlay,
-                combinedLight, Direction.NORTH);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + press, TwoPx, 0.875f, 0.125f, combinedOverlay, combinedLight,
-                Direction.NORTH);
-        addVertex(buffer, ms, tas, TwoPx, middle + press, TwoPx, 0.125f, 0.125f, combinedOverlay, combinedLight,
-                Direction.NORTH);
-
-        // Rear of Top Stamp
-        addVertex(buffer, ms, tas, TwoPx, middle + base, 1.0f - TwoPx, 0.125f, 0.125f - (press - base),
-                combinedOverlay,
-                combinedLight, Direction.SOUTH);
-        addVertex(buffer, ms, tas, TwoPx, middle + press, 1.0f - TwoPx, 0.125f, 0.125f, combinedOverlay, combinedLight,
-                Direction.SOUTH);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + press, 1.0f - TwoPx, 0.875f, 0.125f, combinedOverlay,
-                combinedLight,
-                Direction.SOUTH);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle + base, 1.0f - TwoPx, 0.875f, 0.125f - (press - base),
-                combinedOverlay,
-                combinedLight, Direction.SOUTH);
-
-        // Top of Bottom Stamp
-        middle -= 2.0f * 0.02f;
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - press, TwoPx, 0.875f, 0.125f, combinedOverlay, combinedLight,
-                Direction.UP);
-        addVertex(buffer, ms, tas, TwoPx, middle - press, TwoPx, 0.125f, 0.125f, combinedOverlay, combinedLight,
-                Direction.UP);
-        addVertex(buffer, ms, tas, TwoPx, middle - press, 1.0f - TwoPx, 0.125f, 0.875f, combinedOverlay, combinedLight,
-                Direction.UP);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - press, 1.0f - TwoPx, 0.875f, 0.875f, combinedOverlay,
-                combinedLight,
-                Direction.UP);
-
-        // Front of Bottom Stamp
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - base, TwoPx, 0.125f, 0.125f - (press - base),
-                combinedOverlay,
-                combinedLight, Direction.NORTH);
-        addVertex(buffer, ms, tas, TwoPx, middle - base, TwoPx, 0.875f, 0.125f - (press - base), combinedOverlay,
-                combinedLight, Direction.NORTH);
-        addVertex(buffer, ms, tas, TwoPx, middle - press, TwoPx, 0.875f, 0.125f, combinedOverlay, combinedLight,
-                Direction.NORTH);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - press, TwoPx, 0.125f, 0.125f, combinedOverlay, combinedLight,
-                Direction.NORTH);
-
-        // Rear of Bottom Stamp
-        addVertex(buffer, ms, tas, TwoPx, middle - press, 1.0f - TwoPx, 0.875f, 0.125f, combinedOverlay, combinedLight,
-                Direction.SOUTH);
-        addVertex(buffer, ms, tas, TwoPx, middle - base, 1.0f - TwoPx, 0.875f, 0.125f - (press - base),
-                combinedOverlay,
-                combinedLight, Direction.SOUTH);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - base, 1.0f - TwoPx, 0.125f, 0.125f - (press - base),
-                combinedOverlay,
-                combinedLight, Direction.SOUTH);
-        addVertex(buffer, ms, tas, 1.0f - TwoPx, middle - press, 1.0f - TwoPx, 0.125f, 0.125f, combinedOverlay,
-                combinedLight,
-                Direction.SOUTH);
-
-        // render items.
-
-        var inv = blockEntity.getInternalInventory();
+        Tessellator.getInstance().draw();
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
 
         int items = 0;
-        if (!inv.getStackInSlot(0).isEmpty()) {
+        if (!tile.getVisualStack(0).isEmpty()) {
             items++;
         }
-        if (!inv.getStackInSlot(1).isEmpty()) {
+        if (!tile.getVisualStack(1).isEmpty()) {
             items++;
         }
-        if (!inv.getStackInSlot(2).isEmpty()) {
+        if (!tile.getVisualStack(2).isEmpty()) {
             items++;
         }
 
-        boolean renderPresses;
         if (relativeProgress > 1.0f || items == 0) {
-            // When crafting completes, dont render the presses (they mave have been
-            // consumed, see below)
-            renderPresses = false;
-
-            ItemStack is = inv.getStackInSlot(3);
-
+            ItemStack is = tile.getVisualStack(3);
             if (is.isEmpty()) {
-                final InscriberRecipe ir = blockEntity.getTask();
-                if (ir != null) {
-                    // The "PRESS" type will consume the presses so they should not render after
-                    // completing
-                    // the press animation
-                    renderPresses = ir.getProcessType() == InscriberProcessType.INSCRIBE;
-                    is = ir.getResultItem().copy();
+                InscriberRecipe recipe = tile.getTask();
+                if (recipe != null) {
+                    is = recipe.getResultItem().copy();
                 }
             }
-            this.renderItem(ms, is, 0.0f, buffers, combinedLight, combinedOverlay, blockEntity.getLevel());
+            renderItem(is, 0.0f);
         } else {
-            renderPresses = true;
-            this.renderItem(ms, inv.getStackInSlot(2), 0.0f, buffers, combinedLight, combinedOverlay,
-                    blockEntity.getLevel());
-        }
-
-        if (renderPresses) {
-            this.renderItem(ms, inv.getStackInSlot(0), press, buffers, combinedLight, combinedOverlay,
-                    blockEntity.getLevel());
-            this.renderItem(ms, inv.getStackInSlot(1), -press, buffers, combinedLight, combinedOverlay,
-                    blockEntity.getLevel());
-        }
-
-        ms.popPose();
-    }
-
-    private static void addVertex(VertexConsumer vb, PoseStack ms, TextureAtlasSprite sprite, float x, float y,
-            float z, float texU, float texV, int overlayUV, int lightmapUV, Direction front) {
-        vb.addVertex(ms.last().pose(), x, y, z);
-        vb.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-        vb.setUv(sprite.getU(texU), sprite.getV(texV));
-        vb.setOverlay(overlayUV);
-        vb.setLight(lightmapUV);
-        vb.setNormal(ms.last(), front.getStepX(), front.getStepY(), front.getStepZ());
-    }
-
-    private void renderItem(PoseStack ms, ItemStack stack, float o, MultiBufferSource buffers,
-            int combinedLight, int combinedOverlay, Level level) {
-        if (!stack.isEmpty()) {
-            ms.pushPose();
-            // move to center
-            ms.translate(0.5f, 0.5f + o, 0.5f);
-            ms.mulPose(new Quaternionf().rotationX(Mth.DEG_TO_RAD * 90));
-            // set scale
-            ms.scale(ITEM_RENDER_SCALE, ITEM_RENDER_SCALE, ITEM_RENDER_SCALE);
-
-            ItemRenderer itemRenderer = Minecraft.getInstance().getItemRenderer();
-
-            // heuristic to scale items down much further than blocks,
-            // the assumption here is that the generated item models will return their faces
-            // for direction=null, while a block-model will have their faces for
-            // cull-faces, but not direction=null
-            var model = itemRenderer.getItemModelShaper().getItemModel(stack);
-            var quads = model.getQuads(null, null, RandomSource.create(), ModelData.EMPTY, null);
-            // Note: quads may be null for mods implementing FabricBakedModel without caring about getQuads.
-            if (quads != null && !quads.isEmpty()) {
-                ms.scale(0.5f, 0.5f, 0.5f);
+            boolean renderPresses = true;
+            renderItem(tile.getVisualStack(2), 0.0f);
+            if (relativeProgress > 1.0f) {
+                renderPresses = false;
+                InscriberRecipe recipe = tile.getTask();
+                if (recipe != null) {
+                    renderPresses = recipe.getProcessType() == InscriberProcessType.INSCRIBE;
+                }
             }
-
-            RenderSystem.applyModelViewMatrix();
-            itemRenderer.renderStatic(stack, ItemDisplayContext.FIXED, combinedLight, combinedOverlay, ms,
-                    buffers, level, 0);
-            ms.popPose();
+            if (renderPresses) {
+                renderItem(tile.getVisualStack(0), press);
+                renderItem(tile.getVisualStack(1), -press);
+            }
         }
+
+        GlStateManager.popMatrix();
+        GlStateManager.enableLighting();
+        GlStateManager.enableRescaleNormal();
     }
 
-    // See https://easings.net/#easeOutBack
-    private static float easeCompressMotion(float x) {
-        float c1 = 1.70158f;
-        float c3 = c1 + 1;
+    private void renderItem(ItemStack stack, float yOffset) {
+        if (stack.isEmpty()) {
+            return;
+        }
 
-        return (float) (1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2));
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(0.5f, 0.5f + yOffset, 0.5f);
+        GlStateManager.rotate(90, 1, 0, 0);
+        GlStateManager.scale(ITEM_RENDER_SCALE, ITEM_RENDER_SCALE, ITEM_RENDER_SCALE);
+
+        if (!(stack.getItem() instanceof ItemBlock)) {
+            GlStateManager.scale(0.5, 0.5, 0.5);
+        }
+
+        Minecraft.getMinecraft().getRenderItem().renderItem(stack, ItemCameraTransforms.TransformType.FIXED);
+        GlStateManager.popMatrix();
     }
-
-    // See https://easings.net/#easeInQuint
-    private static float easeDecompressMotion(float x) {
-        return x * x * x * x * x;
-    }
-
 }

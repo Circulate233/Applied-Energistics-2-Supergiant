@@ -18,16 +18,6 @@
 
 package appeng.crafting.execution;
 
-import java.util.ArrayList;
-import java.util.UUID;
-
-import com.google.common.collect.Iterables;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.Level;
-
 import appeng.api.config.Actionable;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGrid;
@@ -37,18 +27,28 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.crafting.inv.ICraftingInventory;
 import appeng.crafting.inv.ListCraftingInventory;
+import com.google.common.collect.Iterables;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.UUID;
 
 /**
  * Helper functions used by the CPU.
  */
 public class CraftingCpuHelper {
+    private CraftingCpuHelper() {
+    }
+
     /**
      * Tries to extract all ingredients defined by the plan. Returns null on success and otherwise a
      * {@link GenericStack} explaining what is missing.
      */
     @Nullable
     public static GenericStack tryExtractInitialItems(ICraftingPlan plan, IGrid grid,
-            ListCraftingInventory cpuInventory, IActionSource src) {
+                                                      ListCraftingInventory cpuInventory, IActionSource src) {
         var storage = grid.getStorageService().getInventory();
 
         for (var entry : plan.usedItems()) {
@@ -72,14 +72,14 @@ public class CraftingCpuHelper {
         return null;
     }
 
-    public static CompoundTag generateLinkData(UUID craftId, boolean standalone, boolean req) {
-        final CompoundTag tag = new CompoundTag();
+    public static NBTTagCompound generateLinkData(UUID craftId, boolean standalone, boolean req) {
+        final NBTTagCompound tag = new NBTTagCompound();
 
-        tag.putUUID("craftId", craftId);
-        tag.putBoolean("canceled", false);
-        tag.putBoolean("done", false);
-        tag.putBoolean("standalone", standalone);
-        tag.putBoolean("req", req);
+        tag.setUniqueId("craftId", craftId);
+        tag.setBoolean("canceled", false);
+        tag.setBoolean("done", false);
+        tag.setBoolean("standalone", standalone);
+        tag.setBoolean("req", req);
 
         return tag;
     }
@@ -90,7 +90,7 @@ public class CraftingCpuHelper {
 
         for (var itemHolder : craftingContainer) {
             for (var anInput : itemHolder) {
-                sum += ((double) anInput.getLongValue()) / ((double) anInput.getKey().getAmountPerOperation());
+                sum += ((double) anInput.getLongValue()) / ((double) anInput.getKey().getType().getAmountPerOperation());
             }
         }
 
@@ -98,12 +98,12 @@ public class CraftingCpuHelper {
     }
 
     @Nullable
-    public static KeyCounter[] extractPatternInputs(
-            IPatternDetails details,
-            ICraftingInventory sourceInv,
-            Level level,
-            KeyCounter expectedOutputs,
-            KeyCounter expectedContainerItems) {
+    public static KeyCounter @org.jspecify.annotations.Nullable [] extractPatternInputs(
+        IPatternDetails details,
+        ICraftingInventory sourceInv,
+        World level,
+        KeyCounter expectedOutputs,
+        KeyCounter expectedContainerItems) {
 
         // Extract inputs into the container.
         var inputs = details.getInputs();
@@ -136,7 +136,7 @@ public class CraftingCpuHelper {
 
         // Failed to extract everything, put it back!
         if (!found) {
-            // put stuff back..
+            // put stuff back.
             reinjectPatternInputs(sourceInv, inputHolder);
             return null;
         }
@@ -150,7 +150,7 @@ public class CraftingCpuHelper {
     }
 
     public static void reinjectPatternInputs(ICraftingInventory sourceInv,
-            KeyCounter[] inputHolder) {
+                                             KeyCounter[] inputHolder) {
         for (var list : inputHolder) {
             // List may be null if we failed to extract some of the pattern's inputs.
             if (list != null) {
@@ -166,10 +166,10 @@ public class CraftingCpuHelper {
      * and which are available.
      */
     public static Iterable<InputTemplate> getValidItemTemplates(ICraftingInventory inv,
-            IPatternDetails.IInput input, Level level) {
-        var possibleInputs = input.getPossibleInputs();
+                                                                IPatternDetails.IInput input, World level) {
+        var possibleInputs = input.possibleInputs();
 
-        var substitutes = new ArrayList<InputTemplate>(possibleInputs.length);
+        var substitutes = new ObjectArrayList<InputTemplate>(possibleInputs.length);
 
         for (var stack : possibleInputs) {
             for (var fuzz : inv.findFuzzyTemplates(stack.what())) {
@@ -199,8 +199,5 @@ public class CraftingCpuHelper {
             throw new IllegalStateException("Failed to correctly extract whole number. Invalid simulation!");
         }
         return multiplier;
-    }
-
-    private CraftingCpuHelper() {
     }
 }

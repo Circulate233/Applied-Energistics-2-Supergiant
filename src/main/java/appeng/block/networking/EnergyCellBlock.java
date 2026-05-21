@@ -18,45 +18,68 @@
 
 package appeng.block.networking;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.IntegerProperty;
-
 import appeng.api.ids.AEComponents;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.networking.EnergyCellBlockEntity;
+import appeng.block.AEBaseTileBlock;
+import appeng.tile.networking.TileEnergyCell;
+import appeng.util.Platform;
+import appeng.util.SettingsFrom;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.PropertyInteger;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagDouble;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 
-public class EnergyCellBlock extends AEBaseEntityBlock<EnergyCellBlockEntity> {
+public class EnergyCellBlock extends AEBaseTileBlock<TileEnergyCell> {
 
     public static final int MAX_FULLNESS = 4;
 
-    public static final IntegerProperty ENERGY_STORAGE = IntegerProperty.create("fullness", 0, MAX_FULLNESS);
+    public static final PropertyInteger ENERGY_STORAGE = PropertyInteger.create("fullness", 0, MAX_FULLNESS);
 
     private final double maxPower;
     private final double chargeRate;
     private final int priority;
 
     public EnergyCellBlock(double maxPower, double chargeRate, int priority) {
-        super(glassProps());
+        super(Material.GLASS);
         this.maxPower = maxPower;
         this.chargeRate = chargeRate;
         this.priority = priority;
+        this.setHardness(0.5F);
+        this.setResistance(3.0F);
+        this.setTileEntity(TileEnergyCell.class);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(ENERGY_STORAGE, 0));
     }
 
     @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        super.addToMainCreativeTab(parameters, output);
+    public void getSubBlocks(CreativeTabs creativeTab, NonNullList<ItemStack> itemStacks) {
+        super.getSubBlocks(creativeTab, itemStacks);
 
-        var charged = new ItemStack(this, 1);
-        charged.set(AEComponents.STORED_ENERGY, getMaxPower());
+        ItemStack charged = new ItemStack(this);
+        setStoredEnergyTag(charged, getMaxPower(), getMaxPower());
+        itemStacks.add(charged);
+    }
 
-        output.accept(charged);
+    @Override
+    protected BlockStateContainer createBlockState() {
+        return createBlockState(ENERGY_STORAGE);
+    }
+
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return state.getValue(ENERGY_STORAGE);
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        int safe = Math.clamp(meta, 0, MAX_FULLNESS);
+        return this.getDefaultState().withProperty(ENERGY_STORAGE, safe);
     }
 
     public double getMaxPower() {
@@ -72,25 +95,59 @@ public class EnergyCellBlock extends AEBaseEntityBlock<EnergyCellBlockEntity> {
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(ENERGY_STORAGE);
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileEnergyCell tileEntity) {
+        double maxPower = tileEntity.getAEMaxPower();
+        int fullness = maxPower > 0
+            ? TileEnergyCell.getStorageLevelFromFillFactor(tileEntity.getAECurrentPower() / maxPower)
+            : 0;
+        return currentState.withProperty(ENERGY_STORAGE, fullness);
     }
 
     @Override
-    public boolean hasAnalogOutputSignal(BlockState state) {
+    public boolean hasComparatorInputOverride(IBlockState state) {
         return true;
     }
 
     @Override
-    public int getAnalogOutputSignal(BlockState state, Level level, BlockPos pos) {
-        var cell = getBlockEntity(level, pos);
+    public int getComparatorInputOverride(IBlockState state, World worldIn, BlockPos pos) {
+        TileEnergyCell cell = getTileEntity(worldIn, pos);
         if (cell != null) {
-            var currentPower = cell.getAECurrentPower();
-            var maxPower = cell.getAEMaxPower();
-            var fillFactor = currentPower / maxPower;
-            return Mth.floor(fillFactor * 14.0F) + (currentPower > 0 ? 1 : 0);
+            double currentPower = cell.getAECurrentPower();
+            double maxPower = cell.getAEMaxPower();
+            if (maxPower <= 0) {
+                return 0;
+            }
+            double fillFactor = currentPower / maxPower;
+            return (int) Math.floor(fillFactor * 14.0D) + (currentPower > 0 ? 1 : 0);
         }
         return 0;
+    }
+
+    @Override
+    public void getDrops(NonNullList<ItemStack> drops, IBlockAccess world, BlockPos pos, IBlockState state,
+                         int fortune) {
+        ItemStack drop = new ItemStack(this);
+        TileEnergyCell cell = getTileEntity(world, pos);
+        if (cell != null) {
+            double currentPower = cell.getAECurrentPower();
+            if (currentPower > 0) {
+                setStoredEnergyTag(drop, currentPower, cell.getAEMaxPower());
+            }
+            NBTTagCompound settings = cell.exportSettings(SettingsFrom.DISMANTLE_ITEM);
+            if (!Platform.isNbtEmpty(settings)) {
+                Platform.openNbtData(drop).merge(settings);
+            }
+        }
+        drops.add(drop);
+    }
+
+    private void setStoredEnergyTag(ItemStack stack, double currentPower, double maxPower) {
+        NBTTagCompound tag = new NBTTagCompound();
+        AEComponents.STORED_ENERGY_COMPONENT.writeTo(tag, new NBTTagDouble(currentPower));
+        NBTTagCompound blockEntityTag = new NBTTagCompound();
+        blockEntityTag.setDouble("internalCurrentPower", currentPower);
+        blockEntityTag.setDouble("internalMaxPower", maxPower);
+        tag.setTag("BlockEntityTag", blockEntityTag);
+        stack.setTagCompound(tag);
     }
 }

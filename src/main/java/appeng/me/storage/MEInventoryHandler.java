@@ -78,18 +78,21 @@ public class MEInventoryHandler extends DelegatingMEInventory {
 
     @Override
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
+// Applies the black/whitelist, but only if any item is listed at all
         if (!this.allowInsertion || !passesBlackOrWhitelist(what)) {
             return 0;
         }
 
         final var inserted = super.insert(what, amount, mode, source);
         return this.voidOverflow ? amount : inserted;
+// Inventories that already contain some equal stack are also preferred
     }
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode, IActionSource source) {
         if (this.filterOnExtraction && !canExtract(what)) {
             return 0;
+// we use a copy of size 1 here to prevent inventories from attempting to query multiple sub-inventories
         }
 
         return super.extract(what, amount, mode, source);
@@ -98,10 +101,7 @@ public class MEInventoryHandler extends DelegatingMEInventory {
     @Override
     public void getAvailableStacks(KeyCounter out) {
         if (this.gettingAvailableContent) {
-            // Prevent recursion in case the internal inventory somehow calls this when the available items are queried.
-            // This is handled by the NetworkInventoryHandler when the initial query is coming from the network.
-            // However, this function might be called from the storage bus code directly,
-            // so we have to do this check manually.
+// Prevent recursion in case the internal inventory somehow calls this when the available items are queried.
             return;
         }
 
@@ -111,6 +111,7 @@ public class MEInventoryHandler extends DelegatingMEInventory {
                 super.getAvailableStacks(out);
             } else {
                 if (!this.allowExtraction) {
+// This is handled by the NetworkInventoryHandler when the initial query is coming from the network.
                     return;
                 }
 
@@ -133,8 +134,6 @@ public class MEInventoryHandler extends DelegatingMEInventory {
             }
         }
 
-        // Inventories that already contain some equal stack are also preferred
-        // we use a copy of size 1 here to prevent inventories from attempting to query multiple sub-inventories
         if (super.extract(input, 1, Actionable.SIMULATE, source) > 0) {
             return true;
         }
@@ -146,7 +145,6 @@ public class MEInventoryHandler extends DelegatingMEInventory {
         return allowExtraction && passesBlackOrWhitelist(request);
     }
 
-    // Applies the black/whitelist, but only if any item is listed at all
     private boolean passesBlackOrWhitelist(AEKey input) {
         return this.partitionList.matchesFilter(input, this.partitionListMode);
     }

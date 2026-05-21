@@ -1,79 +1,104 @@
-
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
 package appeng.core.network.clientbound;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.client.render.effects.ParticleTypes;
+import appeng.core.AppEngBase;
 import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.PacketBuffer;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public record MatterCannonPacket(double x,
-        double y,
-        double z,
-        double dx,
-        double dy,
-        double dz,
-        byte len) implements ClientboundPacket {
+public class MatterCannonPacket extends ClientboundPacket {
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, MatterCannonPacket> STREAM_CODEC = StreamCodec.ofMember(
-            MatterCannonPacket::write,
-            MatterCannonPacket::decode);
+    private double x;
+    private double y;
+    private double z;
+    private double dx;
+    private double dy;
+    private double dz;
+    private float length;
 
-    public static final Type<MatterCannonPacket> TYPE = CustomAppEngPayload.createType("matter_cannon");
-
-    @Override
-    public Type<MatterCannonPacket> type() {
-        return TYPE;
+    public MatterCannonPacket() {
     }
 
-    public MatterCannonPacket(double x, double y, double z, double dx, double dy, double dz, byte len) {
+    public MatterCannonPacket(double x, double y, double z, double dx, double dy, double dz, float length) {
         var dl = dx * dx + dy * dy + dz * dz;
-        var dlz = (float) Math.sqrt(dl);
+        var dlz = Math.sqrt(dl);
 
         this.x = x;
         this.y = y;
         this.z = z;
-        this.dx = dx / dlz;
-        this.dy = dy / dlz;
-        this.dz = dz / dlz;
-        this.len = len;
-    }
-
-    public static MatterCannonPacket decode(RegistryFriendlyByteBuf stream) {
-        var x = stream.readFloat();
-        var y = stream.readFloat();
-        var z = stream.readFloat();
-        var dx = stream.readFloat();
-        var dy = stream.readFloat();
-        var dz = stream.readFloat();
-        var len = stream.readByte();
-        return new MatterCannonPacket(x, y, z, dx, dy, dz, len);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeFloat((float) x);
-        data.writeFloat((float) y);
-        data.writeFloat((float) z);
-        data.writeFloat((float) this.dx);
-        data.writeFloat((float) this.dy);
-        data.writeFloat((float) this.dz);
-        data.writeByte(len);
+        if (dlz > 0) {
+            this.dx = dx / dlz;
+            this.dy = dy / dlz;
+            this.dz = dz / dlz;
+        } else {
+            this.dx = 0;
+            this.dy = 0;
+            this.dz = 0;
+        }
+        this.length = Math.max(0, length);
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        try {
-            for (int a = 1; a < this.len; a++) {
-                Minecraft.getInstance().particleEngine.createParticle(ParticleTypes.MATTER_CANNON, this.x + this.dx * a,
-                        this.y + this.dy * a, this.z + this.dz * a, 0, 0, 0);
-            }
-        } catch (Exception ignored) {
+    protected void read(ByteBuf buf) {
+        var stream = new PacketBuffer(buf);
+        this.x = stream.readFloat();
+        this.y = stream.readFloat();
+        this.z = stream.readFloat();
+        this.dx = stream.readFloat();
+        this.dy = stream.readFloat();
+        this.dz = stream.readFloat();
+        this.length = stream.readFloat();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var data = new PacketBuffer(buf);
+        data.writeFloat((float) this.x);
+        data.writeFloat((float) this.y);
+        data.writeFloat((float) this.z);
+        data.writeFloat((float) this.dx);
+        data.writeFloat((float) this.dy);
+        data.writeFloat((float) this.dz);
+        data.writeFloat(this.length);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.world == null) {
+            return;
+        }
+
+        if (!AppEngBase.runtime().shouldSpawnParticleEffects(minecraft.world)) {
+            return;
+        }
+
+        var particles = Math.max(1, (int) Math.ceil(this.length));
+        var step = this.length / particles;
+        for (int a = 1; a <= particles; a++) {
+            var offset = step * a;
+            ParticleTypes.MATTER_CANNON.spawn(minecraft.world, this.x + this.dx * offset, this.y + this.dy * offset,
+                this.z + this.dz * offset, 0, 0, 0, null);
         }
     }
 }

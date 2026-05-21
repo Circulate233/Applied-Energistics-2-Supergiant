@@ -23,29 +23,21 @@
 
 package appeng.api.crafting;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
-
-import com.google.common.base.Function;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingRecipe;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.SmithingRecipe;
-import net.minecraft.world.item.crafting.StonecutterRecipe;
-import net.minecraft.world.level.Level;
-
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AEPatternDecoder;
 import appeng.crafting.pattern.AEProcessingPattern;
-import appeng.crafting.pattern.AESmithingTablePattern;
-import appeng.crafting.pattern.AEStonecuttingPattern;
+import com.google.common.base.Function;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public final class PatternDetailsHelper {
     private static final List<IPatternDetailsDecoder> DECODERS = new CopyOnWriteArrayList<>();
@@ -66,17 +58,17 @@ public final class PatternDetailsHelper {
      * returned item.
      */
     public static <T extends IPatternDetails> EncodedPatternItemBuilder<T> encodedPatternItemBuilder(
-            EncodedPatternDecoder<T> decoder) {
+        EncodedPatternDecoder<T> decoder) {
         return new EncodedPatternItemBuilder<>(decoder);
     }
 
     /**
      * Convenience method for decoders that do not need access to the level to decode a pattern.
-     * 
+     *
      * @see #encodedPatternItemBuilder(EncodedPatternDecoder)
      */
     public static <T extends IPatternDetails> EncodedPatternItemBuilder<T> encodedPatternItemBuilder(
-            Function<AEItemKey, T> decoder) {
+        Function<AEItemKey, T> decoder) {
         return new EncodedPatternItemBuilder<>((what, level) -> decoder.apply(what));
     }
 
@@ -90,7 +82,7 @@ public final class PatternDetailsHelper {
     }
 
     @Nullable
-    public static IPatternDetails decodePattern(AEItemKey what, Level level) {
+    public static IPatternDetails decodePattern(AEItemKey what, World level) {
         for (var decoder : DECODERS) {
             var decoded = decoder.decodePattern(what, level);
             if (decoded != null) {
@@ -101,7 +93,7 @@ public final class PatternDetailsHelper {
     }
 
     @Nullable
-    public static IPatternDetails decodePattern(ItemStack stack, Level level) {
+    public static IPatternDetails decodePattern(ItemStack stack, World level) {
         for (var decoder : DECODERS) {
             var decoded = decoder.decodePattern(stack, level);
             if (decoded != null) {
@@ -137,55 +129,12 @@ public final class PatternDetailsHelper {
      * @param allowFluidSubstitutes Controls whether the ME system will allow the use of equivalent fluids.
      * @throws IllegalArgumentException If either in or out contain only empty ItemStacks.
      */
-    public static ItemStack encodeCraftingPattern(RecipeHolder<CraftingRecipe> recipe, ItemStack[] in,
-            ItemStack out, boolean allowSubstitutes, boolean allowFluidSubstitutes) {
+    public static ItemStack encodeCraftingPattern(IRecipe recipe, ItemStack[] in,
+                                                  ItemStack out, boolean allowSubstitutes, boolean allowFluidSubstitutes) {
         var stack = AEItems.CRAFTING_PATTERN.stack();
         AECraftingPattern.encode(stack, recipe, in, out, allowSubstitutes,
-                allowFluidSubstitutes);
+            allowFluidSubstitutes);
         return stack;
     }
 
-    /**
-     * Encodes a stonecutting pattern which represents a Vanilla Stonecutter recipe.
-     *
-     * @param recipe           The Vanilla stonecutter recipe to be encoded.
-     * @param in               The input item for the stonecutter, which is used to determine which item is supplied
-     *                         from the ME system to craft using this pattern.
-     * @param out              The selected output item from the stonecutter recipe. Used to restore the recipe if it is
-     *                         renamed later.
-     * @param allowSubstitutes Controls whether the ME system will allow the use of equivalent items to craft this
-     *                         recipe.
-     */
-    public static ItemStack encodeStonecuttingPattern(RecipeHolder<StonecutterRecipe> recipe, AEItemKey in,
-            AEItemKey out,
-            boolean allowSubstitutes) {
-        var stack = AEItems.STONECUTTING_PATTERN.stack();
-        AEStonecuttingPattern.encode(stack, recipe, in, out, allowSubstitutes);
-        return stack;
-    }
-
-    /**
-     * Encodes a smithing table pattern which represents a Vanilla Smithing Table recipe.
-     *
-     * @param recipe           The Vanilla smithing table recipe to be encoded.
-     * @param template         The template item for the smithing table.
-     * @param base             The base item for the smithing table, which is used to determine which item is supplied
-     *                         from the ME system to craft using this pattern.
-     * @param addition         The additional item for the smithing table, which is used to determine which item is
-     *                         supplied from the ME system to craft using this pattern.
-     * @param out              The selected output item from the smithing table recipe. Used to restore the recipe if it
-     *                         is renamed later.
-     * @param allowSubstitutes Controls whether the ME system will allow the use of equivalent items to craft this
-     *                         recipe.
-     */
-    public static ItemStack encodeSmithingTablePattern(RecipeHolder<SmithingRecipe> recipe,
-            AEItemKey template,
-            AEItemKey base,
-            AEItemKey addition,
-            AEItemKey out,
-            boolean allowSubstitutes) {
-        var stack = AEItems.SMITHING_TABLE_PATTERN.stack();
-        AESmithingTablePattern.encode(stack, recipe, template, base, addition, out, allowSubstitutes);
-        return stack;
-    }
 }

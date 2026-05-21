@@ -1,61 +1,51 @@
-
 package appeng.core.network.serverbound;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.util.AEColor;
-import appeng.core.network.CustomAppEngPayload;
 import appeng.core.network.ServerboundPacket;
 import appeng.items.tools.powered.ColorApplicatorItem;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.network.PacketBuffer;
 
-/**
- * Switches the color of any held color applicator to the desired color.
- */
-public record ColorApplicatorSelectColorPacket(@Nullable AEColor color) implements ServerboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, ColorApplicatorSelectColorPacket> STREAM_CODEC = StreamCodec
-            .ofMember(
-                    ColorApplicatorSelectColorPacket::write,
-                    ColorApplicatorSelectColorPacket::decode);
+import javax.annotation.Nullable;
 
-    public static final Type<ColorApplicatorSelectColorPacket> TYPE = CustomAppEngPayload
-            .createType("color_applicator_select_color");
+public class ColorApplicatorSelectColorPacket extends ServerboundPacket {
 
-    @Override
-    public Type<ColorApplicatorSelectColorPacket> type() {
-        return TYPE;
+    @Nullable
+    private AEColor color;
+
+    public ColorApplicatorSelectColorPacket() {
     }
 
-    public static ColorApplicatorSelectColorPacket decode(RegistryFriendlyByteBuf stream) {
-        AEColor color = null;
-        if (stream.readBoolean()) {
-            color = stream.readEnum(AEColor.class);
-        }
-        return new ColorApplicatorSelectColorPacket(color);
+    public ColorApplicatorSelectColorPacket(@Nullable AEColor color) {
+        this.color = color;
     }
 
-    public void write(RegistryFriendlyByteBuf data) {
-        if (color != null) {
-            data.writeBoolean(true);
-            data.writeEnum(color);
-        } else {
-            data.writeBoolean(false);
-        }
-    }
-
-    @Override
-    public void handleOnServer(ServerPlayer player) {
-        switchColor(player.getMainHandItem(), color);
-        switchColor(player.getOffhandItem(), color);
-    }
-
-    private static void switchColor(ItemStack stack, AEColor color) {
+    private static void switchColor(ItemStack stack, @Nullable AEColor color) {
         if (!stack.isEmpty() && stack.getItem() instanceof ColorApplicatorItem colorApplicator) {
             colorApplicator.setActiveColor(stack, color);
         }
+    }
+
+    @Override
+    protected void read(ByteBuf buf) {
+        PacketBuffer data = new PacketBuffer(buf);
+        this.color = data.readBoolean() ? data.readEnumValue(AEColor.class) : null;
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        PacketBuffer data = new PacketBuffer(buf);
+        data.writeBoolean(this.color != null);
+        if (this.color != null) {
+            data.writeEnumValue(this.color);
+        }
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        switchColor(player.getHeldItemMainhand(), this.color);
+        switchColor(player.getHeldItemOffhand(), this.color);
     }
 }

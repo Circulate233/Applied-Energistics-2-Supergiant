@@ -18,11 +18,19 @@
 
 package appeng.hooks;
 
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.context.UseOnContext;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
 public interface IBlockTool {
-    // Workaround for dispenser logic.
-    InteractionResult useOn(UseOnContext itemUseContext);
 
+    EnumActionResult onItemUse(ItemStack is, EntityPlayer p, World w, BlockPos pos, EnumHand hand, EnumFacing side,
+                               float hitX, float hitY, float hitZ);
+
+    EnumActionResult onItemUse(EntityPlayer p, World w, BlockPos pos, EnumHand hand, EnumFacing side, float hitX,
+                               float hitY, float hitZ);
 }

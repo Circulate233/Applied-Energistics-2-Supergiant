@@ -23,30 +23,29 @@
 
 package appeng.api.networking;
 
+import appeng.me.helpers.GridServiceContainer;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.world.World;
+
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import net.minecraft.world.level.Level;
-
-import appeng.me.helpers.GridServiceContainer;
 
 /**
  * A registry of grid services to extend grid functionality.
  */
 public final class GridServices {
 
+    // This must not be re-sorted because of interdependencies between the registrations
+    private static final List<GridCacheRegistration<?>> registry = new ObjectArrayList<>();
+
     private GridServices() {
     }
-
-    // This must not be re-sorted because of interdependencies between the registrations
-    private static final List<GridCacheRegistration<?>> registry = new ArrayList<>();
 
     /**
      * Register a new grid service for use during operation, must be called during the loading phase.
@@ -67,10 +66,10 @@ public final class GridServices {
      *                        constructor.
      */
     public static synchronized <T extends IGridServiceProvider> void register(Class<? super T> publicInterface,
-            Class<T> implClass) {
+                                                                              Class<T> implClass) {
         if (isRegistered(publicInterface)) {
             throw new IllegalArgumentException(
-                    "Implementation for grid service " + publicInterface + " is already registered!");
+                "Implementation for grid service " + publicInterface + " is already registered!");
         }
 
         var registration = new GridCacheRegistration<>(implClass, publicInterface);
@@ -80,7 +79,7 @@ public final class GridServices {
         for (Class<?> dependency : registration.dependencies) {
             if (!isRegistered(dependency)) {
                 throw new IllegalStateException("Missing dependency declared in constructor of "
-                        + implClass + ": " + dependency);
+                    + implClass + ": " + dependency);
             }
         }
 
@@ -97,11 +96,11 @@ public final class GridServices {
      * This is used by AE2 internally to initialize the services for a grid.
      */
     static GridServiceContainer createServices(IGrid g) {
-        var services = new IdentityHashMap<Class<?>, IGridServiceProvider>(registry.size());
-        var serverStartTickServices = new ArrayList<IGridServiceProvider>(registry.size());
-        var levelStartTickServices = new ArrayList<IGridServiceProvider>(registry.size());
-        var levelEndTickServices = new ArrayList<IGridServiceProvider>(registry.size());
-        var serverEndTickServices = new ArrayList<IGridServiceProvider>(registry.size());
+        var services = new Reference2ObjectOpenHashMap<Class<?>, IGridServiceProvider>(registry.size());
+        var serverStartTickServices = new ObjectArrayList<IGridServiceProvider>(registry.size());
+        var levelStartTickServices = new ObjectArrayList<IGridServiceProvider>(registry.size());
+        var levelEndTickServices = new ObjectArrayList<IGridServiceProvider>(registry.size());
+        var serverEndTickServices = new ObjectArrayList<IGridServiceProvider>(registry.size());
 
         for (var registration : registry) {
             var service = registration.construct(g, services);
@@ -122,11 +121,11 @@ public final class GridServices {
         }
 
         return new GridServiceContainer(
-                services,
-                serverStartTickServices.toArray(IGridServiceProvider[]::new),
-                levelStartTickServices.toArray(IGridServiceProvider[]::new),
-                levelEndTickServices.toArray(IGridServiceProvider[]::new),
-                serverEndTickServices.toArray(IGridServiceProvider[]::new));
+            services,
+            serverStartTickServices.toArray(IGridServiceProvider[]::new),
+            levelStartTickServices.toArray(IGridServiceProvider[]::new),
+            levelEndTickServices.toArray(IGridServiceProvider[]::new),
+            serverEndTickServices.toArray(IGridServiceProvider[]::new));
     }
 
     private static class GridCacheRegistration<T extends IGridServiceProvider> {
@@ -155,23 +154,23 @@ public final class GridServices {
             var ctors = (Constructor<T>[]) implClass.getConstructors();
             if (ctors.length != 1) {
                 throw new IllegalArgumentException("Grid service implementation " + implClass
-                        + " has " + ctors.length + " public constructors. It needs exactly 1.");
+                    + " has " + ctors.length + " public constructors. It needs exactly 1.");
             }
             this.constructor = ctors[0];
             this.constructorParameterTypes = this.constructor.getParameterTypes();
             this.dependencies = Arrays.stream(this.constructorParameterTypes)
-                    .filter(t -> !t.equals(IGrid.class))
-                    .collect(Collectors.toSet());
+                                      .filter(t -> !t.equals(IGrid.class))
+                                      .collect(Collectors.toSet());
 
             try {
                 this.hasServerStartTick = implClass.getMethod("onServerStartTick")
-                        .getDeclaringClass() != IGridServiceProvider.class;
-                this.hasLevelStartTick = implClass.getMethod("onLevelStartTick", Level.class)
-                        .getDeclaringClass() != IGridServiceProvider.class;
-                this.hasLevelEndTick = implClass.getMethod("onLevelEndTick", Level.class)
-                        .getDeclaringClass() != IGridServiceProvider.class;
+                                                   .getDeclaringClass() != IGridServiceProvider.class;
+                this.hasLevelStartTick = implClass.getMethod("onLevelStartTick", World.class)
+                                                  .getDeclaringClass() != IGridServiceProvider.class;
+                this.hasLevelEndTick = implClass.getMethod("onLevelEndTick", World.class)
+                                                .getDeclaringClass() != IGridServiceProvider.class;
                 this.hasServerEndTick = implClass.getMethod("onServerEndTick")
-                        .getDeclaringClass() != IGridServiceProvider.class;
+                                                 .getDeclaringClass() != IGridServiceProvider.class;
             } catch (NoSuchMethodException exception) {
                 throw new RuntimeException("Failed to check which methods the grid service implements", exception);
             }
@@ -188,7 +187,7 @@ public final class GridServices {
                     ctorArgs[i] = createdServices.get(paramType);
                     if (ctorArgs[i] == null) {
                         throw new IllegalStateException("Unsatisfied constructor dependency " + paramType + " in "
-                                + constructor);
+                            + constructor);
                     }
                 }
             }
@@ -199,7 +198,7 @@ public final class GridServices {
                 provider = constructor.newInstance(ctorArgs);
             } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
                 throw new IllegalStateException("Failed to create grid because grid service " + implClass
-                        + " failed to construct.", e);
+                    + " failed to construct.", e);
             }
             return provider;
         }

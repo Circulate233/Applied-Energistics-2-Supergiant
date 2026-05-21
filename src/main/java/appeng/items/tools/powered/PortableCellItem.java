@@ -1,37 +1,8 @@
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.items.tools.powered;
-
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
-import net.minecraft.world.item.Item.Properties;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 
 import appeng.api.config.FuzzyMode;
 import appeng.api.ids.AEComponents;
@@ -44,16 +15,25 @@ import appeng.core.AppEng;
 import appeng.items.contents.CellConfig;
 import appeng.items.storage.StorageTier;
 import appeng.util.ConfigInventory;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.World;
+
+import java.util.List;
+import java.util.Set;
 
 public class PortableCellItem extends AbstractPortableCell implements IBasicCellItem {
-
     private final StorageTier tier;
     private final AEKeyType keyType;
     private final int totalTypes;
 
-    public PortableCellItem(AEKeyType keyType, int totalTypes, MenuType<?> menuType, StorageTier tier,
-            Properties props, int defaultColor) {
-        super(menuType, props, defaultColor);
+    public PortableCellItem(AEKeyType keyType, int totalTypes, appeng.container.GuiIds.GuiKey guiKey, StorageTier tier,
+                            double powerCapacity, int defaultColor) {
+        super(guiKey, powerCapacity, defaultColor);
+        this.setMaxStackSize(1);
         this.tier = tier;
         this.keyType = keyType;
         this.totalTypes = totalTypes;
@@ -66,20 +46,14 @@ public class PortableCellItem extends AbstractPortableCell implements IBasicCell
 
     @Override
     public ResourceLocation getRecipeId() {
-        return AppEng.makeId("tools/" + Objects.requireNonNull(getRegistryName()).getPath());
+        return AppEng.makeId("tools/" + getRegistryName().getPath());
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        super.appendHoverText(stack, context, lines, advancedTooltips);
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
         addCellInformationToTooltip(stack, lines);
-    }
-
-    @Override
-    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
-        return getCellTooltipImage(stack);
     }
 
     @Override
@@ -104,7 +78,7 @@ public class PortableCellItem extends AbstractPortableCell implements IBasicCell
 
     @Override
     public IUpgradeInventory getUpgrades(ItemStack is) {
-        return UpgradeInventories.forItem(is, this.keyType == AEKeyType.items() ? 4 : 3, super::onUpgradesChanged);
+        return UpgradeInventories.forItem(is, 3, super::onUpgradesChanged);
     }
 
     @Override
@@ -114,12 +88,27 @@ public class PortableCellItem extends AbstractPortableCell implements IBasicCell
 
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
-        return is.getOrDefault(AEComponents.STORAGE_CELL_FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        var tag = is.getTagCompound();
+        if (tag != null) {
+            try {
+                var value = AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.readFrom(tag);
+                if (value != null) {
+                    return FuzzyMode.valueOf(value.getString());
+                }
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return FuzzyMode.IGNORE_ALL;
     }
 
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-        is.set(AEComponents.STORAGE_CELL_FUZZY_MODE, fzMode);
+        NBTTagCompound tag = is.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            is.setTagCompound(tag);
+        }
+        AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.writeTo(tag, new NBTTagString(fzMode.name()));
     }
 
     @Override

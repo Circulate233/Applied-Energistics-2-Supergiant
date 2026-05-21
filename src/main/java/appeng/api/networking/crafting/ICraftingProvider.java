@@ -23,19 +23,30 @@
 
 package appeng.api.networking.crafting;
 
-import java.util.List;
-import java.util.Set;
-
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGridNodeService;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 
+import java.util.List;
+import java.util.Set;
+
 /**
  * Allows a node to provide crafting patterns and emitable items to the network.
  */
 public interface ICraftingProvider extends IGridNodeService {
+    /**
+     * This convenience method can be used when the crafting options or emitable items have changed to request an update
+     * of the crafting service's cache.This only works if the given managed grid node provides this service.
+     */
+    static void requestUpdate(IManagedGridNode managedNode) {
+        var node = managedNode.getNode();
+        if (node != null) {
+            node.getGrid().getCraftingService().refreshNodeCraftingProvider(node);
+        }
+    }
+
     /**
      * Return the patterns offered by this provider. {@link #pushPattern} will be called if they need to be crafted.
      */
@@ -54,7 +65,6 @@ public interface ICraftingProvider extends IGridNodeService {
      *
      * @param patternDetails details
      * @param inputHolder    the requested stacks, for each input slot of the pattern
-     *
      * @return if the pattern was successfully pushed.
      */
     boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder);
@@ -70,16 +80,5 @@ public interface ICraftingProvider extends IGridNodeService {
      */
     default Set<AEKey> getEmitableItems() {
         return Set.of();
-    }
-
-    /**
-     * This convenience method can be used when the crafting options or emitable items have changed to request an update
-     * of the crafting service's cache.This only works if the given managed grid node provides this service.
-     */
-    static void requestUpdate(IManagedGridNode managedNode) {
-        var node = managedNode.getNode();
-        if (node != null) {
-            node.getGrid().getCraftingService().refreshNodeCraftingProvider(node);
-        }
     }
 }

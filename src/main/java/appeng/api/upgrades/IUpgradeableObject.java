@@ -23,12 +23,8 @@
 
 package appeng.api.upgrades;
 
-import net.minecraft.world.level.ItemLike;
+import net.minecraft.item.Item;
 
-/**
- * Implemented by {@link net.minecraft.world.level.block.entity.BlockEntity block entities} and
- * {@link appeng.api.parts.IPart parts} that are upgradable through upgrade cards.
- */
 public interface IUpgradeableObject {
     /**
      * Gets the inventory that contains the upgrade cards for this upgradable object.
@@ -37,11 +33,11 @@ public interface IUpgradeableObject {
         return UpgradeInventories.empty();
     }
 
-    default int getInstalledUpgrades(ItemLike upgradeCard) {
+    default int getInstalledUpgrades(Item upgradeCard) {
         return getUpgrades().getInstalledUpgrades(upgradeCard);
     }
 
-    default boolean isUpgradedWith(ItemLike upgradeCard) {
+    default boolean isUpgradedWith(Item upgradeCard) {
         return getUpgrades().isInstalled(upgradeCard);
     }
 }

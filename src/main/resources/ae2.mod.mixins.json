@@ -1,0 +1,15 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "appeng.mixins",
+  "plugin": "appeng.core.mixins.AE2MixinPlugin",
+  "compatibilityLevel": "JAVA_25",
+  "target": "@env(MOD)",
+  "refmap": "ae2.refmap.json",
+  "mixins": [],
+  "client": [
+    "hei.MixinGuiContainerWrapper",
+    "hei.MixinGuiScreenHelper"
+  ],
+  "server": []
+}

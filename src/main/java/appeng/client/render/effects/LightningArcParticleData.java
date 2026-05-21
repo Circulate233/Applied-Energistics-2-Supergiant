@@ -15,37 +15,8 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.effects;
 
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
+public record LightningArcParticleData(double targetX, double targetY, double targetZ) {
 
-import org.joml.Vector3f;
-
-import io.netty.buffer.ByteBuf;
-
-import net.minecraft.core.particles.ParticleOptions;
-import net.minecraft.core.particles.ParticleType;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.util.ExtraCodecs;
-
-/**
- * Contains the target point of the lightning arc (the source point is inferred from the particle starting position).
- */
-public record LightningArcParticleData(Vector3f target) implements ParticleOptions {
-    public static final MapCodec<LightningArcParticleData> CODEC = RecordCodecBuilder.mapCodec(builder -> builder.group(
-            ExtraCodecs.VECTOR3F.fieldOf("target").forGetter(LightningArcParticleData::target))
-            .apply(builder, LightningArcParticleData::new));
-
-    public static final StreamCodec<ByteBuf, LightningArcParticleData> STREAM_CODEC = StreamCodec.composite(
-            ByteBufCodecs.VECTOR3F,
-            d -> d.target,
-            LightningArcParticleData::new);
-
-    @Override
-    public ParticleType<?> getType() {
-        return ParticleTypes.LIGHTNING_ARC;
-    }
 }

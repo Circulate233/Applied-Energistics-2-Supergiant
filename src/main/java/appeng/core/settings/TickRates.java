@@ -21,27 +21,16 @@ package appeng.core.settings;
 public enum TickRates {
 
     Interface(5, 120),
-
     ImportBus(5, 40),
-
     ExportBus(5, 60),
-
     AnnihilationPlane(2, 120),
-
     METunnel(5, 20),
-
     Inscriber(1, 20),
-
     Charger(10, 10),
-
     IOPort(1, 5),
-
     VibrationChamber(10, 40),
-
     StorageBus(5, 60),
-
     ItemTunnel(5, 60),
-
     LightTunnel(5, 60);
 
     private final int defaultMin;
@@ -57,19 +46,11 @@ public enum TickRates {
     }
 
     public int getDefaultMin() {
-        return defaultMin;
+        return this.defaultMin;
     }
 
     public int getDefaultMax() {
-        return defaultMax;
-    }
-
-    public int getMax() {
-        return this.max;
-    }
-
-    public void setMax(int max) {
-        this.max = max;
+        return this.defaultMax;
     }
 
     public int getMin() {
@@ -80,4 +61,11 @@ public enum TickRates {
         this.min = min;
     }
 
+    public int getMax() {
+        return this.max;
+    }
+
+    public void setMax(int max) {
+        this.max = max;
+    }
 }

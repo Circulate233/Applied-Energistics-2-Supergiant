@@ -18,49 +18,51 @@
 
 package appeng.me.cluster.implementations;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
-import appeng.blockentity.qnb.QuantumBridgeBlockEntity;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.BlockDefinition;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.cluster.MBCalculator;
+import appeng.tile.qnb.TileQuantumBridge;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
 
-public class QuantumCalculator extends MBCalculator<QuantumBridgeBlockEntity, QuantumCluster> {
+public class QuantumCalculator extends MBCalculator<TileQuantumBridge, QuantumCluster> {
 
-    public QuantumCalculator(QuantumBridgeBlockEntity t) {
+    public QuantumCalculator(TileQuantumBridge t) {
         super(t);
     }
 
     @Override
     public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
-        if ((max.getX() - min.getX() + 1) * (max.getY() - min.getY() + 1) * (max.getZ() - min.getZ() + 1) == 9) {
-            final int ones = (max.getX() - min.getX() == 0 ? 1 : 0) + (max.getY() - min.getY() == 0 ? 1 : 0)
-                    + (max.getZ() - min.getZ() == 0 ? 1 : 0);
+        if ((max.getX() - min.getX() + 1) * (max.getY() - min.getY() + 1)
+            * (max.getZ() - min.getZ() + 1) == 9) {
+            final int ones = (max.getX() - min.getX() == 0 ? 1 : 0)
+                + (max.getY() - min.getY() == 0 ? 1 : 0)
+                + (max.getZ() - min.getZ() == 0 ? 1 : 0);
 
-            final int threes = (max.getX() - min.getX() == 2 ? 1 : 0) + (max.getY() - min.getY() == 2 ? 1 : 0)
-                    + (max.getZ() - min.getZ() == 2 ? 1 : 0);
+            final int threes = (max.getX() - min.getX() == 2 ? 1 : 0)
+                + (max.getY() - min.getY() == 2 ? 1 : 0)
+                + (max.getZ() - min.getZ() == 2 ? 1 : 0);
 
             return ones == 1 && threes == 2;
         }
+
         return false;
     }
 
     @Override
-    public QuantumCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
+    public QuantumCluster createCluster(World level, BlockPos min, BlockPos max) {
         return new QuantumCluster(min, max);
     }
 
     @Override
-    public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-
+    public boolean verifyInternalStructure(World level, BlockPos min, BlockPos max) {
         byte num = 0;
 
-        for (BlockPos p : BlockPos.betweenClosed(min, max)) {
-            final IAEMultiBlock<?> te = (IAEMultiBlock<?>) level.getBlockEntity(p);
+        for (BlockPos p : BlockPos.getAllInBox(min, max)) {
+            final IAEMultiBlock<?> te = (IAEMultiBlock<?>) level.getTileEntity(p);
 
             if (te == null || !te.isValid()) {
                 return false;
@@ -75,17 +77,17 @@ public class QuantumCalculator extends MBCalculator<QuantumBridgeBlockEntity, Qu
                 return false;
             }
         }
+
         return true;
     }
 
     @Override
-    public void updateBlockEntities(QuantumCluster c, ServerLevel level, BlockPos min,
-            BlockPos max) {
+    public void updateBlockEntities(QuantumCluster c, World level, BlockPos min, BlockPos max) {
         byte num = 0;
         byte ringNum = 0;
 
-        for (BlockPos p : BlockPos.betweenClosed(min, max)) {
-            final QuantumBridgeBlockEntity te = (QuantumBridgeBlockEntity) level.getBlockEntity(p);
+        for (BlockPos p : BlockPos.getAllInBox(min, max)) {
+            final TileQuantumBridge te = (TileQuantumBridge) level.getTileEntity(p);
 
             num++;
             final byte flags;
@@ -98,6 +100,7 @@ public class QuantumCalculator extends MBCalculator<QuantumBridgeBlockEntity, Qu
                 } else {
                     flags = num;
                 }
+
                 c.getRing()[ringNum] = te;
                 ringNum++;
             }
@@ -107,11 +110,12 @@ public class QuantumCalculator extends MBCalculator<QuantumBridgeBlockEntity, Qu
     }
 
     @Override
-    public boolean isValidBlockEntity(BlockEntity te) {
-        return te instanceof QuantumBridgeBlockEntity;
+    public boolean isValidBlockEntity(TileEntity te) {
+        return te instanceof TileQuantumBridge;
     }
 
-    private boolean isBlockAtLocation(BlockGetter level, BlockPos pos, BlockDefinition<?> def) {
+    private boolean isBlockAtLocation(IBlockAccess level, BlockPos pos, BlockDefinition<?> def) {
         return def.block() == level.getBlockState(pos).getBlock();
     }
 }
+

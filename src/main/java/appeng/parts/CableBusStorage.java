@@ -18,112 +18,109 @@
 
 package appeng.parts;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-
 import appeng.api.implementations.parts.ICablePart;
 import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPart;
+import net.minecraft.util.EnumFacing;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Thin data storage to optimize memory usage for cables.
- */
 public class CableBusStorage {
 
     @Nullable
     private ICablePart center;
+
     @Nullable
     private IPart[] parts;
+
     @Nullable
     private IFacadePart[] facades;
 
-    protected ICablePart getCenter() {
-        return this.center;
-    }
-
-    protected void setCenter(ICablePart center) {
-        this.center = center;
-    }
-
-    protected IPart getPart(Direction side) {
-        if (this.parts == null) {
-            return null;
-        }
-
-        var index = side.ordinal();
-        return this.parts[index];
-    }
-
-    protected void setPart(Direction side, IPart part) {
-        if (this.parts == null) {
-            this.parts = new IPart[Direction.values().length];
-        }
-
-        var index = side.ordinal();
-        this.parts[index] = part;
-    }
-
-    protected void removePart(Direction side) {
-        if (this.parts == null) {
-            return;
-        }
-
-        var index = side.ordinal();
-        this.parts[index] = null;
-
-        if (isNullArray(this.parts)) {
-            this.parts = null;
-        }
-    }
-
-    public IFacadePart getFacade(Direction side) {
-        if (this.facades == null) {
-            return null;
-        }
-
-        var index = side.ordinal();
-        return this.facades[index];
-    }
-
-    public void setFacade(Direction side, @Nullable IFacadePart facade) {
-        if (facade == null) {
-            removeFacade(side);
-            return;
-        }
-
-        if (facades == null) {
-            this.facades = new IFacadePart[Direction.values().length];
-        }
-
-        var index = side.ordinal();
-        this.facades[index] = facade;
-    }
-
-    public void removeFacade(Direction side) {
-        if (this.facades == null) {
-            return;
-        }
-
-        var index = side.ordinal();
-        this.facades[index] = null;
-
-        if (isNullArray(this.facades)) {
-            this.facades = null;
-        }
-    }
-
-    private static <T> boolean isNullArray(T[] array) {
+    private static <T> boolean isEmptyArray(@Nullable T[] array) {
         if (array == null) {
             return true;
         }
 
-        for (var o : array) {
-            if (o != null) {
+        for (var value : array) {
+            if (value != null) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    @Nullable
+    protected ICablePart getCenter() {
+        return this.center;
+    }
+
+    protected void setCenter(@Nullable ICablePart center) {
+        this.center = center;
+    }
+
+    @Nullable
+    protected IPart getPart(EnumFacing side) {
+        if (this.parts == null) {
+            return null;
+        }
+
+        return this.parts[side.ordinal()];
+    }
+
+    protected void setPart(EnumFacing side, @Nullable IPart part) {
+        if (part == null) {
+            removePart(side);
+            return;
+        }
+
+        if (this.parts == null) {
+            this.parts = new IPart[EnumFacing.VALUES.length];
+        }
+
+        this.parts[side.ordinal()] = part;
+    }
+
+    protected void removePart(EnumFacing side) {
+        if (this.parts == null) {
+            return;
+        }
+
+        this.parts[side.ordinal()] = null;
+        if (isEmptyArray(this.parts)) {
+            this.parts = null;
+        }
+    }
+
+    @Nullable
+    public IFacadePart getFacade(EnumFacing side) {
+        if (this.facades == null) {
+            return null;
+        }
+
+        return this.facades[side.ordinal()];
+    }
+
+    public void setFacade(EnumFacing side, @Nullable IFacadePart facade) {
+        if (facade == null) {
+            removeFacade(side);
+            return;
+        }
+
+        if (this.facades == null) {
+            this.facades = new IFacadePart[EnumFacing.VALUES.length];
+        }
+
+        this.facades[side.ordinal()] = facade;
+    }
+
+    public void removeFacade(EnumFacing side) {
+        if (this.facades == null) {
+            return;
+        }
+
+        this.facades[side.ordinal()] = null;
+        if (isEmptyArray(this.facades)) {
+            this.facades = null;
+        }
     }
 }

@@ -18,19 +18,6 @@
 
 package appeng.me.cluster.implementations;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Objects;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.level.Level;
-
 import appeng.api.config.Actionable;
 import appeng.api.config.CpuSelectionMode;
 import appeng.api.config.Settings;
@@ -46,86 +33,90 @@ import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.util.IConfigManager;
-import appeng.blockentity.crafting.CraftingBlockEntity;
-import appeng.blockentity.crafting.CraftingMonitorBlockEntity;
 import appeng.crafting.execution.CraftingCpuLogic;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import appeng.me.cluster.IAECluster;
 import appeng.me.cluster.MBCalculator;
 import appeng.me.helpers.MachineSource;
+import appeng.tile.crafting.TileCraftingMonitor;
+import appeng.tile.crafting.TileCraftingUnit;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Iterator;
+import java.util.Objects;
 
 public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
-    private static final String LOG_MARK_AS_COMPLETE = "Completed job for %s.";
-
+    public final CraftingCpuLogic craftingLogic = new CraftingCpuLogic(this);
     private final BlockPos boundsMin;
     private final BlockPos boundsMax;
-    // INSTANCE sate
-    private final List<CraftingBlockEntity> blockEntities = new ArrayList<>();
-    private final List<CraftingMonitorBlockEntity> status = new ArrayList<>();
+    private final ObjectList<TileCraftingUnit> blockEntities = new ObjectArrayList<>();
+    private final ObjectList<TileCraftingMonitor> status = new ObjectArrayList<>();
     private final IConfigManager configManager;
-    private Component myName = null;
-    private boolean isDestroyed = false;
-    private long storage = 0;
-    private MachineSource machineSrc = null;
-    private int accelerator = 0;
-    /**
-     * crafting job info
-     */
-    public final CraftingCpuLogic craftingLogic = new CraftingCpuLogic(this);
+    private ITextComponent myName;
+    private boolean destroyed;
+    private long storage;
+    private MachineSource machineSrc;
+    private int accelerator;
 
     public CraftingCPUCluster(BlockPos boundsMin, BlockPos boundsMax) {
-        this.boundsMin = boundsMin.immutable();
-        this.boundsMax = boundsMax.immutable();
-
+        this.boundsMin = boundsMin;
+        this.boundsMax = boundsMax;
         this.configManager = IConfigManager.builder(this::markDirty)
-                .registerSetting(Settings.CPU_SELECTION_MODE, CpuSelectionMode.ANY)
-                .build();
+                                           .registerSetting(Settings.CPU_SELECTION_MODE, CpuSelectionMode.ANY)
+                                           .build();
     }
 
     @Override
     public boolean isDestroyed() {
-        return this.isDestroyed;
+        return this.destroyed;
     }
 
     @Override
     public BlockPos getBoundsMin() {
-        return boundsMin;
+        return this.boundsMin;
     }
 
     @Override
     public BlockPos getBoundsMax() {
-        return boundsMax;
+        return this.boundsMax;
     }
 
     @Override
     public void updateStatus(boolean updateGrid) {
-        for (CraftingBlockEntity r : this.blockEntities) {
-            r.updateSubType(true);
+        for (TileCraftingUnit tile : this.blockEntities) {
+            tile.updateSubType(true);
         }
     }
 
     @Override
     public void destroy() {
-        if (this.isDestroyed) {
+        if (this.destroyed) {
             return;
         }
-        this.isDestroyed = true;
+        this.destroyed = true;
 
         boolean ownsModification = !MBCalculator.isModificationInProgress();
         if (ownsModification) {
             MBCalculator.setModificationInProgress(this);
         }
+
         try {
             boolean posted = false;
 
-            for (CraftingBlockEntity r : this.blockEntities) {
-                final IGridNode n = r.getActionableNode();
-                if (n != null && !posted) {
-                    n.getGrid().postEvent(new GridCraftingCpuChange(n));
+            for (TileCraftingUnit tile : this.blockEntities) {
+                final IGridNode node = tile.getActionableNode();
+                if (node != null && !posted) {
+                    node.getGrid().postEvent(new GridCraftingCpuChange(node));
                     posted = true;
                 }
 
-                r.updateStatus(null);
+                tile.updateStatus(null);
             }
         } finally {
             if (ownsModification) {
@@ -135,51 +126,57 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     }
 
     @Override
-    public Iterator<CraftingBlockEntity> getBlockEntities() {
+    public Iterator<TileCraftingUnit> getBlockEntities() {
         return this.blockEntities.iterator();
     }
 
-    void addBlockEntity(CraftingBlockEntity te) {
-        if (this.machineSrc == null || te.isCoreBlock()) {
-            this.machineSrc = new MachineSource(te);
+    public void addTileEntity(TileCraftingUnit tile) {
+        if (this.machineSrc == null || tile.isCoreBlock()) {
+            this.machineSrc = new MachineSource(tile);
         }
 
-        te.setCoreBlock(false);
-        te.saveChanges();
-        this.blockEntities.add(0, te);
+        tile.setCoreBlock(false);
+        tile.saveChanges();
+        this.blockEntities.addFirst(tile);
 
-        if (te instanceof CraftingMonitorBlockEntity) {
-            this.status.add((CraftingMonitorBlockEntity) te);
+        if (tile instanceof TileCraftingMonitor monitor) {
+            this.status.add(monitor);
         }
-        if (te.getStorageBytes() > 0) {
-            this.storage += te.getStorageBytes();
+
+        if (tile.getStorageBytes() > 0) {
+            this.storage += tile.getStorageBytes();
         }
-        if (te.getAcceleratorThreads() > 0) {
-            if (te.getAcceleratorThreads() <= 16) {
-                this.accelerator += te.getAcceleratorThreads();
+
+        if (tile.getAcceleratorThreads() > 0) {
+            if (tile.getAcceleratorThreads() <= 16) {
+                this.accelerator += tile.getAcceleratorThreads();
             } else {
                 throw new IllegalArgumentException("Co-processor threads may not exceed 16 per single unit block.");
             }
         }
     }
 
+    @SuppressWarnings("unused")
     public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
         return craftingLogic.insert(what, amount, mode);
     }
 
     public void markDirty() {
-        this.getCore().saveChanges();
+        TileCraftingUnit core = this.getCore();
+        if (core != null) {
+            core.saveChanges();
+        }
     }
 
-    public void updateOutput(GenericStack finalOutput) {
-        var send = finalOutput;
+    public void updateOutput(@Nullable GenericStack finalOutput) {
+        GenericStack send = finalOutput;
 
         if (finalOutput != null && finalOutput.amount() <= 0) {
             send = null;
         }
 
-        for (var t : this.status) {
-            t.setJob(send);
+        for (TileCraftingMonitor tile : this.status) {
+            tile.setJob(send);
         }
     }
 
@@ -187,11 +184,16 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         return Objects.requireNonNull(this.machineSrc);
     }
 
-    private CraftingBlockEntity getCore() {
+    @Nullable
+    private TileCraftingUnit getCore() {
         if (this.machineSrc == null) {
             return null;
         }
-        return (CraftingBlockEntity) this.machineSrc.machine().get();
+
+        return this.machineSrc.machine()
+                              .filter(TileCraftingUnit.class::isInstance)
+                              .map(TileCraftingUnit.class::cast)
+                              .orElse(null);
     }
 
     @Nullable
@@ -205,9 +207,9 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         craftingLogic.cancel();
     }
 
-    public ICraftingSubmitResult submitJob(IGrid g, ICraftingPlan plan, IActionSource src,
-            ICraftingRequester requestingMachine) {
-        return craftingLogic.trySubmitJob(g, plan, src, requestingMachine);
+    public ICraftingSubmitResult submitJob(IGrid grid, ICraftingPlan plan, IActionSource src,
+                                           @Nullable ICraftingRequester requestingMachine) {
+        return craftingLogic.trySubmitJob(grid, plan, src, requestingMachine);
     }
 
     @Override
@@ -219,19 +221,18 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     @Override
     public CraftingJobStatus getJobStatus() {
         var finalOutput = craftingLogic.getFinalJobOutput();
-        if (finalOutput != null) {
-            var elapsedTimeTracker = craftingLogic.getElapsedTimeTracker();
-            var progress = Math.max(
-                    0,
-                    elapsedTimeTracker.getStartItemCount() - elapsedTimeTracker.getRemainingItemCount());
-            return new CraftingJobStatus(
-                    finalOutput,
-                    elapsedTimeTracker.getStartItemCount(),
-                    progress,
-                    elapsedTimeTracker.getElapsedTime());
-        } else {
+        if (finalOutput == null) {
             return null;
         }
+
+        var elapsedTimeTracker = craftingLogic.getElapsedTimeTracker();
+        long totalItems = elapsedTimeTracker.getStartedWorkUnits();
+        long progress = Math.max(0, totalItems - elapsedTimeTracker.getRemainingWorkUnits());
+        return new CraftingJobStatus(
+            finalOutput,
+            totalItems,
+            progress,
+            elapsedTimeTracker.getElapsedTime());
     }
 
     @Override
@@ -244,14 +245,15 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         return this.accelerator;
     }
 
+    @Nullable
     @Override
-    public Component getName() {
+    public ITextComponent getName() {
         return this.myName;
     }
 
     @Nullable
     public IGridNode getNode() {
-        CraftingBlockEntity core = getCore();
+        TileCraftingUnit core = getCore();
         return core != null ? core.getActionableNode() : null;
     }
 
@@ -260,66 +262,70 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         return node != null && node.isActive();
     }
 
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        this.craftingLogic.writeToNBT(data, registries);
-        this.configManager.writeToNBT(data, registries);
+    public void writeToNBT(NBTTagCompound data) {
+        this.craftingLogic.writeToNBT(data);
+        this.configManager.writeToNBT(data);
     }
 
-    void done() {
-        final CraftingBlockEntity core = this.getCore();
+    public void done() {
+        final TileCraftingUnit core = this.getCore();
+        if (core == null) {
+            return;
+        }
 
         core.setCoreBlock(true);
 
         if (core.getPreviousState() != null) {
-            this.readFromNBT(core.getPreviousState(), core.getLevel().registryAccess());
+            this.readFromNBT(core.getPreviousState());
             core.setPreviousState(null);
         }
 
         this.updateName();
     }
 
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        this.craftingLogic.readFromNBT(data, registries);
-        this.configManager.readFromNBT(data, registries);
+    public void readFromNBT(NBTTagCompound data) {
+        this.craftingLogic.readFromNBT(data);
+        this.configManager.readFromNBT(data);
     }
 
     public void updateName() {
         this.myName = null;
-        for (CraftingBlockEntity te : this.blockEntities) {
-
-            if (te.hasCustomName()) {
-                if (this.myName != null) {
-                    this.myName.copy().append(" ").append(te.getCustomName());
-                } else {
-                    this.myName = te.getCustomName().copy();
+        for (TileCraftingUnit tile : this.blockEntities) {
+            if (tile.hasCustomName()) {
+                var customName = tile.getCustomName();
+                if (this.myName == null) {
+                    if (customName != null) {
+                        this.myName = customName.createCopy();
+                    }
+                } else if (customName != null) {
+                    this.myName.appendText(" ").appendSibling(customName.createCopy());
                 }
             }
         }
     }
 
-    public Level getLevel() {
-        return this.getCore().getLevel();
+    @Nullable
+    public World getLevel() {
+        TileCraftingUnit core = this.getCore();
+        return core == null ? null : core.getWorld();
     }
 
     public void breakCluster() {
-        final CraftingBlockEntity t = this.getCore();
-
-        if (t != null) {
-            t.breakCluster();
+        final TileCraftingUnit tile = this.getCore();
+        if (tile != null) {
+            tile.breakCluster();
         }
     }
 
+    @Override
     public CpuSelectionMode getSelectionMode() {
         return this.configManager.getSetting(Settings.CPU_SELECTION_MODE);
     }
 
     public IConfigManager getConfigManager() {
-        return configManager;
+        return this.configManager;
     }
 
-    /**
-     * Checks if this CPU cluster can be automatically selected for a crafting request by the given action source.
-     */
     public boolean canBeAutoSelectedFor(IActionSource source) {
         return switch (getSelectionMode()) {
             case ANY -> true;
@@ -328,9 +334,6 @@ public final class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         };
     }
 
-    /**
-     * Checks if this CPU cluster is preferred for crafting requests by the given action source.
-     */
     public boolean isPreferredFor(IActionSource source) {
         return switch (getSelectionMode()) {
             case ANY -> false;

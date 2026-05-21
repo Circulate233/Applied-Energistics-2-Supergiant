@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "normal": {
+      "model": "ae2:debug_phantom_node"
+    },
+    "inventory": {
+      "model": "ae2:item/debug_phantom_node"
+    }
+  }
+}

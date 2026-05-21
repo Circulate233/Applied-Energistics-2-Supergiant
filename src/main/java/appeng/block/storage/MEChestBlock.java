@@ -15,39 +15,72 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.storage;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.phys.BlockHitResult;
 
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
+import appeng.api.orientation.RelativeSide;
 import appeng.api.storage.cells.CellState;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.storage.MEChestBlockEntity;
-import appeng.core.localization.PlayerMessages;
+import appeng.block.AEBaseTileBlock;
+import appeng.tile.storage.TileMEChest;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.common.property.ExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
 
-public class MEChestBlock extends AEBaseEntityBlock<MEChestBlockEntity> {
-
-    public final static BooleanProperty LIGHTS_ON = BooleanProperty.create("lights_on");
+public class MEChestBlock extends AEBaseTileBlock<TileMEChest> {
+    public static final PropertyBool LIGHTS_ON = PropertyBool.create("lights_on");
 
     public MEChestBlock() {
-        super(metalProps());
-        this.registerDefaultState(this.defaultBlockState().setValue(LIGHTS_ON, false));
+        super(Material.IRON);
+        setHardness(2.2F);
+        setResistance(11.0F);
+        setTileEntity(TileMEChest.class);
+        setOpaque();
+        setFullSize();
+        setDefaultState(this.blockState.getBaseState().withProperty(LIGHTS_ON, false));
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(LIGHTS_ON);
+    protected BlockStateContainer createBlockState() {
+        var properties = getOrientationStrategy().getProperties().toArray(new IProperty<?>[0]);
+        IProperty<?>[] listedProperties = java.util.Arrays.copyOf(properties, properties.length + 1);
+        listedProperties[properties.length] = LIGHTS_ON;
+        return new ExtendedBlockState(this, listedProperties, new IUnlistedProperty<?>[]{FORWARD, UP});
+    }
+
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return super.getMetaFromState(state);
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        return super.getStateFromMeta(meta).withProperty(LIGHTS_ON, false);
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public IBlockState getActualState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        TileMEChest tile = this.getTileEntity(world, pos);
+        if (tile == null) {
+            return super.getActualState(state, world, pos).withProperty(LIGHTS_ON, false);
+        }
+
+        CellState cellState = tile.getCellCount() >= 1 ? tile.getCellStatus(0) : CellState.ABSENT;
+        return super.getActualState(state, world, pos)
+                    .withProperty(LIGHTS_ON, tile.isPowered() && cellState != CellState.ABSENT);
     }
 
     @Override
@@ -56,33 +89,40 @@ public class MEChestBlock extends AEBaseEntityBlock<MEChestBlockEntity> {
     }
 
     @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, MEChestBlockEntity be) {
-        var cellState = CellState.ABSENT;
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
 
-        if (be.getCellCount() >= 1) {
-            cellState = be.getCellStatus(0);
-        }
-
-        return currentState.setValue(LIGHTS_ON, be.isPowered() && cellState != CellState.ABSENT);
+    public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
+        return layer == BlockRenderLayer.CUTOUT;
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof MEChestBlockEntity be) {
-            if (!level.isClientSide()) {
-                if (hitResult.getDirection() == be.getTop()) {
-                    if (!be.openGui(player)) {
-                        player.displayClientMessage(PlayerMessages.ChestCannotReadStorageCell.text(), true);
-                    }
-                } else {
-                    be.openCellInventoryMenu(player);
-                }
-            }
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileMEChest tileEntity) {
+        CellState cellState = tileEntity.getCellCount() >= 1 ? tileEntity.getCellStatus(0) : CellState.ABSENT;
+        return currentState.withProperty(LIGHTS_ON, tileEntity.isPowered() && cellState != CellState.ABSENT);
+    }
 
-            return InteractionResult.sidedSuccess(level.isClientSide());
+    @Override
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
         }
 
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        TileMEChest tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            if (!world.isRemote) {
+                if (facing == tile.getOrientation().getSide(RelativeSide.TOP)) {
+                    if (!tile.openGui(player)) {
+                        player.sendStatusMessage(new TextComponentString("Cannot read storage cell"), true);
+                    }
+                } else {
+                    tile.openCellInventoryGui(player);
+                }
+            }
+            return true;
+        }
+        return false;
     }
 }

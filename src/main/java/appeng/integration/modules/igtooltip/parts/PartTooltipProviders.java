@@ -1,27 +1,26 @@
 package appeng.integration.modules.igtooltip.parts;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
-
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
 import appeng.api.integrations.igtooltip.providers.IconProvider;
 import appeng.api.integrations.igtooltip.providers.NameProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+
+import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public final class PartTooltipProviders {
     private static final Comparator<Registration<?>> COMPARATOR = Comparator.comparingInt(Registration::priority);
     private static final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private static final ReentrantReadWriteLock.WriteLock writeLock = lock.writeLock();
     private static final ReentrantReadWriteLock.ReadLock readLock = lock.readLock();
-    private static final List<Registration<ServerDataProvider<?>>> serverDataProviders = new ArrayList<>();
-    private static final List<Registration<BodyProvider<?>>> bodyProviders = new ArrayList<>();
-    private static final List<Registration<NameProvider<?>>> nameProviders = new ArrayList<>();
-    private static final List<Registration<IconProvider<?>>> iconProviders = new ArrayList<>();
-    private static final Map<Class<?>, CachedProviders<?>> cache = new IdentityHashMap<>();
+    private static final ObjectArrayList<Registration<ServerDataProvider<?>>> serverDataProviders = new ObjectArrayList<>();
+    private static final ObjectArrayList<Registration<BodyProvider<?>>> bodyProviders = new ObjectArrayList<>();
+    private static final ObjectArrayList<Registration<NameProvider<?>>> nameProviders = new ObjectArrayList<>();
+    private static final ObjectArrayList<Registration<IconProvider<?>>> iconProviders = new ObjectArrayList<>();
+    private static final Reference2ObjectOpenHashMap<Class<?>, CachedProviders<?>> cache = new Reference2ObjectOpenHashMap<>();
 
     private PartTooltipProviders() {
     }
@@ -73,8 +72,11 @@ public final class PartTooltipProviders {
         if (providers == null) {
             writeLock.lock();
             try {
-                providers = ((CachedProviders<U>) cache.computeIfAbsent(objectClass,
-                        PartTooltipProviders::createProviderLists));
+                providers = (CachedProviders<U>) cache.get(objectClass);
+                if (providers == null) {
+                    providers = createProviderLists(objectClass);
+                    cache.put(objectClass, providers);
+                }
             } finally {
                 writeLock.unlock();
             }
@@ -89,47 +91,48 @@ public final class PartTooltipProviders {
     @SuppressWarnings("unchecked")
     private static <U> CachedProviders<U> createProviderLists(Class<U> clazz) {
 
-        var compatibleNameProviders = new ArrayList<NameProvider<? super U>>();
-        for (var registration : nameProviders) {
-            if (registration.baseClass.isAssignableFrom(clazz)) {
+        ObjectArrayList<NameProvider<? super U>> compatibleNameProviders = new ObjectArrayList<>();
+        for (Registration<NameProvider<?>> registration : nameProviders) {
+            if (registration.baseClass().isAssignableFrom(clazz)) {
                 compatibleNameProviders.add((NameProvider<? super U>) registration.provider());
             }
         }
 
-        var compatibleBodyProviders = new ArrayList<BodyProvider<? super U>>();
-        for (var registration : bodyProviders) {
-            if (registration.baseClass.isAssignableFrom(clazz)) {
+        ObjectArrayList<BodyProvider<? super U>> compatibleBodyProviders = new ObjectArrayList<>();
+        for (Registration<BodyProvider<?>> registration : bodyProviders) {
+            if (registration.baseClass().isAssignableFrom(clazz)) {
                 compatibleBodyProviders.add((BodyProvider<? super U>) registration.provider());
             }
         }
 
-        var compatibleIconProviders = new ArrayList<IconProvider<? super U>>();
-        for (var registration : iconProviders) {
-            if (registration.baseClass.isAssignableFrom(clazz)) {
+        ObjectArrayList<IconProvider<? super U>> compatibleIconProviders = new ObjectArrayList<>();
+        for (Registration<IconProvider<?>> registration : iconProviders) {
+            if (registration.baseClass().isAssignableFrom(clazz)) {
                 compatibleIconProviders.add((IconProvider<? super U>) registration.provider());
             }
         }
 
-        var compatibleServerDataProviders = new ArrayList<ServerDataProvider<? super U>>();
-        for (var registration : serverDataProviders) {
-            if (registration.baseClass.isAssignableFrom(clazz)) {
+        ObjectArrayList<ServerDataProvider<? super U>> compatibleServerDataProviders = new ObjectArrayList<>();
+        for (Registration<ServerDataProvider<?>> registration : serverDataProviders) {
+            if (registration.baseClass().isAssignableFrom(clazz)) {
                 compatibleServerDataProviders.add((ServerDataProvider<? super U>) registration.provider());
             }
         }
 
         return new CachedProviders<>(
-                compatibleServerDataProviders,
-                compatibleBodyProviders,
-                compatibleIconProviders,
-                compatibleNameProviders);
+            compatibleServerDataProviders,
+            compatibleBodyProviders,
+            compatibleIconProviders,
+            compatibleNameProviders);
     }
 
     private record Registration<T>(Class<?> baseClass, T provider, int priority) {
     }
 
-    record CachedProviders<U>(List<ServerDataProvider<? super U>> serverDataProviders,
-            List<BodyProvider<? super U>> bodyProviders,
-            List<IconProvider<? super U>> iconProviders,
-            List<NameProvider<? super U>> nameProviders) {
+    public record CachedProviders<U>(
+        List<ServerDataProvider<? super U>> serverDataProviders,
+        List<BodyProvider<? super U>> bodyProviders,
+        List<IconProvider<? super U>> iconProviders,
+        List<NameProvider<? super U>> nameProviders) {
     }
 }

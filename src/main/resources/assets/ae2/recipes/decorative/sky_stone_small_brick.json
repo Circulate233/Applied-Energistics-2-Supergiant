@@ -1,0 +1,16 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aa",
+    "aa"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:sky_stone_brick"
+    }
+  },
+  "result": {
+    "item": "ae2:sky_stone_small_brick",
+    "count": 4
+  }
+}

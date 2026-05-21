@@ -1,11 +1,11 @@
 package appeng.me.helpers;
 
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Set;
-
 import appeng.api.networking.IStackWatcher;
 import appeng.api.stacks.AEKey;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+
+import java.util.Iterator;
 
 /**
  * Maintain my interests, and a global watch list, they should always be fully synchronized.
@@ -14,7 +14,7 @@ public class StackWatcher<T> implements IStackWatcher {
 
     private final InterestManager<StackWatcher<T>> interestManager;
     private final T myHost;
-    private final Set<AEKey> myInterests = new HashSet<>();
+    private final ObjectSet<AEKey> myInterests = new ObjectOpenHashSet<>();
     private boolean destroyed = false;
 
     public StackWatcher(InterestManager<StackWatcher<T>> interestManager, T host) {

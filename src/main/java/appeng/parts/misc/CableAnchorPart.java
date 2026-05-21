@@ -18,10 +18,6 @@
 
 package appeng.parts.misc;
 
-import net.minecraft.core.Direction;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.networking.IGridNode;
 import appeng.api.parts.BusSupport;
 import appeng.api.parts.IPart;
@@ -33,20 +29,21 @@ import appeng.api.util.AECableType;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 
 public class CableAnchorPart implements IPart {
 
     @PartModels
-    public static final PartModel DEFAULT_MODELS = new PartModel(false,
-            AppEng.makeId("part/cable_anchor"));
+    public static final PartModel DEFAULT_MODELS = new PartModel(false, AppEng.makeId("part/cable_anchor"));
 
     @PartModels
-    public static final PartModel FACADE_MODELS = new PartModel(false,
-            AppEng.makeId("part/cable_anchor_short"));
+    public static final PartModel FACADE_MODELS = new PartModel(false, AppEng.makeId("part/cable_anchor_short"));
 
     private final IPartItem<CableAnchorPart> partItem;
-    private IPartHost host = null;
-    private Direction mySide = Direction.UP;
+    private IPartHost host;
+    private EnumFacing side = EnumFacing.UP;
 
     public CableAnchorPart(IPartItem<CableAnchorPart> partItem) {
         this.partItem = partItem;
@@ -54,12 +51,12 @@ public class CableAnchorPart implements IPart {
 
     @Override
     public IPartItem<?> getPartItem() {
-        return partItem;
+        return this.partItem;
     }
 
     @Override
     public void getBoxes(IPartCollisionHelper bch) {
-        if (this.host != null && this.host.getFacadeContainer().getFacade(this.mySide) != null) {
+        if (this.host != null && this.host.getFacadeContainer().getFacade(this.side) != null) {
             bch.addBox(7, 7, 10, 9, 9, 14);
         } else {
             bch.addBox(7, 7, 10, 9, 9, 16);
@@ -67,8 +64,8 @@ public class CableAnchorPart implements IPart {
     }
 
     @Override
-    public boolean isLadder(LivingEntity entity) {
-        return this.mySide.getStepY() == 0 && (entity.horizontalCollision || !entity.onGround());
+    public boolean isLadder(EntityLivingBase entity) {
+        return this.side.getYOffset() == 0 && (entity.collidedHorizontally || !entity.onGround);
     }
 
     @Override
@@ -77,9 +74,9 @@ public class CableAnchorPart implements IPart {
     }
 
     @Override
-    public void setPartHostInfo(Direction side, IPartHost host, BlockEntity blockEntity) {
+    public void setPartHostInfo(EnumFacing side, IPartHost host, TileEntity blockEntity) {
         this.host = host;
-        this.mySide = side;
+        this.side = side;
     }
 
     @Override
@@ -94,11 +91,9 @@ public class CableAnchorPart implements IPart {
 
     @Override
     public IPartModel getStaticModels() {
-        if (this.host != null && this.host.getFacadeContainer().getFacade(this.mySide) != null) {
+        if (this.host != null && this.host.getFacadeContainer().getFacade(this.side) != null) {
             return FACADE_MODELS;
-        } else {
-            return DEFAULT_MODELS;
         }
+        return DEFAULT_MODELS;
     }
-
 }

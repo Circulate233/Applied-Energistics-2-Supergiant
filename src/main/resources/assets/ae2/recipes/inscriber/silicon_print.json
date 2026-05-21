@@ -1,0 +1,17 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "type": "forge:ore_dict",
+      "ore": "itemSilicon"
+    },
+    "top": {
+      "item": "ae2:silicon_press"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "id": "ae2:printed_silicon",
+    "count": 1
+  }
+}

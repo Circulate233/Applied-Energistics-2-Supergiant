@@ -18,46 +18,59 @@
 
 package appeng.client.render.model;
 
+import appeng.core.AppEng;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModel;
+import net.minecraftforge.client.model.ModelLoaderRegistry;
+import net.minecraftforge.common.model.IModelState;
+import net.minecraftforge.common.model.TRSRTransformation;
+import org.jspecify.annotations.NonNull;
+
 import java.util.Collection;
 import java.util.Collections;
 import java.util.function.Function;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelState;
-import net.minecraft.resources.ResourceLocation;
-
-import appeng.client.render.BasicUnbakedModel;
-import appeng.core.AppEng;
-
 /**
  * Model wrapper for the memory card item model, which combines a base card layer with a "visual hash" of the part/tile.
  */
-public class MemoryCardModel implements BasicUnbakedModel {
+@SuppressWarnings("deprecation")
+public class MemoryCardModel implements IModel {
 
     public static final ResourceLocation MODEL_BASE = AppEng.makeId("item/memory_card_base");
-    private static final Material TEXTURE = new Material(TextureAtlas.LOCATION_BLOCKS,
-            AppEng.makeId("item/memory_card_hash"));
+    private static final ResourceLocation TEXTURE = AppEng.makeId("item/memory_card_hash");
 
     @Override
     public Collection<ResourceLocation> getDependencies() {
-        return Collections.singleton(MODEL_BASE);
+        return Collections.singletonList(MODEL_BASE);
     }
 
-    @Nullable
     @Override
-    public BakedModel bake(ModelBaker loader, Function<Material, TextureAtlasSprite> textureGetter,
-            ModelState rotationContainer) {
-        TextureAtlasSprite texture = textureGetter.apply(TEXTURE);
-
-        BakedModel baseModel = loader.bake(MODEL_BASE, rotationContainer);
-
-        return new MemoryCardBakedModel(baseModel, texture);
+    public Collection<ResourceLocation> getTextures() {
+        return Collections.singletonList(TEXTURE);
     }
 
+    @Override
+    public IBakedModel bake(@NonNull IModelState state, @NonNull VertexFormat format,
+                            Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        TextureAtlasSprite texture = bakedTextureGetter.apply(TEXTURE);
+        IBakedModel baseModel = this.getBaseModel(state, format, bakedTextureGetter);
+        return new MemoryCardBakedModel(format, baseModel, texture);
+    }
+
+    private IBakedModel getBaseModel(IModelState state, VertexFormat format,
+                                     Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        try {
+            return ModelLoaderRegistry.getModel(MODEL_BASE).bake(state, format, bakedTextureGetter);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public IModelState getDefaultState() {
+        return TRSRTransformation.identity().toItemTransform();
+    }
 }

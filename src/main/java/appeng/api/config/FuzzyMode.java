@@ -23,14 +23,7 @@
 
 package appeng.api.config;
 
-import com.mojang.serialization.Codec;
-
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.util.StringRepresentable;
-import net.neoforged.neoforge.network.codec.NeoForgeStreamCodecs;
-
-public enum FuzzyMode implements StringRepresentable {
+public enum FuzzyMode {
     /**
      * Matches any item from undamaged to including 0% durability, but not negative durability (where item damage
      * exceeds maxdamage).
@@ -43,24 +36,20 @@ public enum FuzzyMode implements StringRepresentable {
     PERCENT_99(0),
     /**
      * If an item with less than 75% durability is used as the filter, items with less than 75% durability are matched.
-     * Otherwise items with 75% durability or more are matched.
+     * Otherwise, items with 75% durability or more are matched.
      */
     PERCENT_75(25),
     /**
      * If an item with less than 50% durability is used as the filter, items with less than 50% durability are matched.
-     * Otherwise items with 50% durability or more are matched.
+     * Otherwise, items with 50% durability or more are matched.
      */
     PERCENT_50(50),
     /**
      * If an item with less than 25% durability is used as the filter, items with less than 50% durability are matched.
-     * Otherwise items with 25% durability or more are matched.
+     * Otherwise, items with 25% durability or more are matched.
      */
     PERCENT_25(75);
 
-    public static final Codec<FuzzyMode> CODEC = StringRepresentable.fromEnum(FuzzyMode::values);
-
-    public static final StreamCodec<FriendlyByteBuf, FuzzyMode> STREAM_CODEC = NeoForgeStreamCodecs
-            .enumCodec(FuzzyMode.class);
 
     public final float breakPoint;
     /**
@@ -77,8 +66,4 @@ public enum FuzzyMode implements StringRepresentable {
         return (int) (this.percentage * maxDamage / 100.0f);
     }
 
-    @Override
-    public String getSerializedName() {
-        return name();
-    }
 }

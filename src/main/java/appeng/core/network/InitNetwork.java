@@ -1,15 +1,10 @@
 package appeng.core.network;
 
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
-import net.neoforged.neoforge.network.registration.PayloadRegistrar;
-
-import appeng.core.AppEng;
+import appeng.core.Tags;
 import appeng.core.network.bidirectional.ConfigValuePacket;
 import appeng.core.network.clientbound.AssemblerAnimationPacket;
 import appeng.core.network.clientbound.BlockTransitionEffectPacket;
+import appeng.core.network.clientbound.ClearCompassCachePacket;
 import appeng.core.network.clientbound.ClearPatternAccessTerminalPacket;
 import appeng.core.network.clientbound.CompassResponsePacket;
 import appeng.core.network.clientbound.CraftConfirmPlanPacket;
@@ -23,9 +18,11 @@ import appeng.core.network.clientbound.MEInventoryUpdatePacket;
 import appeng.core.network.clientbound.MatterCannonPacket;
 import appeng.core.network.clientbound.MockExplosionPacket;
 import appeng.core.network.clientbound.NetworkStatusPacket;
+import appeng.core.network.clientbound.OpenGuiPacket;
 import appeng.core.network.clientbound.PatternAccessTerminalPacket;
 import appeng.core.network.clientbound.SetLinkStatusPacket;
 import appeng.core.network.serverbound.ColorApplicatorSelectColorPacket;
+import appeng.core.network.serverbound.CableBusPartLeftClickPacket;
 import appeng.core.network.serverbound.ConfigButtonPacket;
 import appeng.core.network.serverbound.ConfirmAutoCraftPacket;
 import appeng.core.network.serverbound.FillCraftingGridFromRecipePacket;
@@ -34,80 +31,111 @@ import appeng.core.network.serverbound.HotkeyPacket;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.core.network.serverbound.MEInteractionPacket;
 import appeng.core.network.serverbound.MouseWheelPacket;
-import appeng.core.network.serverbound.PartLeftClickPacket;
 import appeng.core.network.serverbound.QuickMovePatternPacket;
 import appeng.core.network.serverbound.RequestClosestMeteoritePacket;
 import appeng.core.network.serverbound.SelectKeyTypePacket;
 import appeng.core.network.serverbound.SwapSlotsPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
 import appeng.core.network.serverbound.UpdateHoldingCtrlPacket;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.common.network.NetworkRegistry;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
+import net.minecraftforge.fml.relauncher.Side;
 
-public class InitNetwork {
-    public static void init(RegisterPayloadHandlersEvent event) {
-        var registrar = event.registrar(AppEng.MOD_ID);
+public final class InitNetwork {
 
-        // Clientbound
-        clientbound(registrar, AssemblerAnimationPacket.TYPE, AssemblerAnimationPacket.STREAM_CODEC);
-        clientbound(registrar, BlockTransitionEffectPacket.TYPE, BlockTransitionEffectPacket.STREAM_CODEC);
-        clientbound(registrar, ClearPatternAccessTerminalPacket.TYPE, ClearPatternAccessTerminalPacket.STREAM_CODEC);
-        clientbound(registrar, CompassResponsePacket.TYPE, CompassResponsePacket.STREAM_CODEC);
-        clientbound(registrar, CraftConfirmPlanPacket.TYPE, CraftConfirmPlanPacket.STREAM_CODEC);
-        clientbound(registrar, CraftingJobStatusPacket.TYPE, CraftingJobStatusPacket.STREAM_CODEC);
-        clientbound(registrar, CraftingStatusPacket.TYPE, CraftingStatusPacket.STREAM_CODEC);
-        clientbound(registrar, GuiDataSyncPacket.TYPE, GuiDataSyncPacket.STREAM_CODEC);
-        clientbound(registrar, ItemTransitionEffectPacket.TYPE, ItemTransitionEffectPacket.STREAM_CODEC);
-        clientbound(registrar, LightningPacket.TYPE, LightningPacket.STREAM_CODEC);
-        clientbound(registrar, MatterCannonPacket.TYPE, MatterCannonPacket.STREAM_CODEC);
-        clientbound(registrar, MEInventoryUpdatePacket.TYPE, MEInventoryUpdatePacket.STREAM_CODEC);
-        clientbound(registrar, MockExplosionPacket.TYPE, MockExplosionPacket.STREAM_CODEC);
-        clientbound(registrar, NetworkStatusPacket.TYPE, NetworkStatusPacket.STREAM_CODEC);
-        clientbound(registrar, PatternAccessTerminalPacket.TYPE, PatternAccessTerminalPacket.STREAM_CODEC);
-        clientbound(registrar, SetLinkStatusPacket.TYPE, SetLinkStatusPacket.STREAM_CODEC);
-        clientbound(registrar, ExportedGridContent.TYPE, ExportedGridContent.STREAM_CODEC);
+    public static final SimpleNetworkWrapper CHANNEL = NetworkRegistry.INSTANCE.newSimpleChannel(Tags.MOD_ID);
 
-        // Serverbound
-        serverbound(registrar, ColorApplicatorSelectColorPacket.TYPE, ColorApplicatorSelectColorPacket.STREAM_CODEC);
-        serverbound(registrar, RequestClosestMeteoritePacket.TYPE, RequestClosestMeteoritePacket.STREAM_CODEC);
-        serverbound(registrar, ConfigButtonPacket.TYPE, ConfigButtonPacket.STREAM_CODEC);
-        serverbound(registrar, ConfirmAutoCraftPacket.TYPE, ConfirmAutoCraftPacket.STREAM_CODEC);
-        serverbound(registrar, FillCraftingGridFromRecipePacket.TYPE, FillCraftingGridFromRecipePacket.STREAM_CODEC);
-        serverbound(registrar, GuiActionPacket.TYPE, GuiActionPacket.STREAM_CODEC);
-        serverbound(registrar, HotkeyPacket.TYPE, HotkeyPacket.STREAM_CODEC);
-        serverbound(registrar, InventoryActionPacket.TYPE, InventoryActionPacket.STREAM_CODEC);
-        serverbound(registrar, MEInteractionPacket.TYPE, MEInteractionPacket.STREAM_CODEC);
-        serverbound(registrar, MouseWheelPacket.TYPE, MouseWheelPacket.STREAM_CODEC);
-        serverbound(registrar, PartLeftClickPacket.TYPE, PartLeftClickPacket.STREAM_CODEC);
-        serverbound(registrar, QuickMovePatternPacket.TYPE, QuickMovePatternPacket.STREAM_CODEC);
-        serverbound(registrar, SelectKeyTypePacket.TYPE, SelectKeyTypePacket.STREAM_CODEC);
-        serverbound(registrar, SwapSlotsPacket.TYPE, SwapSlotsPacket.STREAM_CODEC);
-        serverbound(registrar, SwitchGuisPacket.TYPE, SwitchGuisPacket.STREAM_CODEC);
-        serverbound(registrar, UpdateHoldingCtrlPacket.TYPE, UpdateHoldingCtrlPacket.STREAM_CODEC);
+    private static int nextPacketId;
+    private static boolean initialized;
 
-        // Bidirectional
-        bidirectional(registrar, ConfigValuePacket.TYPE, ConfigValuePacket.STREAM_CODEC);
+    private InitNetwork() {
     }
 
-    private static <T extends ClientboundPacket> void clientbound(PayloadRegistrar registrar,
-            CustomPacketPayload.Type<T> type,
-            StreamCodec<RegistryFriendlyByteBuf, T> codec) {
-        registrar.playToClient(type, codec, ClientboundPacket::handleOnClient);
+    public static synchronized void init() {
+        if (initialized) {
+            return;
+        }
+        initialized = true;
+        registerClientbound(AppEngPayloadHandler.Client.class, CraftConfirmPlanPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, CraftingJobStatusPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, CraftingStatusPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, ClearCompassCachePacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, CompassResponsePacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, ExportedGridContent.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, ClearPatternAccessTerminalPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, AssemblerAnimationPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, BlockTransitionEffectPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, MockExplosionPacket.class);
+        registerClientbound(GuiDataSyncPacket.Handler.class, GuiDataSyncPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, ItemTransitionEffectPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, LightningPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, MatterCannonPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, MEInventoryUpdatePacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, NetworkStatusPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, OpenGuiPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, PatternAccessTerminalPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, SetLinkStatusPacket.class);
+        CHANNEL.registerMessage(ConfigValuePacket.ClientHandler.class, ConfigValuePacket.class, nextPacketId++, Side.CLIENT);
+        registerServerbound(AppEngPayloadHandler.Server.class, ColorApplicatorSelectColorPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, CableBusPartLeftClickPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, ConfigButtonPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, ConfirmAutoCraftPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, FillCraftingGridFromRecipePacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, GuiActionPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, RequestClosestMeteoritePacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, HotkeyPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, InventoryActionPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, MEInteractionPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, MouseWheelPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, QuickMovePatternPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, SelectKeyTypePacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, SwapSlotsPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, SwitchGuisPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, UpdateHoldingCtrlPacket.class);
+        CHANNEL.registerMessage(ConfigValuePacket.ServerHandler.class, ConfigValuePacket.class, nextPacketId++, Side.SERVER);
     }
 
-    private static <T extends ServerboundPacket> void serverbound(PayloadRegistrar registrar,
-            CustomPacketPayload.Type<T> type,
-            StreamCodec<RegistryFriendlyByteBuf, T> codec) {
-        registrar.playToServer(type, codec, ServerboundPacket::handleOnServer);
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static <T extends ClientboundPacket> void registerClientbound(
+        Class<? extends IMessageHandler> handler, Class<T> packet) {
+        CHANNEL.registerMessage((Class) handler, packet, nextPacketId++, Side.CLIENT);
     }
 
-    private static <T extends ServerboundPacket & ClientboundPacket> void bidirectional(PayloadRegistrar registrar,
-            CustomPacketPayload.Type<T> type,
-            StreamCodec<RegistryFriendlyByteBuf, T> codec) {
-        registrar.playBidirectional(type, codec, (payload, context) -> {
-            if (context.flow().isClientbound()) {
-                payload.handleOnClient(context);
-            } else if (context.flow().isServerbound()) {
-                payload.handleOnServer(context);
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static <T extends ServerboundPacket> void registerServerbound(
+        Class<? extends IMessageHandler> handler, Class<T> packet) {
+        CHANNEL.registerMessage((Class) handler, packet, nextPacketId++, Side.SERVER);
+    }
+
+    public static void sendToAllNearExcept(EntityPlayer excluded, double x, double y, double z, double distance,
+                                           World world, ClientboundPacket packet) {
+        if (world == null || packet == null || world.isRemote) {
+            return;
+        }
+
+        double distanceSq = distance * distance;
+        for (EntityPlayer player : world.playerEntities) {
+            if (!(player instanceof EntityPlayerMP) || player == excluded) {
+                continue;
             }
-        });
+            double dx = player.posX - x;
+            double dy = player.posY - y;
+            double dz = player.posZ - z;
+            if (dx * dx + dy * dy + dz * dz <= distanceSq) {
+                CHANNEL.sendTo(packet, (EntityPlayerMP) player);
+            }
+        }
+    }
+
+    public static void sendToClient(EntityPlayerMP player, ClientboundPacket packet) {
+        CHANNEL.sendTo(packet, player);
+    }
+
+    public static void sendToServer(ServerboundPacket packet) {
+        CHANNEL.sendToServer(packet);
     }
 }

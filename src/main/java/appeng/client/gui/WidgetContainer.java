@@ -18,73 +18,85 @@
 
 package appeng.client.gui;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
-
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button.OnPress;
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
-import net.neoforged.neoforge.network.PacketDistributor;
-
 import appeng.client.Point;
-import appeng.client.gui.style.ScreenStyle;
+import appeng.client.gui.style.Blitter;
+import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.WidgetStyle;
 import appeng.client.gui.widgets.AE2Button;
 import appeng.client.gui.widgets.AECheckbox;
 import appeng.client.gui.widgets.AETextField;
 import appeng.client.gui.widgets.BackgroundPanel;
 import appeng.client.gui.widgets.IResizableWidget;
+import appeng.client.gui.widgets.ITickingWidget;
+import appeng.client.gui.widgets.ITooltip;
 import appeng.client.gui.widgets.NumberEntryWidget;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.client.gui.widgets.TabButton;
+import appeng.container.GuiIds;
 import appeng.core.localization.GuiText;
+import appeng.core.network.InitNetwork;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
-import appeng.menu.implementations.PriorityMenu;
+import com.google.common.base.Preconditions;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.util.text.ITextComponent;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
 /**
- * This utility class helps with positioning commonly used Minecraft {@link AbstractWidget} instances on a screen
+ * This utility class helps with positioning commonly used Minecraft {@link GuiButton} instances on a screen
  * without having to recreate them everytime the screen resizes in the <code>init</code> method.
  * <p/>
- * This class sources the positioning and sizing for widgets from the {@link ScreenStyle}, and correlates between the
+ * This class sources the positioning and sizing for widgets from the {@link GuiStyle}, and correlates between the
  * screen's JSON file and the widget using a string id.
  */
 public class WidgetContainer {
-    private final ScreenStyle style;
-    private final Map<String, AbstractWidget> widgets = new LinkedHashMap<>();
-    private final Map<String, ICompositeWidget> compositeWidgets = new LinkedHashMap<>();
-    private final Map<String, ResolvedTooltipArea> tooltips = new LinkedHashMap<>();
+    @Nullable
+    private final GuiStyle style;
+    private final Object2ObjectLinkedOpenHashMap<String, GuiButton> widgets = new Object2ObjectLinkedOpenHashMap<>();
+    private final Object2ObjectLinkedOpenHashMap<String, AETextField> textFields = new Object2ObjectLinkedOpenHashMap<>();
+    private final Object2ObjectLinkedOpenHashMap<String, ICompositeWidget> compositeWidgets = new Object2ObjectLinkedOpenHashMap<>();
+    private final Object2ObjectLinkedOpenHashMap<String, ResolvedTooltipArea> tooltips = new Object2ObjectLinkedOpenHashMap<>();
+    private Rect2i currentBounds = Rects.ZERO;
 
-    public WidgetContainer(ScreenStyle style) {
+    @SuppressWarnings("unused")
+    public WidgetContainer() {
+        this(null);
+    }
+
+    public WidgetContainer(@Nullable GuiStyle style) {
         this.style = style;
     }
 
-    public void add(String id, AbstractWidget widget) {
+    private static boolean contains(Rect2i area, int mouseX, int mouseY) {
+        return mouseX >= area.x() && mouseX < area.x() + area.width()
+            && mouseY >= area.y() && mouseY < area.y() + area.height();
+    }
+
+    public void add(String id, GuiButton widget) {
         Preconditions.checkState(!compositeWidgets.containsKey(id), "%s already used for composite widget", id);
+        Preconditions.checkState(!textFields.containsKey(id), "%s already used for text field", id);
 
-        // Size the widget, as this doesn't change when the parent is resized
-        WidgetStyle widgetStyle = style.getWidget(id);
-        int width = widgetStyle.getWidth() != 0 ? widgetStyle.getWidth() : widget.getWidth();
-        int height = widgetStyle.getHeight() != 0 ? widgetStyle.getHeight() : widget.getHeight();
-        if (widget instanceof IResizableWidget resizableWidget) {
-            resizableWidget.resize(width, height);
-        } else {
-            widget.setWidth(width);
-            widget.setHeight(height);
-        }
+        if (this.style != null) {
+            WidgetStyle widgetStyle = this.style.getWidget(id);
+            int width = widgetStyle.getWidth() != 0 ? widgetStyle.getWidth() : widget.width;
+            int height = widgetStyle.getHeight() != 0 ? widgetStyle.getHeight() : widget.height;
+            if (widget instanceof IResizableWidget resizableWidget) {
+                resizableWidget.resize(width, height);
+            } else {
+                widget.width = width;
+                widget.height = height;
+            }
 
-        if (widget instanceof TabButton tabButton) {
-            if (widgetStyle.isHideEdge()) {
-                tabButton.setStyle(TabButton.Style.CORNER);
+            if (widget instanceof TabButton tabButton) {
+                if (widgetStyle.isHideEdge()) {
+                    tabButton.setStyle(TabButton.Style.CORNER);
+                }
             }
         }
 
@@ -93,41 +105,67 @@ public class WidgetContainer {
         }
     }
 
+    public void add(String id, AETextField widget) {
+        Preconditions.checkState(!widgets.containsKey(id), "%s already used for widget", id);
+        Preconditions.checkState(!compositeWidgets.containsKey(id), "%s already used for composite widget", id);
+
+        WidgetStyle widgetStyle = requireStyle().getWidget(id);
+        int width = widgetStyle.getWidth() != 0 ? widgetStyle.getWidth() : widget.getTooltipArea().width();
+        int height = widgetStyle.getHeight() != 0 ? widgetStyle.getHeight() : widget.getTooltipArea().height();
+        widget.resize(width, height);
+
+        if (textFields.put(id, widget) != null) {
+            throw new IllegalStateException("Duplicate id: " + id);
+        }
+    }
+
     public void add(String id, ICompositeWidget widget) {
         Preconditions.checkState(!widgets.containsKey(id), "%s already used for widget", id);
+        Preconditions.checkState(!textFields.containsKey(id), "%s already used for text field", id);
 
-        // Size the widget, as this doesn't change when the parent is resized
-        WidgetStyle widgetStyle = style.getWidget(id);
-        widget.setSize(widgetStyle.getWidth(), widgetStyle.getHeight());
+        if (this.style != null) {
+            WidgetStyle widgetStyle = this.style.getWidget(id);
+            widget.setSize(widgetStyle.getWidth(), widgetStyle.getHeight());
+        }
 
         if (compositeWidgets.put(id, widget) != null) {
             throw new IllegalStateException("Duplicate id: " + id);
         }
     }
 
+    public GuiButton get(String id) {
+        return widgets.get(id);
+    }
+
+    @SuppressWarnings("unused")
+    public AETextField getTextField(String id) {
+        return textFields.get(id);
+    }
+
+    @SuppressWarnings("unused")
+    public ICompositeWidget getComposite(String id) {
+        return compositeWidgets.get(id);
+    }
+
     /**
      * Convenient way to add Vanilla buttons without having to specify x,y,width and height. The actual
      * position/rectangle is instead sourced from the screen style.
      */
-    public AE2Button addButton(String id, Component text, OnPress action) {
-        var button = new AE2Button(text, action);
+    public AE2Button addButton(String id, ITextComponent text, Runnable action) {
+        AE2Button button = new AE2Button(text, action);
         add(id, button);
         return button;
     }
 
-    public AE2Button addButton(String id, Component text, Runnable action) {
-        return addButton(id, text, btn -> action.run());
-    }
-
-    public AECheckbox addCheckbox(String id, Component text, Runnable changeListener) {
-        var checkbox = new AECheckbox(0, 0, 0, AECheckbox.SIZE, style, text);
+    public AECheckbox addCheckbox(String id, ITextComponent text, Runnable changeListener) {
+        AECheckbox checkbox = new AECheckbox(0, 0, 0, AECheckbox.SIZE, requireStyle(), text);
         add(id, checkbox);
         checkbox.setChangeListener(changeListener);
         return checkbox;
     }
 
     public NumberEntryWidget addNumberEntryWidget(String id, NumberEntryType type) {
-        var numberEntry = new NumberEntryWidget(style, type);
+        NumberEntryWidget numberEntry = new NumberEntryWidget(requireStyle(), type);
         add(id, numberEntry);
         return numberEntry;
     }
@@ -135,6 +173,7 @@ public class WidgetContainer {
     /**
      * Adds a {@link Scrollbar} to the screen.
      */
+    @SuppressWarnings("unused")
     public Scrollbar addScrollBar(String id) {
         return addScrollBar(id, Scrollbar.DEFAULT);
     }
@@ -155,59 +194,106 @@ public class WidgetContainer {
      * @param id The id used to look up the background image and bounds in the style.
      */
     public void addBackgroundPanel(String id) {
-        var background = style.getImage(id).copy();
+        Blitter background = requireStyle().getImage(id).copy();
         add(id, new BackgroundPanel(background));
     }
 
-    void populateScreen(Consumer<AbstractWidget> addWidget, Rect2i bounds, AEBaseScreen<?> screen) {
-        for (var entry : widgets.entrySet()) {
-            var widget = entry.getValue();
-            if (widget.isFocused()) {
-                widget.setFocused(false); // Minecraft already cleared focus on the screen
+    /**
+     * Adds a button named "openPriority" that opens the priority GUI for the current container host.
+     */
+    public void addOpenPriorityButton() {
+        add("openPriority", new TabButton(Icon.PRIORITY, GuiText.Priority.text(), this::openPriorityGui));
+    }
+
+    private void openPriorityGui() {
+        ServerboundPacket message = SwitchGuisPacket.openSubGui(GuiIds.GuiKey.PRIORITY);
+        InitNetwork.sendToServer(message);
+    }
+
+    public void populateScreen(Consumer<GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
+        this.currentBounds = bounds;
+
+        for (Map.Entry<String, GuiButton> entry : widgets.entrySet()) {
+            GuiButton widget = entry.getValue();
+            if (widget instanceof TabButton tabButton && tabButton.isFocused()) {
+                tabButton.setFocused(false);
+            } else if (widget instanceof AECheckbox checkBox && checkBox.isFocused()) {
+                checkBox.setFocused(false);
             }
 
-            // Position the widget
-            WidgetStyle widgetStyle = style.getWidget(entry.getKey());
-            Point pos = widgetStyle.resolve(bounds);
-            if (widget instanceof IResizableWidget resizableWidget) {
-                resizableWidget.move(pos);
-            } else {
-                widget.setX(pos.getX());
-                widget.setY(pos.getY());
+            if (this.style != null) {
+                WidgetStyle widgetStyle = this.style.getWidget(entry.getKey());
+                Point pos = widgetStyle.resolve(bounds);
+                if (widget instanceof IResizableWidget resizableWidget) {
+                    resizableWidget.move(pos);
+                } else {
+                    widget.x = pos.x();
+                    widget.y = pos.y();
+                }
             }
 
             addWidget.accept(widget);
         }
 
-        // For composite widgets, just position them. Positions for these widgets are generally relative to the dialog
-        Rect2i relativeBounds = new Rect2i(0, 0, bounds.getWidth(), bounds.getHeight());
-        for (var entry : compositeWidgets.entrySet()) {
-            var widget = entry.getValue();
-            var widgetStyle = style.getWidget(entry.getKey());
-            widget.setPosition(widgetStyle.resolve(relativeBounds));
+        for (Map.Entry<String, AETextField> entry : textFields.entrySet()) {
+            AETextField widget = entry.getValue();
+            if (widget.isFocused()) {
+                widget.setFocused(false);
+            }
+
+            if (this.style != null) {
+                WidgetStyle widgetStyle = this.style.getWidget(entry.getKey());
+                widget.move(widgetStyle.resolve(bounds));
+            }
+        }
+
+        Rect2i relativeBounds = new Rect2i(0, 0, bounds.width(), bounds.height());
+        for (Map.Entry<String, ICompositeWidget> entry : compositeWidgets.entrySet()) {
+            ICompositeWidget widget = entry.getValue();
+            if (this.style != null) {
+                WidgetStyle widgetStyle = this.style.getWidget(entry.getKey());
+                widget.setPosition(widgetStyle.resolve(relativeBounds));
+            }
 
             widget.populateScreen(addWidget, bounds, screen);
         }
 
         tooltips.clear();
-        for (var entry : style.getTooltips().entrySet()) {
-            var pos = entry.getValue().resolve(relativeBounds);
-            var area = new Rect2i(
-                    pos.getX(), pos.getY(),
+        if (this.style != null) {
+            for (Map.Entry<String, appeng.client.gui.style.TooltipArea> entry : this.style.getTooltips().entrySet()) {
+                Point pos = entry.getValue().resolve(relativeBounds);
+                Rect2i area = new Rect2i(
+                    pos.x(), pos.y(),
                     entry.getValue().getWidth(),
                     entry.getValue().getHeight());
-            tooltips.put(entry.getKey(), new ResolvedTooltipArea(
+                tooltips.put(entry.getKey(), new ResolvedTooltipArea(
                     area, new Tooltip(entry.getValue().getTooltip())));
+            }
         }
+    }
+
+    public Iterable<GuiButton> values() {
+        return widgets.values();
     }
 
     /**
      * Tick {@link ICompositeWidget} instances that are not automatically ticked as part of being a normal widget.
      */
     public void tick() {
-        for (var widget : compositeWidgets.values()) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
                 widget.tick();
+            }
+        }
+
+        for (GuiButton widget : widgets.values()) {
+            if (widget instanceof ITickingWidget tickingWidget) {
+                tickingWidget.tick();
+            }
+        }
+        for (AETextField textField : textFields.values()) {
+            if (textField.getVisible()) {
+                textField.updateCursorCounter();
             }
         }
     }
@@ -216,7 +302,7 @@ public class WidgetContainer {
      * @see ICompositeWidget#updateBeforeRender()
      */
     public void updateBeforeRender() {
-        for (var widget : compositeWidgets.values()) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
                 widget.updateBeforeRender();
             }
@@ -224,23 +310,39 @@ public class WidgetContainer {
     }
 
     /**
-     * @see ICompositeWidget#drawBackgroundLayer(GuiGraphics, Rect2i, Point)
+     * @see ICompositeWidget#drawBackgroundLayer(Rect2i, Point)
      */
-    public void drawBackgroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
-        for (var widget : compositeWidgets.values()) {
+    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
-                widget.drawBackgroundLayer(guiGraphics, bounds, mouse);
+                widget.drawBackgroundLayer(bounds, mouse);
             }
         }
     }
 
     /**
-     * @see ICompositeWidget#drawForegroundLayer(GuiGraphics, Rect2i, Point)
+     * @see ICompositeWidget#drawForegroundLayer(Rect2i, Point)
      */
-    public void drawForegroundLayer(GuiGraphics poseStack, Rect2i bounds, Point mouse) {
-        for (var widget : compositeWidgets.values()) {
+    public void drawForegroundLayer(Rect2i bounds, Point mouse) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
-                widget.drawForegroundLayer(poseStack, bounds, mouse);
+                widget.drawForegroundLayer(bounds, mouse);
+            }
+        }
+    }
+
+    public void drawTextFields(Point mouse) {
+        for (AETextField textField : textFields.values()) {
+            if (textField.getVisible()) {
+                textField.drawTextBox();
+            }
+        }
+
+        for (ICompositeWidget widget : compositeWidgets.values()) {
+            if (widget.isVisible()) {
+                widget.drawAbsoluteLayer(currentBounds, new Point(
+                    currentBounds.x() + mouse.x(),
+                    currentBounds.y() + mouse.y()));
             }
         }
     }
@@ -249,10 +351,17 @@ public class WidgetContainer {
      * @see ICompositeWidget#onMouseDown(Point, int)
      */
     public boolean onMouseDown(Point mousePos, int btn) {
-        for (var widget : compositeWidgets.values()) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()
-                    && (widget.wantsAllMouseDownEvents() || mousePos.isIn(widget.getBounds()))
-                    && widget.onMouseDown(mousePos, btn)) {
+                && (widget.wantsAllMouseDownEvents() || mousePos.isIn(widget.getBounds()))
+                && widget.onMouseDown(mousePos, btn)) {
+                return true;
+            }
+        }
+
+        for (AETextField textField : textFields.values()) {
+            if (textField.mouseClicked(currentBounds.x() + mousePos.x(), currentBounds.y() + mousePos.y(),
+                btn)) {
                 return true;
             }
         }
@@ -264,10 +373,10 @@ public class WidgetContainer {
      * @see ICompositeWidget#onMouseUp(Point, int)
      */
     public boolean onMouseUp(Point mousePos, int btn) {
-        for (var widget : compositeWidgets.values()) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()
-                    && (widget.wantsAllMouseUpEvents() || mousePos.isIn(widget.getBounds()))
-                    && widget.onMouseUp(mousePos, btn)) {
+                && (widget.wantsAllMouseUpEvents() || mousePos.isIn(widget.getBounds()))
+                && widget.onMouseUp(mousePos, btn)) {
                 return true;
             }
         }
@@ -279,7 +388,7 @@ public class WidgetContainer {
      * @see ICompositeWidget#onMouseDrag(Point, int)
      */
     public boolean onMouseDrag(Point mousePos, int btn) {
-        for (var widget : compositeWidgets.values()) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible() && widget.onMouseDrag(mousePos, btn)) {
                 return true;
             }
@@ -291,21 +400,19 @@ public class WidgetContainer {
     /**
      * @see ICompositeWidget#onMouseWheel(Point, double)
      */
-    boolean onMouseWheel(Point mousePos, double wheelDelta) {
-        // First pass: dispatch wheel event to widgets the mouse is over
-        for (var widget : compositeWidgets.values()) {
+    public boolean onMouseWheel(Point mousePos, double wheelDelta) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()
-                    && mousePos.isIn(widget.getBounds())
-                    && widget.onMouseWheel(mousePos, wheelDelta)) {
+                && mousePos.isIn(widget.getBounds())
+                && widget.onMouseWheel(mousePos, wheelDelta)) {
                 return true;
             }
         }
 
-        // Second pass: send the event to capturing widgets
-        for (var widget : compositeWidgets.values()) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()
-                    && widget.wantsAllMouseWheelEvents()
-                    && widget.onMouseWheel(mousePos, wheelDelta)) {
+                && widget.wantsAllMouseWheelEvents()
+                && widget.onMouseWheel(mousePos, wheelDelta)) {
                 return true;
             }
         }
@@ -317,53 +424,75 @@ public class WidgetContainer {
      * @see ICompositeWidget#addExclusionZones(List, Rect2i)
      */
     public void addExclusionZones(List<Rect2i> exclusionZones, Rect2i bounds) {
-        for (var widget : compositeWidgets.values()) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
                 widget.addExclusionZones(exclusionZones, bounds);
             }
         }
     }
 
-    /**
-     * Adds a button named "openPriority" that opens the priority GUI for the current menu host.
-     */
-    public void addOpenPriorityButton() {
-        add("openPriority", new TabButton(Icon.PRIORITY, GuiText.Priority.text(),
-                btn -> openPriorityGui()));
-    }
+    public boolean onKeyTyped(char typedChar, int keyCode) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
+            if (widget.isVisible() && widget.onKeyTyped(typedChar, keyCode)) {
+                return true;
+            }
+        }
 
-    private void openPriorityGui() {
-        ServerboundPacket message = SwitchGuisPacket.openSubMenu(PriorityMenu.TYPE);
-        PacketDistributor.sendToServer(message);
+        for (AETextField textField : textFields.values()) {
+            if (textField.textboxKeyTyped(typedChar, keyCode)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
      * Enables or disables a tooltip area that is defined in the widget styles.
      */
     public void setTooltipAreaEnabled(String id, boolean enabled) {
-        var tooltip = tooltips.get(id);
+        ResolvedTooltipArea tooltip = tooltips.get(id);
         Preconditions.checkArgument(tooltip != null, "No tooltip with id '%s' is defined", id);
         tooltip.enabled = enabled;
     }
 
     @Nullable
     public Tooltip getTooltip(int mouseX, int mouseY) {
-        for (var c : this.compositeWidgets.values()) {
-            if (!c.isVisible()) {
+        for (GuiButton widget : widgets.values()) {
+            if (widget instanceof ITooltip tooltip) {
+                if (tooltip.isTooltipAreaVisible()) {
+                    Rect2i area = toRelative(tooltip.getTooltipArea());
+                    if (contains(area, mouseX, mouseY)) {
+                        return new Tooltip(tooltip.getTooltipMessage());
+                    }
+                }
+            }
+        }
+
+        for (AETextField widget : textFields.values()) {
+            if (widget.isTooltipAreaVisible()) {
+                Rect2i area = toRelative(widget.getTooltipArea());
+                if (contains(area, mouseX, mouseY)) {
+                    return new Tooltip(widget.getTooltipMessage());
+                }
+            }
+        }
+
+        for (ICompositeWidget widget : compositeWidgets.values()) {
+            if (!widget.isVisible()) {
                 continue;
             }
 
-            Rect2i bounds = c.getBounds();
-            if (mouseX >= bounds.getX() && mouseX < bounds.getX() + bounds.getWidth()
-                    && mouseY >= bounds.getY() && mouseY < bounds.getY() + bounds.getHeight()) {
-                Tooltip tooltip = c.getTooltip(mouseX, mouseY);
+            Rect2i bounds = widget.getBounds();
+            if (contains(bounds, mouseX, mouseY)) {
+                Tooltip tooltip = widget.getTooltip(mouseX, mouseY);
                 if (tooltip != null) {
                     return tooltip;
                 }
             }
         }
 
-        for (var tooltipArea : tooltips.values()) {
+        for (ResolvedTooltipArea tooltipArea : tooltips.values()) {
             if (tooltipArea.enabled && contains(tooltipArea.area, mouseX, mouseY)) {
                 return tooltipArea.tooltip;
             }
@@ -376,7 +505,7 @@ public class WidgetContainer {
      * Check if there's any content or compound widget at the given screen-relative mouse position.
      */
     public boolean hitTest(Point mousePos) {
-        for (var widget : compositeWidgets.values()) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
             if (mousePos.isIn(widget.getBounds())) {
                 return true;
             }
@@ -384,23 +513,31 @@ public class WidgetContainer {
         return false;
     }
 
-    // NOTE: Vanilla's implementation of Rect2i is broken since it uses less-than-equal to compare against x+width,
-    // rather than less-than.
-    private static boolean contains(Rect2i area, int mouseX, int mouseY) {
-        return mouseX >= area.getX() && mouseX < area.getX() + area.getWidth()
-                && mouseY >= area.getY() && mouseY < area.getY() + area.getHeight();
-    }
-
     public AETextField addTextField(String id) {
-        var searchField = new AETextField(style, Minecraft.getInstance().font,
-                0, 0, 0, 0);
-        searchField.setBordered(false);
-        searchField.setMaxLength(25);
+        AETextField searchField = new AETextField(requireStyle(), Minecraft.getMinecraft().fontRenderer,
+            0, 0, 0, 0);
+        searchField.setEnableBackgroundDrawing(false);
+        searchField.setMaxStringLength(25);
         searchField.setTextColor(0xFFFFFF);
         searchField.setSelectionColor(0xFF000080);
         searchField.setVisible(true);
         add(id, searchField);
         return searchField;
+    }
+
+    private Rect2i toRelative(Rect2i area) {
+        return new Rect2i(
+            area.x() - currentBounds.x(),
+            area.y() - currentBounds.y(),
+            area.width(),
+            area.height());
+    }
+
+    private GuiStyle requireStyle() {
+        if (this.style == null) {
+            throw new IllegalStateException("WidgetContainer requires a GuiStyle for styled widgets");
+        }
+        return this.style;
     }
 
     private static class ResolvedTooltipArea {

@@ -18,13 +18,12 @@
 
 package appeng.parts.reporting;
 
-import net.minecraft.resources.ResourceLocation;
-
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
+import net.minecraft.util.ResourceLocation;
 
 public class ItemTerminalPart extends AbstractTerminalPart {
 

@@ -18,20 +18,40 @@
 
 package appeng.init;
 
-import net.minecraft.advancements.CriterionTrigger;
-import net.minecraft.core.Registry;
-
-import appeng.core.AppEng;
+import appeng.core.AELog;
+import appeng.core.AppEngBase;
 import appeng.core.stats.AdvancementTriggers;
+import net.minecraft.advancements.CriteriaTriggers;
+import net.minecraft.advancements.ICriterionTrigger;
+import net.minecraftforge.fml.relauncher.ReflectionHelper;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+
+@SuppressWarnings("deprecation")
 public final class InitAdvancementTriggers {
+    private static boolean initialized;
 
-    public static void init(Registry<CriterionTrigger<?>> registry) {
-        Registry.register(registry, AppEng.makeId("network_apprentice"), AdvancementTriggers.NETWORK_APPRENTICE);
-        Registry.register(registry, AppEng.makeId("network_engineer"), AdvancementTriggers.NETWORK_ENGINEER);
-        Registry.register(registry, AppEng.makeId("network_admin"), AdvancementTriggers.NETWORK_ADMIN);
-        Registry.register(registry, AppEng.makeId("spatial_explorer"), AdvancementTriggers.SPATIAL_EXPLORER);
-        Registry.register(registry, AppEng.makeId("recursive_networking"), AdvancementTriggers.RECURSIVE);
+    private InitAdvancementTriggers() {
     }
 
+    public static synchronized void init() {
+        if (initialized) {
+            return;
+        }
+
+        Method register = ReflectionHelper.findMethod(CriteriaTriggers.class, "register", "func_192118_a",
+            ICriterionTrigger.class);
+        register.setAccessible(true);
+
+        AdvancementTriggers triggers = new AdvancementTriggers(trigger -> {
+            try {
+                register.invoke(null, trigger);
+            } catch (IllegalAccessException | IllegalArgumentException | InvocationTargetException e) {
+                AELog.debug("Failed to register advancement trigger: %s", e);
+            }
+        });
+        AppEngBase.runtime().setAdvancementTriggers(triggers);
+        initialized = true;
+    }
 }

@@ -18,17 +18,6 @@
 
 package appeng.parts.networking;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Objects;
-
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.GridHelper;
 import appeng.api.networking.IGridNode;
@@ -44,15 +33,16 @@ import appeng.me.energy.IEnergyOverlayGridConnection;
 import appeng.me.service.EnergyService;
 import appeng.parts.AEBasePart;
 import appeng.parts.PartModel;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
 
-/**
- * A quartz fiber consists of two grid nodes which are not connected directly.
- * <p/>
- * Both grid nodes expose the energy services of both by providing an {@link IEnergyOverlayGridConnection} service.
- * <p/>
- * Since the quart fiber is part of both grids, removing it will also invalidate the overlay energy grid of both sides
- * when it is added or removed from a grid.
- */
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Objects;
+
 public class QuartzFiberPart extends AEBasePart {
 
     @PartModels
@@ -63,18 +53,16 @@ public class QuartzFiberPart extends AEBasePart {
     public QuartzFiberPart(IPartItem<?> partItem) {
         super(partItem);
         this.getMainNode()
-                .setIdlePowerUsage(0)
-                .setFlags(GridFlags.CANNOT_CARRY)
-                // Expose the energy service of the outer-node on the main-node
-                .addService(IEnergyOverlayGridConnection.class, this::getTheirEnergyServices);
+            .setIdlePowerUsage(0)
+            .setFlags(GridFlags.CANNOT_CARRY)
+            .addService(IEnergyOverlayGridConnection.class, this::getTheirEnergyServices);
         this.outerNode = GridHelper.createManagedNode(this, NodeListener.INSTANCE)
-                .setTagName("outer")
-                .setIdlePowerUsage(0)
-                .setVisualRepresentation(partItem)
-                .setFlags(GridFlags.CANNOT_CARRY)
-                .setInWorldNode(true)
-                // Expose the energy service of the main-node on the outer-node
-                .addService(IEnergyOverlayGridConnection.class, this::getOurEnergyServices);
+                                   .setTagName("outer")
+                                   .setIdlePowerUsage(0)
+                                   .setVisualRepresentation(partItem.asItem())
+                                   .setFlags(GridFlags.CANNOT_CARRY)
+                                   .setInWorldNode(true)
+                                   .addService(IEnergyOverlayGridConnection.class, this::getOurEnergyServices);
     }
 
     private List<EnergyService> getOurEnergyServices() {
@@ -83,7 +71,7 @@ public class QuartzFiberPart extends AEBasePart {
     }
 
     private List<EnergyService> getTheirEnergyServices() {
-        var grid = Objects.requireNonNull(outerNode.getGrid());
+        var grid = Objects.requireNonNull(this.outerNode.getGrid());
         return Collections.singletonList((EnergyService) grid.getEnergyService());
     }
 
@@ -93,14 +81,14 @@ public class QuartzFiberPart extends AEBasePart {
     }
 
     @Override
-    public void readFromNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.readFromNBT(extra, registries);
+    public void readFromNBT(NBTTagCompound extra) {
+        super.readFromNBT(extra);
         this.outerNode.loadFromNBT(extra);
     }
 
     @Override
-    public void writeToNBT(CompoundTag extra, HolderLookup.Provider registries) {
-        super.writeToNBT(extra, registries);
+    public void writeToNBT(NBTTagCompound extra) {
+        super.writeToNBT(extra);
         this.outerNode.saveToNBT(extra);
     }
 
@@ -113,11 +101,11 @@ public class QuartzFiberPart extends AEBasePart {
     @Override
     public void addToWorld() {
         super.addToWorld();
-        this.outerNode.create(getLevel(), getBlockEntity().getBlockPos());
+        this.outerNode.create(getLevel(), getTileEntity().getPos());
     }
 
     @Override
-    public void setPartHostInfo(Direction side, IPartHost host, BlockEntity blockEntity) {
+    public void setPartHostInfo(EnumFacing side, IPartHost host, TileEntity blockEntity) {
         super.setPartHostInfo(side, host, blockEntity);
         this.outerNode.setExposedOnSides(EnumSet.of(side));
     }
@@ -133,7 +121,7 @@ public class QuartzFiberPart extends AEBasePart {
     }
 
     @Override
-    public void onPlacement(Player player) {
+    public void onPlacement(EntityPlayer player) {
         super.onPlacement(player);
         this.outerNode.setOwningPlayer(player);
     }
@@ -142,5 +130,6 @@ public class QuartzFiberPart extends AEBasePart {
     public IPartModel getStaticModels() {
         return MODELS;
     }
-
 }
+
+

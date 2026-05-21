@@ -1,41 +1,5 @@
 package appeng.hooks;
 
-import static net.minecraft.client.renderer.RenderStateShard.COLOR_WRITE;
-import static net.minecraft.client.renderer.RenderStateShard.ITEM_ENTITY_TARGET;
-import static net.minecraft.client.renderer.RenderStateShard.NO_CULL;
-import static net.minecraft.client.renderer.RenderStateShard.RENDERTYPE_LINES_SHADER;
-import static net.minecraft.client.renderer.RenderStateShard.TRANSLUCENT_TRANSPARENCY;
-import static net.minecraft.client.renderer.RenderStateShard.VIEW_OFFSET_Z_LAYERING;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.OptionalDouble;
-
-import com.mojang.blaze3d.vertex.DefaultVertexFormat;
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexFormat;
-
-import org.lwjgl.opengl.GL11;
-
-import net.minecraft.client.Camera;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.LevelRenderer;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderStateShard;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.neoforged.neoforge.client.event.RenderHighlightEvent;
-import net.neoforged.neoforge.common.NeoForge;
-
 import appeng.api.implementations.items.IFacadeItem;
 import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPart;
@@ -43,99 +7,56 @@ import appeng.api.parts.IPartHost;
 import appeng.api.parts.IPartItem;
 import appeng.core.AEConfig;
 import appeng.core.definitions.AEParts;
+import appeng.facade.FacadePart;
 import appeng.items.parts.FacadeItem;
 import appeng.parts.BusCollisionHelper;
 import appeng.parts.PartPlacement;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderGlobal;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.world.World;
+import net.minecraftforge.client.event.DrawBlockHighlightEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.lwjgl.opengl.GL11;
 
+import java.util.List;
+
+@SideOnly(Side.CLIENT)
 public class RenderBlockOutlineHook {
-    private RenderBlockOutlineHook() {
-    }
 
-    /**
-     * Similar to {@link RenderType#LINES}, but with inverted depth test.
-     */
-    public static final RenderType LINES_BEHIND_BLOCK = RenderType.create(
-            "lines_behind_block",
-            DefaultVertexFormat.POSITION_COLOR_NORMAL,
-            VertexFormat.Mode.LINES,
-            256,
-            false,
-            false,
-            RenderType.CompositeState.builder()
-                    .setShaderState(RENDERTYPE_LINES_SHADER)
-                    .setLineState(new RenderStateShard.LineStateShard(OptionalDouble.empty()))
-                    .setLayeringState(VIEW_OFFSET_Z_LAYERING)
-                    .setTransparencyState(TRANSLUCENT_TRANSPARENCY)
-                    .setDepthTestState(new RenderStateShard.DepthTestStateShard(">", GL11.GL_GREATER))
-                    .setOutputState(ITEM_ENTITY_TARGET)
-                    .setWriteMaskState(COLOR_WRITE)
-                    .setCullState(NO_CULL)
-                    .createCompositeState(false));
-
-    public static void install() {
-        NeoForge.EVENT_BUS.addListener(RenderBlockOutlineHook::handleEvent);
-    }
-
-    private static void handleEvent(RenderHighlightEvent.Block evt) {
-        var level = Minecraft.getInstance().level;
-        var poseStack = evt.getPoseStack();
-        var buffers = evt.getMultiBufferSource();
-        var camera = evt.getCamera();
-        if (level == null || buffers == null) {
-            return;
-        }
-
-        var blockHitResult = evt.getTarget();
-        if (blockHitResult.getType() != HitResult.Type.BLOCK) {
-            return;
-        }
-
-        if (replaceBlockOutline(level, poseStack, buffers, camera, blockHitResult)) {
-            evt.setCanceled(true);
-        }
-    }
-
-    /*
-     * Changes block outline rendering such that it renders only for individual parts, not for the entire part host.
-     */
-    private static boolean replaceBlockOutline(ClientLevel level,
-            PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockHitResult hitResult) {
-
-        var player = Minecraft.getInstance().player;
-        if (player == null) {
-            return false;
-        }
-
+    private static boolean replaceBlockOutline(World world, EntityPlayer player, RayTraceResult hitResult,
+                                               float partialTicks) {
         if (AEConfig.instance().isPlacementPreviewEnabled()) {
-            var itemInHand = player.getItemInHand(InteractionHand.MAIN_HAND);
-            // Render without depth test to also have a preview for parts inside blocks.
-            showPartPlacementPreview(player, poseStack, buffers, camera, hitResult, itemInHand, true);
-            showPartPlacementPreview(player, poseStack, buffers, camera, hitResult, itemInHand, false);
+            ItemStack itemInHand = player.getHeldItemMainhand();
+            showPartPlacementPreview(player, hitResult, itemInHand, partialTicks, true);
+            showPartPlacementPreview(player, hitResult, itemInHand, partialTicks, false);
         }
 
-        // Hit test against all attached parts to highlight the part that is relevant
-        var pos = hitResult.getBlockPos();
-        if (level.getBlockEntity(pos) instanceof IPartHost partHost) {
-
-            // Rendering a preview of what is currently in hand has priority
-            // If the item in hand is a facade and a block is hit, attempt facade placement
+        BlockPos pos = hitResult.getBlockPos();
+        if (world.getTileEntity(pos) instanceof IPartHost partHost) {
             if (AEConfig.instance().isPlacementPreviewEnabled()) {
-                var itemInHand = player.getItemInHand(InteractionHand.MAIN_HAND);
-                // Use same rendering inside blocks as part preview.
-                showFacadePlacementPreview(poseStack, buffers, camera, hitResult, partHost, itemInHand, true);
-                showFacadePlacementPreview(poseStack, buffers, camera, hitResult, partHost, itemInHand, false);
+                ItemStack itemInHand = player.getHeldItemMainhand();
+                showFacadePlacementPreview(hitResult, partHost, itemInHand, partialTicks, true);
+                showFacadePlacementPreview(hitResult, partHost, itemInHand, partialTicks, false);
             }
 
-            var selectedPart = partHost.selectPartWorld(hitResult.getLocation());
+            var selectedPart = partHost.selectPartWorld(hitResult.hitVec);
             if (selectedPart.facade != null) {
-                renderFacade(poseStack, buffers, camera, pos, selectedPart.facade, selectedPart.side, false, false);
+                renderFacade(pos, selectedPart.facade, selectedPart.side, false, false, partialTicks);
                 return true;
             }
             if (selectedPart.part != null) {
-                renderPart(poseStack, buffers, camera, pos, selectedPart.part, selectedPart.side, false, false);
+                renderPart(pos, selectedPart.part, selectedPart.side, false, false, partialTicks);
                 return true;
             }
         }
@@ -143,109 +64,105 @@ public class RenderBlockOutlineHook {
         return false;
     }
 
-    private static boolean showFacadePlacementPreview(PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockHitResult blockHitResult,
-            IPartHost partHost,
-            ItemStack itemInHand,
-            boolean insideBlock) {
-        var pos = blockHitResult.getBlockPos();
-
-        if (itemInHand.getItem() instanceof IFacadeItem facadeItem) {
-            var side = blockHitResult.getDirection();
-            var facade = facadeItem.createPartFromItemStack(itemInHand, side);
-            if (facade != null && FacadeItem.canPlaceFacade(partHost, facade)) {
-                // Maybe a bit hacky, but if there's no part on the side to support the facade
-                // We would render a cable anchor implicitly
-                if (partHost.getPart(side) == null) {
-                    var cableAnchor = AEParts.CABLE_ANCHOR.get().createPart();
-                    renderPart(poseStack, buffers, camera, pos, cableAnchor, side, true, insideBlock);
-                }
-
-                renderFacade(poseStack, buffers, camera, pos, facade, side, true, insideBlock);
-                return true;
-            }
+    private static void showFacadePlacementPreview(RayTraceResult hitResult, IPartHost partHost, ItemStack itemInHand,
+                                                   float partialTicks, boolean insideBlock) {
+        if (!(itemInHand.getItem() instanceof IFacadeItem facadeItem)) {
+            return;
         }
-        return false;
+
+        EnumFacing side = hitResult.sideHit;
+        IFacadePart facade = facadeItem.createPartFromItemStack(itemInHand, side);
+        if (!(facade instanceof FacadePart facadePart) || !FacadeItem.canPlaceFacade(partHost, facadePart)) {
+            return;
+        }
+
+        if (partHost.getPart(side) == null) {
+            renderPart(hitResult.getBlockPos(), AEParts.CABLE_ANCHOR.get().createPart(), side, true, insideBlock,
+                partialTicks);
+        }
+
+        renderFacade(hitResult.getBlockPos(), facade, side, true, insideBlock, partialTicks);
     }
 
-    private static void showPartPlacementPreview(
-            Player player,
-            PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockHitResult blockHitResult,
-            ItemStack itemInHand,
-            boolean insideBlock) {
-        if (itemInHand.getItem() instanceof IPartItem<?> partItem) {
-            var placement = PartPlacement.getPartPlacement(player,
-                    player.level(),
-                    itemInHand,
-                    blockHitResult.getBlockPos(),
-                    blockHitResult.getDirection(),
-                    blockHitResult.getLocation());
-
-            if (placement != null) {
-                var part = partItem.createPart();
-                renderPart(poseStack, buffers, camera, placement.pos(), part, placement.side(), true, insideBlock);
-            }
+    private static void showPartPlacementPreview(EntityPlayer player, RayTraceResult hitResult, ItemStack itemInHand,
+                                                 float partialTicks, boolean insideBlock) {
+        if (!(itemInHand.getItem() instanceof IPartItem<?> partItem)) {
+            return;
         }
+
+        PartPlacement.Placement placement = PartPlacement.getPartPlacement(player, player.world, itemInHand,
+            hitResult.getBlockPos(), hitResult.sideHit, hitResult.hitVec);
+        if (placement == null) {
+            return;
+        }
+
+        renderPart(placement.pos(), partItem.createPart(), placement.side(), true, insideBlock, partialTicks);
     }
 
-    private static void renderPart(PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockPos pos,
-            IPart part,
-            Direction side,
-            boolean preview,
-            boolean insideBlock) {
-        var boxes = new ArrayList<AABB>();
-        var helper = new BusCollisionHelper(boxes, side, true);
+    private static void renderPart(BlockPos pos, IPart part, EnumFacing side, boolean preview, boolean insideBlock,
+                                   float partialTicks) {
+        List<AxisAlignedBB> boxes = new ObjectArrayList<>();
+        BusCollisionHelper helper = new BusCollisionHelper(boxes, side, true);
         part.getBoxes(helper);
-        renderBoxes(poseStack, buffers, camera, pos, boxes, preview, insideBlock);
+        renderBoxes(pos, boxes, preview, insideBlock, partialTicks);
     }
 
-    private static void renderFacade(PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockPos pos,
-            IFacadePart facade,
-            Direction side,
-            boolean preview,
-            boolean insideBlock) {
-        var boxes = new ArrayList<AABB>();
-        var helper = new BusCollisionHelper(boxes, side, true);
+    private static void renderFacade(BlockPos pos, IFacadePart facade, EnumFacing side, boolean preview,
+                                     boolean insideBlock, float partialTicks) {
+        List<AxisAlignedBB> boxes = new ObjectArrayList<>();
+        BusCollisionHelper helper = new BusCollisionHelper(boxes, side, true);
         facade.getBoxes(helper, false);
-        renderBoxes(poseStack, buffers, camera, pos, boxes, preview, insideBlock);
+        renderBoxes(pos, boxes, preview, insideBlock, partialTicks);
     }
 
-    private static void renderBoxes(PoseStack poseStack,
-            MultiBufferSource buffers,
-            Camera camera,
-            BlockPos pos,
-            List<AABB> boxes,
-            boolean preview,
-            boolean insideBlock) {
-        RenderType renderType = insideBlock ? LINES_BEHIND_BLOCK : RenderType.lines();
-        var buffer = buffers.getBuffer(renderType);
-        float alpha = insideBlock ? 0.2f : preview ? 0.6f : 0.4f;
+    private static void renderBoxes(BlockPos pos, List<AxisAlignedBB> boxes, boolean preview, boolean insideBlock,
+                                    float partialTicks) {
+        Entity view = Minecraft.getMinecraft().getRenderViewEntity();
+        if (view == null) {
+            return;
+        }
 
-        for (var box : boxes) {
-            var shape = Shapes.create(box);
+        double viewX = view.lastTickPosX + (view.posX - view.lastTickPosX) * partialTicks;
+        double viewY = view.lastTickPosY + (view.posY - view.lastTickPosY) * partialTicks;
+        double viewZ = view.lastTickPosZ + (view.posZ - view.lastTickPosZ) * partialTicks;
+        float alpha = insideBlock ? 0.2F : preview ? 0.6F : 0.4F;
+        float color = preview ? 1.0F : 0.0F;
 
-            LevelRenderer.renderShape(
-                    poseStack,
-                    buffer,
-                    shape,
-                    pos.getX() - camera.getPosition().x,
-                    pos.getY() - camera.getPosition().y,
-                    pos.getZ() - camera.getPosition().z,
-                    preview ? 1 : 0,
-                    preview ? 1 : 0,
-                    preview ? 1 : 0,
-                    alpha);
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(GlStateManager.SourceFactor.SRC_ALPHA,
+            GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA, GlStateManager.SourceFactor.ONE,
+            GlStateManager.DestFactor.ZERO);
+        GlStateManager.glLineWidth(2.0F);
+        GlStateManager.disableTexture2D();
+        GlStateManager.depthMask(false);
+        if (insideBlock) {
+            GlStateManager.depthFunc(GL11.GL_GREATER);
+        }
+
+        for (AxisAlignedBB box : boxes) {
+            AxisAlignedBB renderBox = box.grow(0.002D).offset(pos).offset(-viewX, -viewY, -viewZ);
+            RenderGlobal.drawSelectionBoundingBox(renderBox, color, color, color, alpha);
+        }
+
+        if (insideBlock) {
+            GlStateManager.depthFunc(GL11.GL_LEQUAL);
+        }
+        GlStateManager.glLineWidth(1.0F);
+        GlStateManager.depthMask(true);
+        GlStateManager.enableTexture2D();
+        GlStateManager.disableBlend();
+    }
+
+    @SubscribeEvent
+    public void handleEvent(DrawBlockHighlightEvent event) {
+        EntityPlayer player = event.getPlayer();
+        RayTraceResult target = event.getTarget();
+        if (player == null || target == null || target.typeOfHit != RayTraceResult.Type.BLOCK) {
+            return;
+        }
+
+        if (replaceBlockOutline(player.world, player, target, event.getPartialTicks())) {
+            event.setCanceled(true);
         }
     }
 }

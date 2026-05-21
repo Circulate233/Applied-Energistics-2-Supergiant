@@ -18,40 +18,41 @@
 
 package appeng.helpers.patternprovider;
 
-import java.util.EnumSet;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Direction;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.storage.ISubGuiHost;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
+import appeng.container.GuiIds;
+import appeng.container.ISubGui;
+import appeng.core.gui.GuiOpener;
+import appeng.core.gui.locator.GuiHostLocator;
 import appeng.helpers.IPriorityHost;
-import appeng.menu.ISubMenu;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.PatternProviderMenu;
-import appeng.menu.locator.MenuHostLocator;
+import appeng.parts.AEBasePart;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.text.ITextComponent;
 
-/**
- * Interface to be implemented by blocks or parts wanting to host a pattern provider.
- */
-public interface PatternProviderLogicHost extends IConfigurableObject, IPriorityHost, PatternContainer {
+import javax.annotation.Nullable;
+import java.util.EnumSet;
+
+public interface PatternProviderLogicHost
+    extends IConfigurableObject, IPriorityHost, PatternContainer, ISubGuiHost {
     PatternProviderLogic getLogic();
 
-    /**
-     * @return The block entity that is in-world and hosts the interface.
-     */
-    BlockEntity getBlockEntity();
+    TileEntity getTileEntity();
 
-    EnumSet<Direction> getTargets();
+    EnumSet<EnumFacing> getTargets();
+
+    boolean hasCustomName();
+
+    @Nullable
+    ITextComponent getCustomName();
 
     void saveChanges();
 
@@ -70,13 +71,22 @@ public interface PatternProviderLogicHost extends IConfigurableObject, IPriority
         getLogic().setPriority(newValue);
     }
 
-    default void openMenu(Player player, MenuHostLocator locator) {
-        MenuOpener.open(PatternProviderMenu.TYPE, player, locator);
+    default void openGui(EntityPlayer player, GuiHostLocator locator) {
+        openGui(player, locator, false);
+    }
+
+    default void openGui(EntityPlayer player, GuiHostLocator ignoredLocator, boolean returnedFromSubScreen) {
+        if (this instanceof AEBasePart) {
+            GuiOpener.openPartGui(player, GuiIds.GuiKey.PATTERN_PROVIDER, (AEBasePart) this,
+                returnedFromSubScreen);
+        } else {
+            GuiOpener.openGui(player, GuiIds.GuiKey.PATTERN_PROVIDER, getTileEntity(), returnedFromSubScreen);
+        }
     }
 
     @Override
-    default void returnToMainMenu(Player player, ISubMenu subMenu) {
-        MenuOpener.returnTo(PatternProviderMenu.TYPE, player, subMenu.getLocator());
+    default void returnToMainContainer(EntityPlayer player, ISubGui subGui) {
+        openGui(player, subGui.getLocator(), true);
     }
 
     @Override
@@ -101,6 +111,7 @@ public interface PatternProviderLogicHost extends IConfigurableObject, IPriority
         return getLogic().getSortValue();
     }
 
+    @Override
     default PatternContainerGroup getTerminalGroup() {
         return getLogic().getTerminalGroup();
     }

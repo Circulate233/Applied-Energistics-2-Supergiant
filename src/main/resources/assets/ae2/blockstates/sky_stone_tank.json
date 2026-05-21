@@ -1,7 +1,7 @@
 {
   "variants": {
-    "": {
-      "model": "ae2:block/sky_stone_tank"
+    "normal": {
+      "model": "ae2:sky_stone_tank"
     }
   }
 }

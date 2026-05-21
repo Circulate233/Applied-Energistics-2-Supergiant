@@ -18,62 +18,56 @@
 
 package appeng.spatial;
 
-import net.minecraft.client.renderer.DimensionSpecialEffects;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.chunk.ChunkGenerator;
-import net.minecraft.world.level.dimension.DimensionType;
-import net.minecraft.world.level.dimension.LevelStem;
-
+import appeng.core.AEConfig;
+import appeng.core.AELog;
 import appeng.core.AppEng;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.world.DimensionType;
+import net.minecraftforge.common.DimensionManager;
 
-/**
- * IDs for the spatial storage level related dimension objects.
- */
 public final class SpatialStorageDimensionIds {
 
-    /**
-     * ID of the {@link DimensionType} used for the spatial storage level.
-     * <p>
-     * This is defined in {@link appeng.init.worldgen.InitDimensionTypes}.
-     */
-    public static final ResourceKey<DimensionType> DIMENSION_TYPE_ID = ResourceKey
-            .create(Registries.DIMENSION_TYPE, AppEng.makeId("spatial_storage"));
+    public static final String DIMENSION_NAME = "ae2_spatial_storage";
+    public static final String DIMENSION_SUFFIX = "_ae2_spatial_storage";
+    public static final ResourceLocation WORLD_ID = AppEng.makeId("spatial_storage");
 
-    /**
-     * ID of the {@link ChunkGenerator} used for the spatial storage level.
-     */
-    public static final ResourceLocation CHUNK_GENERATOR_ID = AppEng.makeId("spatial_storage");
-
-    /**
-     * ID of the {@link Biome} used for the spatial storage level.
-     */
-    public static final ResourceKey<Biome> BIOME_KEY = ResourceKey.create(Registries.BIOME,
-            AppEng.makeId("spatial_storage"));
-
-    /**
-     * ID of the {@link LevelStem} used for the spatial storage dimension.
-     * <p>
-     * This is defined in {@link appeng.init.worldgen.InitDimensionTypes}.
-     */
-    public static final ResourceKey<LevelStem> DIMENSION_ID = ResourceKey.create(Registries.LEVEL_STEM,
-            AppEng.makeId("spatial_storage"));
-
-    /**
-     * ID of the {@link Level} that is instantiated from the dimension/dimension type.
-     */
-    public static final ResourceKey<Level> WORLD_ID = ResourceKey.create(Registries.DIMENSION,
-            AppEng.makeId("spatial_storage"));
-
-    /**
-     * ID of the {@link DimensionSpecialEffects} used for the spatial storage level.
-     */
-    public static ResourceLocation SKY_PROPERTIES_ID = AppEng.makeId("spatial_storage");
+    static DimensionType dimensionType;
 
     private SpatialStorageDimensionIds() {
     }
 
+    public static int getDimensionId() {
+        return AEConfig.instance().getSpatialDimensionId();
+    }
+
+    public static synchronized void init() {
+        int dimensionId = getDimensionId();
+
+        if (DimensionManager.isDimensionRegistered(dimensionId)) {
+            DimensionType existing = DimensionManager.getProviderType(dimensionId);
+            if (!DIMENSION_NAME.equals(existing.getName())
+                || !WorldProviderSpatial.class.equals(existing.createDimension().getClass())) {
+                throw new IllegalStateException(String.format(
+                    "Configured spatial dimension id %d is already registered for %s. Change ae2.cfg spatialDimensionId.",
+                    dimensionId, existing.getName()));
+            }
+            dimensionType = existing;
+            return;
+        }
+
+        if (dimensionType == null) {
+            dimensionType = DimensionType.register(DIMENSION_NAME, DIMENSION_SUFFIX,
+                dimensionId, WorldProviderSpatial.class, false);
+        }
+
+        if (!DimensionManager.isDimensionRegistered(dimensionId)) {
+            DimensionManager.registerDimension(dimensionId, dimensionType);
+            AELog.info("Registered spatial storage dimension %s", dimensionId);
+        }
+    }
+
+    public static DimensionType getDimensionType() {
+        init();
+        return dimensionType;
+    }
 }

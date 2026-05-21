@@ -1,0 +1,16 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aa",
+    "aa"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:cut_quartz_block"
+    }
+  },
+  "result": {
+    "item": "ae2:quartz_bricks",
+    "count": 4
+  }
+}

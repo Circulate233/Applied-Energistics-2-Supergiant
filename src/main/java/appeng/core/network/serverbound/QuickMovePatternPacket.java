@@ -1,46 +1,58 @@
 package appeng.core.network.serverbound;
 
-import java.util.List;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.ByteBufCodecs;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
-import net.minecraft.server.level.ServerPlayer;
-
-import appeng.core.network.CustomAppEngPayload;
+import appeng.container.implementations.ContainerPatternAccessTerm;
 import appeng.core.network.ServerboundPacket;
-import appeng.menu.implementations.PatternAccessTermMenu;
+import io.netty.buffer.ByteBuf;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongCollection;
+import it.unimi.dsi.fastutil.longs.LongList;
+import it.unimi.dsi.fastutil.longs.LongLists;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.PacketBuffer;
 
-/**
- * Used for the pattern access terminal when the client shift-clicks an item in the player inventory.
- */
-public record QuickMovePatternPacket(
-        int containerId,
-        int clickedSlot,
-        List<Long> allowedPatternContainers) implements ServerboundPacket {
+public class QuickMovePatternPacket extends ServerboundPacket {
+    private int windowId;
+    private int clickedSlot;
+    private LongList allowedPatternContainers = LongLists.emptyList();
 
-    public static final StreamCodec<RegistryFriendlyByteBuf, QuickMovePatternPacket> STREAM_CODEC = StreamCodec
-            .composite(
-                    ByteBufCodecs.VAR_INT,
-                    QuickMovePatternPacket::containerId,
-                    ByteBufCodecs.VAR_INT,
-                    QuickMovePatternPacket::clickedSlot,
-                    ByteBufCodecs.VAR_LONG.apply(ByteBufCodecs.list()),
-                    QuickMovePatternPacket::allowedPatternContainers,
-                    QuickMovePatternPacket::new);
-    public static final Type<QuickMovePatternPacket> TYPE = CustomAppEngPayload.createType("quick_move_pattern");
+    public QuickMovePatternPacket() {
+    }
+
+    public QuickMovePatternPacket(int windowId, int clickedSlot, LongCollection allowedPatternContainers) {
+        this.windowId = windowId;
+        this.clickedSlot = clickedSlot;
+        this.allowedPatternContainers = new LongArrayList(allowedPatternContainers);
+    }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        if (player.containerMenu.containerId == containerId
-                && player.containerMenu instanceof PatternAccessTermMenu menu) {
-            menu.quickMovePattern(player, clickedSlot, allowedPatternContainers);
+    protected void read(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        this.windowId = packetBuffer.readVarInt();
+        this.clickedSlot = packetBuffer.readVarInt();
+        int size = packetBuffer.readVarInt();
+        var ids = new LongArrayList(size);
+        for (int i = 0; i < size; i++) {
+            ids.add(packetBuffer.readVarLong());
+        }
+        this.allowedPatternContainers = ids;
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeVarInt(this.windowId);
+        packetBuffer.writeVarInt(this.clickedSlot);
+        packetBuffer.writeVarInt(this.allowedPatternContainers.size());
+        for (var id : this.allowedPatternContainers) {
+            packetBuffer.writeVarLong(id);
         }
     }
 
     @Override
-    public Type<? extends CustomPacketPayload> type() {
-        return TYPE;
+    public void handleServer(EntityPlayerMP player) {
+        if (player.openContainer.windowId == this.windowId
+            && player.openContainer instanceof ContainerPatternAccessTerm container) {
+            container.quickMovePattern(player, this.clickedSlot, this.allowedPatternContainers);
+        }
     }
 }

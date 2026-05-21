@@ -18,48 +18,44 @@
 
 package appeng.client.render.model;
 
+import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.Vec3d;
+
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-
-import org.joml.Vector3f;
-
-import net.minecraft.core.Direction;
-
-// TODO: Investigate use of CubeBuilder instead
 final class RenderHelper {
-
-    private static EnumMap<Direction, List<Vector3f>> cornersForFacing = generateCornersForFacings();
+    private static final EnumMap<EnumFacing, List<Vec3d>> CORNERS_FOR_FACING = generateCornersForFacings();
 
     private RenderHelper() {
-
     }
 
-    static List<Vector3f> getFaceCorners(Direction side) {
-        return cornersForFacing.get(side);
+    static List<Vec3d> getFaceCorners(EnumFacing side) {
+        return CORNERS_FOR_FACING.get(side);
     }
 
-    private static EnumMap<Direction, List<Vector3f>> generateCornersForFacings() {
-        EnumMap<Direction, List<Vector3f>> result = new EnumMap<>(Direction.class);
+    private static EnumMap<EnumFacing, List<Vec3d>> generateCornersForFacings() {
+        EnumMap<EnumFacing, List<Vec3d>> result = new EnumMap<>(EnumFacing.class);
 
-        for (Direction facing : Direction.values()) {
-            List<Vector3f> corners;
+        for (EnumFacing facing : EnumFacing.values()) {
+            List<Vec3d> corners;
 
-            float offset = facing.getAxisDirection() == Direction.AxisDirection.NEGATIVE ? 0 : 1;
+            float offset = facing.getAxisDirection() == EnumFacing.AxisDirection.NEGATIVE ? 0 : 1;
 
             corners = switch (facing.getAxis()) {
-                case X -> Lists.newArrayList(new Vector3f(offset, 1, 1), new Vector3f(offset, 0, 1),
-                        new Vector3f(offset, 0, 0), new Vector3f(offset, 1, 0));
-                case Y -> Lists.newArrayList(new Vector3f(1, offset, 1), new Vector3f(1, offset, 0),
-                        new Vector3f(0, offset, 0), new Vector3f(0, offset, 1));
-                case Z -> Lists.newArrayList(new Vector3f(0, 1, offset), new Vector3f(0, 0, offset),
-                        new Vector3f(1, 0, offset), new Vector3f(1, 1, offset));
+                case X -> cornersOf(new Vec3d(offset, 1, 1), new Vec3d(offset, 0, 1),
+                    new Vec3d(offset, 0, 0), new Vec3d(offset, 1, 0));
+                case Y -> cornersOf(new Vec3d(1, offset, 1), new Vec3d(1, offset, 0),
+                    new Vec3d(0, offset, 0), new Vec3d(0, offset, 1));
+                default -> cornersOf(new Vec3d(0, 1, offset), new Vec3d(0, 0, offset),
+                    new Vec3d(1, 0, offset), new Vec3d(1, 1, offset));
             };
 
-            if (facing.getAxisDirection() == Direction.AxisDirection.NEGATIVE) {
-                corners = Lists.reverse(corners);
+            if (facing.getAxisDirection() == EnumFacing.AxisDirection.NEGATIVE) {
+                Collections.reverse(corners);
             }
 
             result.put(facing, ImmutableList.copyOf(corners));
@@ -68,4 +64,12 @@ final class RenderHelper {
         return result;
     }
 
+    private static List<Vec3d> cornersOf(Vec3d first, Vec3d second, Vec3d third, Vec3d fourth) {
+        List<Vec3d> corners = new ObjectArrayList<>(4);
+        corners.add(first);
+        corners.add(second);
+        corners.add(third);
+        corners.add(fourth);
+        return corners;
+    }
 }

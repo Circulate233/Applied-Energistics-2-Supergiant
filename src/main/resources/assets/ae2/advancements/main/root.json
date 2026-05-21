@@ -1,0 +1,29 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:certus_quartz_crystal"
+    },
+    "title": {
+      "translate": "achievement.ae2.Root"
+    },
+    "description": {
+      "translate": "achievement.ae2.Root.desc"
+    },
+    "background": "ae2:textures/block/sky_stone_brick.png",
+    "show_toast": false,
+    "announce_to_chat": false
+  },
+  "parent": "minecraft:story/upgrade_tools",
+  "criteria": {
+    "certus": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:certus_quartz_crystal"
+          }
+        ]
+      }
+    }
+  }
+}

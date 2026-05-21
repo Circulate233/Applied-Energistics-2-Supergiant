@@ -1,0 +1,18 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "ab"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:dense_energy_cell"
+    },
+    "b": {
+      "item": "ae2:advanced_card"
+    }
+  },
+  "result": {
+    "item": "ae2:energy_card",
+    "count": 1
+  }
+}

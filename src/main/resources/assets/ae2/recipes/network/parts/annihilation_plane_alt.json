@@ -1,0 +1,23 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aaa",
+    "bcb"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:fluix_crystal"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "c": {
+      "item": "ae2:annihilation_core"
+    }
+  },
+  "result": {
+    "item": "ae2:annihilation_plane",
+    "count": 1
+  }
+}

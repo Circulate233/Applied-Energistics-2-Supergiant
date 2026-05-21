@@ -18,13 +18,48 @@
 
 package appeng.integration;
 
-import net.neoforged.fml.event.lifecycle.InterModEnqueueEvent;
-
+import appeng.integration.abstraction.HeiAdapter;
+import appeng.integration.abstraction.IInvTweaks;
+import appeng.integration.modules.inventorytweaks.InventoryTweaksModule;
 import appeng.integration.modules.theoneprobe.TOP;
+import net.minecraftforge.fml.common.Loader;
 
-public class Integrations {
+public final class Integrations {
 
-    public static void enqueueIMC(InterModEnqueueEvent event) {
-        TOP.enqueueIMC(event);
+    private static final String HEI_MODULE_CLASS = "appeng.integration.modules.hei.HeiModule";
+    private static final IInvTweaks NO_INV_TWEAKS = new IInvTweaks() {
+    };
+    private static final HeiAdapter NO_HEI = HeiAdapter.none();
+    private static IInvTweaks invTweaks = NO_INV_TWEAKS;
+    private static HeiAdapter hei = NO_HEI;
+
+    private Integrations() {
+    }
+
+    public static IInvTweaks invTweaks() {
+        return invTweaks;
+    }
+
+    public static HeiAdapter hei() {
+        return hei;
+    }
+
+    public static void enqueueIMC() {
+        TOP.enqueueIMC();
+    }
+
+    public static void initOptionalIntegrations() {
+        invTweaks = Loader.isModLoaded("inventorytweaks") ? new InventoryTweaksModule() : NO_INV_TWEAKS;
+        hei = Loader.isModLoaded("jei") ? loadHei() : NO_HEI;
+    }
+
+    private static HeiAdapter loadHei() {
+        try {
+            return (HeiAdapter) Class.forName(HEI_MODULE_CLASS, true, Loader.instance().getModClassLoader())
+                .getDeclaredConstructor()
+                .newInstance();
+        } catch (ReflectiveOperationException ignored) {
+            return NO_HEI;
+        }
     }
 }

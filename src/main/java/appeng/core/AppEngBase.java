@@ -18,286 +18,178 @@
 
 package appeng.core;
 
-import java.util.Collection;
-import java.util.Collections;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.Registry;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.level.Level;
-import net.neoforged.bus.api.EventPriority;
-import net.neoforged.bus.api.IEventBus;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.RegisterCommandsEvent;
-import net.neoforged.neoforge.event.RegisterGameTestsEvent;
-import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
-import net.neoforged.neoforge.event.server.ServerStoppedEvent;
-import net.neoforged.neoforge.event.server.ServerStoppingEvent;
-import net.neoforged.neoforge.network.PacketDistributor;
-import net.neoforged.neoforge.registries.NewRegistryEvent;
-import net.neoforged.neoforge.registries.RegisterEvent;
-import net.neoforged.neoforge.registries.RegistryBuilder;
-import net.neoforged.neoforge.server.ServerLifecycleHooks;
-
-import appeng.api.ids.AEComponents;
-import appeng.api.parts.CableRenderMode;
-import appeng.api.stacks.AEKeyType;
-import appeng.api.stacks.AEKeyTypesInternal;
-import appeng.core.definitions.AEAttachmentTypes;
+import appeng.capabilities.Capabilities;
 import appeng.core.definitions.AEBlockEntities;
-import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEEntities;
-import appeng.core.definitions.AEItems;
-import appeng.core.definitions.AEParts;
-import appeng.core.network.ClientboundPacket;
+import appeng.core.gui.AEGuiHandler;
 import appeng.core.network.InitNetwork;
+import appeng.core.registries.AppEngRegistries;
 import appeng.hooks.SkyStoneBreakSpeed;
+import appeng.hooks.CableBusLeftClickHook;
 import appeng.hooks.WrenchHook;
 import appeng.hooks.ticking.TickHandler;
 import appeng.hotkeys.HotkeyActions;
 import appeng.init.InitAdvancementTriggers;
 import appeng.init.InitCapabilityProviders;
-import appeng.init.InitCauldronInteraction;
 import appeng.init.InitDispenserBehavior;
-import appeng.init.InitMenuTypes;
 import appeng.init.InitStats;
 import appeng.init.InitVillager;
-import appeng.init.client.InitParticleTypes;
 import appeng.init.internal.InitBlockEntityMoveStrategies;
-import appeng.init.internal.InitGridLinkables;
 import appeng.init.internal.InitGridServices;
 import appeng.init.internal.InitP2PAttunements;
 import appeng.init.internal.InitStorageCells;
 import appeng.init.internal.InitUpgrades;
-import appeng.init.worldgen.InitStructures;
+import appeng.init.worldgen.InitBiomes;
+import appeng.init.worldgen.InitDimensionTypes;
 import appeng.integration.Integrations;
-import appeng.recipes.AERecipeSerializers;
-import appeng.recipes.AERecipeTypes;
+import appeng.recipes.AERecipeLoader;
 import appeng.server.AECommand;
 import appeng.server.services.ChunkLoadingService;
-import appeng.server.testworld.GameTestPlotAdapter;
-import appeng.sounds.AppEngSounds;
-import appeng.spatial.SpatialStorageChunkGenerator;
-import appeng.spatial.SpatialStorageDimensionIds;
+import appeng.spatial.InitSpatialStorageDimension;
+import appeng.worldgen.MeteoriteWorldGen;
+import net.minecraftforge.common.ForgeChunkManager;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.SidedProxy;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerAboutToStartEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.fml.common.event.FMLServerStoppedEvent;
+import net.minecraftforge.fml.common.event.FMLServerStoppingEvent;
+import net.minecraftforge.fml.common.network.NetworkRegistry;
+import net.minecraftforge.fml.common.registry.GameRegistry;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.io.File;
+import java.util.Objects;
 
 /**
  * Mod functionality that is common to both dedicated server and client.
  * <p>
  * Note that a client will still have zero or more embedded servers (although only one at a time).
  */
-public abstract class AppEngBase implements AppEng {
+@Mod(modid = Tags.MOD_ID, name = Tags.MOD_NAME, version = Tags.VERSION, acceptedMinecraftVersions = "[1.12.2]")
+public final class AppEngBase implements AppEng {
 
-    /**
-     * While we process a player-specific part placement/cable interaction packet, we need to use that player's
-     * transparent-facade mode to understand whether the player can see through facades or not.
-     * <p>
-     * We need to use this method since the collision shape methods do not know about the player that the shape is being
-     * requested for, so they will call {@link #getCableRenderMode()} below, which then will use this field to figure
-     * out which player it's for.
-     */
-    private final ThreadLocal<Player> partInteractionPlayer = new ThreadLocal<>();
+    private static final String CLIENT_PROXY = "appeng.core.AppEngClient";
+    private static final String COMMON_PROXY = "appeng.core.AppEngServer";
 
-    static AppEngBase INSTANCE;
+    public static final Logger LOGGER = LogManager.getLogger(Tags.MOD_NAME);
 
-    public AppEngBase(IEventBus modEventBus, ModContainer container) {
-        if (INSTANCE != null) {
-            throw new IllegalStateException();
-        }
-        INSTANCE = this;
+    @Mod.Instance(Tags.MOD_ID)
+    public static AppEngBase INSTANCE;
+    @SidedProxy(clientSide = CLIENT_PROXY, serverSide = COMMON_PROXY)
+    private static AppEngServer runtime;
+    private boolean commonBootstrapInitialized;
+    private boolean commonSetupInitialized;
+    private boolean postRegistrationInitialized;
 
-        AEConfig.register(container);
-
-        InitGridServices.init();
-        InitBlockEntityMoveStrategies.init();
-
-        AEParts.init();
-        AEBlocks.DR.register(modEventBus);
-        AEItems.DR.register(modEventBus);
-        AEBlockEntities.DR.register(modEventBus);
-        AEComponents.DR.register(modEventBus);
-        AEEntities.DR.register(modEventBus);
-        AERecipeTypes.DR.register(modEventBus);
-        AERecipeSerializers.DR.register(modEventBus);
-        InitStructures.register(modEventBus);
-        AEAttachmentTypes.register(modEventBus);
-
-        modEventBus.addListener(this::registerRegistries);
-        modEventBus.addListener(MainCreativeTab::initExternal);
-        modEventBus.addListener(InitNetwork::init);
-        modEventBus.addListener(ChunkLoadingService.getInstance()::register);
-        modEventBus.addListener(EventPriority.HIGH, InitCapabilityProviders::markProxyableCapabilities);
-        modEventBus.addListener(InitCapabilityProviders::register);
-        modEventBus.addListener(EventPriority.LOWEST, InitCapabilityProviders::registerGenericAdapters);
-        modEventBus.addListener((RegisterEvent event) -> {
-            if (event.getRegistryKey() == Registries.SOUND_EVENT) {
-                registerSounds(BuiltInRegistries.SOUND_EVENT);
-            } else if (event.getRegistryKey() == Registries.CREATIVE_MODE_TAB) {
-                registerCreativeTabs(BuiltInRegistries.CREATIVE_MODE_TAB);
-            } else if (event.getRegistryKey() == Registries.CUSTOM_STAT) {
-                InitStats.init(event.getRegistry(Registries.CUSTOM_STAT));
-            } else if (event.getRegistryKey() == Registries.TRIGGER_TYPE) {
-                InitAdvancementTriggers.init(event.getRegistry(Registries.TRIGGER_TYPE));
-            } else if (event.getRegistryKey() == Registries.PARTICLE_TYPE) {
-                InitParticleTypes.init(event.getRegistry(Registries.PARTICLE_TYPE));
-            } else if (event.getRegistryKey() == Registries.MENU) {
-                InitMenuTypes.init(event.getRegistry(Registries.MENU));
-            } else if (event.getRegistryKey() == Registries.CHUNK_GENERATOR) {
-                Registry.register(BuiltInRegistries.CHUNK_GENERATOR, SpatialStorageDimensionIds.CHUNK_GENERATOR_ID,
-                        SpatialStorageChunkGenerator.CODEC);
-            } else if (event.getRegistryKey() == Registries.VILLAGER_PROFESSION) {
-                InitVillager.initProfession(event.getRegistry(Registries.VILLAGER_PROFESSION));
-            } else if (event.getRegistryKey() == Registries.POINT_OF_INTEREST_TYPE) {
-                InitVillager.initPointOfInterestType(event.getRegistry(Registries.POINT_OF_INTEREST_TYPE));
-            } else if (event.getRegistryKey() == AEKeyType.REGISTRY_KEY) {
-                registerKeyTypes(event.getRegistry(AEKeyType.REGISTRY_KEY));
-            }
-        });
-
-        NeoForge.EVENT_BUS.addListener(InitVillager::initTrades);
-
-        modEventBus.addListener(Integrations::enqueueIMC);
-        modEventBus.addListener(this::commonSetup);
-
-        modEventBus.addListener(this::registerTests);
-
-        TickHandler.instance().init();
-
-        NeoForge.EVENT_BUS.addListener(this::onServerAboutToStart);
-        NeoForge.EVENT_BUS.addListener(this::serverStopped);
-        NeoForge.EVENT_BUS.addListener(this::serverStopping);
-        NeoForge.EVENT_BUS.addListener(this::registerCommands);
-
-        NeoForge.EVENT_BUS.addListener(WrenchHook::onPlayerUseBlockEvent);
-        NeoForge.EVENT_BUS.addListener(SkyStoneBreakSpeed::handleBreakFaster);
-
-        HotkeyActions.init();
+    public static AppEngBase instance() {
+        return INSTANCE;
     }
 
-    private void commonSetup(FMLCommonSetupEvent event) {
-        event.enqueueWork(this::postRegistrationInitialization).whenComplete((res, err) -> {
-            if (err != null) {
-                AELog.warn(err);
-            }
-        });
+    public static AppEngServer runtime() {
+        return Objects.requireNonNull(runtime, "AppEng runtime proxy has not been injected yet.");
     }
 
-    /**
-     * Runs after all mods have had time to run their registrations into registries.
-     */
-    public void postRegistrationInitialization() {
-        // Now that item instances are available, we can initialize registries that need item instances
-        InitGridLinkables.init();
-        InitStorageCells.init();
-
-        InitP2PAttunements.init();
-
-        InitCauldronInteraction.init();
-        InitDispenserBehavior.init();
-
-        InitUpgrades.init();
+    @Mod.EventHandler
+    public void preInit(FMLPreInitializationEvent event) {
+        AEConfig.init(new File(event.getModConfigurationDirectory(), "ae2.cfg"));
+        LOGGER.info("{} preInit", Tags.MOD_NAME);
+        initializeCommonBootstrap();
+        runtime().preInit(event);
+        Integrations.enqueueIMC();
     }
 
-    public void registerKeyTypes(Registry<AEKeyType> registry) {
-        Registry.register(registry, AEKeyType.items().getId(), AEKeyType.items());
-        Registry.register(registry, AEKeyType.fluids().getId(), AEKeyType.fluids());
+    @Mod.EventHandler
+    public void init(FMLInitializationEvent event) {
+        LOGGER.info("{} init", Tags.MOD_NAME);
+        initializeCommonSetup();
+        runtime().init(event);
     }
 
-    public void registerCommands(RegisterCommandsEvent evt) {
-        new AECommand().register(evt.getDispatcher());
+    @Mod.EventHandler
+    public void postInit(FMLPostInitializationEvent event) {
+        LOGGER.info("{} postInit", Tags.MOD_NAME);
+        postRegistrationInitialization();
+        runtime().postInit(event);
+        AERecipeLoader.loadRecipes();
+        AEConfig.instance().save();
     }
 
-    public void registerSounds(Registry<SoundEvent> registry) {
-        AppEngSounds.register(registry);
+    @Mod.EventHandler
+    public void serverAboutToStart(FMLServerAboutToStartEvent event) {
+        ChunkLoadingService.getInstance().onServerAboutToStart();
     }
 
-    public void registerRegistries(NewRegistryEvent e) {
-        var registry = e.create(new RegistryBuilder<>(AEKeyType.REGISTRY_KEY)
-                .sync(true)
-                .maxId(127));
-        AEKeyTypesInternal.setRegistry(registry);
+    @Mod.EventHandler
+    public void serverStarting(FMLServerStartingEvent event) {
+        event.registerServerCommand(new AECommand(event.getServer()));
     }
 
-    private void onServerAboutToStart(final ServerAboutToStartEvent evt) {
-        ChunkLoadingService.getInstance().onServerAboutToStart(evt);
+    @Mod.EventHandler
+    public void serverStopping(FMLServerStoppingEvent event) {
+        ChunkLoadingService.getInstance().onServerStopping();
     }
 
-    private void serverStopping(final ServerStoppingEvent event) {
-        ChunkLoadingService.getInstance().onServerStopping(event);
-    }
-
-    private void serverStopped(final ServerStoppedEvent event) {
+    @Mod.EventHandler
+    public void serverStopped(FMLServerStoppedEvent event) {
         TickHandler.instance().shutdown();
     }
 
-    public void registerCreativeTabs(Registry<CreativeModeTab> registry) {
-        MainCreativeTab.init(registry);
-        FacadeCreativeTab.init(registry);
-    }
-
-    @Override
-    public Collection<ServerPlayer> getPlayers() {
-        var server = getCurrentServer();
-
-        if (server != null) {
-            return server.getPlayerList().getPlayers();
+    public void postRegistrationInitialization() {
+        if (this.postRegistrationInitialized) {
+            return;
         }
 
-        return Collections.emptyList();
+        InitStorageCells.init();
+        InitP2PAttunements.init();
+        InitDispenserBehavior.init();
+        InitUpgrades.init();
+        this.postRegistrationInitialized = true;
     }
 
-    @Override
-    public void sendToAllNearExcept(Player p, double x, double y, double z,
-            double dist, Level level, ClientboundPacket packet) {
-        if (level instanceof ServerLevel serverLevel) {
-            ServerPlayer except = null;
-            if (p instanceof ServerPlayer) {
-                except = (ServerPlayer) p;
-            }
-            PacketDistributor.sendToPlayersNear(serverLevel, except, x, y, z, dist, packet);
-        }
-    }
-
-    @Override
-    public void setPartInteractionPlayer(Player player) {
-        this.partInteractionPlayer.set(player);
-    }
-
-    @Override
-    public CableRenderMode getCableRenderMode() {
-        return this.getCableRenderModeForPlayer(partInteractionPlayer.get());
-    }
-
-    @Nullable
-    @Override
-    public MinecraftServer getCurrentServer() {
-        return ServerLifecycleHooks.getCurrentServer();
-    }
-
-    protected final CableRenderMode getCableRenderModeForPlayer(@Nullable Player player) {
-        if (player != null) {
-            if (AEItems.NETWORK_TOOL.is(player.getItemInHand(InteractionHand.MAIN_HAND))
-                    || AEItems.NETWORK_TOOL.is(player.getItemInHand(InteractionHand.OFF_HAND))) {
-                return CableRenderMode.CABLE_VIEW;
-            }
+    private void initializeCommonBootstrap() {
+        if (this.commonBootstrapInitialized) {
+            return;
         }
 
-        return CableRenderMode.STANDARD;
+        MinecraftForge.EVENT_BUS.register(this);
+        Capabilities.register();
+        MinecraftForge.EVENT_BUS.register(new SkyStoneBreakSpeed());
+        MinecraftForge.EVENT_BUS.register(new CableBusLeftClickHook());
+        MinecraftForge.EVENT_BUS.register(new WrenchHook());
+        TickHandler.instance().init();
+        AppEngRegistries.init();
+        InitGridServices.init();
+        InitBlockEntityMoveStrategies.init();
+        InitBiomes.init();
+        InitDimensionTypes.init();
+        InitSpatialStorageDimension.init();
+        PlayerState.init();
+        ForgeChunkManager.setForcedChunkLoadingCallback(this, ChunkLoadingService.getInstance());
+        GameRegistry.registerWorldGenerator(new MeteoriteWorldGen(), 0);
+        AEEntities.init();
+        AEBlockEntities.init();
+        InitNetwork.init();
+        NetworkRegistry.INSTANCE.registerGuiHandler(this, new AEGuiHandler());
+        InitCapabilityProviders.init();
+        this.commonBootstrapInitialized = true;
     }
 
-    private void registerTests(RegisterGameTestsEvent e) {
-        if ("true".equals(System.getProperty("appeng.tests"))) {
-            e.register(GameTestPlotAdapter.class);
+    private void initializeCommonSetup() {
+        if (this.commonSetupInitialized) {
+            return;
         }
+
+        InitStats.init();
+        InitAdvancementTriggers.init();
+        InitVillager.init();
+        Integrations.initOptionalIntegrations();
+        HotkeyActions.init();
+        this.commonSetupInitialized = true;
     }
 }

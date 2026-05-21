@@ -1,0 +1,17 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "appeng.mixins",
+  "compatibilityLevel": "JAVA_25",
+  "target": "@env(DEFAULT)",
+  "refmap": "ae2.refmap.json",
+  "mixins": [
+    "ContainerStackInteractionMixin",
+    "EnchantmentHelperMixin",
+    "ItemEntityTransformMixin"
+  ],
+  "client": [
+    "PickColorMixin"
+  ],
+  "server": []
+}

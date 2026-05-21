@@ -23,28 +23,19 @@
 
 package appeng.api.crafting;
 
+import appeng.api.stacks.AEItemKey;
+import net.minecraft.item.ItemStack;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.Level;
-
-import appeng.api.stacks.AEItemKey;
-
-/**
- * Allows mod to decode their {@link IPatternDetails} from their item stacks. This is required for custom patterns,
- * otherwise the crafting CPU can't properly persist them. Register a single instance to {@link PatternDetailsHelper}.
- */
 public interface IPatternDetailsDecoder {
     boolean isEncodedPattern(ItemStack stack);
 
     @Nullable
-    IPatternDetails decodePattern(AEItemKey what, Level level);
+    IPatternDetails decodePattern(AEItemKey what, World level);
 
-    /**
-     * Convenience alternative to {@link #decodePattern(AEItemKey, Level)} that takes an ItemStack.
-     */
     @Nullable
-    default IPatternDetails decodePattern(ItemStack what, Level level) {
+    default IPatternDetails decodePattern(ItemStack what, World level) {
         return decodePattern(AEItemKey.of(what), level);
     }
 }

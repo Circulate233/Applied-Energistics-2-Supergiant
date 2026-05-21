@@ -1,26 +1,45 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
 package appeng.parts.automation;
+
+import appeng.items.parts.PartItem;
+import net.minecraft.client.resources.I18n;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.init.Enchantments;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.NonNullList;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.util.List;
 
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-
-import appeng.core.localization.GuiText;
-import appeng.core.localization.Tooltips;
-import appeng.items.parts.PartItem;
-
-/**
- * Special part item for {@link AnnihilationPlanePart} to handle enchants and extended tooltips.
- */
 public class AnnihilationPlanePartItem extends PartItem<AnnihilationPlanePart> {
-    public AnnihilationPlanePartItem(Properties properties) {
-        super(properties, AnnihilationPlanePart.class, AnnihilationPlanePart::new);
+
+    private static final String CAN_BE_ENCHANTED = "ae2.guitext.can_be_enchanted";
+    private static final String INCREASED_ENERGY_USE_FROM_ENCHANTS = "ae2.guitext.increased_energy_use_from_enchants";
+
+    public AnnihilationPlanePartItem() {
+        super(AnnihilationPlanePart.class, AnnihilationPlanePart::new);
     }
 
     @Override
@@ -29,7 +48,7 @@ public class AnnihilationPlanePartItem extends PartItem<AnnihilationPlanePart> {
     }
 
     @Override
-    public int getEnchantmentValue() {
+    public int getItemEnchantability() {
         return 10;
     }
 
@@ -39,29 +58,35 @@ public class AnnihilationPlanePartItem extends PartItem<AnnihilationPlanePart> {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag isAdvanced) {
-        super.appendHoverText(stack, context, lines, isAdvanced);
+    public boolean canApplyAtEnchantingTable(ItemStack stack, Enchantment enchantment) {
+        return enchantment == Enchantments.UNBREAKING
+            || enchantment == Enchantments.FORTUNE
+            || enchantment == Enchantments.SILK_TOUCH
+            || enchantment == Enchantments.EFFICIENCY;
+    }
 
-        var enchantments = stack.getOrDefault(DataComponents.ENCHANTMENTS, ItemEnchantments.EMPTY);
-        if (enchantments.isEmpty()) {
-            lines.add(Tooltips.of(GuiText.CanBeEnchanted));
+    @SideOnly(Side.CLIENT)
+    @Override
+    protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+
+        if (EnchantmentHelper.getEnchantments(stack).isEmpty()) {
+            lines.add(I18n.format(CAN_BE_ENCHANTED));
         } else {
-            lines.add(Tooltips.of(GuiText.IncreasedEnergyUseFromEnchants));
+            lines.add(I18n.format(INCREASED_ENERGY_USE_FROM_ENCHANTS));
         }
     }
 
     @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        super.addToMainCreativeTab(parameters, output);
+    protected void getCheckedSubItems(CreativeTabs creativeTab, NonNullList<ItemStack> itemStacks) {
+        super.getCheckedSubItems(creativeTab, itemStacks);
 
-        var enchantmentRegistry = parameters.holders().lookupOrThrow(Registries.ENCHANTMENT);
+        if (!this.isInCreativeTab(creativeTab)) {
+            return;
+        }
 
-        var enchantments = new ItemEnchantments.Mutable(ItemEnchantments.EMPTY);
-        enchantments.set(enchantmentRegistry.getOrThrow(Enchantments.SILK_TOUCH), 1);
-
-        var silkTouch = new ItemStack(this);
-        silkTouch.set(DataComponents.ENCHANTMENTS, enchantments.toImmutable());
-        output.accept(silkTouch);
+        ItemStack silkTouch = new ItemStack(this);
+        silkTouch.addEnchantment(Enchantments.SILK_TOUCH, 1);
+        itemStacks.add(silkTouch);
     }
 }

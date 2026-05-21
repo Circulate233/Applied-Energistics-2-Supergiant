@@ -18,20 +18,18 @@
 
 package appeng.api.orientation;
 
+import appeng.block.orientation.SpinMapping;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.common.model.TRSRTransformation;
+
+import javax.vecmath.AxisAngle4f;
+import javax.vecmath.Quat4f;
 import java.util.EnumSet;
 import java.util.Set;
-
-import com.mojang.math.Transformation;
-
-import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * All possible rotations for a fully orientable block.
@@ -74,68 +72,149 @@ public enum BlockOrientation {
     private final int angleX;
     private final int angleY;
     private final int angleZ;
-    private final Quaternionf quaternion;
-    private final Transformation transformation;
+    private final Quat4f quaternion;
+    private final TRSRTransformation transformation;
     /**
      * How many times it has been rotated clock-wise around in 90° increments around its facing.
      */
     private final int spin;
-    // Map each Direction to the Direction it'll be rotated to
-    private final Direction[] rotatedSideTo;
-    // Reverse of rotatedSideTo
-    private final Direction[] rotatedSideFrom;
 
     BlockOrientation(int angleX, int angleY, int angleZ, int spin) {
         this.angleX = angleX;
         this.angleY = angleY;
         this.angleZ = angleZ;
-
-        // NOTE: Mojangs block model rotation rotates in the opposite direction
-        quaternion = new Quaternionf().rotateYXZ(
-                -angleY * Mth.DEG_TO_RAD,
-                -angleX * Mth.DEG_TO_RAD,
-                -angleZ * Mth.DEG_TO_RAD);
-
-        if (angleX == 0 && angleY == 0 && angleZ == 0) {
-            this.transformation = Transformation.identity();
-        } else {
-            var rotationMatrix = new Matrix4f()
-                    .identity()
-                    .rotate(quaternion);
-            this.transformation = new Transformation(rotationMatrix);
-        }
+        this.quaternion = createQuaternion(angleX, angleY, angleZ);
+        this.transformation = angleX == 0 && angleY == 0 && angleZ == 0
+            ? TRSRTransformation.identity()
+            : new TRSRTransformation(null, this.quaternion, null, null);
         this.spin = spin;
+        EnumFacing front = EnumFacing.values()[ordinal() / 4];
+        EnumFacing top = SpinMapping.getUpFromSpin(front, spin);
+        EnumFacing bottom = top.getOpposite();
+        EnumFacing right = fromVector(cross(front, top));
+        EnumFacing left = right.getOpposite();
+        EnumFacing back = front.getOpposite();
+    }
 
-        // Build a mapping between the sides in this orientation
-        this.rotatedSideTo = new Direction[Direction.values().length];
-        this.rotatedSideFrom = new Direction[Direction.values().length];
-        for (var direction : Direction.values()) {
-            var normal = direction.step();
-            normal.rotate(quaternion);
-            var rotatedTo = Direction.getNearest(normal.x(), normal.y(), normal.z());
-            rotatedSideTo[direction.ordinal()] = rotatedTo;
-            rotatedSideFrom[rotatedTo.ordinal()] = direction;
-        }
+    public static BlockOrientation get(EnumFacing facing) {
+        return get(facing, 0);
     }
 
     /**
-     * Changes the orientation of the given block entity to this, if possible.
+     * Gets the block orientation in which the blocks front and top are facing the specified directions.
      */
-    public void setOn(BlockEntity be) {
-        setOn(be.getLevel(), be.getBlockPos());
+    public static BlockOrientation get(EnumFacing front, EnumFacing top) {
+        var offset = front.ordinal() * 4;
+        for (var i = offset; i < offset + 4; i++) {
+            var orientation = values()[i];
+            if (orientation.getSide(RelativeSide.TOP) == top) {
+                return orientation;
+            }
+        }
+        return values()[offset]; // Degenerated up -> return default
+    }
+
+    public static BlockOrientation get(EnumFacing facing, int spin) {
+        return values()[facing.ordinal() * 4 + spin];
+    }
+
+    public static BlockOrientation get(TileEntity blockEntity) {
+        var blockState = blockEntity.getWorld().getBlockState(blockEntity.getPos());
+        return get(blockState);
+    }
+
+    public static BlockOrientation get(IBlockState state) {
+        var strategy = IOrientationStrategy.get(state);
+        return get(strategy, state);
+    }
+
+    public static BlockOrientation get(IOrientationStrategy strategy, IBlockState state) {
+        var facing = strategy.getFacing(state);
+        var spin = strategy.getSpin(state);
+        return get(facing, spin);
+    }
+
+    private static EnumFacing fromVector(int[] vector) {
+        return EnumFacing.getFacingFromVector(vector[0], vector[1], vector[2]);
+    }
+
+    private static int[] cross(EnumFacing a, EnumFacing b) {
+        int ax = a.getXOffset();
+        int ay = a.getYOffset();
+        int az = a.getZOffset();
+        int bx = b.getXOffset();
+        int by = b.getYOffset();
+        int bz = b.getZOffset();
+        return new int[]{
+            ay * bz - az * by,
+            az * bx - ax * bz,
+            ax * by - ay * bx
+        };
+    }
+
+    private static EnumFacing rotateAround(EnumFacing side, EnumFacing.Axis axis, boolean positive) {
+        int x = side.getXOffset();
+        int y = side.getYOffset();
+        int z = side.getZOffset();
+        int rx;
+        int ry;
+        int rz;
+
+        switch (axis) {
+            case X -> {
+                rx = x;
+                ry = positive ? -z : z;
+                rz = positive ? y : -y;
+            }
+            case Y -> {
+                rx = positive ? z : -z;
+                ry = y;
+                rz = positive ? -x : x;
+            }
+            case Z -> {
+                rx = positive ? -y : y;
+                ry = positive ? x : -x;
+                rz = z;
+            }
+            default -> throw new IllegalStateException("Unexpected axis: " + axis);
+        }
+
+        return EnumFacing.getFacingFromVector(rx, ry, rz);
+    }
+
+    private static Quat4f createQuaternion(int angleX, int angleY, int angleZ) {
+        var quaternion = new Quat4f(0, 0, 0, 1);
+        quaternion.mul(axisAngle(0, 1, 0, -angleY));
+        quaternion.mul(axisAngle(1, 0, 0, -angleX));
+        quaternion.mul(axisAngle(0, 0, 1, -angleZ));
+        quaternion.normalize();
+        return quaternion;
+    }
+
+    private static Quat4f axisAngle(float x, float y, float z, int angle) {
+        var quaternion = new Quat4f();
+        quaternion.set(new AxisAngle4f(x, y, z, (float) Math.toRadians(angle)));
+        return quaternion;
+    }
+
+    /**
+     * Changes the orientation of the given tile entity to this, if possible.
+     */
+    public void setOn(TileEntity tileEntity) {
+        setOn(tileEntity.getWorld(), tileEntity.getPos());
     }
 
     /**
      * Changes the orientation of the block at the given position/level to this, if possible.
      */
-    public void setOn(Level level, BlockPos pos) {
+    public void setOn(World level, BlockPos pos) {
         var state = level.getBlockState(pos);
         var strategy = IOrientationStrategy.get(state);
         var newState = strategy.setOrientation(state,
-                getSide(RelativeSide.FRONT),
-                getSpin());
+            getSide(RelativeSide.FRONT),
+            getSpin());
         if (newState != state) {
-            level.setBlockAndUpdate(pos, newState);
+            level.setBlockState(pos, newState, 3);
         }
 
     }
@@ -144,20 +223,28 @@ public enum BlockOrientation {
         return angleX == 0 && angleY == 0 && angleZ == 0;
     }
 
-    public Quaternionf getQuaternion() {
-        return this.quaternion;
+    public Quat4f getQuaternion() {
+        return new Quat4f(this.quaternion);
     }
 
-    public Transformation getTransformation() {
-        return transformation;
+    public TRSRTransformation getTransformation() {
+        return this.transformation;
     }
 
-    public Direction rotate(Direction facing) {
-        return rotatedSideTo[facing.ordinal()];
+    public EnumFacing rotate(EnumFacing facing) {
+        if (isRedundant()) {
+            return facing;
+        }
+        return TRSRTransformation.rotate(this.transformation.getMatrix(), facing);
     }
 
-    public Direction resultingRotate(Direction facing) {
-        return rotatedSideFrom[facing.ordinal()];
+    public EnumFacing resultingRotate(EnumFacing facing) {
+        for (EnumFacing candidate : EnumFacing.values()) {
+            if (rotate(candidate) == facing) {
+                return candidate;
+            }
+        }
+        return facing;
     }
 
     public int getAngleX() {
@@ -176,61 +263,23 @@ public enum BlockOrientation {
         return spin;
     }
 
-    public static BlockOrientation get(Direction facing) {
-        return get(facing, 0);
-    }
-
-    /**
-     * Gets the block orientation in which the blocks front and top are facing the specified directions.
-     */
-    public static BlockOrientation get(Direction front, Direction top) {
-        var offset = front.ordinal() * 4;
-        for (var i = offset; i < offset + 4; i++) {
-            var orientation = values()[i];
-            if (orientation.getSide(RelativeSide.TOP) == top) {
-                return orientation;
-            }
-        }
-        return values()[offset]; // Degenerated up -> return default
-    }
-
-    public static BlockOrientation get(Direction facing, int spin) {
-        return values()[facing.ordinal() * 4 + spin];
-    }
-
-    public static BlockOrientation get(BlockEntity blockEntity) {
-        var blockState = blockEntity.getBlockState();
-        return get(blockState);
-    }
-
-    public static BlockOrientation get(BlockState state) {
-        var strategy = IOrientationStrategy.get(state);
-        return get(strategy, state);
-    }
-
-    public static BlockOrientation get(IOrientationStrategy strategy, BlockState state) {
-        var facing = strategy.getFacing(state);
-        var spin = strategy.getSpin(state);
-        return get(facing, spin);
-    }
-
-    public Direction getSide(RelativeSide side) {
+    public EnumFacing getSide(RelativeSide side) {
         return rotate(side.getUnrotatedSide());
     }
 
-    public RelativeSide getRelativeSide(Direction side) {
+    public RelativeSide getRelativeSide(EnumFacing side) {
         return RelativeSide.fromUnrotatedSide(resultingRotate(side));
     }
 
-    public Set<Direction> getSides(Set<RelativeSide> relativeSides) {
-        var result = EnumSet.noneOf(Direction.class);
+    public Set<EnumFacing> getSides(Set<RelativeSide> relativeSides) {
+        var result = EnumSet.noneOf(EnumFacing.class);
         for (var relativeSide : relativeSides) {
             result.add(getSide(relativeSide));
         }
         return result;
     }
 
-    public Set<RelativeSide> getRelativeSides(Set<Direction> sides) {
+    public Set<RelativeSide> getRelativeSides(Set<EnumFacing> sides) {
         var result = EnumSet.noneOf(RelativeSide.class);
         for (var side : sides) {
             result.add(getRelativeSide(side));
@@ -238,21 +287,21 @@ public enum BlockOrientation {
         return result;
     }
 
-    public BlockOrientation rotateClockwiseAround(Direction side) {
+    public BlockOrientation rotateClockwiseAround(EnumFacing side) {
         return rotateClockwiseAround(side.getAxis(), side.getAxisDirection());
     }
 
-    public BlockOrientation rotateClockwiseAround(Direction.Axis axis, Direction.AxisDirection direction) {
+    public BlockOrientation rotateClockwiseAround(EnumFacing.Axis axis, EnumFacing.AxisDirection direction) {
         var facing = getSide(RelativeSide.FRONT);
         var up = getSide(RelativeSide.TOP);
-        Direction newFacing;
-        Direction newUp;
-        if (direction == Direction.AxisDirection.POSITIVE) {
-            newFacing = facing.getClockWise(axis);
-            newUp = up.getClockWise(axis);
+        EnumFacing newFacing;
+        EnumFacing newUp;
+        if (direction == EnumFacing.AxisDirection.POSITIVE) {
+            newFacing = rotateAround(facing, axis, true);
+            newUp = rotateAround(up, axis, true);
         } else {
-            newFacing = facing.getCounterClockWise(axis);
-            newUp = up.getCounterClockWise(axis);
+            newFacing = rotateAround(facing, axis, false);
+            newUp = rotateAround(up, axis, false);
         }
         return get(newFacing, newUp);
     }

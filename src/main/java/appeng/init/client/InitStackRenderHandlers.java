@@ -18,171 +18,268 @@
 
 package appeng.init.client;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.joml.Matrix4f;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.texture.OverlayTexture;
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-
 import appeng.api.client.AEKeyRenderHandler;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.style.FluidBlitter;
+import appeng.crafting.pattern.EncodedPatternItem;
+import appeng.core.definitions.AEItems;
+import appeng.core.definitions.ItemDefinition;
+import appeng.items.misc.WrappedGenericStack;
 import appeng.util.Platform;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.RenderItem;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.client.renderer.tileentity.TileEntityItemStackRenderer;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.Tessellator;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.World;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+import org.lwjgl.opengl.GL11;
 
-public class InitStackRenderHandlers {
+import java.util.List;
+import java.util.function.Function;
+
+public final class InitStackRenderHandlers {
     private InitStackRenderHandlers() {
     }
 
     public static void init() {
         AEKeyRendering.register(AEKeyType.items(), AEItemKey.class, new ItemKeyRenderHandler());
         AEKeyRendering.register(AEKeyType.fluids(), AEFluidKey.class, new FluidKeyRenderHandler());
+        installDelegatingRenderer(AEItems.CRAFTING_PATTERN, InitStackRenderHandlers::resolveEncodedPatternOutput);
+        installDelegatingRenderer(AEItems.PROCESSING_PATTERN, InitStackRenderHandlers::resolveEncodedPatternOutput);
+        installDelegatingRenderer(AEItems.WRAPPED_GENERIC_STACK, InitStackRenderHandlers::resolveWrappedStackItem);
     }
 
-    private static class ItemKeyRenderHandler implements AEKeyRenderHandler<AEItemKey> {
-        @Override
-        public void drawInGui(Minecraft minecraft, GuiGraphics guiGraphics, int x, int y, AEItemKey stack) {
-            var poseStack = guiGraphics.pose();
-            poseStack.pushPose();
-
-            var displayStack = stack.getReadOnlyStack();
-            guiGraphics.renderItem(displayStack, x, y);
-            guiGraphics.renderItemDecorations(minecraft.font, displayStack, x, y, "");
-
-            poseStack.popPose();
+    private static void installDelegatingRenderer(ItemDefinition<?> definition, Function<ItemStack, ItemStack> resolver) {
+        var item = definition.asItem();
+        if (item == null) {
+            return;
         }
-
-        @Override
-        public void drawOnBlockFace(PoseStack poseStack, MultiBufferSource buffers, AEItemKey what, float scale,
-                int combinedLight, Level level) {
-            poseStack.pushPose();
-            // Push it out of the block face a bit to avoid z-fighting
-            poseStack.translate(0, 0, 0.01f);
-            // The Z-scaling by 0.001 causes the model to be visually "flattened"
-            // This cannot replace a proper projection, but it's cheap and gives the desired effect.
-            // We don't scale the normal matrix to avoid lighting issues.
-            poseStack.mulPose(new Matrix4f().scale(scale, scale, 0.001f));
-            // Rotate the normal matrix a little for nicer lighting.
-            poseStack.last().normal().rotateX(Mth.DEG_TO_RAD * -45f);
-
-            Minecraft.getInstance().getItemRenderer().renderStatic(what.getReadOnlyStack(), ItemDisplayContext.GUI,
-                    combinedLight, OverlayTexture.NO_OVERLAY, poseStack, buffers, level, 0);
-
-            poseStack.popPose();
-        }
-
-        @Override
-        public Component getDisplayName(AEItemKey stack) {
-            return stack.getDisplayName();
-        }
-
-        @Override
-        public List<Component> getTooltip(AEItemKey stack) {
-            return stack.getReadOnlyStack().getTooltipLines(
-                    Item.TooltipContext.of(Minecraft.getInstance().level),
-                    Minecraft.getInstance().player,
-                    Minecraft.getInstance().options.advancedItemTooltips ? TooltipFlag.Default.ADVANCED
-                            : TooltipFlag.Default.NORMAL);
-        }
+        item.setTileEntityItemStackRenderer(new DelegatingItemStackRenderer(resolver));
     }
 
-    private static class FluidKeyRenderHandler implements AEKeyRenderHandler<AEFluidKey> {
+    private static ItemStack resolveEncodedPatternOutput(ItemStack stack) {
+        if (!(stack.getItem() instanceof EncodedPatternItem<?> encodedPattern)) {
+            return ItemStack.EMPTY;
+        }
+
+        World level = Minecraft.getMinecraft().world;
+        if (level == null) {
+            return ItemStack.EMPTY;
+        }
+
+        return encodedPattern.getOutput(stack, level);
+    }
+
+    private static ItemStack resolveWrappedStackItem(ItemStack stack) {
+        if (!(stack.getItem() instanceof WrappedGenericStack)) {
+            return ItemStack.EMPTY;
+        }
+
+        GenericStack genericStack = GenericStack.unwrapItemStack(stack);
+        if (genericStack == null || !(genericStack.what() instanceof AEItemKey itemKey)) {
+            return ItemStack.EMPTY;
+        }
+
+        return itemKey.toStack();
+    }
+
+    private static final class ItemKeyRenderHandler implements AEKeyRenderHandler<AEItemKey> {
         @Override
-        public void drawInGui(Minecraft minecraft, GuiGraphics guiGraphics, int x, int y, AEFluidKey what) {
-            FluidBlitter.create(what)
-                    .dest(x, y, 16, 16)
-                    .blit(guiGraphics);
+        public void drawInGui(Minecraft minecraft, int x, int y, AEItemKey stack) {
+            ItemStack displayStack = stack.getReadOnlyStack();
+            RenderItem itemRenderer = minecraft.getRenderItem();
+            GlStateManager.pushMatrix();
+            try {
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                GlStateManager.enableBlend();
+                GlStateManager.enableDepth();
+                RenderHelper.enableGUIStandardItemLighting();
+                itemRenderer.renderItemAndEffectIntoGUI(displayStack, x, y);
+                itemRenderer.renderItemOverlayIntoGUI(minecraft.fontRenderer, displayStack, x, y, "");
+            } finally {
+                RenderHelper.disableStandardItemLighting();
+                GlStateManager.disableDepth();
+                GlStateManager.enableBlend();
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                GlStateManager.popMatrix();
+            }
         }
 
         @Override
-        public void drawOnBlockFace(PoseStack poseStack, MultiBufferSource buffers, AEFluidKey what, float scale,
-                int combinedLight, Level level) {
-
-            var fluidStack = what.toStack(1);
-            var renderProps = IClientFluidTypeExtensions.of(what.getFluid());
-            var texture = renderProps.getStillTexture(fluidStack);
-            var color = renderProps.getTintColor(fluidStack);
-            var sprite = Minecraft.getInstance().getTextureAtlas(TextureAtlas.LOCATION_BLOCKS)
-                    .apply(texture);
-
-            poseStack.pushPose();
-            // Push it out of the block face a bit to avoid z-fighting
-            poseStack.translate(0, 0, 0.01f);
-
-            var buffer = buffers.getBuffer(RenderType.solid());
-
-            // In comparison to items, make it _slightly_ smaller because item icons
-            // usually don't extend to the full size.
-            scale -= 0.05f;
-
-            // y is flipped here
-            var x0 = -scale / 2;
-            var y0 = scale / 2;
-            var x1 = scale / 2;
-            var y1 = -scale / 2;
-
-            var transform = poseStack.last().pose();
-            buffer.addVertex(transform, x0, y1, 0)
-                    .setColor(color)
-                    .setUv(sprite.getU0(), sprite.getV1())
-                    .setOverlay(OverlayTexture.NO_OVERLAY)
-                    .setLight(combinedLight)
-                    .setNormal(0, 0, 1);
-            buffer.addVertex(transform, x1, y1, 0)
-                    .setColor(color)
-                    .setUv(sprite.getU1(), sprite.getV1())
-                    .setOverlay(OverlayTexture.NO_OVERLAY)
-                    .setLight(combinedLight)
-                    .setNormal(0, 0, 1);
-            buffer.addVertex(transform, x1, y0, 0)
-                    .setColor(color)
-                    .setUv(sprite.getU1(), sprite.getV0())
-                    .setOverlay(OverlayTexture.NO_OVERLAY)
-                    .setLight(combinedLight)
-                    .setNormal(0, 0, 1);
-            buffer.addVertex(transform, x0, y0, 0)
-                    .setColor(color)
-                    .setUv(sprite.getU0(), sprite.getV0())
-                    .setOverlay(OverlayTexture.NO_OVERLAY)
-                    .setLight(combinedLight)
-                    .setNormal(0, 0, 1);
-            poseStack.popPose();
-        }
-
-        @Override
-        public Component getDisplayName(AEFluidKey stack) {
-            return stack.getDisplayName();
-        }
-
-        @Override
-        public List<Component> getTooltip(AEFluidKey stack) {
-            var tooltip = new ArrayList<Component>();
-            tooltip.add(stack.toStack(1).getHoverName());
-
-            // Heuristic: If the last line doesn't include the modname, add it ourselves
-            var modName = Platform.formatModName(stack.getModId());
-            if (!tooltip.getLast().getString().equals(modName)) {
-                tooltip.add(Component.literal(modName));
+        public void drawOnBlockFace(AEItemKey what, float scale, int combinedLight, World level) {
+            ItemStack displayStack = what.getReadOnlyStack();
+            if (displayStack.isEmpty()) {
+                return;
             }
 
+            OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0f, 240.0f);
+
+            GlStateManager.pushMatrix();
+            try {
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                RenderHelper.enableGUIStandardItemLighting();
+                GlStateManager.enableNormalize();
+                GlStateManager.scale(scale / 16.0f, scale / 16.0f, 0.0001f);
+                GlStateManager.translate(-8.0f, -8.0f, 0.0f);
+                RenderItem renderItem = Minecraft.getMinecraft().getRenderItem();
+                renderItem.renderItemAndEffectIntoGUI(displayStack, 0, 0);
+            } finally {
+                GlStateManager.disableNormalize();
+                RenderHelper.disableStandardItemLighting();
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                GlStateManager.popMatrix();
+            }
+        }
+
+        @Override
+        public ITextComponent getDisplayName(AEItemKey stack) {
+            return stack.getDisplayName();
+        }
+
+        @Override
+        public List<ITextComponent> getTooltip(AEItemKey stack) {
+            Minecraft minecraft = Minecraft.getMinecraft();
+            List<String> lines = stack.getReadOnlyStack().getTooltip(
+                minecraft.player,
+                minecraft.gameSettings.advancedItemTooltips
+                    ? net.minecraft.client.util.ITooltipFlag.TooltipFlags.ADVANCED
+                    : net.minecraft.client.util.ITooltipFlag.TooltipFlags.NORMAL);
+            List<ITextComponent> result = new ObjectArrayList<>(lines.size());
+            for (String line : lines) {
+                result.add(new TextComponentString(line));
+            }
+            return result;
+        }
+    }
+
+    private static final class FluidKeyRenderHandler implements AEKeyRenderHandler<AEFluidKey> {
+        @Override
+        public void drawInGui(Minecraft minecraft, int x, int y, AEFluidKey what) {
+            GlStateManager.pushMatrix();
+            try {
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                GlStateManager.enableBlend();
+                GlStateManager.disableLighting();
+                FluidBlitter.create(what)
+                            .dest(x, y, 16, 16)
+                            .blit();
+            } finally {
+                GlStateManager.enableBlend();
+                GlStateManager.enableDepth();
+                GlStateManager.enableLighting();
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                GlStateManager.popMatrix();
+            }
+        }
+
+        @Override
+        public void drawOnBlockFace(AEFluidKey what, float scale, int combinedLight, World level) {
+            FluidStack fluidStack = what.toStack(1);
+            Fluid fluid = what.getFluid();
+            TextureAtlasSprite sprite = Minecraft.getMinecraft().getTextureMapBlocks()
+                                                 .getAtlasSprite(fluid.getStill(fluidStack).toString());
+            int color = fluid.getColor(fluidStack);
+            float r = (color >> 16 & 255) / 255.0f;
+            float g = (color >> 8 & 255) / 255.0f;
+            float b = (color & 255) / 255.0f;
+            float a = (color >> 24 & 255) / 255.0f;
+            if (a <= 0.0f) {
+                a = 1.0f;
+            }
+
+            float x0 = -scale / 2.0f;
+            float y0 = -scale / 2.0f;
+            float x1 = scale / 2.0f;
+            float y1 = scale / 2.0f;
+
+            GlStateManager.pushMatrix();
+            try {
+                GlStateManager.enableBlend();
+                GlStateManager.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA,
+                    GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
+                GlStateManager.disableAlpha();
+                GlStateManager.disableLighting();
+                GlStateManager.disableCull();
+                Minecraft.getMinecraft().getTextureManager().bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
+
+                Tessellator tessellator = Tessellator.getInstance();
+                var buffer = tessellator.getBuffer();
+                buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+                buffer.pos(x0, y0, 0.0001f).tex(sprite.getMinU(), sprite.getMinV()).color(r, g, b, a).endVertex();
+                buffer.pos(x0, y1, 0.0001f).tex(sprite.getMinU(), sprite.getMaxV()).color(r, g, b, a).endVertex();
+                buffer.pos(x1, y1, 0.0001f).tex(sprite.getMaxU(), sprite.getMaxV()).color(r, g, b, a).endVertex();
+                buffer.pos(x1, y0, 0.0001f).tex(sprite.getMaxU(), sprite.getMinV()).color(r, g, b, a).endVertex();
+                tessellator.draw();
+            } finally {
+                GlStateManager.enableCull();
+                GlStateManager.enableLighting();
+                GlStateManager.enableAlpha();
+                GlStateManager.disableBlend();
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                GlStateManager.popMatrix();
+            }
+        }
+
+        @Override
+        public ITextComponent getDisplayName(AEFluidKey stack) {
+            return stack.getDisplayName();
+        }
+
+        @Override
+        public List<ITextComponent> getTooltip(AEFluidKey stack) {
+            List<ITextComponent> tooltip = new ObjectArrayList<>();
+            tooltip.add(stack.toStack(1).getLocalizedName().isEmpty()
+                ? stack.getDisplayName()
+                : new TextComponentString(stack.toStack(1).getLocalizedName()));
+            tooltip.add(new TextComponentString(Platform.getModName(stack.getModId())));
             return tooltip;
+        }
+    }
+
+    private static final class DelegatingItemStackRenderer extends TileEntityItemStackRenderer {
+        private final Function<ItemStack, ItemStack> displayStackResolver;
+
+        private DelegatingItemStackRenderer(Function<ItemStack, ItemStack> displayStackResolver) {
+            this.displayStackResolver = displayStackResolver;
+        }
+
+        @Override
+        public void renderByItem(ItemStack stack) {
+            ItemStack displayStack = this.displayStackResolver.apply(stack);
+            if (displayStack.isEmpty()) {
+                return;
+            }
+
+            if (displayStack.getItem() == stack.getItem()) {
+                return;
+            }
+
+            Minecraft minecraft = Minecraft.getMinecraft();
+            RenderItem renderItem = minecraft.getRenderItem();
+            IBakedModel model = renderItem.getItemModelWithOverrides(displayStack, minecraft.world, minecraft.player);
+            if (model.isBuiltInRenderer()) {
+                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                GlStateManager.enableRescaleNormal();
+                displayStack.getItem().getTileEntityItemStackRenderer().renderByItem(displayStack);
+                return;
+            }
+            renderItem.renderItem(displayStack, model);
         }
     }
 }

@@ -18,10 +18,10 @@
 
 package appeng.client.gui;
 
-import org.jetbrains.annotations.Nullable;
-
 import appeng.api.config.PowerUnit;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import org.jetbrains.annotations.Nullable;
 
 public record NumberEntryType(int amountPerUnit, @Nullable String unit) {
     public static final NumberEntryType ENERGY = new NumberEntryType(1, PowerUnit.AE.getSymbolName());
@@ -31,6 +31,7 @@ public record NumberEntryType(int amountPerUnit, @Nullable String unit) {
         if (key == null) {
             return UNITLESS;
         }
-        return new NumberEntryType(key.getAmountPerUnit(), key.getUnitSymbol());
+        AEKeyType keyType = key.getType();
+        return new NumberEntryType(keyType.getAmountPerUnit(), keyType.getUnitSymbol());
     }
 }

@@ -15,72 +15,41 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.effects;
 
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleProvider;
-import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.particle.TextureSheetParticle;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.World;
 
-@OnlyIn(Dist.CLIENT)
 public class LightningArcFX extends LightningFX {
-
-    private static final RandomSource RANDOM_GENERATOR = RandomSource.create();
 
     private final double rx;
     private final double ry;
     private final double rz;
 
-    public LightningArcFX(ClientLevel level, double x, double y, double z, double ex,
-            double ey, double ez, double r, double g, double b) {
-        super(level, x, y, z, r, g, b, 6);
-
-        this.rx = ex - x;
-        this.ry = ey - y;
-        this.rz = ez - z;
-
+    public LightningArcFX(World world, double x, double y, double z, double targetX, double targetY, double targetZ,
+                          double red, double green, double blue, TextureAtlasSprite sprite) {
+        super(world, x, y, z, red, green, blue, 6, sprite);
+        this.rx = targetX - x;
+        this.ry = targetY - y;
+        this.rz = targetZ - z;
         this.regen();
     }
 
     @Override
     protected void regen() {
-        float i = 1.0f / (this.getSteps() - 1);
-        float lastDirectionX = (float) this.rx * i;
-        float lastDirectionY = (float) this.ry * i;
-        float lastDirectionZ = (float) this.rz * i;
+        float stepScale = 1.0f / (this.getSteps() - 1);
+        float stepX = (float) this.rx * stepScale;
+        float stepY = (float) this.ry * stepScale;
+        float stepZ = (float) this.rz * stepScale;
 
-        float len = Mth.sqrt(
-                lastDirectionX * lastDirectionX + lastDirectionY * lastDirectionY + lastDirectionZ * lastDirectionZ);
-        for (int s = 0; s < this.getSteps(); s++) {
-            var localSteps = this.getPrecomputedSteps();
-            localSteps[s][0] = (lastDirectionX + (RANDOM_GENERATOR.nextFloat() - 0.5f) * len * 1.2f) / 2.0f;
-            localSteps[s][1] = (lastDirectionY + (RANDOM_GENERATOR.nextFloat() - 0.5f) * len * 1.2f) / 2.0f;
-            localSteps[s][2] = (lastDirectionZ + (RANDOM_GENERATOR.nextFloat() - 0.5f) * len * 1.2f) / 2.0f;
+        float len = MathHelper.sqrt(stepX * stepX + stepY * stepY + stepZ * stepZ);
+        float[][] steps = this.getPrecomputedSteps();
+
+        for (int step = 0; step < this.getSteps(); step++) {
+            steps[step][0] = (stepX + (this.rand.nextFloat() - 0.5f) * len * 1.2f) / 2.0f;
+            steps[step][1] = (stepY + (this.rand.nextFloat() - 0.5f) * len * 1.2f) / 2.0f;
+            steps[step][2] = (stepZ + (this.rand.nextFloat() - 0.5f) * len * 1.2f) / 2.0f;
         }
     }
-
-    @OnlyIn(Dist.CLIENT)
-    public static class Factory implements ParticleProvider<LightningArcParticleData> {
-        private final SpriteSet spriteSet;
-
-        public Factory(SpriteSet spriteSet) {
-            this.spriteSet = spriteSet;
-        }
-
-        @Override
-        public Particle createParticle(LightningArcParticleData data, ClientLevel level, double x, double y, double z,
-                double xSpeed, double ySpeed, double zSpeed) {
-            TextureSheetParticle lightningFX = new LightningArcFX(level, x, y, z, data.target().x, data.target().y,
-                    data.target().z, 0, 0, 0);
-            lightningFX.pickSprite(this.spriteSet);
-            return lightningFX;
-        }
-    }
-
 }

@@ -1,34 +1,32 @@
 package appeng.integration.modules.igtooltip;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-
+import appeng.api.integrations.igtooltip.BaseClassRegistration;
+import appeng.api.parts.IPartHost;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.minecraft.block.Block;
+import net.minecraft.tileentity.TileEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
-import appeng.api.integrations.igtooltip.BaseClassRegistration;
-import appeng.api.parts.IPartHost;
+import java.util.List;
+import java.util.Set;
 
 public class BaseClassRegistrationImpl implements BaseClassRegistration {
     private static final Logger LOG = LoggerFactory.getLogger(BaseClassRegistrationImpl.class);
 
-    private final List<BaseClass> baseClasses = new ArrayList<>();
-    private final Set<BaseClass> partHostClasses = new HashSet<>();
+    private final List<BaseClass> baseClasses = new ObjectArrayList<>();
+    private final Set<BaseClass> partHostClasses = new ObjectOpenHashSet<>();
 
     @Override
-    public void addBaseBlockEntity(Class<? extends BlockEntity> blockEntityClass, Class<? extends Block> blockClass) {
-        var defaultClass = new BaseClass(blockEntityClass, blockClass);
+    public void addBaseBlockEntity(Class<? extends TileEntity> blockEntityClass, Class<? extends Block> blockClass) {
+        BaseClass defaultClass = new BaseClass(blockEntityClass, blockClass);
 
         // If any superclass is already in the list, don't add it
-        for (var registeredClass : baseClasses) {
+        for (BaseClass registeredClass : baseClasses) {
             if (registeredClass.isSuperclassOf(defaultClass)) {
                 LOG.info("Not registering {}, because superclass {} is already registered.",
-                        defaultClass, registeredClass);
+                    defaultClass, registeredClass);
                 return;
             }
         }
@@ -37,7 +35,7 @@ public class BaseClassRegistrationImpl implements BaseClassRegistration {
         baseClasses.removeIf(otherClass -> {
             if (defaultClass.isSuperclassOf(otherClass)) {
                 LOG.info("Replacing default server-data registration for {} with superclass {}.",
-                        defaultClass, otherClass);
+                    defaultClass, otherClass);
                 return true;
             }
             return false;
@@ -47,8 +45,8 @@ public class BaseClassRegistrationImpl implements BaseClassRegistration {
     }
 
     @Override
-    public <T extends BlockEntity & IPartHost> void addPartHost(Class<T> blockEntityClass,
-            Class<? extends Block> blockClass) {
+    public <T extends TileEntity & IPartHost> void addPartHost(Class<T> blockEntityClass,
+                                                               Class<? extends Block> blockClass) {
         partHostClasses.add(new BaseClass(blockEntityClass, blockClass));
     }
 
@@ -60,9 +58,9 @@ public class BaseClassRegistrationImpl implements BaseClassRegistration {
         return partHostClasses;
     }
 
-    public record BaseClass(Class<? extends BlockEntity> blockEntity, Class<? extends Block> block) {
+    public record BaseClass(Class<? extends TileEntity> blockEntity, Class<? extends Block> block) {
         public boolean isSuperclassOf(BaseClass other) {
-            return blockEntity.isAssignableFrom(other.blockEntity);
+            return this.blockEntity.isAssignableFrom(other.blockEntity);
         }
     }
 }

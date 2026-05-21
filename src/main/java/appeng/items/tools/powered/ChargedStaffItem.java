@@ -18,40 +18,45 @@
 
 package appeng.items.tools.powered;
 
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.phys.AABB;
-
 import appeng.api.config.Actionable;
 import appeng.core.AEConfig;
 import appeng.core.AppEng;
 import appeng.core.network.clientbound.LightningPacket;
 import appeng.items.tools.powered.powersink.AEBasePoweredItem;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.DamageSource;
+import net.minecraft.util.math.AxisAlignedBB;
 
 public class ChargedStaffItem extends AEBasePoweredItem {
 
-    public ChargedStaffItem(Properties props) {
-        super(AEConfig.instance().getChargedStaffBattery(), props);
+    public ChargedStaffItem() {
+        super(getBatteryCapacity());
+    }
+
+    private static double getBatteryCapacity() {
+        try {
+            return AEConfig.instance().getChargedStaffBattery();
+        } catch (IllegalStateException ignored) {
+            return 8000;
+        }
     }
 
     @Override
-    public boolean hurtEnemy(ItemStack item, LivingEntity target, LivingEntity hitter) {
+    public boolean hitEntity(ItemStack item, EntityLivingBase target, EntityLivingBase hitter) {
         if (this.getAECurrentPower(item) > 300) {
             this.extractAEPower(item, 300, Actionable.MODULATE);
-            if (!target.level().isClientSide()) {
+            if (!target.world.isRemote) {
                 for (int x = 0; x < 2; x++) {
-                    final AABB entityBoundingBox = target.getBoundingBox();
-                    final float dx = (float) (target.level().getRandom().nextFloat() * target.getBbWidth()
-                            + entityBoundingBox.minX);
-                    final float dy = (float) (target.level().getRandom().nextFloat() * target.getBbHeight()
-                            + entityBoundingBox.minY);
-                    final float dz = (float) (target.level().getRandom().nextFloat() * target.getBbWidth()
-                            + entityBoundingBox.minZ);
-                    AppEng.instance().sendToAllNearExcept(null, dx, dy, dz, 32.0, target.level(),
-                            new LightningPacket(dx, dy, dz));
+                    final AxisAlignedBB entityBoundingBox = target.getEntityBoundingBox();
+                    final float dx = (float) (target.world.rand.nextFloat() * target.width + entityBoundingBox.minX);
+                    final float dy = (float) (target.world.rand.nextFloat() * target.height + entityBoundingBox.minY);
+                    final float dz = (float) (target.world.rand.nextFloat() * target.width + entityBoundingBox.minZ);
+                    AppEng.instance().sendToAllNearExcept(null, dx, dy, dz, 32.0, target.world,
+                        new LightningPacket(dx, dy, dz));
                 }
             }
-            target.hurt(target.level().damageSources().magic(), 6);
+            target.attackEntityFrom(DamageSource.MAGIC, 6);
             return true;
         }
 

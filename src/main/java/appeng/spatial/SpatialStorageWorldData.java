@@ -18,39 +18,34 @@
 
 package appeng.spatial;
 
+import appeng.core.AELog;
+import com.google.common.collect.ImmutableList;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.storage.WorldSavedData;
+import net.minecraftforge.common.util.Constants;
+
 import java.util.List;
 
-import com.google.common.collect.ImmutableList;
+public class SpatialStorageWorldData extends WorldSavedData {
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-
-import appeng.core.AELog;
-import appeng.core.worlddata.AESavedData;
-
-/**
- * Extra data attached to the spatial storage level.
- */
-public class SpatialStorageWorldData extends AESavedData {
-
-    /**
-     * ID of this data when it is attached to a level.
-     */
     public static final String ID = "ae2_spatial_storage";
-
-    // Used to allow forward compatibility
+    public static final String LEGACY_ID = "ae2_spatial_plots";
     private static final int CURRENT_FORMAT = 2;
-
     private static final String TAG_FORMAT = "format";
-
     private static final String TAG_PLOTS = "plots";
 
     private final Int2ObjectOpenHashMap<SpatialStoragePlot> plots = new Int2ObjectOpenHashMap<>();
+
+    public SpatialStorageWorldData() {
+        this(ID);
+    }
+
+    public SpatialStorageWorldData(String name) {
+        super(name);
+    }
 
     public SpatialStoragePlot getPlotById(int id) {
         return plots.get(id);
@@ -61,23 +56,21 @@ public class SpatialStorageWorldData extends AESavedData {
     }
 
     public SpatialStoragePlot allocatePlot(BlockPos size, int owner) {
-
         int nextId = 1;
         for (int id : plots.keySet()) {
             if (id >= nextId) {
                 nextId = id + 1;
             }
         }
-
         SpatialStoragePlot plot = new SpatialStoragePlot(nextId, size, owner);
         plots.put(nextId, plot);
-        setDirty();
+        markDirty();
         return plot;
     }
 
     public void removePlot(int plotId) {
         plots.remove(plotId);
-        setDirty();
+        markDirty();
     }
 
     public void setLastTransition(int plotId, TransitionInfo info) {
@@ -85,41 +78,40 @@ public class SpatialStorageWorldData extends AESavedData {
         if (plot != null) {
             plot.setLastTransition(info);
         }
-        setDirty();
+        markDirty();
     }
 
-    public static SpatialStorageWorldData load(CompoundTag tag, HolderLookup.Provider registries) {
-        SpatialStorageWorldData result = new SpatialStorageWorldData();
-        int version = tag.getInt(TAG_FORMAT);
-        if (version != CURRENT_FORMAT) {
-            // Currently no new format has been defined, as such anything but the current
-            // version is invalid
-            throw new IllegalStateException("Invalid AE2 spatial info version: " + version);
-        }
-
-        ListTag plotsTag = tag.getList(TAG_PLOTS, Tag.TAG_COMPOUND);
-        for (Tag plotTag : plotsTag) {
-            SpatialStoragePlot plot = SpatialStoragePlot.fromTag((CompoundTag) plotTag);
-
-            if (result.plots.containsKey(plot.getId())) {
-                AELog.warn("Overwriting duplicate plot id %s", plot.getId());
-            }
-            result.plots.put(plot.getId(), plot);
-        }
-        return result;
+    void copyFrom(SpatialStorageWorldData other) {
+        this.plots.clear();
+        this.plots.putAll(other.plots);
     }
 
     @Override
-    public CompoundTag save(CompoundTag tag, HolderLookup.Provider registries) {
-        tag.putInt(TAG_FORMAT, CURRENT_FORMAT);
-
-        ListTag plotTags = new ListTag();
-        for (SpatialStoragePlot plot : plots.values()) {
-            plotTags.add(plot.toTag());
+    public void readFromNBT(NBTTagCompound nbt) {
+        this.plots.clear();
+        int version = nbt.getInteger(TAG_FORMAT);
+        if (version != 0 && version != CURRENT_FORMAT) {
+            throw new IllegalStateException("Invalid AE2 spatial info version: " + version);
         }
-        tag.put(TAG_PLOTS, plotTags);
 
-        return tag;
+        NBTTagList plotTags = nbt.getTagList(TAG_PLOTS, Constants.NBT.TAG_COMPOUND);
+        for (int i = 0; i < plotTags.tagCount(); i++) {
+            SpatialStoragePlot plot = SpatialStoragePlot.fromTag(plotTags.getCompoundTagAt(i));
+            if (this.plots.containsKey(plot.getId())) {
+                AELog.warn("Overwriting duplicate plot id %s", plot.getId());
+            }
+            this.plots.put(plot.getId(), plot);
+        }
     }
 
+    @Override
+    public NBTTagCompound writeToNBT(NBTTagCompound compound) {
+        compound.setInteger(TAG_FORMAT, CURRENT_FORMAT);
+        NBTTagList plotTags = new NBTTagList();
+        for (SpatialStoragePlot plot : this.plots.values()) {
+            plotTags.appendTag(plot.toTag());
+        }
+        compound.setTag(TAG_PLOTS, plotTags);
+        return compound;
+    }
 }

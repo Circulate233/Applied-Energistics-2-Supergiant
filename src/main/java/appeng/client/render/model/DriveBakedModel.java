@@ -15,84 +15,81 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.model;
 
-import java.util.ArrayList;
+import appeng.block.storage.DriveBlock;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.util.EnumFacing;
+import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
+import net.minecraftforge.common.model.TRSRTransformation;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
+import javax.annotation.Nullable;
+import javax.vecmath.Matrix4f;
+import javax.vecmath.Vector3f;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-import javax.annotation.Nullable;
+@SuppressWarnings("deprecation")
+public class DriveBakedModel implements IBakedModel {
+    private final IBakedModel bakedBase;
+    private final Map<Item, IBakedModel> bakedCells;
+    private final IBakedModel defaultCellModel;
+    private final TRSRTransformation transform;
 
-import com.mojang.math.Transformation;
-
-import org.joml.Vector3f;
-
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.ChunkRenderTypeSet;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
-import appeng.client.render.DelegateBakedModel;
-import appeng.thirdparty.fabric.MutableQuadView;
-import appeng.thirdparty.fabric.RenderContext;
-
-public class DriveBakedModel extends DelegateBakedModel {
-    private static final ChunkRenderTypeSet RENDER_TYPES = ChunkRenderTypeSet.of(RenderType.CUTOUT);
-    private final Map<Item, BakedModel> cellModels;
-    private final BakedModel defaultCellModel;
-
-    private final RenderContext.QuadTransform[] slotTransforms;
-
-    public DriveBakedModel(Transformation rotation, BakedModel bakedBase, Map<Item, BakedModel> cellModels,
-            BakedModel defaultCell) {
-        super(bakedBase);
-        this.defaultCellModel = defaultCell;
-        this.slotTransforms = buildSlotTransforms(rotation);
-        this.cellModels = cellModels;
+    public DriveBakedModel(IBakedModel bakedBase, Map<Item, IBakedModel> bakedCells, IBakedModel defaultCellModel,
+                           TRSRTransformation transform) {
+        this.bakedBase = bakedBase;
+        this.bakedCells = bakedCells;
+        this.defaultCellModel = defaultCellModel;
+        this.transform = transform;
     }
 
-    /**
-     * Calculates the origin of a drive slot for positioning a cell model into it.
-     */
     public static void getSlotOrigin(int row, int col, Vector3f translation) {
-        // Position this drive model copy at the correct slot. The transform is based on
-        // the cell-model being in slot 0,0,0 while the upper left slot's origin is at
-        // 9,13,1
         float xOffset = (9 - col * 8) / 16.0f;
         float yOffset = (13 - row * 3) / 16.0f;
         float zOffset = 1 / 16.0f;
         translation.set(xOffset, yOffset, zOffset);
     }
 
+    private static Iterable<EnumFacing> withNullFace() {
+        List<EnumFacing> sides = new ObjectArrayList<>(7);
+        sides.add(null);
+        Collections.addAll(sides, EnumFacing.values());
+        return sides;
+    }
+
     @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand,
-            ModelData extraData, RenderType renderType) {
-        List<BakedQuad> result = new ArrayList<>(super.getQuads(state, side, rand, extraData, renderType));
+    public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
+        List<BakedQuad> result = new ObjectArrayList<>(this.bakedBase.getQuads(state, side, rand));
 
-        var cells = extraData.get(DriveModelData.STATE);
+        if (side == null && state instanceof IExtendedBlockState extState) {
+            DriveModelData renderState = extState.getValue(DriveBlock.RENDER_STATE);
+            if (renderState == null) {
+                return result;
+            }
 
-        // Add cell models on top of the base model, if possible
-        if (cells != null) {
             for (int row = 0; row < 5; row++) {
                 for (int col = 0; col < 2; col++) {
-                    int slot = getSlotIndex(row, col);
-
-                    // Add the cell chassis
-                    Item cell = slot < cells.length ? cells[slot] : null;
-                    BakedModel cellChassisModel = getCellChassisModel(cell);
-
-                    var quadView = MutableQuadView.getInstance();
-                    for (BakedQuad quad : cellChassisModel.getQuads(state, side, rand, ModelData.EMPTY, renderType)) {
-                        quadView.fromVanilla(quad, side);
-                        slotTransforms[slot].transform(quadView);
-                        result.add(quadView.toBlockBakedQuad());
+                    Vector3f translation = new Vector3f();
+                    getSlotOrigin(row, col, translation);
+                    rotateSlotTranslation(translation);
+                    MatrixVertexTransformer transformer = new MatrixVertexTransformer(createTranslationMatrix(translation));
+                    for (BakedQuad bakedQuad : getCellChassisQuads(state, renderState.getItem(row * 2 + col), rand)) {
+                        UnpackedBakedQuad.Builder builder = new UnpackedBakedQuad.Builder(bakedQuad.getFormat());
+                        transformer.setParent(builder);
+                        transformer.setVertexFormat(builder.getVertexFormat());
+                        bakedQuad.pipe(transformer);
+                        result.add(builder.build());
                     }
                 }
             }
@@ -101,71 +98,63 @@ public class DriveBakedModel extends DelegateBakedModel {
         return result;
     }
 
-    @Override
-    public boolean useAmbientOcclusion() {
-        // We have faces inside the chassis that are facing east, but should not receive
-        // ambient occlusion from the east-side, but sadly this cannot be fine-tuned on
-        // a face-by-face basis.
-        return false;
+    private void rotateSlotTranslation(Vector3f translation) {
+        Matrix4f rotation = new Matrix4f();
+        rotation.set(this.transform.getLeftRot());
+        rotation.transform(translation);
     }
 
-    // Determine which drive chassis to show based on the used cell
-    public BakedModel getCellChassisModel(Item cell) {
-        if (cell == null) {
-            return cellModels.get(Items.AIR);
-        }
-        final BakedModel model = cellModels.get(cell);
-
-        return model != null ? model : defaultCellModel;
+    private Matrix4f createTranslationMatrix(Vector3f translation) {
+        Matrix4f transform = new Matrix4f();
+        transform.setIdentity();
+        transform.setTranslation(translation);
+        return transform;
     }
 
-    private RenderContext.QuadTransform[] buildSlotTransforms(Transformation rotation) {
-        RenderContext.QuadTransform[] result = new RenderContext.QuadTransform[5 * 2];
-
-        for (int row = 0; row < 5; row++) {
-            for (int col = 0; col < 2; col++) {
-
-                Vector3f translation = new Vector3f();
-                getSlotOrigin(row, col, translation);
-                rotation.getLeftRotation().transform(translation);
-
-                result[getSlotIndex(row, col)] = new QuadTranslator(translation.x(), translation.y(),
-                        translation.z());
-            }
+    public IBakedModel getCellChassisModel(@Nullable Item item) {
+        if (item == null) {
+            return this.bakedCells.get(Items.AIR);
         }
+        IBakedModel model = this.bakedCells.get(item);
+        return model != null ? model : this.defaultCellModel;
+    }
 
+    public List<BakedQuad> getCellChassisQuads(@Nullable IBlockState state, @Nullable Item item, long rand) {
+        IBakedModel bakedCell = getCellChassisModel(item);
+        List<BakedQuad> result = new ObjectArrayList<>();
+        for (EnumFacing cellSide : withNullFace()) {
+            result.addAll(bakedCell.getQuads(state, cellSide, rand));
+        }
         return result;
     }
 
-    private static int getSlotIndex(int row, int col) {
-        return row * 2 + col;
-    }
-
-    private static class QuadTranslator implements RenderContext.QuadTransform {
-        private final float x;
-        private final float y;
-        private final float z;
-
-        public QuadTranslator(float x, float y, float z) {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-
-        @Override
-        public boolean transform(MutableQuadView quad) {
-            Vector3f target = new Vector3f();
-            for (int i = 0; i < 4; i++) {
-                quad.copyPos(i, target);
-                target.add(x, y, z);
-                quad.pos(i, target);
-            }
-            return true;
-        }
+    @Override
+    public boolean isAmbientOcclusion() {
+        return this.bakedBase.isAmbientOcclusion();
     }
 
     @Override
-    public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
-        return RENDER_TYPES;
+    public boolean isGui3d() {
+        return this.bakedBase.isGui3d();
+    }
+
+    @Override
+    public boolean isBuiltInRenderer() {
+        return this.bakedBase.isBuiltInRenderer();
+    }
+
+    @Override
+    public TextureAtlasSprite getParticleTexture() {
+        return this.bakedBase.getParticleTexture();
+    }
+
+    @Override
+    public ItemCameraTransforms getItemCameraTransforms() {
+        return this.bakedBase.getItemCameraTransforms();
+    }
+
+    @Override
+    public ItemOverrideList getOverrides() {
+        return this.bakedBase.getOverrides();
     }
 }

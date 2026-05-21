@@ -18,38 +18,60 @@
 
 package appeng.client.render.tesr.spatial;
 
+import appeng.core.AppEng;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.client.model.IModel;
+import net.minecraftforge.common.model.IModelState;
+import net.minecraftforge.common.model.TRSRTransformation;
+
+import javax.annotation.Nonnull;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 
-import net.minecraft.client.renderer.texture.TextureAtlas;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelState;
+public class SpatialPylonModel implements IModel {
 
-import appeng.client.render.BasicUnbakedModel;
-import appeng.core.AppEng;
-
-public class SpatialPylonModel implements BasicUnbakedModel {
+    private static ResourceLocation getTexturePath(SpatialPylonTextureType type) {
+        return AppEng.makeId("block/spatial_pylon/" + type.name().toLowerCase(Locale.ROOT));
+    }
 
     @Override
-    public BakedModel bake(ModelBaker bakery,
-            Function<Material, TextureAtlasSprite> spriteGetter, ModelState modelTransform) {
-        Map<SpatialPylonTextureType, TextureAtlasSprite> textures = new EnumMap<>(SpatialPylonTextureType.class);
+    public Collection<ResourceLocation> getDependencies() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public Collection<ResourceLocation> getTextures() {
+        ObjectList<ResourceLocation> textures = new ObjectArrayList<>(SpatialPylonTextureType.values().length);
+        for (SpatialPylonTextureType type : SpatialPylonTextureType.values()) {
+            textures.add(getTexturePath(type));
+        }
+        return textures;
+    }
+
+    @Override
+    public IBakedModel bake(@Nonnull IModelState state, @Nonnull VertexFormat format,
+                            @Nonnull Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        Map<SpatialPylonTextureType, TextureAtlasSprite> textures = new EnumMap<>(
+            SpatialPylonTextureType.class);
 
         for (SpatialPylonTextureType type : SpatialPylonTextureType.values()) {
-            textures.put(type, spriteGetter.apply(getTexturePath(type)));
+            textures.put(type, bakedTextureGetter.apply(getTexturePath(type)));
         }
 
         return new SpatialPylonBakedModel(textures);
     }
 
-    private static Material getTexturePath(SpatialPylonTextureType type) {
-        return new Material(TextureAtlas.LOCATION_BLOCKS,
-                AppEng.makeId("block/spatial_pylon/" + type.name().toLowerCase(Locale.ROOT)));
+    @Override
+    public IModelState getDefaultState() {
+        return TRSRTransformation.identity();
     }
-
 }

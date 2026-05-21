@@ -18,20 +18,13 @@
 
 package appeng.api.stacks;
 
-import java.util.Objects;
-import java.util.stream.Stream;
-
-import com.mojang.serialization.MapCodec;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.TagKey;
-
 import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.ResourceLocation;
+
+import java.util.Objects;
 
 final class AEFluidKeys extends AEKeyType {
     private static final ResourceLocation ID = AppEng.makeId("f");
@@ -40,11 +33,6 @@ final class AEFluidKeys extends AEKeyType {
 
     private AEFluidKeys() {
         super(ID, AEFluidKey.class, GuiText.Fluids.text());
-    }
-
-    @Override
-    public MapCodec<? extends AEKey> codec() {
-        return AEFluidKey.MAP_CODEC;
     }
 
     @Override
@@ -59,25 +47,20 @@ final class AEFluidKeys extends AEKeyType {
     }
 
     @Override
-    public AEFluidKey readFromPacket(RegistryFriendlyByteBuf input) {
+    public AEFluidKey readFromPacket(PacketBuffer input) {
         Objects.requireNonNull(input);
 
         return AEFluidKey.fromPacket(input);
     }
 
     @Override
-    public AEFluidKey loadKeyFromTag(HolderLookup.Provider registries, CompoundTag tag) {
-        return AEFluidKey.fromTag(registries, tag);
+    public AEFluidKey loadKeyFromTag(NBTTagCompound tag) {
+        return AEFluidKey.fromTag(tag);
     }
 
     @Override
     public int getAmountPerUnit() {
         return AEFluidKey.AMOUNT_BUCKET;
-    }
-
-    @Override
-    public Stream<TagKey<?>> getTagNames() {
-        return BuiltInRegistries.FLUID.getTagNames().map(t -> t);
     }
 
     @Override

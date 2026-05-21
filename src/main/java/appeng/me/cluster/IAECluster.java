@@ -18,10 +18,10 @@
 
 package appeng.me.cluster;
 
-import java.util.Iterator;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.level.block.entity.BlockEntity;
+import java.util.Iterator;
 
 public interface IAECluster {
 
@@ -40,10 +40,10 @@ public interface IAECluster {
     void destroy();
 
     /**
-     * @return True if the cluster has been destroyed, but not yet removed from a block entity. Usually true during
-     *         destruction.
+     * @return True if the cluster has been destroyed, but not yet removed from a tile entity. Usually true during
+     * destruction.
      */
     boolean isDestroyed();
 
-    Iterator<? extends BlockEntity> getBlockEntities();
+    Iterator<? extends TileEntity> getBlockEntities();
 }

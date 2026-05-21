@@ -1,0 +1,21 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aaa",
+    "aba",
+    "aaa"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:fluix_smart_cable"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "dyeYellow"
+    }
+  },
+  "result": {
+    "item": "ae2:yellow_smart_cable",
+    "count": 8
+  }
+}

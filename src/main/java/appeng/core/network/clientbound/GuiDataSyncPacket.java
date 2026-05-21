@@ -1,68 +1,58 @@
-
 package appeng.core.network.clientbound;
 
-import java.util.function.Consumer;
-
-import io.netty.buffer.Unpooled;
-
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
+import appeng.container.AEBaseContainer;
+import appeng.core.network.AppEngPayloadHandler;
 import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
-import appeng.menu.AEBaseMenu;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
+import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
+import net.minecraftforge.fml.common.network.simpleimpl.MessageContext;
 
 /**
- * This packet is used to synchronize menu-fields from server to client.
+ * This packet is used to synchronize container-fields from server to client.
  */
-public record GuiDataSyncPacket(int containerId, byte[] syncData) implements ClientboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, GuiDataSyncPacket> STREAM_CODEC = StreamCodec.ofMember(
-            GuiDataSyncPacket::write,
-            GuiDataSyncPacket::decode);
+public class GuiDataSyncPacket extends ClientboundPacket {
+    private int windowId;
+    private byte[] payload;
 
-    public static final Type<GuiDataSyncPacket> TYPE = CustomAppEngPayload.createType("");
-
-    @Override
-    public Type<GuiDataSyncPacket> type() {
-        return TYPE;
+    public GuiDataSyncPacket() {
     }
 
-    public GuiDataSyncPacket(int containerId, Consumer<RegistryFriendlyByteBuf> writer, RegistryAccess registryAccess) {
-        this(containerId, createSyncData(writer, registryAccess));
-    }
-
-    private static byte[] createSyncData(Consumer<RegistryFriendlyByteBuf> writer, RegistryAccess registryAccess) {
-        var buffer = new RegistryFriendlyByteBuf(Unpooled.buffer(), registryAccess);
-        writer.accept(buffer);
-        var result = new byte[buffer.readableBytes()];
-        buffer.readBytes(result);
-        return result;
-    }
-
-    public static GuiDataSyncPacket decode(RegistryFriendlyByteBuf data) {
-        var containerId = data.readVarInt();
-        var syncData = data.readByteArray();
-        return new GuiDataSyncPacket(containerId, syncData);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeVarInt(containerId);
-        data.writeByteArray(syncData);
+    public GuiDataSyncPacket(int windowId, byte[] payload) {
+        this.windowId = windowId;
+        this.payload = payload;
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        AbstractContainerMenu c = player.containerMenu;
-        if (c instanceof AEBaseMenu baseMenu && c.containerId == this.containerId) {
-            baseMenu.receiveServerSyncData(
-                    new RegistryFriendlyByteBuf(Unpooled.wrappedBuffer(this.syncData), player.registryAccess()));
+    protected void read(ByteBuf buf) {
+        this.windowId = buf.readInt();
+        int length = buf.readInt();
+        this.payload = new byte[length];
+        buf.readBytes(this.payload);
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        buf.writeInt(windowId);
+        buf.writeInt(payload.length);
+        buf.writeBytes(payload);
+    }
+
+    @Override
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.player != null && minecraft.player.openContainer instanceof AEBaseContainer container
+            && container.windowId == windowId) {
+            container.receiveGuiData(payload);
         }
     }
 
+    public static final class Handler implements IMessageHandler<GuiDataSyncPacket, IMessage> {
+        private static final AppEngPayloadHandler.Client<GuiDataSyncPacket> DELEGATE = new AppEngPayloadHandler.Client<>();
+
+        @Override
+        public IMessage onMessage(GuiDataSyncPacket message, MessageContext ctx) {
+            return DELEGATE.onMessage(message, ctx);
+        }
+    }
 }

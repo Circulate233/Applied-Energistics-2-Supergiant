@@ -1,48 +1,47 @@
-
 package appeng.core.network.clientbound;
 
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.entity.player.Player;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
-import appeng.client.gui.me.networktool.NetworkStatusScreen;
+import appeng.container.networking.INetworkStatusContainer;
+import appeng.container.networking.NetworkStatus;
 import appeng.core.network.ClientboundPacket;
-import appeng.core.network.CustomAppEngPayload;
-import appeng.menu.me.networktool.NetworkStatus;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.PacketBuffer;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public record NetworkStatusPacket(NetworkStatus status) implements ClientboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, NetworkStatusPacket> STREAM_CODEC = StreamCodec.ofMember(
-            NetworkStatusPacket::write,
-            NetworkStatusPacket::decode);
+public class NetworkStatusPacket extends ClientboundPacket {
+    private NetworkStatus status;
+    private boolean canExportGrid;
 
-    public static final Type<NetworkStatusPacket> TYPE = CustomAppEngPayload.createType("network_status");
-
-    @Override
-    public Type<NetworkStatusPacket> type() {
-        return TYPE;
+    public NetworkStatusPacket() {
     }
 
-    public static NetworkStatusPacket decode(RegistryFriendlyByteBuf data) {
-        var status = NetworkStatus.read(data);
-        return new NetworkStatusPacket(status);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        status.write(data);
+    public NetworkStatusPacket(NetworkStatus status, boolean canExportGrid) {
+        this.status = status;
+        this.canExportGrid = canExportGrid;
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void handleOnClient(Player player) {
-        final Screen gs = Minecraft.getInstance().screen;
+    protected void read(ByteBuf buf) {
+        PacketBuffer packetBuffer = new PacketBuffer(buf);
+        this.status = NetworkStatus.read(packetBuffer);
+        this.canExportGrid = packetBuffer.readBoolean();
+    }
 
-        if (gs instanceof NetworkStatusScreen) {
-            ((NetworkStatusScreen) gs).processServerUpdate(status);
+    @Override
+    protected void write(ByteBuf buf) {
+        PacketBuffer packetBuffer = new PacketBuffer(buf);
+        status.write(packetBuffer);
+        packetBuffer.writeBoolean(this.canExportGrid);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.player != null && minecraft.player.openContainer instanceof INetworkStatusContainer container
+            && this.status != null) {
+            container.setStatus(this.status);
+            container.setCanExportGrid(this.canExportGrid);
         }
     }
-
 }

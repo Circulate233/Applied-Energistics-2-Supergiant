@@ -18,8 +18,6 @@
 
 package appeng.parts.networking;
 
-import net.neoforged.neoforge.energy.IEnergyStorage;
-
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
@@ -28,18 +26,20 @@ import appeng.api.parts.IPartCollisionHelper;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.util.AECableType;
-import appeng.blockentity.powersink.IExternalPowerSink;
 import appeng.core.AppEng;
-import appeng.helpers.ForgeEnergyAdapter;
 import appeng.items.parts.PartModels;
 import appeng.parts.AEBasePart;
 import appeng.parts.PartModel;
+import appeng.tile.powersink.ForgeEnergyAdapter;
+import appeng.tile.powersink.IExternalPowerSink;
+import net.minecraftforge.energy.IEnergyStorage;
 
 public class EnergyAcceptorPart extends AEBasePart implements IExternalPowerSink {
 
     @PartModels
     private static final IPartModel MODELS = new PartModel(AppEng.makeId("part/energy_acceptor"));
-    private ForgeEnergyAdapter forgeEnergyAdapter;
+
+    private final ForgeEnergyAdapter forgeEnergyAdapter;
 
     public EnergyAcceptorPart(IPartItem<?> partItem) {
         super(partItem);
@@ -48,7 +48,7 @@ public class EnergyAcceptorPart extends AEBasePart implements IExternalPowerSink
     }
 
     public IEnergyStorage getEnergyStorage() {
-        return forgeEnergyAdapter;
+        return this.forgeEnergyAdapter;
     }
 
     @Override
@@ -70,35 +70,33 @@ public class EnergyAcceptorPart extends AEBasePart implements IExternalPowerSink
     @Override
     public final double getExternalPowerDemand(PowerUnit externalUnit, double maxPowerRequired) {
         return PowerUnit.AE.convertTo(externalUnit,
-                Math.max(0.0, this.getFunnelPowerDemand(externalUnit.convertTo(PowerUnit.AE, maxPowerRequired))));
+            Math.max(0.0, this.getFunnelPowerDemand(externalUnit.convertTo(PowerUnit.AE, maxPowerRequired))));
     }
 
     protected double getFunnelPowerDemand(double maxRequired) {
         var grid = getMainNode().getGrid();
         if (grid != null) {
             return grid.getEnergyService().getEnergyDemand(maxRequired);
-        } else {
-            return 0;
         }
+        return 0;
     }
 
     @Override
-    public final double injectExternalPower(PowerUnit input, double amt, Actionable mode) {
-        return PowerUnit.AE.convertTo(input, this.funnelPowerIntoStorage(input.convertTo(PowerUnit.AE, amt), mode));
+    public final double injectExternalPower(PowerUnit input, double amount, Actionable mode) {
+        return PowerUnit.AE.convertTo(input, this.funnelPowerIntoStorage(input.convertTo(PowerUnit.AE, amount), mode));
     }
 
     protected double funnelPowerIntoStorage(double power, Actionable mode) {
         var grid = getMainNode().getGrid();
         if (grid != null) {
             return grid.getEnergyService().injectPower(power, mode);
-        } else {
-            return power;
         }
+        return power;
     }
 
     @Override
-    public final double injectAEPower(double amt, Actionable mode) {
-        return amt;
+    public final double injectAEPower(double amount, Actionable mode) {
+        return amount;
     }
 
     @Override
@@ -122,7 +120,7 @@ public class EnergyAcceptorPart extends AEBasePart implements IExternalPowerSink
     }
 
     @Override
-    public final double extractAEPower(double amt, Actionable mode, PowerMultiplier multiplier) {
+    public final double extractAEPower(double amount, Actionable mode, PowerMultiplier multiplier) {
         return 0;
     }
 }

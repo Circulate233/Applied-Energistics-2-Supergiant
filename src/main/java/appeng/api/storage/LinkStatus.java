@@ -1,9 +1,8 @@
 package appeng.api.storage;
 
+import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.network.chat.Component;
-
-public record LinkStatus(boolean connected, @Nullable Component statusDescription) implements ILinkStatus {
+public record LinkStatus(boolean connected, @Nullable ITextComponent statusDescription) implements ILinkStatus {
     static final LinkStatus CONNECTED = new LinkStatus(true, null);
 }

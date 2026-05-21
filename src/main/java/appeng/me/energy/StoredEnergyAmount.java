@@ -1,8 +1,7 @@
 package appeng.me.energy;
 
-import net.minecraft.util.Mth;
-
 import appeng.api.networking.events.GridPowerStorageStateChanged;
+import net.minecraft.util.math.MathHelper;
 
 /**
  * Wraps a stored energy amount with callbacks when it passes a low / high threshold.
@@ -27,8 +26,8 @@ public final class StoredEnergyAmount {
      * being above this threshold, we emit a {@link GridPowerStorageStateChanged.PowerEventType#RECEIVE_POWER} event.
      */
     private final double receiveThreshold;
-    private double maximum;
     private final EventEmitter eventEmitter;
+    private double maximum;
     private double stored;
     // The energy service will by default add all nodes as providers&receivers initially,
     // only depending on their WRITE/READ settings.
@@ -40,7 +39,7 @@ public final class StoredEnergyAmount {
     }
 
     public StoredEnergyAmount(double stored, double provideThreshold, double receiveThreshold, double maximum,
-            EventEmitter eventEmitter) {
+                              EventEmitter eventEmitter) {
         this.provideThreshold = provideThreshold;
         this.receiveThreshold = receiveThreshold;
         this.maximum = maximum;
@@ -54,6 +53,13 @@ public final class StoredEnergyAmount {
 
     public double getMaximum() {
         return this.maximum;
+    }
+
+    public void setMaximum(double maximum) {
+        this.maximum = Math.min(MAX_MAXIMUM, maximum);
+        this.stored = MathHelper.clamp(this.stored, 0, maximum);
+
+        sendEvents();
     }
 
     /**
@@ -90,14 +96,7 @@ public final class StoredEnergyAmount {
         if (amount < MIN_AMOUNT) {
             amount = 0;
         }
-        this.stored = Mth.clamp(amount, 0, maximum);
-
-        sendEvents();
-    }
-
-    public void setMaximum(double maximum) {
-        this.maximum = Math.min(MAX_MAXIMUM, maximum);
-        this.stored = Mth.clamp(this.stored, 0, maximum);
+        this.stored = MathHelper.clamp(amount, 0, maximum);
 
         sendEvents();
     }

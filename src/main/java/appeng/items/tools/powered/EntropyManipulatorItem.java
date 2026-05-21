@@ -18,62 +18,104 @@
 
 package appeng.items.tools.powered;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.Containers;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.item.crafting.RecipeHolder;
-import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.item.crafting.SingleRecipeInput;
-import net.minecraft.world.item.crafting.SmeltingRecipe;
-import net.minecraft.world.level.ClipContext.Fluid;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.TntBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult.Type;
-
 import appeng.api.config.Actionable;
 import appeng.api.util.DimensionalBlockPos;
 import appeng.block.misc.TinyTNTBlock;
 import appeng.core.AEConfig;
 import appeng.hooks.IBlockTool;
 import appeng.items.tools.powered.powersink.AEBasePoweredItem;
+import appeng.recipes.AERecipeTypes;
 import appeng.recipes.entropy.EntropyMode;
 import appeng.recipes.entropy.EntropyRecipe;
 import appeng.util.InteractionUtil;
 import appeng.util.Platform;
+import net.minecraft.block.Block;
+import net.minecraft.block.BlockTNT;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Blocks;
+import net.minecraft.init.SoundEvents;
+import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.FurnaceRecipes;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.EnumParticleTypes;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.SoundCategory;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidRegistry;
+import net.minecraftforge.fluids.FluidStack;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
+import javax.annotation.Nullable;
+import java.util.Collections;
+import java.util.List;
 
 public class EntropyManipulatorItem extends AEBasePoweredItem implements IBlockTool {
-
-    /**
-     * The amount of AE energy consumed per use.
-     */
     public static final int ENERGY_PER_USE = 1600;
 
-    public EntropyManipulatorItem(Properties props) {
-        super(AEConfig.instance().getEntropyManipulatorBattery(), props);
+    public EntropyManipulatorItem() {
+        super(getBatteryCapacity());
+    }
+
+    private static void applyRecipe(EntropyRecipe recipe, World world, BlockPos pos, IBlockState blockState) {
+        IBlockState outputBlockState = recipe.getOutputBlockState(blockState);
+        if (outputBlockState != null) {
+            if (outputBlockState.getBlock() == Blocks.AIR) {
+                world.setBlockToAir(pos);
+            } else {
+                world.setBlockState(pos, outputBlockState, 3);
+            }
+        } else {
+            IBlockState outputFluidState = recipe.getOutputFluidState(blockState);
+            if (outputFluidState != null) {
+                world.setBlockState(pos, outputFluidState, 3);
+            } else {
+                world.setBlockToAir(pos);
+            }
+        }
+
+        for (ItemStack drop : recipe.getDrops()) {
+            Platform.spawnDrops(world, pos, Collections.singletonList(drop.copy()));
+        }
+
+        if (recipe.mode() == EntropyMode.HEAT && world instanceof WorldServer) {
+            world.playSound(null, pos, SoundEvents.BLOCK_FIRE_EXTINGUISH, SoundCategory.BLOCKS, 0.5F,
+                2.6F + (world.rand.nextFloat() - world.rand.nextFloat()) * 0.8F);
+            ((WorldServer) world).spawnParticle(EnumParticleTypes.SMOKE_LARGE, pos.getX() + 0.5D, pos.getY() + 0.5D,
+                pos.getZ() + 0.5D, 8, 0.5D, 0.5D, 0.5D, 0.0D);
+        }
+    }
+
+    @Nullable
+    private static FluidStack getFluidStack(IBlockState blockState) {
+        Fluid fluid = FluidRegistry.lookupFluidForBlock(blockState.getBlock());
+        return fluid == null ? null : new FluidStack(fluid, Fluid.BUCKET_VOLUME);
+    }
+
+    private static double getBatteryCapacity() {
+        try {
+            return AEConfig.instance().getEntropyManipulatorBattery();
+        } catch (IllegalStateException ignored) {
+            return 100000;
+        }
+    }
+
+    @Override
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
     }
 
     @Override
@@ -82,243 +124,192 @@ public class EntropyManipulatorItem extends AEBasePoweredItem implements IBlockT
     }
 
     @Override
-    public boolean hurtEnemy(ItemStack item, LivingEntity target, LivingEntity hitter) {
+    public boolean hitEntity(ItemStack item, EntityLivingBase target, EntityLivingBase hitter) {
         if (this.getAECurrentPower(item) > ENERGY_PER_USE) {
             this.extractAEPower(item, ENERGY_PER_USE, Actionable.MODULATE);
-            target.igniteForSeconds(8);
+            target.setFire(8);
         }
-
         return false;
     }
 
-    // Overridden to allow use of the item on WATER and LAVA which are otherwise not considered for onItemUse
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player p, InteractionHand hand) {
-        final BlockHitResult target = getPlayerPOVHitResult(level, p, Fluid.ANY);
-
-        if (target.getType() != Type.BLOCK) {
-            return new InteractionResultHolder<>(InteractionResult.FAIL, p.getItemInHand(hand));
-        } else {
-            BlockPos pos = target.getBlockPos();
-            final BlockState state = level.getBlockState(pos);
-            if (!state.getFluidState().isEmpty() && Platform.hasPermissions(new DimensionalBlockPos(level, pos), p)) {
-                UseOnContext context = new UseOnContext(p, hand, target);
-                this.useOn(context);
-            }
+    public ActionResult<ItemStack> onItemRightClick(World world, EntityPlayer player, EnumHand hand) {
+        ItemStack stack = player.getHeldItem(hand);
+        RayTraceResult target = this.rayTraceTarget(world, player);
+        if (target == null || target.typeOfHit != RayTraceResult.Type.BLOCK) {
+            return new ActionResult<>(EnumActionResult.FAIL, stack);
         }
 
-        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()),
-                p.getItemInHand(hand));
+        BlockPos pos = target.getBlockPos();
+        if (!world.getBlockState(pos).getMaterial().isLiquid()) {
+            return new ActionResult<>(EnumActionResult.SUCCESS, stack);
+        }
+
+        if (!world.isRemote && this.getAECurrentPower(stack) > ENERGY_PER_USE
+            && Platform.hasPermissions(new DimensionalBlockPos(world, pos), player)) {
+            tryApplyEffect(world, stack, pos, target.sideHit, player);
+        }
+
+        return new ActionResult<>(EnumActionResult.SUCCESS, stack);
     }
 
     @Override
-    public InteractionResult useOn(UseOnContext context) {
-        Level level = context.getLevel();
-        ItemStack item = context.getItemInHand();
-        BlockPos pos = context.getClickedPos();
-        Direction side = context.getClickedFace();
-        Player p = context.getPlayer();
+    public EnumActionResult onItemUse(EntityPlayer player, World world, BlockPos pos, EnumHand hand, EnumFacing side,
+                                      float hitX, float hitY, float hitZ) {
+        return this.onItemUse(player.getHeldItem(hand), player, world, pos, hand, side, hitX, hitY, hitZ);
+    }
 
-        boolean tryBoth = false;
-        if (p == null) {
-            if (level.isClientSide) {
-                return InteractionResult.FAIL;
-            }
-            p = Platform.getFakePlayer((ServerLevel) level, null);
-            // Fake players cannot crouch and we cannot communicate whether they want to heat or cool
-            tryBoth = true;
-        }
-
-        // Correct pos for fluids as these are normally not taken into account.
-        final BlockHitResult target = getPlayerPOVHitResult(level, p, Fluid.ANY);
-        if (target.getType() == Type.BLOCK) {
+    @Override
+    public EnumActionResult onItemUse(ItemStack item, EntityPlayer player, World world, BlockPos pos, EnumHand hand,
+                                      EnumFacing side, float hitX, float hitY, float hitZ) {
+        RayTraceResult target = this.rayTraceTarget(world, player);
+        if (target != null && target.typeOfHit == RayTraceResult.Type.BLOCK) {
             pos = target.getBlockPos();
         }
 
-        if (this.getAECurrentPower(item) > ENERGY_PER_USE) {
-            if (!p.mayUseItemAt(pos, side, item)) {
-                return InteractionResult.FAIL;
-            }
-
-            // Delegate to the server from here on
-            if (!level.isClientSide() && !tryApplyEffect(level, item, pos, side, p, tryBoth)) {
-                return InteractionResult.FAIL;
-            }
-
-            return InteractionResult.sidedSuccess(level.isClientSide());
+        if (this.getAECurrentPower(item) <= ENERGY_PER_USE) {
+            return EnumActionResult.PASS;
         }
 
-        return InteractionResult.PASS;
+        if (!player.canPlayerEdit(pos, side, item)) {
+            return EnumActionResult.FAIL;
+        }
+
+        if (!world.isRemote) {
+            if (!Platform.hasPermissions(new DimensionalBlockPos(world, pos), player)) {
+                return EnumActionResult.FAIL;
+            }
+            if (!tryApplyEffect(world, item, pos, side, player)) {
+                return EnumActionResult.FAIL;
+            }
+        }
+
+        return EnumActionResult.SUCCESS;
     }
 
-    private boolean tryApplyEffect(Level level, ItemStack item, BlockPos pos, Direction side, Player p,
-            boolean tryBoth) {
-        final BlockState blockState = level.getBlockState(pos);
-        final Block block = blockState.getBlock();
-        final FluidState fluidState = level.getFluidState(pos);
+    private boolean tryApplyEffect(World world, ItemStack item, BlockPos pos, EnumFacing side, EntityPlayer player) {
+        IBlockState blockState = world.getBlockState(pos);
+        Block block = blockState.getBlock();
+        FluidStack fluidStack = getFluidStack(blockState);
 
-        if (tryBoth || InteractionUtil.isInAlternateUseMode(p)) {
-            EntropyRecipe coolRecipe = findRecipe(level, EntropyMode.COOL, blockState, fluidState);
+        if (InteractionUtil.isInAlternateUseMode(player)) {
+            EntropyRecipe coolRecipe = findRecipe(EntropyMode.COOL, blockState, fluidStack);
             if (coolRecipe != null) {
-                this.extractAEPower(item, 1600, Actionable.MODULATE);
-                applyRecipe(coolRecipe, level, pos, blockState, fluidState);
+                this.extractAEPower(item, ENERGY_PER_USE, Actionable.MODULATE);
+                applyRecipe(coolRecipe, world, pos, blockState);
                 return true;
             }
-        }
-
-        if (tryBoth || !InteractionUtil.isInAlternateUseMode(p)) {
-            if (block instanceof TntBlock) {
-                level.removeBlock(pos, false);
-                block.onCaughtFire(level.getBlockState(pos), level, pos, side, p);
+        } else {
+            if (block instanceof BlockTNT) {
+                world.setBlockToAir(pos);
+                ((BlockTNT) block).explode(world, pos, blockState, player);
                 return true;
             }
 
             if (block instanceof TinyTNTBlock) {
-                level.removeBlock(pos, false);
-                ((TinyTNTBlock) block).startFuse(level, pos, p);
+                world.setBlockToAir(pos);
+                ((TinyTNTBlock) block).startFuse(world, pos, player);
                 return true;
             }
 
-            EntropyRecipe heatRecipe = findRecipe(level, EntropyMode.HEAT, blockState, fluidState);
+            EntropyRecipe heatRecipe = findRecipe(EntropyMode.HEAT, blockState, fluidStack);
             if (heatRecipe != null) {
-                this.extractAEPower(item, 1600, Actionable.MODULATE);
-                applyRecipe(heatRecipe, level, pos, blockState, fluidState);
+                this.extractAEPower(item, ENERGY_PER_USE, Actionable.MODULATE);
+                applyRecipe(heatRecipe, world, pos, blockState);
                 return true;
             }
 
-            if (performInWorldSmelting(item, level, p, pos, block)) {
+            if (performInWorldSmelting(item, world, player, pos, block)) {
                 return true;
             }
 
-            if (applyFlintAndSteelEffect(level, item, pos, side, p)) {
-                return true;
-            }
+            return applyFlintAndSteelEffect(world, item, pos, side, player);
         }
 
         return false;
     }
 
-    private boolean applyFlintAndSteelEffect(Level level, ItemStack item, BlockPos pos, Direction side, Player p) {
-        final BlockPos offsetPos = pos.relative(side);
-        if (!p.mayUseItemAt(offsetPos, side, item)) {
+    private boolean applyFlintAndSteelEffect(World world, ItemStack item, BlockPos pos, EnumFacing side,
+                                             EntityPlayer player) {
+        BlockPos offsetPos = pos.offset(side);
+        if (!player.canPlayerEdit(offsetPos, side, item)) {
             return false;
         }
 
-        if (level.isEmptyBlock(offsetPos)) {
+        if (world.isAirBlock(offsetPos) && Blocks.FIRE.canPlaceBlockAt(world, offsetPos)) {
             this.extractAEPower(item, ENERGY_PER_USE, Actionable.MODULATE);
-            level.playSound(p, offsetPos.getX() + 0.5D, offsetPos.getY() + 0.5D, offsetPos.getZ() + 0.5D,
-                    SoundEvents.FLINTANDSTEEL_USE, SoundSource.PLAYERS, 1.0F,
-                    level.random.nextFloat() * 0.4F + 0.8F);
-            level.setBlockAndUpdate(offsetPos, Blocks.FIRE.defaultBlockState());
+            world.playSound(null, offsetPos.getX() + 0.5D, offsetPos.getY() + 0.5D, offsetPos.getZ() + 0.5D,
+                SoundEvents.ITEM_FLINTANDSTEEL_USE, SoundCategory.PLAYERS, 1.0F,
+                world.rand.nextFloat() * 0.4F + 0.8F);
+            world.setBlockState(offsetPos, Blocks.FIRE.getDefaultState(), 11);
+            return true;
         }
-        return true;
+        return false;
     }
 
-    /**
-     * The entropy manipulator in heat-mode can directly smelt in-level blocks and drop the smelted results, but only if
-     * all drops of the block have smelting recipes.
-     */
-    private boolean performInWorldSmelting(ItemStack item, Level level, Player p, BlockPos pos, Block block) {
-        var state = level.getBlockState(pos);
-        List<ItemStack> drops = Collections.emptyList();
-        if (level instanceof ServerLevel serverLevel) {
-            var be = level.getBlockEntity(pos);
-            drops = Block.getDrops(state, serverLevel, pos, be, p, item);
-        }
+    private boolean performInWorldSmelting(ItemStack item, World world, EntityPlayer player, BlockPos pos, Block block) {
+        IBlockState state = world.getBlockState(pos);
+        NonNullList<ItemStack> drops = NonNullList.create();
+        block.getDrops(drops, world, pos, state, 0);
 
-        // Results of the operation
-        BlockState smeltedBlockState = null;
-        List<ItemStack> smeltedDrops = new ArrayList<>();
+        IBlockState smeltedBlockState = null;
+        List<ItemStack> smeltedDrops = new ObjectArrayList<>();
 
-        for (ItemStack i : drops) {
-            var tempInv = new SingleRecipeInput(i);
-            Optional<SmeltingRecipe> recipe = level.getRecipeManager().getRecipeFor(RecipeType.SMELTING, tempInv,
-                    level).map(RecipeHolder::value);
-
-            if (recipe.isEmpty()) {
+        for (ItemStack drop : drops) {
+            ItemStack result = FurnaceRecipes.instance().getSmeltingResult(drop);
+            if (result.isEmpty()) {
                 return false;
             }
 
-            ItemStack result = recipe.get().assemble(tempInv, level.registryAccess());
-            if (result.getItem() instanceof BlockItem) {
-                Block smeltedBlock = Block.byItem(result.getItem());
+            ItemStack resultCopy = result.copy();
+            if (resultCopy.getItem() instanceof ItemBlock) {
+                Block smeltedBlock = ((ItemBlock) resultCopy.getItem()).getBlock();
                 if (smeltedBlock == block) {
-                    // Prevent auto-smelting if we wouldn't actually change the blockstate of the block at all,
-                    // but still could drop additional items
                     return false;
                 }
-                // The first smelted drop that could be placed as a block itself will not be dropped, but
-                // rather replace the current block.
-                if (smeltedBlockState == null
-                        && !smeltedBlock.defaultBlockState().isAir()) {
-                    smeltedBlockState = smeltedBlock.defaultBlockState();
+                if (smeltedBlockState == null && smeltedBlock != Blocks.AIR) {
+                    smeltedBlockState = smeltedBlock.getDefaultState();
                     continue;
                 }
             }
 
-            smeltedDrops.add(result);
+            smeltedDrops.add(resultCopy);
         }
 
         if (smeltedBlockState == null && smeltedDrops.isEmpty()) {
-            return false; // Block has no drops
+            return false;
         }
 
         this.extractAEPower(item, ENERGY_PER_USE, Actionable.MODULATE);
-
-        level.playSound(p, pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
-                SoundEvents.FLINTANDSTEEL_USE, SoundSource.PLAYERS, 1.0F,
-                level.random.nextFloat() * 0.4F + 0.8F);
+        world.playSound(player, pos.getX() + 0.5D, pos.getY() + 0.5D, pos.getZ() + 0.5D,
+            SoundEvents.ITEM_FLINTANDSTEEL_USE, SoundCategory.PLAYERS, 1.0F,
+            world.rand.nextFloat() * 0.4F + 0.8F);
 
         if (smeltedBlockState == null) {
-            level.setBlock(pos, Blocks.AIR.defaultBlockState(), 3);
+            world.setBlockToAir(pos);
         } else {
-            level.setBlock(pos, smeltedBlockState, 3);
+            world.setBlockState(pos, smeltedBlockState, 3);
         }
 
-        Platform.spawnDrops(level, pos, smeltedDrops);
+        Platform.spawnDrops(world, pos, smeltedDrops);
         return true;
     }
 
     @Nullable
-    private static EntropyRecipe findRecipe(Level level, EntropyMode mode, BlockState blockState,
-            FluidState fluidState) {
-        for (var holder : level.getRecipeManager().byType(EntropyRecipe.TYPE)) {
-            var recipe = holder.value();
-            if (recipe.matches(mode, blockState, fluidState)) {
+    private EntropyRecipe findRecipe(EntropyMode mode, IBlockState blockState, FluidStack fluidStack) {
+        for (EntropyRecipe recipe : AERecipeTypes.ENTROPY.getRecipes()) {
+            if (recipe.matches(mode, blockState, fluidStack)) {
                 return recipe;
             }
         }
         return null;
     }
 
-    private static void applyRecipe(EntropyRecipe recipe, Level level, BlockPos pos, BlockState blockState,
-            FluidState fluidState) {
-        BlockState outputBlockState = recipe.getOutputBlockState(blockState);
-        if (outputBlockState != null) {
-            level.setBlock(pos, outputBlockState, 3);
-        } else {
-            FluidState outputFluidState = recipe.getOutputFluidState(fluidState);
-            if (outputFluidState != null) {
-                level.setBlock(pos, outputFluidState.createLegacyBlock(), 3);
-            } else {
-                level.setBlockAndUpdate(pos, Blocks.AIR.defaultBlockState());
-            }
-        }
-
-        if (!level.isClientSide) {
-            for (var drop : recipe.getDrops()) {
-                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), drop.copy());
-            }
-        }
-
-        if (recipe.getMode() == EntropyMode.HEAT && !level.isClientSide()) {
-            // Same effect as emptying a water bucket in the nether (see BucketItem)
-            level.playSound(null, pos, SoundEvents.FIRE_EXTINGUISH, SoundSource.BLOCKS, 0.5F,
-                    2.6F + (level.random.nextFloat() - level.random.nextFloat()) * 0.8F);
-            for (int l = 0; l < 8; ++l) {
-                level.addParticle(ParticleTypes.LARGE_SMOKE, pos.getX() + Math.random(),
-                        pos.getY() + Math.random(), pos.getZ() + Math.random(), 0.0D, 0.0D, 0.0D);
-            }
-        }
+    @Nullable
+    private RayTraceResult rayTraceTarget(World world, EntityPlayer player) {
+        Vec3d from = new Vec3d(player.posX, player.posY + player.getEyeHeight(), player.posZ);
+        Vec3d look = player.getLookVec();
+        Vec3d to = from.add(look.x * 5.0D, look.y * 5.0D, look.z * 5.0D);
+        return world.rayTraceBlocks(from, to, true);
     }
 }

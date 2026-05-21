@@ -9,23 +9,19 @@
       "faces": {
         "down": {
           "texture": "#indicator",
-          "tintindex": 3,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 3
         },
         "up": {
           "texture": "#indicator",
-          "tintindex": 3,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 3
         },
         "east": {
           "texture": "#indicator",
-          "tintindex": 3,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 3
         },
         "west": {
           "texture": "#indicator",
-          "tintindex": 3,
-          "neoforge_data": { "block_light": 15, "sky_light": 15 }
+          "tintindex": 3
         }
       }
     }

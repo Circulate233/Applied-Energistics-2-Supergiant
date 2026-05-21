@@ -1,27 +1,27 @@
 package appeng.hotkeys;
 
-import java.util.function.Predicate;
-
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ItemLike;
-
 import appeng.api.features.HotkeyAction;
-import appeng.menu.locator.ItemMenuHostLocator;
-import appeng.menu.locator.MenuLocators;
+import appeng.core.gui.locator.GuiHostLocators;
+import appeng.core.gui.locator.ItemGuiHostLocator;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+
+import java.util.List;
+import java.util.function.Predicate;
 
 public record InventoryHotkeyAction(Predicate<ItemStack> locatable, Opener opener) implements HotkeyAction {
 
-    public InventoryHotkeyAction(ItemLike item, Opener opener) {
-        this((stack) -> stack.is(item.asItem()), opener);
+    public InventoryHotkeyAction(Item item, Opener opener) {
+        this(stack -> stack.getItem() == item, opener);
     }
 
     @Override
-    public boolean run(Player player) {
-        var items = player.getInventory().items;
+    public boolean run(EntityPlayerMP player) {
+        List<ItemStack> items = player.inventory.mainInventory;
         for (int i = 0; i < items.size(); i++) {
-            if (locatable.test(items.get(i))) {
-                if (opener.open(player, MenuLocators.forInventorySlot(i))) {
+            if (this.locatable.test(items.get(i))) {
+                if (this.opener.open(player, GuiHostLocators.forInventorySlot(i))) {
                     return true;
                 }
             }
@@ -31,6 +31,6 @@ public record InventoryHotkeyAction(Predicate<ItemStack> locatable, Opener opene
 
     @FunctionalInterface
     public interface Opener {
-        boolean open(Player player, ItemMenuHostLocator locator);
+        boolean open(EntityPlayerMP player, ItemGuiHostLocator locator);
     }
 }

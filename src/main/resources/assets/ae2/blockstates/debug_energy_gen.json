@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "normal": {
+      "model": "ae2:debug_energy_gen"
+    },
+    "inventory": {
+      "model": "ae2:item/debug_energy_gen"
+    }
+  }
+}

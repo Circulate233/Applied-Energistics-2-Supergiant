@@ -1,0 +1,16 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "type": "forge:ore_dict",
+      "ore": "wool"
+    },
+    {
+      "item": "ae2:fluix_glass_cable"
+    }
+  ],
+  "result": {
+    "item": "ae2:fluix_covered_cable",
+    "count": 1
+  }
+}

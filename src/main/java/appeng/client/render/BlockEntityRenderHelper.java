@@ -18,87 +18,101 @@
 
 package appeng.client.render;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.joml.Quaternionf;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.util.Mth;
-import net.minecraft.world.level.Level;
-
 import appeng.api.client.AEKeyRendering;
 import appeng.api.orientation.BlockOrientation;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import org.lwjgl.BufferUtils;
+
+import javax.vecmath.Matrix4f;
+import java.nio.FloatBuffer;
 
 /**
  * Helper methods for rendering block entities.
  */
+@SideOnly(Side.CLIENT)
 public final class BlockEntityRenderHelper {
     private BlockEntityRenderHelper() {
-    }
-
-    private static final Quaternionf ROTATE_TO_FRONT;
-
-    static {
-        ROTATE_TO_FRONT = new Quaternionf().rotationY(Mth.DEG_TO_RAD * 180);
     }
 
     /**
      * Rotate the current coordinate system, so it is on the face of the given block side. This can be used to render on
      * the given face as if it was a 2D canvas, where x+ is facing right and y+ is facing up.
      */
-    public static void rotateToFace(PoseStack stack, BlockOrientation orientation) {
-        stack.mulPose(orientation.getQuaternion());
-        stack.mulPose(ROTATE_TO_FRONT);
+    public static void rotateToFace(BlockOrientation orientation) {
+        applyOrientation(orientation);
+        GlStateManager.rotate(180.0f, 0.0f, 1.0f, 0.0f);
+    }
+
+    public static void moveToFace(EnumFacing face) {
+        GlStateManager.translate(face.getXOffset() * 0.50, face.getYOffset() * 0.50, face.getZOffset() * 0.50);
+    }
+
+    public static void applyOrientation(BlockOrientation orientation) {
+        GlStateManager.multMatrix(toGlMatrix(orientation.getTransformation().getMatrix()));
     }
 
     /**
-     * Render an item in 2D.
+     * Render a resource key in 2D on the currently selected block face.
      */
-    public static void renderItem2d(PoseStack poseStack,
-            MultiBufferSource buffers,
-            AEKey what,
-            float scale,
-            int combinedLightIn, Level level) {
-        AEKeyRendering.drawOnBlockFace(
-                poseStack,
-                buffers,
-                what,
-                scale,
-                combinedLightIn, level);
+    public static void renderItem2d(AEKey what, float scale) {
+        World level = Minecraft.getMinecraft().world;
+        if (what == null || level == null) {
+            return;
+        }
+
+        GlStateManager.pushMatrix();
+        try {
+            GlStateManager.scale(1.0f, -1.0f, 1.0f);
+            AEKeyRendering.drawOnBlockFace(what, scale, 0xF000F0, level);
+        } finally {
+            GlStateManager.popMatrix();
+        }
     }
 
     /**
-     * Render an item in 2D and the given text below it.
+     * Render a resource key in 2D and the given text below it.
      *
-     * @param spacing Specifies how far apart the item and the item stack amount are rendered.
-     * @param level
+     * @param spacing Specifies how far apart the resource icon and amount are rendered.
      */
-    public static void renderItem2dWithAmount(PoseStack poseStack,
-            MultiBufferSource buffers,
-            AEKey what,
-            long amount, boolean canCraft,
-            float itemScale,
-            float spacing,
-            int textColor, Level level) {
-        renderItem2d(poseStack, buffers, what, itemScale, LightTexture.FULL_BRIGHT, level);
+    public static void renderItem2dWithAmount(AEKey what, long amount, boolean canCraft, float itemScale,
+                                              float spacing, int textColor) {
+        renderItem2d(what, itemScale);
 
-        var renderedStackSize = amount == 0 && canCraft ? "Craft" : what.formatAmount(amount, AmountFormat.SLOT);
+        String renderedAmount = amount == 0 && canCraft ? "Craft" : what.formatAmount(amount, AmountFormat.SLOT);
+        FontRenderer fontRenderer = Minecraft.getMinecraft().fontRenderer;
+        int width = fontRenderer.getStringWidth(renderedAmount);
 
-        // Render the item count
-        var fr = Minecraft.getInstance().font;
-        var width = fr.width(renderedStackSize);
-        poseStack.pushPose();
-        poseStack.translate(0.0f, spacing, 0.02f);
-        poseStack.scale(1.0f / 62.0f, -1.0f / 62.0f, 1.0f / 62.0f);
-        poseStack.scale(0.5f, 0.5f, 0);
-        poseStack.translate(-0.5f * width, 0.0f, 0.5f);
-        fr.drawInBatch(renderedStackSize, 0, 0, textColor, false, poseStack.last().pose(), buffers,
-                Font.DisplayMode.NORMAL, 0, LightTexture.FULL_BRIGHT);
-        poseStack.popPose();
+        GlStateManager.pushMatrix();
+        try {
+            GlStateManager.translate(0.0f, spacing, 0.02f);
+            GlStateManager.scale(1.0f / 62.0f, -1.0f / 62.0f, 1.0f / 62.0f);
+            GlStateManager.scale(0.5f, 0.5f, 1.0f);
+            GlStateManager.translate(-0.5f * width, 0.0f, 0.5f);
+            GlStateManager.disableLighting();
+            GlStateManager.disableDepth();
+            fontRenderer.drawString(renderedAmount, 0, 0, textColor);
+        } finally {
+            GlStateManager.enableDepth();
+            GlStateManager.enableLighting();
+            GlStateManager.popMatrix();
+        }
+    }
+
+    private static FloatBuffer toGlMatrix(Matrix4f matrix) {
+        FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
+        buffer.put(matrix.m00).put(matrix.m10).put(matrix.m20).put(matrix.m30);
+        buffer.put(matrix.m01).put(matrix.m11).put(matrix.m21).put(matrix.m31);
+        buffer.put(matrix.m02).put(matrix.m12).put(matrix.m22).put(matrix.m32);
+        buffer.put(matrix.m03).put(matrix.m13).put(matrix.m23).put(matrix.m33);
+        buffer.flip();
+        return buffer;
     }
 }

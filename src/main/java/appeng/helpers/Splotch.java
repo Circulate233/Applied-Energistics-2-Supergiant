@@ -18,31 +18,30 @@
 
 package appeng.helpers;
 
-import net.minecraft.core.Direction;
-import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.util.AEColor;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.Vec3d;
 
 public class Splotch {
 
-    private final Direction side;
+    private final EnumFacing side;
     private final boolean lumen;
     private final AEColor color;
     private final int pos;
 
-    public Splotch(AEColor col, boolean lit, Direction side, Vec3 position) {
+    public Splotch(AEColor col, boolean lit, EnumFacing side, Vec3d position) {
         this.color = col;
         this.lumen = lit;
 
         final double x;
         final double y;
 
-        if (side == Direction.SOUTH || side == Direction.NORTH) {
+        if (side == EnumFacing.SOUTH || side == EnumFacing.NORTH) {
             x = position.x;
             y = position.y;
         } else {
-            if (side == Direction.UP || side == Direction.DOWN) {
+            if (side == EnumFacing.UP || side == EnumFacing.DOWN) {
                 x = position.x;
             } else {
                 x = position.y;
@@ -53,21 +52,19 @@ public class Splotch {
         final int a = (int) (x * 0xF);
         final int b = (int) (y * 0xF);
         this.pos = a | b << 4;
-
         this.side = side;
     }
 
-    public Splotch(FriendlyByteBuf data) {
-
+    public Splotch(ByteBuf data) {
         this.pos = data.readByte();
         final int val = data.readByte();
 
-        this.side = Direction.values()[val & 0x07];
+        this.side = EnumFacing.VALUES[val & 0x07];
         this.color = AEColor.values()[val >> 3 & 0x0F];
         this.lumen = (val >> 7 & 0x01) > 0;
     }
 
-    public void writeToStream(FriendlyByteBuf stream) {
+    public void writeToStream(ByteBuf stream) {
         stream.writeByte(this.pos);
         final int val = this.getSide().ordinal() | this.getColor().ordinal() << 3 | (this.isLumen() ? 0x80 : 0x00);
         stream.writeByte(val);
@@ -86,7 +83,7 @@ public class Splotch {
         return Math.abs(this.pos + val);
     }
 
-    public Direction getSide() {
+    public EnumFacing getSide() {
         return this.side;
     }
 

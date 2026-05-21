@@ -18,84 +18,34 @@
 
 package appeng.worldgen.meteorite;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-
 import appeng.worldgen.meteorite.fallout.FalloutMode;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.math.BlockPos;
 
-public final class PlacedMeteoriteSettings {
+public record PlacedMeteoriteSettings(BlockPos pos, float meteoriteRadius, CraterType craterType, FalloutMode fallout,
+                                      boolean pureCrater, boolean craterLake) {
 
-    private final BlockPos pos;
-    private final float meteoriteRadius;
-    private final CraterType craterType;
-    private final FalloutMode fallout;
-    private final boolean pureCrater;
-    private final boolean craterLake;
-
-    public PlacedMeteoriteSettings(BlockPos pos, float meteoriteRadius, CraterType craterType, FalloutMode fallout,
-            boolean pureCrater, boolean craterLake) {
-        this.pos = pos;
-        this.craterType = craterType;
-        this.meteoriteRadius = meteoriteRadius;
-        this.fallout = fallout;
-        this.pureCrater = pureCrater;
-        this.craterLake = craterLake;
-    }
-
-    public BlockPos getPos() {
-        return pos;
-    }
-
-    public CraterType getCraterType() {
-        return this.craterType;
-    }
-
-    public float getMeteoriteRadius() {
-        return meteoriteRadius;
-    }
-
-    public FalloutMode getFallout() {
-        return fallout;
+    public static PlacedMeteoriteSettings read(NBTTagCompound tag) {
+        BlockPos pos = BlockPos.fromLong(tag.getLong(Constants.TAG_POS));
+        float meteoriteRadius = tag.getFloat(Constants.TAG_RADIUS);
+        CraterType craterType = CraterType.fromOrdinal(tag.getByte(Constants.TAG_CRATER));
+        FalloutMode fallout = FalloutMode.fromOrdinal(tag.getByte(Constants.TAG_FALLOUT));
+        boolean pureCrater = tag.getBoolean(Constants.TAG_PURE);
+        boolean craterLake = tag.getBoolean(Constants.TAG_LAKE);
+        return new PlacedMeteoriteSettings(pos, meteoriteRadius, craterType, fallout, pureCrater, craterLake);
     }
 
     public boolean shouldPlaceCrater() {
         return this.craterType != CraterType.NONE;
     }
 
-    public boolean isPureCrater() {
-        return this.pureCrater;
-    }
-
-    public boolean isCraterLake() {
-        return craterLake;
-    }
-
-    public CompoundTag write(CompoundTag tag) {
-        tag.putLong(Constants.TAG_POS, pos.asLong());
-
-        tag.putFloat(Constants.TAG_RADIUS, meteoriteRadius);
-        tag.putByte(Constants.TAG_CRATER, (byte) craterType.ordinal());
-        tag.putByte(Constants.TAG_FALLOUT, (byte) fallout.ordinal());
-        tag.putBoolean(Constants.TAG_PURE, this.pureCrater);
-        tag.putBoolean(Constants.TAG_LAKE, this.craterLake);
+    public NBTTagCompound write(NBTTagCompound tag) {
+        tag.setLong(Constants.TAG_POS, this.pos.toLong());
+        tag.setFloat(Constants.TAG_RADIUS, this.meteoriteRadius);
+        tag.setByte(Constants.TAG_CRATER, (byte) this.craterType.ordinal());
+        tag.setByte(Constants.TAG_FALLOUT, (byte) this.fallout.ordinal());
+        tag.setBoolean(Constants.TAG_PURE, this.pureCrater);
+        tag.setBoolean(Constants.TAG_LAKE, this.craterLake);
         return tag;
-    }
-
-    public static PlacedMeteoriteSettings read(CompoundTag tag) {
-        BlockPos pos = BlockPos.of(tag.getLong(Constants.TAG_POS));
-        float meteoriteRadius = tag.getFloat(Constants.TAG_RADIUS);
-        CraterType craterType = CraterType.values()[tag.getByte(Constants.TAG_CRATER)];
-        FalloutMode fallout = FalloutMode.values()[tag.getByte(Constants.TAG_FALLOUT)];
-        boolean pureCrater = tag.getBoolean(Constants.TAG_PURE);
-        boolean craterLake = tag.getBoolean(Constants.TAG_LAKE);
-
-        return new PlacedMeteoriteSettings(pos, meteoriteRadius, craterType, fallout, pureCrater, craterLake);
-    }
-
-    @Override
-    public String toString() {
-        return "PlacedMeteoriteSettings [pos=" + pos + ", meteoriteRadius=" + meteoriteRadius + ", craterType="
-                + craterType + ", fallout=" + fallout + ", pureCrater=" + pureCrater + ", craterLake=" + craterLake
-                + "]";
     }
 }

@@ -1,0 +1,15 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:fluid_cell_housing"
+    },
+    {
+      "item": "ae2:cell_component_16k"
+    }
+  ],
+  "result": {
+    "item": "ae2:fluid_storage_cell_16k",
+    "count": 1
+  }
+}

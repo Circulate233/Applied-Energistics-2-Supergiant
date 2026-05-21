@@ -18,15 +18,9 @@
 
 package appeng.client.gui.me.common;
 
-import com.mojang.blaze3d.systems.RenderSystem;
-
-import org.joml.Matrix4f;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-
 import appeng.core.AEConfig;
+import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.renderer.GlStateManager;
 
 /**
  * @author AlgorithmX2
@@ -35,42 +29,39 @@ import appeng.core.AEConfig;
  * @since rv0
  */
 public class StackSizeRenderer {
-    private static void renderSizeLabel(Matrix4f matrix, Font fontRenderer, float xPos, float yPos, String text,
-            boolean largeFonts) {
+    private static void renderSizeLabelInternal(FontRenderer fontRenderer, float xPos, float yPos, String text,
+                                                boolean largeFonts) {
         final float scaleFactor = largeFonts ? 0.85f : 0.666f;
         final float inverseScaleFactor = 1.0f / scaleFactor;
         final int offset = largeFonts ? 0 : -1;
 
-        RenderSystem.disableBlend();
-        final int X = (int) ((xPos + offset + 16.0f + 2.0f - fontRenderer.width(text) * scaleFactor)
-                * inverseScaleFactor);
-        final int Y = (int) ((yPos + offset + 16.0f - 5.0f * scaleFactor) * inverseScaleFactor);
-        var buffer = Minecraft.getInstance().renderBuffers().bufferSource();
-        fontRenderer.drawInBatch(text, X + 1, Y + 1, 0x413f54, false, matrix, buffer, Font.DisplayMode.NORMAL, 0,
-                15728880);
-        fontRenderer.drawInBatch(text, X, Y, 0xffffff, false, matrix, buffer, Font.DisplayMode.NORMAL, 0, 15728880);
-        buffer.endBatch();
-        RenderSystem.enableBlend();
+        GlStateManager.disableLighting();
+        GlStateManager.disableDepth();
+        GlStateManager.disableBlend();
+        final int x = (int) ((xPos + offset + 16.0f + 2.0f - fontRenderer.getStringWidth(text) * scaleFactor)
+            * inverseScaleFactor);
+        final int y = (int) ((yPos + offset + 16.0f - 5.0f * scaleFactor) * inverseScaleFactor);
+        fontRenderer.drawString(text, x + 1, y + 1, 0x413f54);
+        fontRenderer.drawString(text, x, y, 0xffffff);
+        GlStateManager.enableBlend();
+        GlStateManager.enableDepth();
+        GlStateManager.enableLighting();
     }
 
-    public static void renderSizeLabel(GuiGraphics guiGraphics, Font fontRenderer, float xPos, float yPos,
-            String text) {
-        renderSizeLabel(guiGraphics, fontRenderer, xPos, yPos, text, AEConfig.instance().isUseLargeFonts());
+    public static void renderSizeLabel(FontRenderer fontRenderer, float xPos, float yPos, String text) {
+        renderSizeLabel(fontRenderer, xPos, yPos, text, AEConfig.instance().isUseLargeFonts());
     }
 
-    public static void renderSizeLabel(GuiGraphics guiGraphics, Font fontRenderer, float xPos, float yPos, String text,
-            boolean largeFonts) {
+    public static void renderSizeLabel(FontRenderer fontRenderer, float xPos, float yPos, String text,
+                                       boolean largeFonts) {
         final float scaleFactor = largeFonts ? 0.85f : 0.666f;
 
-        var stack = guiGraphics.pose();
-        stack.pushPose();
-        // According to ItemRenderer, text is 200 above items.
-        stack.translate(0, 0, 200);
-        stack.scale(scaleFactor, scaleFactor, scaleFactor);
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(0, 0, 200);
+        GlStateManager.scale(scaleFactor, scaleFactor, scaleFactor);
 
-        renderSizeLabel(stack.last().pose(), fontRenderer, xPos, yPos, text, largeFonts);
+        renderSizeLabelInternal(fontRenderer, xPos, yPos, text, largeFonts);
 
-        stack.popPose();
+        GlStateManager.popMatrix();
     }
-
 }

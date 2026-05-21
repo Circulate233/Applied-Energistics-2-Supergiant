@@ -18,12 +18,11 @@
 
 package appeng.block.crafting;
 
-import appeng.blockentity.crafting.CraftingBlockEntity;
+import appeng.tile.crafting.TileCraftingUnit;
 
-public class CraftingUnitBlock extends AbstractCraftingUnitBlock<CraftingBlockEntity> {
-
+public class CraftingUnitBlock extends AbstractCraftingUnitBlock<TileCraftingUnit> {
     public CraftingUnitBlock(ICraftingUnitType type) {
-        super(metalProps(), type);
+        super(type, TileCraftingUnit.class);
     }
-
 }
+

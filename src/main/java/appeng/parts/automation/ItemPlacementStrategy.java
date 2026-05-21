@@ -1,54 +1,81 @@
 package appeng.parts.automation;
 
-import java.util.UUID;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.item.context.DirectionalPlaceContext;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.behaviors.PlacementStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.util.AEPartLocation;
 import appeng.core.AEConfig;
 import appeng.util.Platform;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemSkull;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.IPlantable;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.UUID;
 
 public class ItemPlacementStrategy implements PlacementStrategy {
-    private static final RandomSource RANDOM_OFFSET = RandomSource.create();
-    private final ServerLevel level;
+    private static final int ENTITY_LIMIT_CHECK_RADIUS = 8;
+    private final WorldServer level;
     private final BlockPos pos;
-    private final Direction side;
-    private final BlockEntity host;
+    private final EnumFacing side;
+    private final net.minecraft.tileentity.TileEntity host;
     @Nullable
     private final UUID ownerUuid;
     private boolean blocked = false;
 
-    public ItemPlacementStrategy(ServerLevel level, BlockPos pos, Direction side, BlockEntity host,
-            @Nullable UUID owningPlayerId) {
+    public ItemPlacementStrategy(WorldServer level, BlockPos pos, EnumFacing side,
+                                 net.minecraft.tileentity.TileEntity host, @Nullable UUID owningEntityPlayerId) {
         this.level = level;
         this.pos = pos;
         this.side = side;
         this.host = host;
-        this.ownerUuid = owningPlayerId;
+        this.ownerUuid = owningEntityPlayerId;
+    }
+
+    private static void spawnItemEntity(World level, net.minecraft.tileentity.TileEntity te, EnumFacing side,
+                                        ItemStack is) {
+        final double centerX = te.getPos().getX() + .5;
+        final double centerY = te.getPos().getY();
+        final double centerZ = te.getPos().getZ() + .5;
+
+        Entity entity = new EntityItem(level, centerX, centerY, centerZ, is.copy());
+
+        final double additionalYOffset = side.getYOffset() == -1 ? 1 - entity.height : 0;
+        final double spawnAreaHeight = Math.max(0, 1 - entity.height);
+        final double spawnAreaWidth = Math.max(0, 1 - entity.width);
+
+        final double offsetX = side.getXOffset() == 0
+            ? level.rand.nextFloat() * spawnAreaWidth - spawnAreaWidth / 2
+            : side.getXOffset() * (.525 + entity.width / 2);
+        final double offsetY = side.getYOffset() == 0
+            ? level.rand.nextFloat() * spawnAreaHeight
+            : side.getYOffset() + additionalYOffset;
+        final double offsetZ = side.getZOffset() == 0
+            ? level.rand.nextFloat() * spawnAreaWidth - spawnAreaWidth / 2
+            : side.getZOffset() * (.525 + entity.width / 2);
+
+        entity.setPosition(centerX + offsetX, centerY + offsetY, centerZ + offsetZ);
+        entity.motionX = side.getXOffset() * .1;
+        entity.motionY = side.getYOffset() * 0.1;
+        entity.motionZ = side.getZOffset() * 0.1;
+        level.spawnEntity(entity);
     }
 
     public void clearBlocked() {
-        this.blocked = !level.getBlockState(pos).canBeReplaced();
+        this.blocked = !level.getBlockState(pos).getBlock().isReplaceable(level, pos);
     }
 
     public final long placeInWorld(AEKey what, long amount, Actionable type, boolean placeAsEntity) {
@@ -56,61 +83,77 @@ public class ItemPlacementStrategy implements PlacementStrategy {
             return 0;
         }
 
-        var i = itemKey.getItem();
+        ItemStack is = itemKey.toStack((int) Math.min(amount, itemKey.getMaxStackSize()));
+        Item i = is.getItem();
 
-        var maxStorage = (int) Math.min(amount, itemKey.getMaxStackSize());
-        var is = itemKey.toStack(maxStorage);
-        var worked = false;
+        long maxStorage = Math.min(amount, is.getCount());
+        boolean worked = false;
+        EnumFacing side = this.side.getOpposite();
+        BlockPos placePos = pos;
 
-        var side = this.side.getOpposite();
-
-        final var placePos = pos;
-
-        if (level.getBlockState(placePos).canBeReplaced()) {
+        if (level.getBlockState(placePos).getBlock().isReplaceable(level, placePos)) {
             if (placeAsEntity) {
-                final var sum = this.countEntitesAround(level, placePos);
+                int sum = this.countEntitesAround(level, placePos);
 
-                // Disable spawning once there is a certain amount of entities in an area.
                 if (sum < AEConfig.instance().getFormationPlaneEntityLimit()) {
                     worked = true;
 
                     if (type == Actionable.MODULATE) {
-                        is.setCount(maxStorage);
+                        is.setCount((int) maxStorage);
                         spawnItemEntity(level, host, side, is);
                     }
                 }
             } else {
-                final var player = Platform.getFakePlayer(level, ownerUuid);
-                Platform.configurePlayer(player, side, host);
+                EntityPlayer player = Platform.getFakeEntityPlayer(level, ownerUuid);
+                Platform.configurePlayer(player, AEPartLocation.fromFacing(side), host);
+
+                EnumHand hand = EnumHand.MAIN_HAND;
+                player.setHeldItem(hand, is);
 
                 maxStorage = is.getCount();
                 worked = true;
                 if (type == Actionable.MODULATE) {
-                    // The side the plane is attached to will be considered the look direction
-                    // in terms of placing an item
-                    var lookDirection = side;
-                    var context = new PlaneDirectionalPlaceContext(level, player, placePos,
-                            lookDirection, is, lookDirection.getOpposite());
+                    if (i instanceof IPlantable || i instanceof ItemSkull || i == Item.getItemFromBlock(Blocks.REEDS)) {
+                        boolean didWork = false;
 
-                    // In case the item does not look at the use context for the stack to use
-                    player.setItemInHand(InteractionHand.MAIN_HAND, is);
-                    try {
-                        i.useOn(context);
-                    } finally {
-                        player.setItemInHand(InteractionHand.MAIN_HAND, ItemStack.EMPTY);
+                        if (side.getXOffset() == 0 && side.getZOffset() == 0) {
+                            didWork = i.onItemUse(player, level, placePos.offset(side), hand,
+                                side.getOpposite(), side.getXOffset(), side.getYOffset(), side.getZOffset())
+                                == EnumActionResult.SUCCESS;
+                        }
+
+                        if (!didWork && side.getXOffset() == 0 && side.getZOffset() == 0) {
+                            didWork = i.onItemUse(player, level, placePos.offset(side.getOpposite()), hand,
+                                side, side.getXOffset(), side.getYOffset(), side.getZOffset())
+                                == EnumActionResult.SUCCESS;
+                        }
+
+                        if (!didWork && side.getYOffset() == 0) {
+                            didWork = i.onItemUse(player, level, placePos.offset(EnumFacing.DOWN), hand,
+                                EnumFacing.UP, side.getXOffset(), side.getYOffset(), side.getZOffset())
+                                == EnumActionResult.SUCCESS;
+                        }
+
+                        if (!didWork) {
+                            i.onItemUse(player, level, placePos, hand, side.getOpposite(), side.getXOffset(),
+                                side.getYOffset(), side.getZOffset());
+                        }
+
+                        maxStorage -= is.getCount();
+                    } else {
+                        i.onItemUse(player, level, placePos, hand, side.getOpposite(), side.getXOffset(),
+                            side.getYOffset(), side.getZOffset());
+                        maxStorage -= is.getCount();
                     }
-                    maxStorage = Math.max(0, maxStorage - is.getCount());
-
                 } else {
                     maxStorage = 1;
                 }
 
-                // Seems to work without... Safe keeping
-                // player.setHeldItem(hand, ItemStack.EMPTY);
+                player.setHeldItem(hand, ItemStack.EMPTY);
             }
         }
 
-        this.blocked = !level.getBlockState(placePos).canBeReplaced();
+        this.blocked = !level.getBlockState(placePos).getBlock().isReplaceable(level, placePos);
 
         if (worked) {
             return maxStorage;
@@ -119,126 +162,8 @@ public class ItemPlacementStrategy implements PlacementStrategy {
         return 0;
     }
 
-    private static void spawnItemEntity(Level level, BlockEntity te, Direction side, ItemStack is) {
-        // The center of the block the plane is located in
-        final var centerX = te.getBlockPos().getX() + .5;
-        final double centerY = te.getBlockPos().getY();
-        final var centerZ = te.getBlockPos().getZ() + .5;
-
-        // Create an ItemEntity already at the position of the plane.
-        // We don't know the final position, but need it for its size.
-        Entity entity = new ItemEntity(level, centerX, centerY, centerZ, is.copy());
-
-        // When spawning downwards, we have to take into account that it spawns it at
-        // their "feet" and not center like x or z. So we move it up to be flush with
-        // the plane
-        final double additionalYOffset = side.getStepY() == -1 ? 1 - entity.getBbHeight() : 0;
-
-        // Calculate the maximum spawn area so an entity hitbox will always be inside
-        // the block.
-        final double spawnAreaHeight = Math.max(0, 1 - entity.getBbHeight());
-        final double spawnAreaWidth = Math.max(0, 1 - entity.getBbWidth());
-
-        // Calculate the offsets to spawn it into the adjacent block, taking the sign
-        // into account.
-        // Spawn it 0.8 blocks away from the center pos when facing in this direction
-        // Every other direction will select a position in a .5 block area around the
-        // block center.
-        final var offsetX = side.getStepX() == 0 //
-                ? RANDOM_OFFSET.nextFloat() * spawnAreaWidth - spawnAreaWidth / 2
-                : side.getStepX() * (.525 + entity.getBbWidth() / 2);
-        final var offsetY = side.getStepY() == 0 //
-                ? RANDOM_OFFSET.nextFloat() * spawnAreaHeight
-                : side.getStepY() + additionalYOffset;
-        final var offsetZ = side.getStepZ() == 0 //
-                ? RANDOM_OFFSET.nextFloat() * spawnAreaWidth - spawnAreaWidth / 2
-                : side.getStepZ() * (.525 + entity.getBbWidth() / 2);
-
-        final var absoluteX = centerX + offsetX;
-        final var absoluteY = centerY + offsetY;
-        final var absoluteZ = centerZ + offsetZ;
-
-        // Set to correct position and slow the motion down a bit
-        entity.setPos(absoluteX, absoluteY, absoluteZ);
-        entity.setDeltaMovement(side.getStepX() * .1, side.getStepY() * 0.1, side.getStepZ() * 0.1);
-
-        // NOTE: Vanilla generally ignores the return-value of this method when spawning items into the world
-        // Forge will return false when the embedded event is canceled, but the event canceller is responsible
-        // for cleaning up the entity in that case, so we should always assume our spawning was successful,
-        // and consume items...
-        level.addFreshEntity(entity);
+    private int countEntitesAround(World level, BlockPos pos) {
+        AxisAlignedBB box = new AxisAlignedBB(pos).grow(ENTITY_LIMIT_CHECK_RADIUS);
+        return level.getEntitiesWithinAABB(Entity.class, box).size();
     }
-
-    private int countEntitesAround(Level level, BlockPos pos) {
-        final var t = new AABB(pos).inflate(8);
-        final var list = level.getEntitiesOfClass(Entity.class, t);
-
-        return list.size();
-    }
-
-    /**
-     * A custom {@link DirectionalPlaceContext} which also accepts a player needed various blocks like seeds.
-     * <p>
-     * Also removed {@link DirectionalPlaceContext#replacingClickedOnBlock} as this can cause a
-     * {@link StackOverflowError} for certain replaceable blocks.
-     */
-    private static class PlaneDirectionalPlaceContext extends BlockPlaceContext {
-        private final Direction lookDirection;
-
-        public PlaneDirectionalPlaceContext(Level level, Player player, BlockPos pos, Direction lookDirection,
-                ItemStack itemStack, Direction facing) {
-            super(level, player, InteractionHand.MAIN_HAND, itemStack,
-                    new BlockHitResult(Vec3.atBottomCenterOf(pos), facing, pos, false));
-            this.lookDirection = lookDirection;
-        }
-
-        @Override
-        public BlockPos getClickedPos() {
-            return this.getHitResult().getBlockPos();
-        }
-
-        @Override
-        public boolean canPlace() {
-            return getLevel().getBlockState(this.getClickedPos()).canBeReplaced(this);
-        }
-
-        @Override
-        public Direction getNearestLookingDirection() {
-            return Direction.DOWN;
-        }
-
-        @Override
-        public Direction[] getNearestLookingDirections() {
-            return switch (this.lookDirection) {
-                default -> new Direction[] { Direction.DOWN, Direction.NORTH, Direction.EAST, Direction.SOUTH,
-                        Direction.WEST, Direction.UP };
-                case UP -> new Direction[] { Direction.DOWN, Direction.UP, Direction.NORTH, Direction.EAST,
-                        Direction.SOUTH, Direction.WEST };
-                case NORTH -> new Direction[] { Direction.DOWN, Direction.NORTH, Direction.EAST, Direction.WEST,
-                        Direction.UP, Direction.SOUTH };
-                case SOUTH -> new Direction[] { Direction.DOWN, Direction.SOUTH, Direction.EAST, Direction.WEST,
-                        Direction.UP, Direction.NORTH };
-                case WEST -> new Direction[] { Direction.DOWN, Direction.WEST, Direction.SOUTH, Direction.UP,
-                        Direction.NORTH, Direction.EAST };
-                case EAST -> new Direction[] { Direction.DOWN, Direction.EAST, Direction.SOUTH, Direction.UP,
-                        Direction.NORTH, Direction.WEST };
-            };
-        }
-
-        @Override
-        public Direction getHorizontalDirection() {
-            return this.lookDirection.getAxis() == Direction.Axis.Y ? Direction.NORTH : this.lookDirection;
-        }
-
-        @Override
-        public boolean isSecondaryUseActive() {
-            return false;
-        }
-
-        @Override
-        public float getRotation() {
-            return this.lookDirection.get2DDataValue() * 90;
-        }
-    }
-
 }

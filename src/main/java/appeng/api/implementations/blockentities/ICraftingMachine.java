@@ -23,58 +23,34 @@
 
 package appeng.api.implementations.blockentities;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.AECapabilities;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.stacks.KeyCounter;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Provides crafting services to adjacent pattern providers for automatic crafting. Can be provided via capability on
- * your block entity.
- */
 public interface ICraftingMachine {
 
     @Nullable
-    static ICraftingMachine of(@Nullable BlockEntity blockEntity, Direction side) {
-        if (blockEntity == null || blockEntity.getLevel() == null) {
+    static ICraftingMachine of(@Nullable TileEntity blockEntity, EnumFacing side) {
+        if (blockEntity == null) {
             return null;
         }
 
-        return blockEntity.getLevel().getCapability(
-                AECapabilities.CRAFTING_MACHINE, blockEntity.getBlockPos(), blockEntity.getBlockState(),
-                blockEntity, side);
+        return blockEntity.getCapability(AECapabilities.CRAFTING_MACHINE, side);
     }
 
     @Nullable
-    static ICraftingMachine of(Level level, BlockPos pos, Direction side) {
-        return level.getCapability(AECapabilities.CRAFTING_MACHINE, pos, side);
+    static ICraftingMachine of(World level, BlockPos pos, EnumFacing side) {
+        return of(level.getTileEntity(pos), side);
     }
 
-    /**
-     * Describe how this machine is displayed and grouped in the pattern access terminal.
-     */
     PatternContainerGroup getCraftingMachineInfo();
 
-    /**
-     * inserts a crafting plan, and the necessary items into the crafting machine.
-     *
-     * @param inputs The crafting ingredients. The array layout corresponds to {@link IPatternDetails#getInputs()} of
-     *               <code>patternDetails</code>.
-     * @return if it was accepted, all or nothing.
-     */
-    boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputs, Direction ejectionDirection);
+    boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputs, EnumFacing ejectionDirection);
 
-    /**
-     * check if the crafting machine is accepting pushes via pushPattern, if this is false, all calls to push will fail,
-     * you can try inserting into the inventory instead.
-     *
-     * @return true, if pushPattern can complete, if its false push will always be false.
-     */
     boolean acceptsPlans();
 }

@@ -18,462 +18,420 @@
 
 package appeng.block.networking;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.Util;
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleEngine;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.DyeColor;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockAndTintGetter;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.LevelReader;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SimpleWaterloggedBlock;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.block.state.properties.IntegerProperty;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.level.pathfinder.PathComputationType;
-import net.minecraft.world.level.storage.loot.LootParams;
-import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.HitResult;
-import net.minecraft.world.phys.HitResult.Type;
-import net.minecraft.world.phys.Vec3;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.neoforge.client.extensions.common.IClientBlockExtensions;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
-import appeng.api.parts.IFacadeContainer;
-import appeng.api.parts.IFacadePart;
+import appeng.api.parts.SelectedPart;
 import appeng.api.util.AEColor;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.networking.CableBusBlockEntity;
+import appeng.block.AEBaseTileBlock;
 import appeng.client.render.cablebus.CableBusBakedModel;
 import appeng.client.render.cablebus.CableBusBreakingParticle;
 import appeng.client.render.cablebus.CableBusRenderState;
-import appeng.integration.abstraction.IAEFacade;
-import appeng.parts.ICableBusContainer;
-import appeng.parts.NullCableBusContainer;
+import appeng.core.DebugCreativeTab;
+import appeng.helpers.ICustomCollision;
+import appeng.tile.networking.TileCableBus;
+import appeng.util.Platform;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.block.Block;
+import net.minecraft.block.SoundType;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.particle.Particle;
+import net.minecraft.client.particle.ParticleManager;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
+import net.minecraft.item.EnumDyeColor;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.common.property.ExtendedBlockState;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
-public class CableBusBlock extends AEBaseEntityBlock<CableBusBlockEntity> implements IAEFacade, SimpleWaterloggedBlock {
+import javax.annotation.Nullable;
+import java.util.List;
+import java.util.Random;
 
-    private static final ICableBusContainer NULL_CABLE_BUS = new NullCableBusContainer();
+public class CableBusBlock extends AEBaseTileBlock<TileCableBus> implements ICustomCollision {
+    public static final IUnlistedProperty<CableBusRenderState> RENDER_STATE = new IUnlistedProperty<>() {
+        @Override
+        public String getName() {
+            return "render_state";
+        }
 
-    private static final IntegerProperty LIGHT_LEVEL = IntegerProperty.create("light_level", 0, 15);
-    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+        @Override
+        public boolean isValid(CableBusRenderState value) {
+            return true;
+        }
+
+        @Override
+        public Class<CableBusRenderState> getType() {
+            return CableBusRenderState.class;
+        }
+
+        @Override
+        public String valueToString(CableBusRenderState value) {
+            return String.valueOf(value);
+        }
+    };
 
     public CableBusBlock() {
-        super(glassProps().noOcclusion().noLootTable().dynamicShape().forceSolidOn()
-                .lightLevel(state -> state.getValue(LIGHT_LEVEL)));
-        registerDefaultState(defaultBlockState().setValue(LIGHT_LEVEL, 0).setValue(WATERLOGGED, false));
+        super(Material.GLASS);
+        this.setHardness(0.2F);
+        this.setResistance(1.0F);
+        this.setTileEntity(TileCableBus.class);
+        this.setOpaque();
+        this.setFullSize();
+        this.setLightOpacity(0);
+        this.setSoundType(SoundType.GLASS);
+    }
+
+    @Nullable
+    private static EnumFacing getChangedSide(BlockPos pos, BlockPos fromPos) {
+        for (EnumFacing side : EnumFacing.VALUES) {
+            if (pos.offset(side).equals(fromPos)) {
+                return side;
+            }
+        }
+        return null;
     }
 
     @Override
-    public boolean propagatesSkylightDown(BlockState state, BlockGetter reader, BlockPos pos) {
-        return true;
+    protected BlockStateContainer createBlockState() {
+        return new ExtendedBlockState(this, getOrientationStrategy().getProperties().toArray(new IProperty<?>[0]),
+            new IUnlistedProperty<?>[]{RENDER_STATE});
     }
 
     @Override
-    protected boolean isPathfindable(BlockState state, PathComputationType type) {
+    public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        if (!(state instanceof IExtendedBlockState)) {
+            return state;
+        }
+
+        TileCableBus tile = getTileEntity(world, pos);
+        if (tile == null) {
+            return state;
+        }
+
+        CableBusRenderState renderState = tile.getRenderState();
+        renderState.setWorld(world);
+        renderState.setPos(pos);
+        return ((IExtendedBlockState) state).withProperty(RENDER_STATE, renderState);
+    }
+
+    @Override
+    public boolean isFullCube(IBlockState state) {
         return false;
     }
 
     @Override
-    public List<ItemStack> getDrops(BlockState state, LootParams.Builder builder) {
-        if (builder.getOptionalParameter(LootContextParams.BLOCK_ENTITY) instanceof CableBusBlockEntity bus) {
-            var drops = new ArrayList<ItemStack>();
-            bus.getCableBus().addPartDrops(drops);
-            return drops;
-        } else {
-            return List.of();
-        }
+    public boolean isOpaqueCube(IBlockState state) {
+        return false;
     }
 
     @Override
-    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource rand) {
-        this.cb(level, pos).animateTick(level, pos, rand);
-    }
-
-    @Override
-    public int getSignal(BlockState state, BlockGetter level, BlockPos pos, Direction side) {
-        return this.cb(level, pos).isProvidingWeakPower(side.getOpposite()); // TODO:
-        // IS
-        // OPPOSITE!?
-    }
-
-    @Override
-    public boolean isSignalSource(BlockState state) {
+    @SuppressWarnings("deprecation")
+    public boolean shouldSideBeRendered(IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing side) {
         return true;
     }
 
     @Override
-    public void entityInside(BlockState state, Level level, BlockPos pos, Entity entityIn) {
-        this.cb(level, pos).onEntityCollision(entityIn);
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
+
+    public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
+        return true;
     }
 
     @Override
-    public int getDirectSignal(BlockState state, BlockGetter level, BlockPos pos,
-            Direction side) {
-        return this.cb(level, pos).isProvidingStrongPower(side.getOpposite()); // TODO:
-        // IS
-        // OPPOSITE!?
+    @SideOnly(Side.CLIENT)
+    public boolean addHitEffects(IBlockState state, World world, RayTraceResult target, ParticleManager manager) {
+        if (world.rand.nextBoolean() || target.typeOfHit != RayTraceResult.Type.BLOCK) {
+            return true;
+        }
+
+        BlockPos pos = target.getBlockPos();
+        List<TextureAtlasSprite> textures = getParticleTextures(world, pos);
+        if (textures.isEmpty()) {
+            return true;
+        }
+
+        TextureAtlasSprite texture = textures.get(world.rand.nextInt(textures.size()));
+        Particle particle = new CableBusBreakingParticle(world, target.hitVec.x, target.hitVec.y, target.hitVec.z,
+            state, texture).scale(0.8F).setBlockPos(pos);
+        manager.addEffect(particle);
+        return true;
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(LIGHT_LEVEL, WATERLOGGED);
+    @SideOnly(Side.CLIENT)
+    public boolean addDestroyEffects(World world, BlockPos pos, ParticleManager manager) {
+        List<TextureAtlasSprite> textures = getParticleTextures(world, pos);
+        if (textures.isEmpty()) {
+            return true;
+        }
+
+        IBlockState state = world.getBlockState(pos);
+        for (int j = 0; j < 4; ++j) {
+            for (int k = 0; k < 4; ++k) {
+                for (int l = 0; l < 4; ++l) {
+                    TextureAtlasSprite texture = textures.get(world.rand.nextInt(textures.size()));
+
+                    double x = pos.getX() + (j + 0.5D) / 4.0D;
+                    double y = pos.getY() + (k + 0.5D) / 4.0D;
+                    double z = pos.getZ() + (l + 0.5D) / 4.0D;
+
+                    Particle particle = new CableBusBreakingParticle(world, x, y, z, x - pos.getX() - 0.5D,
+                        y - pos.getY() - 0.5D, z - pos.getZ() - 0.5D, state, texture).setBlockPos(pos);
+                    manager.addEffect(particle);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    @SideOnly(Side.CLIENT)
+    private List<TextureAtlasSprite> getParticleTextures(World world, BlockPos pos) {
+        TileCableBus tile = getTileEntity(world, pos);
+        if (tile == null) {
+            return java.util.Collections.emptyList();
+        }
+
+        IBakedModel model = Minecraft.getMinecraft().getBlockRendererDispatcher().getModelForState(getDefaultState());
+        if (!(model instanceof CableBusBakedModel cableBusModel)) {
+            return java.util.Collections.emptyList();
+        }
+        return cableBusModel.getParticleTextures(tile.getRenderState());
     }
 
     @Override
-    public boolean isLadder(BlockState state, LevelReader level, BlockPos pos, LivingEntity entity) {
-        return this.cb(level, pos).isLadder(entity);
+    public void randomDisplayTick(IBlockState state, World worldIn, BlockPos pos, Random rand) {
+        TileCableBus tile = getTileEntity(worldIn, pos);
+        if (tile != null) {
+            tile.getCableBus().randomDisplayTick(worldIn, pos, rand);
+        }
     }
 
     @Override
-    public boolean canBeReplaced(BlockState state, BlockPlaceContext useContext) {
-        // FIXME: Potentially check the fluid one too
-        return super.canBeReplaced(state, useContext)
-                && this.cb(useContext.getLevel(), useContext.getClickedPos()).isEmpty();
+    @SuppressWarnings("deprecation")
+    public int getWeakPower(IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing side) {
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile == null ? 0 : tile.getCableBus().isProvidingWeakPower(side.getOpposite());
     }
 
     @Override
-    public boolean canConnectRedstone(BlockState state, BlockGetter level, BlockPos pos,
-            @Nullable Direction side) {
+    @SuppressWarnings("deprecation")
+    public boolean canProvidePower(IBlockState state) {
+        return true;
+    }
+
+    @Override
+    public void onEntityCollision(World worldIn, BlockPos pos, IBlockState state, Entity entityIn) {
+        TileCableBus tile = getTileEntity(worldIn, pos);
+        if (tile != null) {
+            tile.getCableBus().onEntityCollision(entityIn);
+        }
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public int getStrongPower(IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing side) {
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile == null ? 0 : tile.getCableBus().isProvidingStrongPower(side.getOpposite());
+    }
+
+    @Override
+    public int getLightValue(IBlockState state, IBlockAccess world, BlockPos pos) {
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile == null ? super.getLightValue(state, world, pos) : tile.getCableBus().getLightValue();
+    }
+
+    @Override
+    public boolean isLadder(IBlockState state, IBlockAccess world, BlockPos pos, EntityLivingBase entity) {
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile != null && tile.getCableBus().isLadder(entity);
+    }
+
+    @Override
+    public boolean isReplaceable(IBlockAccess world, BlockPos pos) {
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile != null && tile.getCableBus().isEmpty();
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public boolean isSideSolid(IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing side) {
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile != null && tile.getCableBus().isSolidOnSide(side);
+    }
+
+    @Override
+    public net.minecraft.item.Item getItemDropped(IBlockState state, Random rand, int fortune) {
+        return Items.AIR;
+    }
+
+    @Override
+    public int quantityDropped(Random random) {
+        return 0;
+    }
+
+    @Override
+    public boolean removedByPlayer(IBlockState state, World world, BlockPos pos, EntityPlayer player,
+                                   boolean willHarvest) {
+        if (player.capabilities.isCreativeMode) {
+            TileCableBus tile = getTileEntity(world, pos);
+            if (tile != null) {
+                tile.disableDrops();
+            }
+        }
+
+        return super.removedByPlayer(state, world, pos, player, willHarvest);
+    }
+
+    @Override
+    public void breakBlock(World worldIn, BlockPos pos, IBlockState state) {
+        TileCableBus tile = getTileEntity(worldIn, pos);
+        if (tile != null && tile.shouldDropItems()) {
+            List<ItemStack> drops = new ObjectArrayList<>();
+            tile.addPartDrops(drops);
+            Platform.spawnDrops(worldIn, pos, drops);
+        }
+
+        super.breakBlock(worldIn, pos, state);
+    }
+
+    @Override
+    public boolean canConnectRedstone(IBlockState state, IBlockAccess world, BlockPos pos, @Nullable EnumFacing side) {
         if (side == null) {
             return false;
         }
 
-        return this.cb(level, pos).canConnectRedstone(side.getOpposite());
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile != null && tile.getCableBus().canConnectRedstone(side.getOpposite());
     }
 
     @Override
-    public ItemStack getCloneItemStack(BlockState state, HitResult target, LevelReader level, BlockPos pos,
-            Player player) {
-        var v3 = target.getLocation().subtract(pos.getX(), pos.getY(), pos.getZ());
-        var sp = this.cb(level, pos).selectPartLocal(v3);
+    public boolean recolorBlock(World world, BlockPos pos, EnumFacing side, EnumDyeColor color) {
+        return this.recolorBlock(world, pos, side, color, null);
+    }
 
-        if (sp.part != null) {
-            return new ItemStack(sp.part.getPartItem());
-        } else if (sp.facade != null) {
-            return sp.facade.getItemStack();
+    public boolean recolorBlock(World world, BlockPos pos, EnumFacing side, EnumDyeColor color,
+                                @Nullable EntityPlayer who) {
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile != null && tile.recolourBlock(side, AEColor.fromDye(color), who);
+    }
+
+    @Override
+    public ItemStack getPickBlock(IBlockState state, RayTraceResult target, World world, BlockPos pos,
+                                  EntityPlayer player) {
+        TileCableBus tile = getTileEntity(world, pos);
+        if (tile == null) {
+            return ItemStack.EMPTY;
         }
 
+        Vec3d localPos = target.hitVec.subtract(pos.getX(), pos.getY(), pos.getZ());
+        SelectedPart selectedPart = tile.getCableBus().selectPartLocal(localPos);
+        if (selectedPart.part != null) {
+            return new ItemStack(selectedPart.part.getPartItem().asItem());
+        }
+        if (selectedPart.facade != null) {
+            return selectedPart.facade.getItemStack();
+        }
         return ItemStack.EMPTY;
     }
 
     @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block blockIn, BlockPos fromPos,
-            boolean isMoving) {
-        if (!level.isClientSide()) {
-            this.cb(level, pos).onNeighborChanged(level, pos, fromPos);
-        }
-    }
-
-    private ICableBusContainer cb(BlockGetter level, BlockPos pos) {
-        final BlockEntity te = level.getBlockEntity(pos);
-        ICableBusContainer out = null;
-
-        if (te instanceof CableBusBlockEntity) {
-            out = ((CableBusBlockEntity) te).getCableBus();
-        }
-
-        return out == null ? NULL_CABLE_BUS : out;
-    }
-
-    @Nullable
-    private IFacadeContainer fc(BlockGetter level, BlockPos pos) {
-        final BlockEntity te = level.getBlockEntity(pos);
-        IFacadeContainer out = null;
-
-        if (te instanceof CableBusBlockEntity) {
-            out = ((CableBusBlockEntity) te).getCableBus().getFacadeContainer();
-        }
-
-        return out;
-    }
-
-    @Override
-    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos,
-            Player player, InteractionHand hand, BlockHitResult hit) {
-        // Transform from world into block space
-        Vec3 hitVec = hit.getLocation();
-        Vec3 hitInBlock = new Vec3(hitVec.x - pos.getX(), hitVec.y - pos.getY(), hitVec.z - pos.getZ());
-        return this.cb(level, pos).useItemOn(heldItem, player, hand, hitInBlock)
-                ? ItemInteractionResult.sidedSuccess(level.isClientSide())
-                : ItemInteractionResult.PASS_TO_DEFAULT_BLOCK_INTERACTION;
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        // Transform from world into block space
-        Vec3 hitVec = hitResult.getLocation();
-        Vec3 hitInBlock = new Vec3(hitVec.x - pos.getX(), hitVec.y - pos.getY(), hitVec.z - pos.getZ());
-        return this.cb(level, pos).useWithoutItem(player, hitInBlock)
-                ? InteractionResult.sidedSuccess(level.isClientSide())
-                : InteractionResult.PASS;
-    }
-
-    public boolean recolorBlock(BlockGetter level, BlockPos pos, Direction side,
-            DyeColor color, Player who) {
-        try {
-            return this.cb(level, pos).recolourBlock(side, AEColor.fromDye(color), who);
-        } catch (Throwable ignored) {
-        }
-        return false;
-    }
-
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        // do nothing
-    }
-
-    @Override
-    public BlockState getFacadeState(BlockGetter level, BlockPos pos, Direction side) {
-        if (side != null) {
-            IFacadeContainer container = this.fc(level, pos);
-            if (container != null) {
-                IFacadePart facade = container.getFacade(side);
-                if (facade != null) {
-                    return facade.getBlockState();
-                }
-            }
-        }
-        return level.getBlockState(pos);
-    }
-
-    @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        CableBusBlockEntity te = getBlockEntity(level, pos);
-        if (te == null) {
-            return Shapes.empty();
-        } else {
-            return te.getCableBus().getShape();
-        }
-    }
-
-    @Override
-    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        CableBusBlockEntity te = getBlockEntity(level, pos);
-        if (te == null) {
-            return Shapes.empty();
-        } else {
-            return te.getCableBus().getCollisionShape(context);
-        }
-    }
-
-    @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, CableBusBlockEntity be) {
-        if (currentState.getBlock() != this) {
-            return currentState;
-        }
-        int lightLevel = be.getCableBus().getLightValue();
-        return super.updateBlockStateFromBlockEntity(currentState, be).setValue(LIGHT_LEVEL, lightLevel);
-    }
-
-    @Override
-    @Nullable
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        return getStateForPlacement(context.getLevel(), context.getClickedPos());
-    }
-
-    public BlockState getStateForPlacement(Level level, BlockPos pos) {
-        var fluidState = level.getFluidState(pos);
-        return this.defaultBlockState().setValue(WATERLOGGED, fluidState.getType() == Fluids.WATER);
-    }
-
-    @Override
-    public FluidState getFluidState(BlockState blockState) {
-        return blockState.getValue(WATERLOGGED).booleanValue()
-                ? Fluids.WATER.getSource(false)
-                : super.getFluidState(blockState);
-    }
-
-    @Override
-    public BlockState updateShape(BlockState blockState, Direction facing, BlockState facingState, LevelAccessor level,
-            BlockPos currentPos, BlockPos facingPos) {
-        if (blockState.getValue(WATERLOGGED)) {
-            level.scheduleTick(currentPos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
-        }
-
-        this.cb(level, currentPos).onUpdateShape(level, currentPos, facing);
-
-        return super.updateShape(blockState, facing, facingState, level, currentPos, facingPos);
-    }
-
-    @Override
-    public void onNeighborChange(BlockState state, LevelReader level, BlockPos pos, BlockPos neighbor) {
-        this.cb(level, pos).onNeighborChanged(level, pos, neighbor);
-    }
-
-    @Override
-    public void initializeClient(Consumer<IClientBlockExtensions> consumer) {
-        consumer.accept(new IClientBlockExtensions() {
-
-            @Override
-            public boolean addHitEffects(BlockState state, Level level, HitResult target,
-                    ParticleEngine effectRenderer) {
-
-                // Half the particle rate. Since we're spawning concentrated on a specific spot,
-                // our particle effect otherwise looks too strong
-                if (level.getRandom().nextBoolean()) {
-                    return true;
-                }
-
-                if (target.getType() != Type.BLOCK) {
-                    return false;
-                }
-                BlockPos blockPos = BlockPos.containing(target.getLocation().x, target.getLocation().y,
-                        target.getLocation().z);
-
-                ICableBusContainer cb = cb(level, blockPos);
-
-                // Our built-in model has the actual baked sprites we need
-                BakedModel model = Minecraft.getInstance().getBlockRenderer()
-                        .getBlockModel(defaultBlockState());
-
-                // We cannot add the effect if we don't have the model
-                if (!(model instanceof CableBusBakedModel cableBusModel)) {
-                    return true;
-                }
-
-                CableBusRenderState renderState = cb.getRenderState();
-
-                // Spawn a particle for one of the particle textures
-                var textures = cableBusModel.getParticleTextures(renderState);
-                if (!textures.isEmpty()) {
-                    var texture = Util.getRandom(textures, level.getRandom());
-                    double x = target.getLocation().x;
-                    double y = target.getLocation().y;
-                    double z = target.getLocation().z;
-                    // FIXME: Check how this looks, probably like shit, maybe provide parts the
-                    // ability to supply particle textures???
-                    effectRenderer.add(
-                            new CableBusBreakingParticle((ClientLevel) level, x, y, z, texture).scale(0.8F));
-                }
-
-                return true;
+    @SuppressWarnings("deprecation")
+    public void neighborChanged(IBlockState state, World world, BlockPos pos, Block blockIn, BlockPos fromPos) {
+        TileCableBus tile = getTileEntity(world, pos);
+        if (tile != null) {
+            EnumFacing side = getChangedSide(pos, fromPos);
+            if (side != null) {
+                tile.onUpdateShape(side);
             }
 
-            @Override
-            public boolean addDestroyEffects(BlockState state, Level level, BlockPos pos,
-                    ParticleEngine effectRenderer) {
-                ICableBusContainer cb = cb(level, pos);
-
-                // Our built-in model has the actual baked sprites we need
-                BakedModel model = Minecraft.getInstance().getBlockRenderer()
-                        .getBlockModel(defaultBlockState());
-
-                // We cannot add the effect if we dont have the model
-                if (!(model instanceof CableBusBakedModel cableBusModel)) {
-                    return true;
-                }
-
-                CableBusRenderState renderState = cb.getRenderState();
-
-                List<TextureAtlasSprite> textures = cableBusModel.getParticleTextures(renderState);
-
-                if (!textures.isEmpty()) {
-                    // Shamelessly inspired by ParticleManager.addBlockDestroyEffects
-                    for (int j = 0; j < 4; ++j) {
-                        for (int k = 0; k < 4; ++k) {
-                            for (int l = 0; l < 4; ++l) {
-                                // Randomly select one of the textures if the cable bus has more than just one
-                                // possibility here
-                                var texture = Util.getRandom(textures, level.getRandom());
-
-                                final double x = pos.getX() + (j + 0.5D) / 4.0D;
-                                final double y = pos.getY() + (k + 0.5D) / 4.0D;
-                                final double z = pos.getZ() + (l + 0.5D) / 4.0D;
-
-                                // FIXME: Check how this looks, probably like shit, maybe provide parts the
-                                // ability to supply particle textures???
-                                Particle effect = new CableBusBreakingParticle((ClientLevel) level, x, y, z,
-                                        x - pos.getX() - 0.5D, y - pos.getY() - 0.5D, z - pos.getZ() - 0.5D, texture);
-                                effectRenderer.add(effect);
-                            }
-                        }
-                    }
-                }
-
-                return true;
+            if (!world.isRemote) {
+                tile.onNeighborChanged(world, pos, fromPos);
             }
-        });
+        }
     }
 
-    /**
-     * WTF does this do you ask?
-     * <p>
-     * Well, this is needed to properly handle adjacent facades, as we need to know on which side the source facade is.
-     * The cases to handle are:
-     * <ul>
-     * <li>Not rendering a facade: then we just look at the facade on the requested side.</li>
-     * <li>Rendering a facade and the requested side is the opposite: then this is likely an interior quad of the
-     * facade, so we actually check the rendering side instead of the requested side.</li>
-     * <li>Rendering a facade in other cases: check requested side first, otherwise check rendering side since we might
-     * also connect to a facade in another direction due to the 2 extra pixels on the side of a facade.</li>
-     * </ul>
-     */
-    public static ThreadLocal<Direction> RENDERING_FACADE_DIRECTION = new ThreadLocal<>();
+    @Override
+    public void onBlockClicked(World worldIn, BlockPos pos, EntityPlayer playerIn) {
+        if (!worldIn.isRemote) {
+            return;
+        }
+
+        TileCableBus tile = getTileEntity(worldIn, pos);
+        if (tile == null) {
+            return;
+        }
+
+        RayTraceResult hit = playerIn.rayTrace(5.0D, 1.0F);
+        if (hit != null && hit.typeOfHit == RayTraceResult.Type.BLOCK && pos.equals(hit.getBlockPos())) {
+            Vec3d localPos = hit.hitVec.subtract(pos.getX(), pos.getY(), pos.getZ());
+            tile.onClicked(playerIn, localPos);
+        }
+    }
 
     @Override
-    public BlockState getAppearance(BlockState state, BlockAndTintGetter renderView, BlockPos pos, Direction side,
-            @Nullable BlockState sourceState, @Nullable BlockPos sourcePos) {
-        ModelData modelData;
-        if (renderView instanceof ServerLevel serverLevel) {
-            // We're on the server, use BE directly
-            BlockEntity be = renderView.getBlockEntity(pos);
-            modelData = be != null ? be.getModelData() : ModelData.EMPTY;
-        } else {
-            modelData = renderView.getModelData(pos);
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        TileCableBus tile = getTileEntity(world, pos);
+        if (tile == null) {
+            return false;
         }
 
-        CableBusRenderState cableBusRenderState = modelData.get(CableBusRenderState.PROPERTY);
-        if (cableBusRenderState != null) {
-            var renderingFacadeDir = RENDERING_FACADE_DIRECTION.get();
-            var facades = cableBusRenderState.getFacades();
-
-            if (side.getOpposite() != renderingFacadeDir) {
-                var facadeState = facades.get(side);
-                if (facadeState != null) {
-                    return facadeState.getSourceBlock();
-                }
-            }
-
-            if (renderingFacadeDir != null && facades.containsKey(renderingFacadeDir)) {
-                return facades.get(renderingFacadeDir).getSourceBlock();
-            }
+        Vec3d localPos = new Vec3d(hitX, hitY, hitZ);
+        ItemStack heldItem = player.getHeldItem(hand);
+        if (!heldItem.isEmpty()) {
+            return tile.onUseItemOn(heldItem, player, hand, localPos);
         }
-        return state;
+
+        return tile.onUseWithoutItem(player, localPos);
+    }
+
+    @Override
+    public void getSubBlocks(CreativeTabs creativeTab, NonNullList<ItemStack> itemStacks) {
+        if (creativeTab == DebugCreativeTab.INSTANCE) {
+            itemStacks.add(new ItemStack(this));
+        }
+    }
+
+    @Override
+    public Iterable<AxisAlignedBB> getSelectedBoundingBoxesFromPool(World world, BlockPos pos, Entity entity,
+                                                                    boolean hitFluids) {
+        TileCableBus tile = getTileEntity(world, pos);
+        return tile == null ? java.util.Collections.emptyList() : tile.getCableBus().getBoxes(true, entity, true);
+    }
+
+    @Override
+    public void addCollidingBlockToList(World world, BlockPos pos, AxisAlignedBB bb, List<AxisAlignedBB> out,
+                                        Entity entity) {
+        TileCableBus tile = getTileEntity(world, pos);
+        if (tile == null) {
+            return;
+        }
+
+        for (AxisAlignedBB box : tile.getCableBus().getBoxes(true, entity, false)) {
+            out.add(box);
+        }
     }
 }

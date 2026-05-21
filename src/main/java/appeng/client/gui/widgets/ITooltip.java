@@ -18,11 +18,11 @@
 
 package appeng.client.gui.widgets;
 
+import appeng.client.gui.Rect2i;
+import net.minecraft.util.text.ITextComponent;
+
 import java.util.Collections;
 import java.util.List;
-
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.network.chat.Component;
 
 /**
  * AEBaseGui controlled Tooltip Interface.
@@ -34,14 +34,10 @@ public interface ITooltip {
      *
      * @return tooltip message or an empty list to not show a tooltip
      */
-
-    default List<Component> getTooltipMessage() {
+    default List<ITextComponent> getTooltipMessage() {
         return Collections.emptyList();
     }
 
-    /**
-     * Rectangle in screen relative coordinates which triggers the toooltip.
-     */
     Rect2i getTooltipArea();
 
     /**
@@ -49,3 +45,4 @@ public interface ITooltip {
      */
     boolean isTooltipAreaVisible();
 }
+

@@ -1,51 +1,51 @@
 package appeng.client.gui.me.search;
 
-import java.util.IdentityHashMap;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
+import appeng.container.me.common.GridInventoryEntry;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
-
-import net.minecraft.tags.TagKey;
-
-import appeng.api.stacks.AEKeyType;
-import appeng.menu.me.common.GridInventoryEntry;
+import java.util.stream.Collectors;
 
 final class TagSearchPredicate implements Predicate<GridInventoryEntry> {
     private final String term;
-    /**
-     * Stores the tag keys we found for each AE key type we encountered.
-     */
-    private final Map<AEKeyType, List<TagKey<?>>> tagCache = new IdentityHashMap<>();
+    private final Map<AEKeyType, List<String>> tagCache = new Reference2ObjectOpenHashMap<>();
 
     public TagSearchPredicate(String term) {
         this.term = term.toLowerCase(Locale.ROOT);
     }
 
-    /**
-     * Finds all tags for all AE key types that match the given search pattern.
-     */
-    private List<TagKey<?>> getTagsMatchingTerm(AEKeyType keyType) {
+    private List<String> getTagsMatchingTerm(AEKeyType keyType) {
         return keyType.getTagNames()
-                .filter(tagKey -> {
-                    // ResourceLocations require namespace and path to already be lowercase
-                    var tagId = tagKey.location();
-                    if (term.contains(":")) {
-                        return tagId.toString().contains(term);
-                    } else {
-                        return tagId.getNamespace().contains(term) || tagId.getPath().contains(term);
-                    }
-                })
-                .toList();
+                      .filter(this::matchesTerm)
+                      .collect(Collectors.toList());
+    }
+
+    private boolean matchesTerm(String tag) {
+        String tagId = tag.toLowerCase(Locale.ROOT);
+        if (term.contains(":")) {
+            return tagId.contains(term);
+        }
+
+        int separator = tagId.indexOf(':');
+        if (separator >= 0) {
+            return tagId.substring(0, separator).contains(term) || tagId.substring(separator + 1).contains(term);
+        }
+
+        return tagId.contains(term);
     }
 
     @Override
     public boolean test(GridInventoryEntry entry) {
-        var what = Objects.requireNonNull(entry.getWhat());
-        var tags = tagCache.computeIfAbsent(what.getType(), this::getTagsMatchingTerm);
+        AEKey what = Objects.requireNonNull(entry.what());
+        List<String> tags = tagCache.computeIfAbsent(what.getType(), this::getTagsMatchingTerm);
 
-        for (var tag : tags) {
+        for (String tag : tags) {
             if (what.isTagged(tag)) {
                 return true;
             }

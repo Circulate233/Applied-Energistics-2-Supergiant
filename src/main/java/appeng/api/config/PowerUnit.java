@@ -23,7 +23,8 @@
 
 package appeng.api.config;
 
-import net.minecraft.network.chat.Component;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
 
 public enum PowerUnit {
     AE("gui.ae2.units.appliedenergistics", "AE"), // Native Units - AE Energy
@@ -41,7 +42,7 @@ public enum PowerUnit {
     /**
      * please do not edit this value, it is set when AE loads its config files.
      */
-    public double conversionRatio = 1.0;
+    public final double conversionRatio = 1.0;
 
     PowerUnit(String un, String symbolName) {
         this.unlocalizedName = un;
@@ -50,22 +51,21 @@ public enum PowerUnit {
 
     /**
      * do power conversion using AE's conversion rates.
-     *
+     * <p>
      * Example: PowerUnits.EU.convertTo( PowerUnits.AE, 32 );
-     *
+     * <p>
      * will normally returns 64, as it will convert the EU, to AE with AE's power settings.
      *
      * @param target target power unit
      * @param value  value
-     *
      * @return value converted to target units, from this units.
      */
     public double convertTo(PowerUnit target, double value) {
         return value * this.conversionRatio / target.conversionRatio;
     }
 
-    public Component textComponent() {
-        return Component.translatable(unlocalizedName);
+    public ITextComponent textComponent() {
+        return new TextComponentTranslation(unlocalizedName);
     }
 
     public String getSymbolName() {

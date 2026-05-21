@@ -1,0 +1,16 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aa",
+    "aa"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:certus_quartz_crystal"
+    }
+  },
+  "result": {
+    "item": "ae2:quartz_block",
+    "count": 1
+  }
+}

@@ -28,9 +28,9 @@ import appeng.api.inventories.InternalInventory;
 public interface IViewCellStorage {
 
     /**
-     * should contains at least 5 slot, the first 5
+     * Should contain at least 5 slots. The first 5
      *
-     * @return inventory with at least 5 slot
+     * @return inventory with at least 5 slots
      */
     InternalInventory getViewCellStorage();
 }

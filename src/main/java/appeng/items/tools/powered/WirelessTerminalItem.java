@@ -1,80 +1,70 @@
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.items.tools.powered;
-
-import java.util.List;
-import java.util.function.Consumer;
-import java.util.function.DoubleSupplier;
-import java.util.function.Supplier;
-
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.core.GlobalPos;
-import net.minecraft.network.chat.Component;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.BlockHitResult;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.Settings;
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
+import appeng.api.features.GridLinkables;
 import appeng.api.features.IGridLinkableHandler;
 import appeng.api.ids.AEComponents;
 import appeng.api.implementations.blockentities.IWirelessAccessPoint;
-import appeng.api.implementations.menuobjects.IMenuItem;
+import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.networking.IGrid;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableItem;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.api.upgrades.Upgrades;
+import appeng.api.util.DimensionalBlockPos;
 import appeng.api.util.IConfigManager;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.core.gui.locator.GuiHostLocators;
+import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.localization.Tooltips;
-import appeng.helpers.WirelessTerminalMenuHost;
-import appeng.menu.MenuOpener;
-import appeng.menu.locator.ItemMenuHostLocator;
-import appeng.menu.locator.MenuLocators;
-import appeng.menu.me.common.MEStorageMenu;
+import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.util.Platform;
+import baubles.api.BaubleType;
+import baubles.api.IBauble;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.fml.common.Optional;
+import org.jetbrains.annotations.Nullable;
 
-public class WirelessTerminalItem extends PoweredContainerItem implements IMenuItem, IUpgradeableItem {
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
-    private static final Logger LOG = LoggerFactory.getLogger(WirelessTerminalItem.class);
-
+@Optional.Interface(iface = "baubles.api.IBauble", modid = "baubles")
+public class WirelessTerminalItem extends PoweredContainerItem implements IGuiItem, IUpgradeableItem, IBauble {
     public static final IGridLinkableHandler LINKABLE_HANDLER = new LinkableHandler();
+    private static final String LINK_TAG_DIM = "dim";
+    private static final String LINK_TAG_X = "x";
+    private static final String LINK_TAG_Y = "y";
+    private static final String LINK_TAG_Z = "z";
+    private final double powerCapacity;
 
-    public WirelessTerminalItem(DoubleSupplier powerCapacity, Properties props) {
-        super(powerCapacity, props);
+    public WirelessTerminalItem(double powerCapacity) {
+        super(powerCapacity);
+        this.setMaxStackSize(1);
+        this.powerCapacity = powerCapacity;
+        GridLinkables.register(this, LINKABLE_HANDLER);
     }
 
     @Override
@@ -82,76 +72,66 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IMenuI
         return 800d + 800d * Upgrades.getEnergyCardMultiplier(getUpgrades(stack));
     }
 
-    /**
-     * Open a wireless terminal from a slot in the player inventory, i.e. activated via hotkey.
-     *
-     * @return True if the menu was opened.
-     */
-    public boolean openFromInventory(Player player, ItemMenuHostLocator locator) {
+    public boolean openFromInventory(EntityPlayer player, ItemGuiHostLocator locator) {
         return openFromInventory(player, locator, false);
     }
 
-    /**
-     * Open a wireless terminal from a slot in the player inventory, i.e. activated via hotkey.
-     *
-     * @param returningFromSubmenu Pass true if returning from a submenu that was opened from this terminal. Will
-     *                             restore previous search, scrollbar, etc.
-     * @return True if the menu was opened.
-     */
-    protected boolean openFromInventory(Player player, ItemMenuHostLocator locator, boolean returningFromSubmenu) {
+    protected boolean openFromInventory(EntityPlayer player, ItemGuiHostLocator locator, boolean returningFromSubmenu) {
         var is = locator.locateItem(player);
 
-        if (!player.level().isClientSide() && checkPreconditions(is)) {
-            return MenuOpener.open(getMenuType(), player, locator, returningFromSubmenu);
+        if (!player.world.isRemote && checkPreconditions(is)) {
+            return GuiOpener.openItemGui(player, getGuiKey(), locator, returningFromSubmenu);
         }
         return false;
     }
 
-    /**
-     * Opens a wireless terminal when activated by the player while held in hand.
-     */
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        var is = player.getItemInHand(hand);
+    public ActionResult<ItemStack> onItemRightClick(World level, EntityPlayer player, EnumHand hand) {
+        var is = player.getHeldItem(hand);
 
-        if (!player.level().isClientSide() && checkPreconditions(is)) {
-            if (MenuOpener.open(getMenuType(), player, MenuLocators.forHand(player, hand))) {
-                return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()), is);
+        if (!player.world.isRemote && checkPreconditions(is)) {
+            if (GuiOpener.openItemGui(player, getGuiKey(), GuiHostLocators.forHand(player, hand))) {
+                return new ActionResult<>(EnumActionResult.SUCCESS, is);
             }
         }
 
-        return new InteractionResultHolder<>(InteractionResult.FAIL, is);
+        return new ActionResult<>(EnumActionResult.FAIL, is);
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        super.appendHoverText(stack, context, lines, advancedTooltips);
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
         if (getLinkedPosition(stack) == null) {
-            lines.add(Tooltips.of(GuiText.Unlinked, Tooltips.RED));
+            lines.add(Tooltips.of(GuiText.Unlinked, Tooltips.RED).getFormattedText());
         } else {
-            lines.add(Tooltips.of(GuiText.Linked, Tooltips.GREEN));
+            lines.add(Tooltips.of(GuiText.Linked, Tooltips.GREEN).getFormattedText());
         }
     }
 
-    /**
-     * Gets the position of the wireless access point that this terminal is linked to. This can be empty to signal that
-     * the terminal screen should be closed or be otherwise unavailable. To support linking your item with a wireless
-     * access point, register a {@link IGridLinkableHandler}.
-     */
     @Nullable
-    public GlobalPos getLinkedPosition(ItemStack item) {
-        return item.get(AEComponents.WIRELESS_LINK_TARGET);
-    }
-
-    @Nullable
-    public IGrid getLinkedGrid(ItemStack item, Level level, @Nullable Consumer<Component> errorConsumer) {
-        if (!(level instanceof ServerLevel serverLevel)) {
+    public DimensionalBlockPos getLinkedPosition(ItemStack item) {
+        NBTTagCompound tag = item.getTagCompound();
+        if (tag == null) {
             return null;
         }
 
+        NBTTagCompound link = AEComponents.WIRELESS_LINK_TARGET_COMPONENT.readFrom(tag);
+        if (link == null) {
+            return null;
+        }
+        int dim = link.getInteger(LINK_TAG_DIM);
+        WorldServer world = DimensionManager.getWorld(dim);
+        if (world == null) {
+            return null;
+        }
+        return new DimensionalBlockPos(world, link.getInteger(LINK_TAG_X), link.getInteger(LINK_TAG_Y),
+            link.getInteger(LINK_TAG_Z));
+    }
+
+    @Nullable
+    public IGrid getLinkedGrid(ItemStack item, World level, @Nullable Consumer<ITextComponent> errorConsumer) {
         var linkedPos = getLinkedPosition(item);
         if (linkedPos == null) {
             if (errorConsumer != null) {
@@ -160,15 +140,14 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IMenuI
             return null;
         }
 
-        var linkedLevel = serverLevel.getServer().getLevel(linkedPos.dimension());
-        if (linkedLevel == null) {
+        if (!(linkedPos.getLevel() instanceof WorldServer linkedLevel)) {
             if (errorConsumer != null) {
                 errorConsumer.accept(PlayerMessages.LinkedNetworkNotFound.text());
             }
             return null;
         }
 
-        var be = Platform.getTickingBlockEntity(linkedLevel, linkedPos.pos());
+        var be = linkedLevel.getTileEntity(linkedPos.getPos());
         if (!(be instanceof IWirelessAccessPoint accessPoint)) {
             if (errorConsumer != null) {
                 errorConsumer.accept(PlayerMessages.LinkedNetworkNotFound.text());
@@ -177,69 +156,48 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IMenuI
         }
 
         var grid = accessPoint.getGrid();
-        if (grid == null) {
-            if (errorConsumer != null) {
-                errorConsumer.accept(PlayerMessages.LinkedNetworkNotFound.text());
-            }
+        if (grid == null && errorConsumer != null) {
+            errorConsumer.accept(PlayerMessages.LinkedNetworkNotFound.text());
         }
         return grid;
     }
 
-    /**
-     * Allows other wireless terminals to override which menu is shown when it is opened.
-     */
-    public MenuType<?> getMenuType() {
-        return MEStorageMenu.WIRELESS_TYPE;
+    public GuiIds.GuiKey getGuiKey() {
+        return GuiIds.GuiKey.WIRELESS_TERMINAL;
     }
 
     @Nullable
     @Override
-    public WirelessTerminalMenuHost<?> getMenuHost(Player player, ItemMenuHostLocator locator,
-            @Nullable BlockHitResult hitResult) {
-        return new WirelessTerminalMenuHost<>(this, player, locator,
-                (p, subMenu) -> openFromInventory(p, locator, true));
+    public WirelessTerminalGuiHost<?> getGuiHost(EntityPlayer player, ItemGuiHostLocator locator,
+                                                 @Nullable RayTraceResult hitResult) {
+        return new WirelessTerminalGuiHost<>(this, player, locator,
+            (p, subGui) -> openFromInventory(p, locator, true));
     }
 
-    /**
-     * Checks if a player can open a particular wireless terminal.
-     *
-     * @return True if the wireless terminal can be opened (it's linked, network in range, power, etc.)
-     */
     protected boolean checkPreconditions(ItemStack item) {
         return !item.isEmpty() && item.getItem() == this;
     }
 
-    /**
-     * use an amount of power, in AE units
-     *
-     * @param amount is in AE units ( 5 per MJ ), if you return false, the item should be dead and return false for
-     *               hasPower
-     * @return true if wireless terminal uses power
-     */
-    public boolean usePower(Player player, double amount, ItemStack is) {
+    public boolean usePower(EntityPlayer player, double amount, ItemStack is) {
         return extractAEPower(is, amount, Actionable.MODULATE) >= amount - 0.5;
     }
 
-    /**
-     * gets the power status of the item.
-     *
-     * @return returns true if there is any power left.
-     */
-    public boolean hasPower(Player player, double amt, ItemStack is) {
+    public boolean hasPower(EntityPlayer player, double amt, ItemStack is) {
         return getAECurrentPower(is) >= amt;
     }
 
-    /**
-     * Return the config manager for the wireless terminal.
-     *
-     * @return config manager of wireless terminal
-     */
     public IConfigManager getConfigManager(Supplier<ItemStack> target) {
         return IConfigManager.builder(target)
-                .registerSetting(Settings.SORT_BY, SortOrder.NAME)
-                .registerSetting(Settings.VIEW_MODE, ViewItems.ALL)
-                .registerSetting(Settings.SORT_DIRECTION, SortDir.ASCENDING)
-                .build();
+                             .registerSetting(Settings.SORT_BY, SortOrder.NAME)
+                             .registerSetting(Settings.VIEW_MODE, ViewItems.ALL)
+                             .registerSetting(Settings.SORT_DIRECTION, SortDir.ASCENDING)
+                             .build();
+    }
+
+    @Optional.Method(modid = "baubles")
+    @Override
+    public BaubleType getBaubleType(ItemStack stack) {
+        return BaubleType.TRINKET;
     }
 
     @Override
@@ -248,7 +206,7 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IMenuI
     }
 
     private void onUpgradesChanged(ItemStack stack, IUpgradeInventory upgrades) {
-        setAEMaxPowerMultiplier(stack, 1 + Upgrades.getEnergyCardMultiplier(upgrades));
+        setAEMaxPower(stack, powerCapacity * (1 + Upgrades.getEnergyCardMultiplier(upgrades)));
     }
 
     private static class LinkableHandler implements IGridLinkableHandler {
@@ -258,13 +216,29 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IMenuI
         }
 
         @Override
-        public void link(ItemStack itemStack, GlobalPos pos) {
-            itemStack.set(AEComponents.WIRELESS_LINK_TARGET, pos);
+        public void link(ItemStack itemStack, World world, net.minecraft.util.math.BlockPos pos) {
+            NBTTagCompound tag = itemStack.getTagCompound();
+            if (tag == null) {
+                tag = new NBTTagCompound();
+                itemStack.setTagCompound(tag);
+            }
+            NBTTagCompound link = new NBTTagCompound();
+            link.setInteger(LINK_TAG_DIM, world.provider.getDimension());
+            link.setInteger(LINK_TAG_X, pos.getX());
+            link.setInteger(LINK_TAG_Y, pos.getY());
+            link.setInteger(LINK_TAG_Z, pos.getZ());
+            AEComponents.WIRELESS_LINK_TARGET_COMPONENT.writeTo(tag, link);
         }
 
         @Override
         public void unlink(ItemStack itemStack) {
-            itemStack.remove(AEComponents.WIRELESS_LINK_TARGET);
+            NBTTagCompound tag = itemStack.getTagCompound();
+            if (tag != null) {
+                tag.removeTag(AEComponents.WIRELESS_LINK_TARGET_COMPONENT.name());
+                if (Platform.isNbtEmpty(tag)) {
+                    itemStack.setTagCompound(null);
+                }
+            }
         }
     }
 }

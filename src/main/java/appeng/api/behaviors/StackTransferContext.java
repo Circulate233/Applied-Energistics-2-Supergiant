@@ -1,7 +1,5 @@
 package appeng.api.behaviors;
 
-import org.jetbrains.annotations.ApiStatus;
-
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStorageService;
@@ -9,6 +7,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.util.prioritylist.IPartitionList;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * Context for import and export bus transfer operations.
@@ -37,9 +36,9 @@ public interface StackTransferContext {
 
     IPartitionList getFilter();
 
-    void setInverted(boolean inverted);
-
     boolean isInverted();
+
+    void setInverted(boolean inverted);
 
     boolean canInsert(AEItemKey what, long amount);
 

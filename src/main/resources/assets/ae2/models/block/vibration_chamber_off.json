@@ -1,0 +1,9 @@
+{
+  "parent": "block/orientable",
+  "textures": {
+    "particle": "ae2:block/vibration_chamber_side",
+    "top": "ae2:block/vibration_chamber_top",
+    "front": "ae2:block/vibration_chamber_front",
+    "side": "ae2:block/vibration_chamber_side"
+  }
+}

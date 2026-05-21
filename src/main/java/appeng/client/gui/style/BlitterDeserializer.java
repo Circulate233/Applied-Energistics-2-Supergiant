@@ -18,17 +18,16 @@
 
 package appeng.client.gui.style;
 
-import java.lang.reflect.Type;
-
+import appeng.client.gui.Rect2i;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import net.minecraft.util.JsonUtils;
+import net.minecraft.util.ResourceLocation;
 
-import net.minecraft.client.renderer.Rect2i;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.util.GsonHelper;
+import java.lang.reflect.Type;
 
 enum BlitterDeserializer implements JsonDeserializer<Blitter> {
 
@@ -36,20 +35,20 @@ enum BlitterDeserializer implements JsonDeserializer<Blitter> {
 
     @Override
     public Blitter deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
-            throws JsonParseException {
+        throws JsonParseException {
         if (!json.isJsonObject()) {
             throw new JsonParseException("Blitters must be objects");
         }
 
         JsonObject root = json.getAsJsonObject();
 
-        String texture = GsonHelper.getAsString(root, "texture");
-        int textureWidth = GsonHelper.getAsInt(root, "textureWidth", Blitter.DEFAULT_TEXTURE_WIDTH);
-        int textureHeight = GsonHelper.getAsInt(root, "textureHeight", Blitter.DEFAULT_TEXTURE_HEIGHT);
+        String texture = JsonUtils.getString(root, "texture");
+        int textureWidth = JsonUtils.getInt(root, "textureWidth", Blitter.DEFAULT_TEXTURE_WIDTH);
+        int textureHeight = JsonUtils.getInt(root, "textureHeight", Blitter.DEFAULT_TEXTURE_HEIGHT);
 
         Blitter blitter;
         if (texture.contains(":")) {
-            blitter = new Blitter(ResourceLocation.parse(texture), textureWidth, textureHeight);
+            blitter = new Blitter(new ResourceLocation(texture), textureWidth, textureHeight);
         } else {
             blitter = Blitter.texture(texture, textureWidth, textureHeight);
         }
@@ -63,3 +62,4 @@ enum BlitterDeserializer implements JsonDeserializer<Blitter> {
     }
 
 }
+

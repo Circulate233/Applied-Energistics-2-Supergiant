@@ -1,38 +1,37 @@
 package appeng.api.behaviors;
 
-import com.google.common.primitives.Ints;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.capabilities.Capabilities;
-
 import appeng.api.config.Actionable;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.GenericStack;
 import appeng.util.GenericContainerHelper;
 import appeng.util.fluid.FluidSoundHelper;
+import com.google.common.primitives.Ints;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Container;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandlerItem;
+import org.jetbrains.annotations.Nullable;
 
 class FluidContainerItemStrategy
-        implements ContainerItemStrategy<AEFluidKey, FluidContainerItemStrategy.Context> {
+    implements ContainerItemStrategy<AEFluidKey, FluidContainerItemStrategy.Context> {
     @Override
     public @Nullable GenericStack getContainedStack(ItemStack stack) {
         return GenericContainerHelper.getContainedFluidStack(stack);
     }
 
     @Override
-    public @Nullable Context findCarriedContext(Player player, AbstractContainerMenu menu) {
-        if (menu.getCarried().getCapability(Capabilities.FluidHandler.ITEM) != null) {
-            return new CarriedContext(player, menu);
+    public @Nullable Context findCarriedContext(EntityPlayer player, Container container) {
+        if (player.inventory.getItemStack().hasCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null)) {
+            return new CarriedContext(player);
         }
         return null;
     }
 
     @Override
-    public @Nullable Context findPlayerSlotContext(Player player, int slot) {
-        if (player.getInventory().getItem(slot).getCapability(Capabilities.FluidHandler.ITEM) != null) {
+    public @Nullable Context findPlayerSlotContext(EntityPlayer player, int slot) {
+        if (player.inventory.getStackInSlot(slot).hasCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null)) {
             return new PlayerInvContext(player, slot);
         }
 
@@ -41,15 +40,17 @@ class FluidContainerItemStrategy
 
     @Override
     public long extract(Context context, AEFluidKey what, long amount, Actionable mode) {
-        var stack = context.getStack();
-        var copy = stack.copyWithCount(1);
-        var fluidHandler = copy.getCapability(Capabilities.FluidHandler.ITEM);
+        ItemStack stack = context.getStack();
+        ItemStack copy = stack.copy();
+        copy.setCount(1);
+        IFluidHandlerItem fluidHandler = copy.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
         if (fluidHandler == null) {
             return 0;
         }
 
-        int extracted = fluidHandler.drain(what.toStack(Ints.saturatedCast(amount)), mode.getFluidAction()).getAmount();
-        if (mode == Actionable.MODULATE) {
+        FluidStack drained = fluidHandler.drain(what.toStack(Ints.saturatedCast(amount)), mode.getFluidAction());
+        int extracted = drained != null ? drained.amount : 0;
+        if (extracted > 0 && mode == Actionable.MODULATE) {
             stack.shrink(1);
             context.addOverflow(fluidHandler.getContainer());
         }
@@ -58,15 +59,16 @@ class FluidContainerItemStrategy
 
     @Override
     public long insert(Context context, AEFluidKey what, long amount, Actionable mode) {
-        var stack = context.getStack();
-        var copy = stack.copyWithCount(1);
-        var fluidHandler = copy.getCapability(Capabilities.FluidHandler.ITEM);
+        ItemStack stack = context.getStack();
+        ItemStack copy = stack.copy();
+        copy.setCount(1);
+        IFluidHandlerItem fluidHandler = copy.getCapability(CapabilityFluidHandler.FLUID_HANDLER_ITEM_CAPABILITY, null);
         if (fluidHandler == null) {
             return 0;
         }
 
         int filled = fluidHandler.fill(what.toStack(Ints.saturatedCast(amount)), mode.getFluidAction());
-        if (mode == Actionable.MODULATE) {
+        if (filled > 0 && mode == Actionable.MODULATE) {
             stack.shrink(1);
             context.addOverflow(fluidHandler.getContainer());
         }
@@ -74,12 +76,12 @@ class FluidContainerItemStrategy
     }
 
     @Override
-    public void playFillSound(Player player, AEFluidKey what) {
+    public void playFillSound(EntityPlayer player, AEFluidKey what) {
         FluidSoundHelper.playFillSound(player, what);
     }
 
     @Override
-    public void playEmptySound(Player player, AEFluidKey what) {
+    public void playEmptySound(EntityPlayer player, AEFluidKey what) {
         FluidSoundHelper.playEmptySound(player, what);
     }
 
@@ -96,39 +98,43 @@ class FluidContainerItemStrategy
         void addOverflow(ItemStack stack);
     }
 
-    private record CarriedContext(Player player, AbstractContainerMenu menu) implements Context {
+    private record CarriedContext(EntityPlayer player) implements Context {
+
         @Override
         public ItemStack getStack() {
-            return menu.getCarried();
+            return this.player.inventory.getItemStack();
         }
 
         @Override
         public void setStack(ItemStack stack) {
-            menu.setCarried(stack);
+            this.player.inventory.setItemStack(stack);
         }
 
+        @Override
         public void addOverflow(ItemStack stack) {
-            if (menu.getCarried().isEmpty()) {
-                menu.setCarried(stack);
+            if (this.player.inventory.getItemStack().isEmpty()) {
+                this.player.inventory.setItemStack(stack);
             } else {
-                player.getInventory().placeItemBackInInventory(stack);
+                this.player.inventory.addItemStackToInventory(stack);
             }
         }
     }
 
-    private record PlayerInvContext(Player player, int slot) implements Context {
+    private record PlayerInvContext(EntityPlayer player, int slot) implements Context {
+
         @Override
         public ItemStack getStack() {
-            return player.getInventory().getItem(slot);
+            return this.player.inventory.getStackInSlot(this.slot);
         }
 
         @Override
         public void setStack(ItemStack stack) {
-            player.getInventory().setItem(slot, stack);
+            this.player.inventory.setInventorySlotContents(this.slot, stack);
         }
 
+        @Override
         public void addOverflow(ItemStack stack) {
-            player.getInventory().placeItemBackInInventory(stack);
+            this.player.inventory.addItemStackToInventory(stack);
         }
     }
 }

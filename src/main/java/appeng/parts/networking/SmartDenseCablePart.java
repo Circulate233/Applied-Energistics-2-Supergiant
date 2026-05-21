@@ -33,14 +33,11 @@ public class SmartDenseCablePart extends DenseCablePart implements IUsedChannelP
         return AECableType.DENSE_SMART;
     }
 
-    /**
-     * Send info about changed channels/power to client to update the on-cable display of channels/power.
-     */
     @Override
     protected void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
         if (reason != IGridNodeListener.State.GRID_BOOT) {
             this.getHost().markForUpdate();
         }
     }
-
 }

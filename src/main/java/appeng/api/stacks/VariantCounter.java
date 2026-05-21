@@ -1,14 +1,15 @@
 package appeng.api.stacks;
 
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.NoSuchElementException;
-
+import appeng.api.config.FuzzyMode;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMaps;
 import it.unimi.dsi.fastutil.objects.Object2LongSortedMap;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
-import appeng.api.config.FuzzyMode;
+import java.util.Collection;
+import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 /**
  * Tallies a negative or positive amount for sub-variants of a {@link AEKey}.
@@ -91,7 +92,7 @@ abstract class VariantCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
     }
 
     @Override
-    public Iterator<Object2LongMap.Entry<AEKey>> iterator() {
+    public @NonNull Iterator<Object2LongMap.Entry<AEKey>> iterator() {
         if (!dropZeros) {
             return Object2LongMaps.fastIterator(getRecords());
         }
@@ -131,49 +132,6 @@ abstract class VariantCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
             if (entry == 0) {
                 it.remove();
             }
-        }
-    }
-
-    /**
-     * Only returns entries that do not have amount 0.
-     */
-    private class NonDefaultIterator implements Iterator<Object2LongMap.Entry<AEKey>> {
-        private final Iterator<Object2LongMap.Entry<AEKey>> parent;
-        private Object2LongMap.Entry<AEKey> next;
-
-        public NonDefaultIterator() {
-            this.parent = Object2LongMaps.fastIterator(getRecords());
-            this.next = seekNext();
-        }
-
-        @Override
-        public boolean hasNext() {
-            return this.next != null;
-        }
-
-        @Override
-        public Object2LongMap.Entry<AEKey> next() {
-            if (this.next == null) {
-                throw new NoSuchElementException();
-            }
-
-            var result = this.next;
-            this.next = this.seekNext();
-            return result;
-        }
-
-        private Object2LongMap.Entry<AEKey> seekNext() {
-            while (this.parent.hasNext()) {
-                var entry = this.parent.next();
-
-                if (entry.getLongValue() == 0) {
-                    this.parent.remove();
-                } else {
-                    return entry;
-                }
-            }
-
-            return null;
         }
     }
 
@@ -229,6 +187,49 @@ abstract class VariantCounter implements Iterable<Object2LongMap.Entry<AEKey>> {
             var result = new FuzzyVariantMap();
             result.records.putAll(records);
             return result;
+        }
+    }
+
+    /**
+     * Only returns entries that do not have amount 0.
+     */
+    private class NonDefaultIterator implements Iterator<Object2LongMap.Entry<AEKey>> {
+        private final Iterator<Object2LongMap.Entry<AEKey>> parent;
+        private Object2LongMap.Entry<AEKey> next;
+
+        public NonDefaultIterator() {
+            this.parent = Object2LongMaps.fastIterator(getRecords());
+            this.next = seekNext();
+        }
+
+        @Override
+        public boolean hasNext() {
+            return this.next != null;
+        }
+
+        @Override
+        public Object2LongMap.Entry<AEKey> next() {
+            if (this.next == null) {
+                throw new NoSuchElementException();
+            }
+
+            var result = this.next;
+            this.next = this.seekNext();
+            return result;
+        }
+
+        private Object2LongMap.@Nullable Entry<AEKey> seekNext() {
+            while (this.parent.hasNext()) {
+                var entry = this.parent.next();
+
+                if (entry.getLongValue() == 0) {
+                    this.parent.remove();
+                } else {
+                    return entry;
+                }
+            }
+
+            return null;
         }
     }
 }

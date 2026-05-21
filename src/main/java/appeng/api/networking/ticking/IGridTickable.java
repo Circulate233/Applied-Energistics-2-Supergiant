@@ -29,19 +29,19 @@ import appeng.api.networking.IGridNodeService;
 /**
  * Implement on IGridHosts which want to use AE's Network Ticking Feature.
  * <p/>
- * <strong>Important note regarding IGridTickables with more then one one node:</strong>
+ * <strong>Important note regarding IGridTickables with more than one node:</strong>
  * <p/>
  * If your IGridHost hosts multiple nodes, it may be on multiple grids, or its node may be present on the same grid
- * multiple times, this is as designed, however if you choose to use the grid to tick these Hosts you must be aware that
- * they they should probably pick a single node to tick for, and not tick for each node.
+ * multiple times. This is as designed. However, if you choose to use the grid to tick these hosts, they should
+ * probably pick a single node to tick for instead of ticking for each node.
  */
 public interface IGridTickable extends IGridNodeService {
 
     /**
      * Return a valid TickingRequest to tell AE a guide for which type of responsiveness your device wants.
      * <p>
-     * This will be called for your block entity any time your block entity changes grids, this can happen at any time,
-     * so if your using the sleep feature you may wish to preserve your sleep, in the result of this method. or you can
+     * This will be called for your tile entity any time your tile entity changes grids. This can happen at any time,
+     * so if you're using the sleep feature you may wish to preserve your sleep in the result of this method, or you can
      * simply reset it.
      *
      * @return a valid new TickingRequest
@@ -49,10 +49,10 @@ public interface IGridTickable extends IGridNodeService {
     TickingRequest getTickingRequest(IGridNode node);
 
     /**
-     * AE lets you adjust your tick rate based on the results of your tick, if your block as accomplished work you may
-     * wish to increase the ticking speed, if your block is idle you may wish to slow it down.
+     * AE lets you adjust your tick rate based on the results of your tick. If your tile has accomplished work, you may
+     * wish to increase the ticking speed. If your tile is idle, you may wish to slow it down.
      * <p>
-     * Its up to you.
+     * It's up to you.
      * <p>
      * Note: this is never called if you return null from getTickingRequest.
      *

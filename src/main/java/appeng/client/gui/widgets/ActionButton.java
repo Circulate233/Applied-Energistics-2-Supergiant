@@ -18,116 +18,148 @@
 
 package appeng.client.gui.widgets;
 
-import java.util.function.Consumer;
-import java.util.regex.Pattern;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.network.chat.Component;
-
 import appeng.api.config.ActionItems;
 import appeng.client.gui.Icon;
 import appeng.core.localization.ButtonToolTips;
+import appeng.core.localization.LocalizationEnum;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import org.jetbrains.annotations.Nullable;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 public class ActionButton extends IconButton {
-    private static final Pattern PATTERN_NEW_LINE = Pattern.compile("\\n", Pattern.LITERAL);
+    private static final Pattern PATTERN_NEW_LINE = Pattern.compile("\\\\n", Pattern.LITERAL);
     private final Icon icon;
+    private final List<ITextComponent> tooltip;
 
     public ActionButton(ActionItems action, Runnable onPress) {
-        this(action, a -> onPress.run());
+        this(action, ignored -> onPress.run());
     }
 
     public ActionButton(ActionItems action, Consumer<ActionItems> onPress) {
-        super(btn -> onPress.accept(action));
-
-        ButtonToolTips displayName;
-        ButtonToolTips displayValue;
+        super(() -> onPress.accept(action));
+        LocalizationEnum title;
+        @Nullable LocalizationEnum detail;
         switch (action) {
             case COG -> {
-                icon = Icon.COG;
-                displayName = ButtonToolTips.PartitionStorage;
-                displayValue = ButtonToolTips.PartitionStorageHint;
+                this.icon = Icon.COG;
+                title = ButtonToolTips.PartitionStorage;
+                detail = ButtonToolTips.PartitionStorageHint;
             }
             case CLOSE -> {
-                icon = Icon.CLEAR;
-                displayName = ButtonToolTips.Clear;
-                displayValue = ButtonToolTips.ClearSettings;
+                this.icon = Icon.CLEAR;
+                title = ButtonToolTips.Clear;
+                detail = ButtonToolTips.ClearSettings;
             }
             case S_CLOSE -> {
-                icon = Icon.S_CLEAR;
-                displayName = ButtonToolTips.Clear;
-                displayValue = ButtonToolTips.ClearSettings;
+                this.icon = Icon.S_CLEAR;
+                title = ButtonToolTips.Clear;
+                detail = ButtonToolTips.ClearSettings;
             }
             case STASH -> {
-                icon = Icon.ARROW_UP;
-                displayName = ButtonToolTips.Stash;
-                displayValue = ButtonToolTips.StashDesc;
+                this.icon = Icon.ARROW_UP;
+                title = ButtonToolTips.Stash;
+                detail = ButtonToolTips.StashDesc;
             }
             case S_STASH -> {
-                icon = Icon.S_ARROW_UP;
-                displayName = ButtonToolTips.Stash;
-                displayValue = ButtonToolTips.StashDesc;
+                this.icon = Icon.S_ARROW_UP;
+                title = ButtonToolTips.Stash;
+                detail = ButtonToolTips.StashDesc;
             }
             case STASH_TO_PLAYER_INV -> {
-                icon = Icon.ARROW_DOWN;
-                displayName = ButtonToolTips.StashToPlayer;
-                displayValue = ButtonToolTips.StashToPlayerDesc;
+                this.icon = Icon.ARROW_DOWN;
+                title = ButtonToolTips.StashToPlayer;
+                detail = ButtonToolTips.StashToPlayerDesc;
             }
             case S_STASH_TO_PLAYER_INV -> {
-                icon = Icon.S_ARROW_DOWN;
-                displayName = ButtonToolTips.StashToPlayer;
-                displayValue = ButtonToolTips.StashToPlayerDesc;
+                this.icon = Icon.S_ARROW_DOWN;
+                title = ButtonToolTips.StashToPlayer;
+                detail = ButtonToolTips.StashToPlayerDesc;
             }
             case ENCODE -> {
-                icon = Icon.WHITE_ARROW_DOWN;
-                displayName = ButtonToolTips.Encode;
-                displayValue = ButtonToolTips.EncodeDescription;
+                this.icon = Icon.WHITE_ARROW_DOWN;
+                title = ButtonToolTips.Encode;
+                detail = ButtonToolTips.EncodeDescription;
             }
             case CYCLE_PROCESSING_OUTPUT -> {
-                icon = Icon.SCHEDULING_DEFAULT;
-                displayName = ButtonToolTips.CycleProcessingOutput;
-                displayValue = ButtonToolTips.CycleProcessingOutputTooltip;
+                this.icon = Icon.SCHEDULING_DEFAULT;
+                title = ButtonToolTips.CycleProcessingOutput;
+                detail = ButtonToolTips.CycleProcessingOutputTooltip;
             }
             case S_CYCLE_PROCESSING_OUTPUT -> {
-                icon = Icon.S_CYCLE;
-                displayName = ButtonToolTips.CycleProcessingOutput;
-                displayValue = ButtonToolTips.CycleProcessingOutputTooltip;
+                this.icon = Icon.S_CYCLE;
+                title = ButtonToolTips.CycleProcessingOutput;
+                detail = ButtonToolTips.CycleProcessingOutputTooltip;
             }
             case TERMINAL_SETTINGS -> {
-                icon = Icon.COG;
-                displayName = ButtonToolTips.TerminalSettings;
-                displayValue = null;
+                this.icon = Icon.COG;
+                title = ButtonToolTips.TerminalSettings;
+                detail = null;
             }
             default -> throw new IllegalArgumentException("Unknown ActionItem: " + action);
         }
 
-        setMessage(buildMessage(displayName, displayValue));
+        this.tooltip = buildTooltip(title, detail);
+        setMessage(this.tooltip.getFirst());
+    }
+
+    private static List<ITextComponent> buildTooltip(LocalizationEnum title, @Nullable LocalizationEnum detail) {
+        if (detail == null) {
+            return Collections.singletonList(title.text());
+        }
+
+        List<ITextComponent> lines = new ObjectArrayList<>();
+        lines.add(title.text());
+        String text = detail.getLocal();
+        text = PATTERN_NEW_LINE.matcher(text).replaceAll("\n");
+
+        for (String line : wrapTooltip(text)) {
+            lines.add(new TextComponentString(line));
+        }
+
+        return lines;
+    }
+
+    private static List<String> wrapTooltip(String text) {
+        if (text.isEmpty()) {
+            return Collections.singletonList("");
+        }
+
+        List<String> lines = new ObjectArrayList<>();
+        for (String rawLine : text.split("\n", -1)) {
+            if (rawLine.length() <= 30) {
+                lines.add(rawLine);
+                continue;
+            }
+
+            String remaining = rawLine;
+            while (remaining.length() > 30) {
+                int split = remaining.lastIndexOf(' ', 30);
+                if (split <= 0) {
+                    split = 30;
+                }
+                lines.add(remaining.substring(0, split));
+                remaining = remaining.substring(split).trim();
+            }
+            if (!remaining.isEmpty()) {
+                lines.add(remaining);
+            }
+        }
+        return lines;
+    }
+
+    @Override
+    public List<ITextComponent> getTooltipMessage() {
+        return this.tooltip;
     }
 
     @Override
     protected Icon getIcon() {
-        return icon;
+        return this.icon;
     }
-
-    private Component buildMessage(ButtonToolTips displayName, @Nullable ButtonToolTips displayValue) {
-        String name = displayName.text().getString();
-        if (displayValue == null) {
-            return Component.literal(name);
-        }
-        String value = displayValue.text().getString();
-
-        value = PATTERN_NEW_LINE.matcher(value).replaceAll("\n");
-        final StringBuilder sb = new StringBuilder(value);
-
-        int i = sb.lastIndexOf("\n");
-        if (i <= 0) {
-            i = 0;
-        }
-        while (i + 30 < sb.length() && (i = sb.lastIndexOf(" ", i + 30)) != -1) {
-            sb.replace(i, i + 1, "\n");
-        }
-
-        return Component.literal(name + '\n' + sb);
-    }
-
 }

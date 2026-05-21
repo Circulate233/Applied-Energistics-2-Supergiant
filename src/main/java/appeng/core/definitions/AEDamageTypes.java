@@ -1,17 +1,17 @@
 package appeng.core.definitions;
 
-import net.minecraft.core.registries.Registries;
-import net.minecraft.data.worldgen.BootstrapContext;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.world.damagesource.DamageType;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.DamageSource;
+import net.minecraft.util.EntityDamageSource;
 
-import appeng.core.AppEng;
+public final class AEDamageTypes {
 
-public class AEDamageTypes {
-    public static final ResourceKey<DamageType> MATTER_CANNON = ResourceKey.create(Registries.DAMAGE_TYPE,
-            AppEng.makeId("matter_cannon"));
+    public static final String MATTER_CANNON = "matter_cannon";
 
-    public static void init(BootstrapContext<DamageType> context) {
-        context.register(MATTER_CANNON, new DamageType("matter_cannon", 0.1F));
+    private AEDamageTypes() {
+    }
+
+    public static DamageSource causeMatterCannonDamage(EntityPlayer player) {
+        return new EntityDamageSource(MATTER_CANNON, player).setProjectile();
     }
 }

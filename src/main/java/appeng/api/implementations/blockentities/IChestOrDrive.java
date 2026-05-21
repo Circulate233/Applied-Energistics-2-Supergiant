@@ -23,14 +23,12 @@
 
 package appeng.api.implementations.blockentities;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.item.Item;
-
 import appeng.api.networking.security.IActionHost;
 import appeng.api.storage.MEStorage;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.StorageCell;
+import net.minecraft.item.Item;
+import org.jetbrains.annotations.Nullable;
 
 public interface IChestOrDrive extends IActionHost {
 
@@ -41,7 +39,6 @@ public interface IChestOrDrive extends IActionHost {
 
     /**
      * @param slot slot index
-     *
      * @return status of the slot, one of the above indices.
      */
     CellState getCellStatus(int slot);
@@ -53,7 +50,6 @@ public interface IChestOrDrive extends IActionHost {
 
     /**
      * @param slot slot index
-     *
      * @return is the cell currently blinking to show activity.
      */
     boolean isCellBlinking(int slot);
@@ -77,7 +73,7 @@ public interface IChestOrDrive extends IActionHost {
     /**
      * Returns the inventory of the storage cell in the given slot or null. <br>
      * NOTE: Interacting with this inventory directly will bypass any monitoring done by chests or drives and thus may
-     * not properly update things like LED colours.
+     * not properly update things like LED colors.
      */
     @Nullable
     StorageCell getOriginalCellInventory(int slot);

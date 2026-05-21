@@ -18,36 +18,67 @@
 
 package appeng.parts.p2p;
 
-import java.util.List;
-
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.energy.IEnergyStorage;
-
-import appeng.api.config.PowerUnit;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
+import net.minecraftforge.energy.CapabilityEnergy;
+import net.minecraftforge.energy.IEnergyStorage;
+
+import java.util.List;
 
 public class FEP2PTunnelPart extends CapabilityP2PTunnelPart<FEP2PTunnelPart, IEnergyStorage> {
     private static final P2PModels MODELS = new P2PModels(AppEng.makeId("part/p2p/p2p_tunnel_fe"));
     private static final IEnergyStorage NULL_ENERGY_STORAGE = new NullEnergyStorage();
+
+    public FEP2PTunnelPart(IPartItem<?> partItem) {
+        super(partItem, CapabilityEnergy.ENERGY);
+        inputHandler = new InputEnergyStorage();
+        outputHandler = new OutputEnergyStorage();
+        emptyHandler = NULL_ENERGY_STORAGE;
+    }
 
     @PartModels
     public static List<IPartModel> getModels() {
         return MODELS.getModels();
     }
 
-    public FEP2PTunnelPart(IPartItem<?> partItem) {
-        super(partItem, Capabilities.EnergyStorage.BLOCK);
-        inputHandler = new InputEnergyStorage();
-        outputHandler = new OutputEnergyStorage();
-        emptyHandler = NULL_ENERGY_STORAGE;
-    }
-
     @Override
     public IPartModel getStaticModels() {
         return MODELS.getModel(this.isPowered(), this.isActive());
+    }
+
+    private static class NullEnergyStorage implements IEnergyStorage {
+
+        @Override
+        public int receiveEnergy(int maxReceive, boolean simulate) {
+            return 0;
+        }
+
+        @Override
+        public int extractEnergy(int maxExtract, boolean simulate) {
+            return 0;
+        }
+
+        @Override
+        public int getEnergyStored() {
+            return 0;
+        }
+
+        @Override
+        public int getMaxEnergyStored() {
+            return 0;
+        }
+
+        @Override
+        public boolean canExtract() {
+            return false;
+        }
+
+        @Override
+        public boolean canReceive() {
+            return false;
+        }
     }
 
     private class InputEnergyStorage implements IEnergyStorage {
@@ -62,12 +93,12 @@ public class FEP2PTunnelPart extends CapabilityP2PTunnelPart<FEP2PTunnelPart, IE
 
             final int outputTunnels = FEP2PTunnelPart.this.getOutputs().size();
 
-            if (outputTunnels == 0 | maxReceive == 0) {
+            if (outputTunnels == 0 || maxReceive == 0) {
                 return 0;
             }
 
             final int amountPerOutput = maxReceive / outputTunnels;
-            int overflow = amountPerOutput == 0 ? maxReceive : maxReceive % amountPerOutput;
+            int overflow = maxReceive % outputTunnels;
 
             for (FEP2PTunnelPart target : FEP2PTunnelPart.this.getOutputs()) {
                 try (CapabilityGuard capabilityGuard = target.getAdjacentCapability()) {
@@ -81,7 +112,7 @@ public class FEP2PTunnelPart extends CapabilityP2PTunnelPart<FEP2PTunnelPart, IE
             }
 
             if (!simulate) {
-                deductEnergyCost(total, PowerUnit.FE);
+                deductEnergyCost(total);
             }
 
             return total;
@@ -131,7 +162,7 @@ public class FEP2PTunnelPart extends CapabilityP2PTunnelPart<FEP2PTunnelPart, IE
                 final int total = input.get().extractEnergy(maxExtract, simulate);
 
                 if (!simulate) {
-                    deductEnergyCost(total, PowerUnit.FE);
+                    deductEnergyCost(total);
                 }
 
                 return total;
@@ -167,39 +198,6 @@ public class FEP2PTunnelPart extends CapabilityP2PTunnelPart<FEP2PTunnelPart, IE
             try (CapabilityGuard input = getInputCapability()) {
                 return input.get().getEnergyStored();
             }
-        }
-    }
-
-    private static class NullEnergyStorage implements IEnergyStorage {
-
-        @Override
-        public int receiveEnergy(int maxReceive, boolean simulate) {
-            return 0;
-        }
-
-        @Override
-        public int extractEnergy(int maxExtract, boolean simulate) {
-            return 0;
-        }
-
-        @Override
-        public int getEnergyStored() {
-            return 0;
-        }
-
-        @Override
-        public int getMaxEnergyStored() {
-            return 0;
-        }
-
-        @Override
-        public boolean canExtract() {
-            return false;
-        }
-
-        @Override
-        public boolean canReceive() {
-            return false;
         }
     }
 }

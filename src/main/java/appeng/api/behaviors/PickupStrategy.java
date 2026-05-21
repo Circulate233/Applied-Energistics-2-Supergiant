@@ -1,20 +1,19 @@
 package appeng.api.behaviors;
 
-import java.util.UUID;
-
-import org.jetbrains.annotations.ApiStatus;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.stacks.AEKeyType;
 import appeng.parts.automation.StackWorldBehaviors;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.entity.Entity;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import org.jetbrains.annotations.ApiStatus;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.UUID;
 
 /**
  * Pickup strategies are used to pick up various types of game objects from within the world and convert them into a
@@ -24,6 +23,10 @@ import appeng.parts.automation.StackWorldBehaviors;
  */
 @ApiStatus.Experimental
 public interface PickupStrategy {
+    static void register(AEKeyType type, Factory factory) {
+        StackWorldBehaviors.registerPickupStrategy(type, factory);
+    }
+
     /**
      * Resets any lock-out caused by throttling of the pickup strategy. It is called at least once per tick by the
      * annihilation plane to allow the strategy to reset its lockout timer.
@@ -60,11 +63,7 @@ public interface PickupStrategy {
 
     @FunctionalInterface
     interface Factory {
-        PickupStrategy create(ServerLevel level, BlockPos fromPos, Direction fromSide, BlockEntity host,
-                ItemEnchantments enchantments, @Nullable UUID owningPlayerId);
-    }
-
-    static void register(AEKeyType type, Factory factory) {
-        StackWorldBehaviors.registerPickupStrategy(type, factory);
+        PickupStrategy create(WorldServer level, BlockPos fromPos, EnumFacing fromSide, TileEntity host,
+                              Object2IntMap<Enchantment> enchantments, @Nullable UUID owningPlayerId);
     }
 }

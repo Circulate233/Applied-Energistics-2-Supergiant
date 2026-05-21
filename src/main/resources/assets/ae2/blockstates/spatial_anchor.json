@@ -1,0 +1,195 @@
+{
+  "forge_marker": 1,
+  "variants": {
+    "facing=north,powered=false,spin=0": {
+      "model": "ae2:spatial_anchor"
+    },
+    "facing=north,powered=false,spin=1": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "z": 270 } ] }
+    },
+    "facing=north,powered=false,spin=2": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "z": 180 } ] }
+    },
+    "facing=north,powered=false,spin=3": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "z": 90 } ] }
+    },
+    "facing=south,powered=false,spin=0": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 180 } ] }
+    },
+    "facing=south,powered=false,spin=1": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 180 }, { "z": 90 } ] }
+    },
+    "facing=south,powered=false,spin=2": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 180 }, { "z": 180 } ] }
+    },
+    "facing=south,powered=false,spin=3": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 180 }, { "z": 270 } ] }
+    },
+    "facing=west,powered=false,spin=0": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 270 } ] }
+    },
+    "facing=west,powered=false,spin=1": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 270 }, { "z": 270 } ] }
+    },
+    "facing=west,powered=false,spin=2": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 270 }, { "z": 180 } ] }
+    },
+    "facing=west,powered=false,spin=3": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 270 }, { "z": 90 } ] }
+    },
+    "facing=east,powered=false,spin=0": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 90 } ] }
+    },
+    "facing=east,powered=false,spin=1": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 90 }, { "z": 270 } ] }
+    },
+    "facing=east,powered=false,spin=2": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 90 }, { "z": 180 } ] }
+    },
+    "facing=east,powered=false,spin=3": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "y": 90 }, { "z": 90 } ] }
+    },
+    "facing=up,powered=false,spin=0": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "x": 270 }, { "z": 180 } ] }
+    },
+    "facing=up,powered=false,spin=1": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "x": 270 }, { "z": 90 } ] }
+    },
+    "facing=up,powered=false,spin=2": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "x": 270 } ] }
+    },
+    "facing=up,powered=false,spin=3": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "x": 270 }, { "z": 270 } ] }
+    },
+    "facing=down,powered=false,spin=0": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "x": 90 } ] }
+    },
+    "facing=down,powered=false,spin=1": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "x": 90 }, { "z": 270 } ] }
+    },
+    "facing=down,powered=false,spin=2": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "x": 90 }, { "z": 180 } ] }
+    },
+    "facing=down,powered=false,spin=3": {
+      "model": "ae2:spatial_anchor",
+      "transform": { "rotation": [ { "x": 90 }, { "z": 90 } ] }
+    },
+    "facing=north,powered=true,spin=0": {
+      "model": "ae2:spatial_anchor_on"
+    },
+    "facing=north,powered=true,spin=1": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "z": 270 } ] }
+    },
+    "facing=north,powered=true,spin=2": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "z": 180 } ] }
+    },
+    "facing=north,powered=true,spin=3": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "z": 90 } ] }
+    },
+    "facing=south,powered=true,spin=0": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 180 } ] }
+    },
+    "facing=south,powered=true,spin=1": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 180 }, { "z": 90 } ] }
+    },
+    "facing=south,powered=true,spin=2": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 180 }, { "z": 180 } ] }
+    },
+    "facing=south,powered=true,spin=3": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 180 }, { "z": 270 } ] }
+    },
+    "facing=west,powered=true,spin=0": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 270 } ] }
+    },
+    "facing=west,powered=true,spin=1": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 270 }, { "z": 270 } ] }
+    },
+    "facing=west,powered=true,spin=2": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 270 }, { "z": 180 } ] }
+    },
+    "facing=west,powered=true,spin=3": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 270 }, { "z": 90 } ] }
+    },
+    "facing=east,powered=true,spin=0": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 90 } ] }
+    },
+    "facing=east,powered=true,spin=1": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 90 }, { "z": 270 } ] }
+    },
+    "facing=east,powered=true,spin=2": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 90 }, { "z": 180 } ] }
+    },
+    "facing=east,powered=true,spin=3": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "y": 90 }, { "z": 90 } ] }
+    },
+    "facing=up,powered=true,spin=0": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "x": 270 }, { "z": 180 } ] }
+    },
+    "facing=up,powered=true,spin=1": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "x": 270 }, { "z": 90 } ] }
+    },
+    "facing=up,powered=true,spin=2": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "x": 270 } ] }
+    },
+    "facing=up,powered=true,spin=3": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "x": 270 }, { "z": 270 } ] }
+    },
+    "facing=down,powered=true,spin=0": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "x": 90 } ] }
+    },
+    "facing=down,powered=true,spin=1": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "x": 90 }, { "z": 270 } ] }
+    },
+    "facing=down,powered=true,spin=2": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "x": 90 }, { "z": 180 } ] }
+    },
+    "facing=down,powered=true,spin=3": {
+      "model": "ae2:spatial_anchor_on",
+      "transform": { "rotation": [ { "x": 90 }, { "z": 90 } ] }
+    }
+  }
+}

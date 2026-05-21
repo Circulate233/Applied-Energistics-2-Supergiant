@@ -1,0 +1,10 @@
+{
+  "type": "ae2:charger",
+  "ingredient": {
+    "item": "minecraft:compass"
+  },
+  "result": {
+    "id": "ae2:meteorite_compass",
+    "count": 1
+  }
+}

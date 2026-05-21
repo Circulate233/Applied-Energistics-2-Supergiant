@@ -1,0 +1,26 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:charged_certus_quartz_crystal"
+    },
+    "title": {
+      "translate": "achievement.ae2.ChargedQuartz"
+    },
+    "description": {
+      "translate": "achievement.ae2.ChargedQuartz.desc"
+    }
+  },
+  "parent": "ae2:main/charger",
+  "criteria": {
+    "certus": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:charged_certus_quartz_crystal"
+          }
+        ]
+      }
+    }
+  }
+}

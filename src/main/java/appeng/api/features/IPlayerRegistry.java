@@ -23,16 +23,13 @@
 
 package appeng.api.features;
 
-import java.util.UUID;
-
 import com.mojang.authlib.GameProfile;
-
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.level.Level;
+import java.util.UUID;
 
 /**
  * Maintains a save specific list of userids and username combinations this greatly simplifies storage internally and
@@ -51,9 +48,9 @@ public interface IPlayerRegistry {
      * will be returned for client-side levels.
      */
     @Nullable
-    static IPlayerRegistry getMapping(Level level) {
-        if (!level.isClientSide() && level instanceof ServerLevel serverLevel) {
-            return getMapping(serverLevel.getServer());
+    static IPlayerRegistry getMapping(World world) {
+        if (!world.isRemote) {
+            return getMapping(world.getMinecraftServer());
         }
         return null;
     }
@@ -61,7 +58,7 @@ public interface IPlayerRegistry {
     /**
      * Convenience method to get the ME player id associated with a connected player.
      */
-    static int getPlayerId(ServerPlayer player) {
+    static int getPlayerId(EntityPlayerMP player) {
         return getMapping(player.getServer()).getPlayerId(player.getGameProfile());
     }
 
@@ -70,14 +67,14 @@ public interface IPlayerRegistry {
      * reasons: the ME player id is unknown, or the player associated with the given ID is not logged onto the server.
      */
     @Nullable
-    static ServerPlayer getConnected(MinecraftServer server, int playerId) {
+    static EntityPlayerMP getConnected(MinecraftServer server, int playerId) {
         var uuid = getMapping(server).getProfileId(playerId);
         if (uuid == null) {
             // No such player
             return null;
         }
 
-        return server.getPlayerList().getPlayer(uuid);
+        return server.getPlayerList().getPlayerByUUID(uuid);
     }
 
     /**
@@ -86,7 +83,7 @@ public interface IPlayerRegistry {
      * <p/>
      *
      * @return -1 if the given profile has no id set. Usually, the game should create a stable UUID even for offline
-     *         players by hashing their name.
+     * players by hashing their name.
      */
     default int getPlayerId(GameProfile gameProfile) {
         var profileId = gameProfile.getId();

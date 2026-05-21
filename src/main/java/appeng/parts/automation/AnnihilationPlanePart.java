@@ -18,26 +18,6 @@
 
 package appeng.parts.automation;
 
-import java.util.List;
-
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.component.DataComponentMap;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtOps;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.BlockGetter;
-import net.neoforged.neoforge.client.model.data.ModelData;
-
 import appeng.api.behaviors.PickupStrategy;
 import appeng.api.config.Actionable;
 import appeng.api.networking.GridFlags;
@@ -61,33 +41,36 @@ import appeng.items.parts.PartModels;
 import appeng.me.helpers.MachineSource;
 import appeng.parts.AEBasePart;
 import appeng.util.SettingsFrom;
+import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMaps;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.enchantment.EnchantmentHelper;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.WorldServer;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collections;
+import java.util.List;
 
 public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AnnihilationPlanePart.class);
-
     private static final PlaneModels MODELS = new PlaneModels("part/annihilation_plane",
-            "part/annihilation_plane_on");
-
-    @PartModels
-    public static List<IPartModel> getModels() {
-        return MODELS.getModels();
-    }
-
+        "part/annihilation_plane_on");
     private final IActionSource actionSource = new MachineSource(this);
-
     private final PlaneConnectionHelper connectionHelper = new PlaneConnectionHelper(this);
-
     @Nullable
     protected List<PickupStrategy> pickupStrategies;
-
-    /**
-     * Enchantments found on the plane when it was placed will be used to enchant the fake tool used for picking up
-     * blocks.
-     */
-    private ItemEnchantments enchantments = ItemEnchantments.EMPTY;
-
-    // Allows annihilation planes to stop pickup and instead go into a continuous generation mode
+    private Object2IntMap<Enchantment> enchantments = new Object2IntLinkedOpenHashMap<>();
     private ContinuousGeneration continuousGeneration;
     private int continuousGenerationTicks;
 
@@ -97,139 +80,143 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
         getMainNode().setFlags(GridFlags.REQUIRE_CHANNEL);
     }
 
+    @PartModels
+    public static List<IPartModel> getModels() {
+        return MODELS.getModels();
+    }
+
+    private static Object2IntMap<Enchantment> readEnchantments(NBTTagList enchantmentsTag) {
+        ItemStack stack = new ItemStack(Items.DIAMOND_PICKAXE);
+        stack.setTagInfo("ench", enchantmentsTag.copy());
+        return new Object2IntLinkedOpenHashMap<>(EnchantmentHelper.getEnchantments(stack));
+    }
+
+    private static NBTTagList writeEnchantments(Object2IntMap<Enchantment> enchantments) {
+        ItemStack stack = new ItemStack(Items.DIAMOND_PICKAXE);
+        EnchantmentHelper.setEnchantments(enchantments, stack);
+        return stack.getEnchantmentTagList().copy();
+    }
+
     @Override
     public void addToWorld() {
         super.addToWorld();
 
-        var host = getBlockEntity();
-        var buildHeight = host.getLevel().getMaxBuildHeight();
+        TileEntity host = getTileEntity();
+        int buildHeight = host.getWorld().getActualHeight();
 
-        continuousGenerationTicks = 0;
-        continuousGeneration = null;
-        // When placed at max build height facing up, continuously generate 1 sky stone dust / 10 seconds
+        this.continuousGenerationTicks = 0;
+        this.continuousGeneration = null;
         if (AEConfig.instance().isAnnihilationPlaneSkyDustGenerationEnabled()
-                && host.getBlockPos().getY() + 1 >= buildHeight && getSide() == Direction.UP) {
-            continuousGeneration = new ContinuousGeneration(
-                    AEItemKey.of(AEItems.SKY_DUST),
-                    1,
-                    200);
+            && host.getPos().getY() + 1 >= buildHeight && getSide() == EnumFacing.UP) {
+            this.continuousGeneration = new ContinuousGeneration(AEItemKey.of(AEItems.SKY_DUST.asItem()), 1, 200);
         }
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.readFromNBT(data, registries);
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
 
-        var enchantmentsTag = data.getCompound("enchantments");
-        var ops = registries.createSerializationContext(NbtOps.INSTANCE);
-        this.enchantments = ItemEnchantments.CODEC.decode(ops, enchantmentsTag)
-                .ifError(err -> LOG.warn("Failed to load enchantments for part {}: {}", this, err.message()))
-                .getOrThrow()
-                .getFirst();
-    }
-
-    @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.writeToNBT(data, registries);
-
-        var ops = registries.createSerializationContext(NbtOps.INSTANCE);
-        var enchantmentsTag = ItemEnchantments.CODEC.encodeStart(ops, enchantments).getOrThrow();
-        if (enchantmentsTag instanceof CompoundTag compoundTag && !compoundTag.isEmpty()) {
-            data.put("enchantments", enchantmentsTag);
+        if (data.hasKey("enchantments", 9)) {
+            this.enchantments = readEnchantments(data.getTagList("enchantments", 10));
+        } else {
+            this.enchantments = new Object2IntLinkedOpenHashMap<>();
         }
     }
 
     @Override
-    public void importSettings(SettingsFrom mode, DataComponentMap data, @Nullable Player player) {
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+
+        if (!this.enchantments.isEmpty()) {
+            data.setTag("enchantments", writeEnchantments(this.enchantments));
+        }
+    }
+
+    @Override
+    public void importSettings(SettingsFrom mode, NBTTagCompound data, @Nullable EntityPlayer player) {
         super.importSettings(mode, data, player);
-        // Import enchants only when the plan is placed, not from memory cards
-        if (mode == SettingsFrom.DISMANTLE_ITEM) {
-            this.enchantments = data.get(DataComponents.ENCHANTMENTS);
+        if (mode == SettingsFrom.DISMANTLE_ITEM && data.hasKey("enchantments", 9)) {
+            this.enchantments = readEnchantments(data.getTagList("enchantments", 10));
         }
-        pickupStrategies = null;
+        this.pickupStrategies = null;
     }
 
     @Override
-    public void exportSettings(SettingsFrom mode, DataComponentMap.Builder data) {
+    public void exportSettings(SettingsFrom mode, NBTTagCompound data) {
         super.exportSettings(mode, data);
-        // Save enchants only when the actual plane is dismantled
-        if (mode == SettingsFrom.DISMANTLE_ITEM) {
-            data.set(DataComponents.ENCHANTMENTS, enchantments);
+        if (mode == SettingsFrom.DISMANTLE_ITEM && !this.enchantments.isEmpty()) {
+            data.setTag("enchantments", writeEnchantments(this.enchantments));
         }
     }
 
-    public ItemEnchantments getEnchantments() {
-        return enchantments;
+    public Object2IntMap<Enchantment> getEnchantments() {
+        return Object2IntMaps.unmodifiable(this.enchantments);
     }
 
     protected List<PickupStrategy> getPickupStrategies() {
-        if (pickupStrategies == null) {
-            // Don't initialize if the node is not initialized yet
-            var node = getMainNode().getNode();
+        if (this.pickupStrategies == null) {
+            IGridNode node = getMainNode().getNode();
             if (node == null) {
-                return List.of();
+                return Collections.emptyList();
             }
-            var self = this.getHost().getBlockEntity();
-            var pos = self.getBlockPos().relative(this.getSide());
-            var side = getSide().getOpposite();
-            var owner = node.getOwningPlayerProfileId();
-            pickupStrategies = StackWorldBehaviors.createPickupStrategies((ServerLevel) self.getLevel(),
-                    pos, side, self, enchantments, owner);
+            EnumFacing partSide = this.getSide();
+            if (partSide == null) {
+                return Collections.emptyList();
+            }
+
+            TileEntity self = this.getHost().getTileEntity();
+            BlockPos pos = self.getPos().offset(partSide);
+            EnumFacing side = partSide.getOpposite();
+            java.util.UUID owner = node.getOwningPlayerProfileId();
+            this.pickupStrategies = StackWorldBehaviors.createPickupStrategies((WorldServer) self.getWorld(),
+                pos, side, self, this.enchantments, owner);
         }
-        return pickupStrategies;
+        return this.pickupStrategies;
     }
 
     @Override
     public void getBoxes(IPartCollisionHelper bch) {
-
-        // For collision, we're using a simplified bounding box
         if (bch.isBBCollision()) {
-            // The smaller collision hitbox here is needed to allow for the entity collision event
             bch.addBox(0, 0, 14, 16, 16, 15.5);
             return;
         }
 
-        connectionHelper.getBoxes(bch);
-
+        this.connectionHelper.getBoxes(bch);
     }
 
-    /**
-     * @return An object describing which adjacent planes this plane connects to visually.
-     */
     public PlaneConnections getConnections() {
-        return connectionHelper.getConnections();
+        return this.connectionHelper.getConnections();
     }
 
     @Override
-    public void onNeighborChanged(BlockGetter level, BlockPos pos, BlockPos neighbor) {
-        if (pos.relative(this.getSide()).equals(neighbor)) {
-            if (!isClientSide()) {
-                this.refresh();
-            }
+    public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
+        if (pos.offset(this.getSide()).equals(neighbor) && !isClientSide()) {
+            this.refresh();
         }
     }
 
     @Override
-    public void onUpdateShape(Direction side) {
-        var ourSide = getSide();
-        // A block might have been placed in front of us
-        if (side.equals(ourSide)) {
+    public void onUpdateShape(EnumFacing side) {
+        EnumFacing ourSide = getSide();
+        if (ourSide == null) {
+            return;
+        }
+        if (side == ourSide) {
             if (!isClientSide()) {
                 this.refresh();
             }
         } else if (ourSide.getAxis() != side.getAxis()) {
-            // Changes perpendicular to our side may change the connected plane model to change
-            connectionHelper.updateConnections();
+            this.connectionHelper.updateConnections();
         }
     }
 
     @Override
     public void onEntityCollision(Entity entity) {
-        if (!entity.isAlive() || isClientSide() || !this.getMainNode().isActive()) {
+        if (!entity.isEntityAlive() || isClientSide() || !this.getMainNode().isActive()) {
             return;
         }
 
-        var grid = getMainNode().getGrid();
+        appeng.api.networking.IGrid grid = getMainNode().getGrid();
         if (grid == null) {
             return;
         }
@@ -245,23 +232,26 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
             return;
         }
 
-        var pos = getHost().getBlockEntity().getBlockPos();
-        var planePosX = pos.getX();
-        var planePosY = pos.getY();
-        var planePosZ = pos.getZ();
+        BlockPos pos = getHost().getTileEntity().getPos();
+        double planePosX = pos.getX();
+        double planePosY = pos.getY();
+        double planePosZ = pos.getZ();
 
-        // This is the middle point of the entities BB, which is better suited for comparisons
-        // that don't rely on it "touching" the plane
-        var posYMiddle = (entity.getBoundingBox().minY + entity.getBoundingBox().maxY) / 2.0D;
-        var entityPosX = entity.getX();
-        var entityPosY = entity.getY();
-        var entityPosZ = entity.getZ();
+        double posYMiddle = (entity.getEntityBoundingBox().minY + entity.getEntityBoundingBox().maxY) / 2.0D;
+        double entityPosX = entity.posX;
+        double entityPosY = entity.posY;
+        double entityPosZ = entity.posZ;
 
-        var captureX = entityPosX > planePosX && entityPosX < planePosX + 1;
-        var captureY = posYMiddle > planePosY && posYMiddle < planePosY + 1;
-        var captureZ = entityPosZ > planePosZ && entityPosZ < planePosZ + 1;
+        boolean captureX = entityPosX > planePosX && entityPosX < planePosX + 1;
+        boolean captureY = posYMiddle > planePosY && posYMiddle < planePosY + 1;
+        boolean captureZ = entityPosZ > planePosZ && entityPosZ < planePosZ + 1;
 
-        var capture = switch (getSide()) {
+        EnumFacing side = getSide();
+        if (side == null) {
+            return;
+        }
+
+        boolean capture = switch (side) {
             case DOWN -> captureX && captureZ && entityPosY < planePosY + 0.1;
             case UP -> captureX && captureZ && entityPosY > planePosY + 0.9;
             case SOUTH -> captureX && captureY && entityPosZ > planePosZ + 0.9;
@@ -270,12 +260,8 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
             case WEST -> captureZ && captureY && entityPosX < planePosX + 0.1;
         };
 
-        if (capture) {
-            if (!strategy.pickUpEntity(grid.getEnergyService(), this::insertIntoGrid, entity)) {
-                // we need to wake up the block entity in case an entity pickup fails
-                // to reset the "blocked" flags internal to the pickup strategy.
-                getMainNode().ifPresent((g, n) -> g.getTickManager().alertDevice(n));
-            }
+        if (capture && !strategy.pickUpEntity(grid.getEnergyService(), this::insertIntoGrid, entity)) {
+            getMainNode().ifPresent((g, n) -> g.getTickManager().alertDevice(n));
         }
     }
 
@@ -304,30 +290,30 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
             return TickRateModulation.SLEEP;
         }
 
-        var grid = node.getGrid();
+        appeng.api.networking.IGrid grid = node.getGrid();
 
-        if (continuousGeneration != null) {
-            continuousGenerationTicks += ticksSinceLastCall;
-            if (continuousGenerationTicks >= continuousGeneration.ticks) {
-                long amount = continuousGenerationTicks / continuousGeneration.ticks;
-                insertIntoGrid(continuousGeneration.what, amount, Actionable.MODULATE);
-                continuousGenerationTicks -= amount * continuousGeneration.ticks;
+        if (this.continuousGeneration != null) {
+            this.continuousGenerationTicks += ticksSinceLastCall;
+            if (this.continuousGenerationTicks >= this.continuousGeneration.ticks()) {
+                long amount = this.continuousGenerationTicks / this.continuousGeneration.ticks();
+                insertIntoGrid(this.continuousGeneration.what(), amount * this.continuousGeneration.amount(),
+                    Actionable.MODULATE);
+                this.continuousGenerationTicks = (int) (this.continuousGenerationTicks
+                    - amount * this.continuousGeneration.ticks());
             }
             return TickRateModulation.IDLE;
         }
 
-        // Reset to allow more entity pickups
-        for (var pickupStrategy : getPickupStrategies()) {
+        for (PickupStrategy pickupStrategy : getPickupStrategies()) {
             pickupStrategy.reset();
         }
 
         for (PickupStrategy pickupStrategy : getPickupStrategies()) {
-            var pickupResult = pickupStrategy.tryPickup(grid.getEnergyService(), this::insertIntoGrid);
+            PickupStrategy.Result pickupResult = pickupStrategy.tryPickup(grid.getEnergyService(), this::insertIntoGrid);
 
             if (pickupResult == PickupStrategy.Result.PICKED_UP) {
                 return TickRateModulation.URGENT;
             } else if (pickupResult == PickupStrategy.Result.CANT_STORE) {
-                // If there's a compatible block, but we can't store it, wait longer
                 return TickRateModulation.IDLE;
             }
         }
@@ -336,7 +322,7 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
     }
 
     private void refresh() {
-        for (var pickupStrategy : getPickupStrategies()) {
+        for (PickupStrategy pickupStrategy : getPickupStrategies()) {
             pickupStrategy.reset();
         }
 
@@ -344,12 +330,12 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
     }
 
     private long insertIntoGrid(AEKey what, long amount, Actionable mode) {
-        var grid = getMainNode().getGrid();
+        appeng.api.networking.IGrid grid = getMainNode().getGrid();
         if (grid == null) {
             return 0;
         }
         return StorageHelper.poweredInsert(grid.getEnergyService(), grid.getStorageService().getInventory(),
-                what, amount, this.actionSource, mode);
+            what, amount, this.actionSource, mode);
     }
 
     @Override
@@ -358,15 +344,10 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
     }
 
     @Override
-    public ModelData getModelData() {
-        return ModelData.builder()
-                .with(PlaneModelData.CONNECTIONS, getConnections())
-                .build();
+    public Object getModelData() {
+        return this.getConnections();
     }
 
-    private record ContinuousGeneration(
-            AEKey what,
-            long amount,
-            int ticks) {
+    private record ContinuousGeneration(AEKey what, long amount, int ticks) {
     }
 }

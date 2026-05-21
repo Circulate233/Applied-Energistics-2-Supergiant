@@ -43,5 +43,5 @@ public interface IEnergySource {
      * @return returns extracted power.
      */
     double extractAEPower(double amt, Actionable mode,
-            PowerMultiplier usePowerMultiplier);
+                          PowerMultiplier usePowerMultiplier);
 }

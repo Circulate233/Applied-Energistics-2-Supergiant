@@ -1,11 +1,5 @@
 package appeng.integration.modules.igtooltip.parts;
 
-import net.minecraft.ChatFormatting;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.entity.player.Player;
-
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
@@ -14,105 +8,104 @@ import appeng.core.localization.InGameTooltip;
 import appeng.parts.p2p.MEP2PTunnelPart;
 import appeng.parts.p2p.P2PTunnelPart;
 import appeng.util.Platform;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentString;
 
-/**
- * Provides information about a P2P tunnel to WAILA.
- */
 @SuppressWarnings("rawtypes")
 public final class P2PStateDataProvider implements BodyProvider<P2PTunnelPart>, ServerDataProvider<P2PTunnelPart> {
-    private static final byte STATE_UNLINKED = 0;
-    private static final byte STATE_OUTPUT = 1;
-    private static final byte STATE_INPUT = 2;
     public static final String TAG_P2P_STATE = "p2pState";
     public static final String TAG_P2P_OUTPUTS = "p2pOutputs";
     public static final String TAG_P2P_FREQUENCY = "p2pFrequency";
     public static final String TAG_P2P_FREQUENCY_NAME = "p2pFrequencyName";
     public static final String TAG_P2P_ME_CARRIED_CHANNELS = "p2pCarriedChannels";
+    private static final byte STATE_UNLINKED = 0;
+    private static final byte STATE_OUTPUT = 1;
+    private static final byte STATE_INPUT = 2;
+
+    private static ITextComponent getOutputText(int outputs) {
+        if (outputs <= 1) {
+            return InGameTooltip.P2PInputOneOutput.text();
+        }
+        return InGameTooltip.P2PInputManyOutputs.text(outputs);
+    }
 
     @Override
     public void buildTooltip(P2PTunnelPart object, TooltipContext context, TooltipBuilder tooltip) {
-        var serverData = context.serverData();
+        NBTTagCompound serverData = context.serverData();
 
-        if (serverData.contains(TAG_P2P_STATE, Tag.TAG_BYTE)) {
-            var state = serverData.getByte(TAG_P2P_STATE);
-            var outputs = serverData.getInt(TAG_P2P_OUTPUTS);
+        if (serverData.hasKey(TAG_P2P_STATE, 1)) {
+            byte state = serverData.getByte(TAG_P2P_STATE);
+            int outputs = serverData.getInteger(TAG_P2P_OUTPUTS);
 
             switch (state) {
-                case STATE_UNLINKED -> tooltip.addLine(InGameTooltip.P2PUnlinked.text());
-                case STATE_OUTPUT -> tooltip.addLine(InGameTooltip.P2POutput.text());
-                case STATE_INPUT -> tooltip.addLine(getOutputText(outputs));
+                case STATE_UNLINKED:
+                    tooltip.addLine(InGameTooltip.P2PUnlinked.text());
+                    break;
+                case STATE_OUTPUT:
+                    tooltip.addLine(InGameTooltip.P2POutput.text());
+                    break;
+                case STATE_INPUT:
+                    tooltip.addLine(getOutputText(outputs));
+                    break;
+                default:
+                    break;
             }
 
-            var freq = serverData.getShort(TAG_P2P_FREQUENCY);
-
-            // Show the frequency and name of the frequency if it exists
-            var freqTooltip = Platform.p2p().toColoredHexString(freq).withStyle(ChatFormatting.BOLD);
-            if (serverData.contains(TAG_P2P_FREQUENCY_NAME, Tag.TAG_STRING)) {
-                var freqName = serverData.getString(TAG_P2P_FREQUENCY_NAME);
-                freqTooltip = Component.literal(freqName).append(" (").append(freqTooltip).append(")");
+            short freq = serverData.getShort(TAG_P2P_FREQUENCY);
+            ITextComponent freqTooltip = Platform.p2p().toColoredHexString(freq).setStyle(new Style().setBold(true));
+            if (serverData.hasKey(TAG_P2P_FREQUENCY_NAME, 8)) {
+                String freqName = serverData.getString(TAG_P2P_FREQUENCY_NAME);
+                freqTooltip = new TextComponentString(freqName).appendText(" (").appendSibling(freqTooltip).appendText(")");
             }
 
             tooltip.addLine(InGameTooltip.P2PFrequency.text(freqTooltip));
 
-            if (serverData.contains(TAG_P2P_ME_CARRIED_CHANNELS, Tag.TAG_INT)) {
-                var carriedChannels = serverData.getInt(TAG_P2P_ME_CARRIED_CHANNELS);
+            if (serverData.hasKey(TAG_P2P_ME_CARRIED_CHANNELS, 3)) {
+                int carriedChannels = serverData.getInteger(TAG_P2P_ME_CARRIED_CHANNELS);
                 tooltip.addLine(InGameTooltip.P2PMECarriedChannels.text(carriedChannels));
             }
         }
     }
 
     @Override
-    public void provideServerData(Player player, P2PTunnelPart part, CompoundTag serverData) {
+    public void provideServerData(EntityPlayer player, P2PTunnelPart part, NBTTagCompound serverData) {
         if (!part.isPowered()) {
             return;
         }
 
-        // Frequency
-        serverData.putShort(TAG_P2P_FREQUENCY, part.getFrequency());
+        serverData.setShort(TAG_P2P_FREQUENCY, part.getFrequency());
 
-        // The default state
         byte state = STATE_UNLINKED;
         if (!part.isOutput()) {
-            var outputCount = part.getOutputs().size();
+            int outputCount = part.getOutputs().size();
             if (outputCount > 0) {
-                // Only set it to INPUT if we know there are any outputs
                 state = STATE_INPUT;
-                serverData.putInt(TAG_P2P_OUTPUTS, outputCount);
+                serverData.setInteger(TAG_P2P_OUTPUTS, outputCount);
             }
 
-            // If this is the input, and it is named, show that name as the frequency name
             if (part.getCustomName() != null) {
-                serverData.putString(TAG_P2P_FREQUENCY_NAME, part.getCustomName().getString());
+                serverData.setString(TAG_P2P_FREQUENCY_NAME, part.getCustomName().getUnformattedText());
             }
         } else {
             var input = part.getInput();
             if (input != null) {
                 state = STATE_OUTPUT;
-                // If the input is named, show that name as the frequency name
                 if (input.getCustomName() != null) {
-                    serverData.putString(TAG_P2P_FREQUENCY_NAME, input.getCustomName().getString());
+                    serverData.setString(TAG_P2P_FREQUENCY_NAME, input.getCustomName().getUnformattedText());
                 }
             }
         }
 
-        serverData.putByte(TAG_P2P_STATE, state);
+        serverData.setByte(TAG_P2P_STATE, state);
 
-        // For ME P2P Tunnels, show the number of channels that are carried through the P2P
         if (part instanceof MEP2PTunnelPart meTunnel) {
             var externalNode = meTunnel.getExternalFacingNode();
             if (externalNode != null) {
-                var channels = externalNode.getUsedChannels();
-                serverData.putInt(TAG_P2P_ME_CARRIED_CHANNELS, channels);
+                serverData.setInteger(TAG_P2P_ME_CARRIED_CHANNELS, externalNode.getUsedChannels());
             }
         }
     }
-
-    private static Component getOutputText(int outputs) {
-        if (outputs <= 1) {
-            return InGameTooltip.P2PInputOneOutput.text();
-        } else {
-            return InGameTooltip.P2PInputManyOutputs.text(outputs);
-        }
-    }
-
 }

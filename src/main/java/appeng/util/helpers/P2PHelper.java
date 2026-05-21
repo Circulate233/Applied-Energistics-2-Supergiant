@@ -18,43 +18,60 @@
 
 package appeng.util.helpers;
 
-import com.google.common.base.Preconditions;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.MutableComponent;
-
 import appeng.api.util.AEColor;
+import com.google.common.base.Preconditions;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
 
 public class P2PHelper {
+    private static final String[] HEX_DIGITS = {
+        "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"
+    };
+    private static final TextFormatting[] COLOR_FORMATTINGS = {
+        TextFormatting.WHITE,
+        TextFormatting.GRAY,
+        TextFormatting.DARK_GRAY,
+        TextFormatting.DARK_GRAY,
+        TextFormatting.GREEN,
+        TextFormatting.YELLOW,
+        TextFormatting.GOLD,
+        TextFormatting.GOLD,
+        TextFormatting.RED,
+        TextFormatting.LIGHT_PURPLE,
+        TextFormatting.LIGHT_PURPLE,
+        TextFormatting.DARK_PURPLE,
+        TextFormatting.BLUE,
+        TextFormatting.AQUA,
+        TextFormatting.DARK_AQUA,
+        TextFormatting.DARK_GREEN
+    };
+
+    private static int getFrequencyNibble(short frequency, int i) {
+        return frequency >> 4 * (3 - i) & 0xF;
+    }
 
     public AEColor[] toColors(short frequency) {
         final AEColor[] colors = new AEColor[4];
 
         for (int i = 0; i < 4; i++) {
             int nibble = getFrequencyNibble(frequency, i);
-
             colors[i] = AEColor.values()[nibble];
         }
 
         return colors;
     }
 
-    private static int getFrequencyNibble(short frequency, int i) {
-        return frequency >> 4 * (3 - i) & 0xF;
-    }
-
     public short fromColors(AEColor[] colors) {
         Preconditions.checkArgument(colors.length == 4);
 
-        int t = 0;
-
+        int packed = 0;
         for (int i = 0; i < 4; i++) {
-            int code = colors[3 - i].ordinal() << 4 * i;
-
-            t |= code;
+            packed |= colors[3 - i].ordinal() << 4 * i;
         }
 
-        return (short) (t & 0xFFFF);
+        return (short) (packed & 0xFFFF);
     }
 
     public String toHexDigit(AEColor color) {
@@ -62,23 +79,19 @@ public class P2PHelper {
     }
 
     public String toHexString(short frequency) {
-        return String.format("%04X", frequency);
+        return String.format("%04X", frequency & 0xFFFF);
     }
 
-    private static final String[] HEX_DIGITS = {
-            "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "A", "B", "C", "D", "E", "F"
-    };
+    public ITextComponent toColoredHexString(short frequency) {
+        ITextComponent parent = new TextComponentString("");
 
-    public MutableComponent toColoredHexString(short frequency) {
-        var parent = Component.empty();
-
-        for (var i = 0; i < 4; i++) {
-            var nibble = getFrequencyNibble(frequency, i);
-            parent.append(Component.literal(HEX_DIGITS[nibble])
-                    .withColor(AEColor.values()[nibble].whiteVariant));
+        for (int i = 0; i < 4; i++) {
+            int nibble = getFrequencyNibble(frequency, i);
+            TextComponentString child = new TextComponentString(HEX_DIGITS[nibble]);
+            child.setStyle(new Style().setColor(COLOR_FORMATTINGS[nibble]));
+            parent.appendSibling(child);
         }
 
         return parent;
     }
-
 }

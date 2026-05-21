@@ -18,74 +18,65 @@
 
 package appeng.items.parts;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.chat.Component;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.item.BlockItem;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.EmptyBlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.RenderShape;
-import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.block.state.BlockState;
-
 import appeng.api.ids.AEComponents;
-import appeng.api.ids.AETags;
 import appeng.api.implementations.items.IFacadeItem;
 import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPartHost;
-import appeng.api.parts.PartHelper;
 import appeng.facade.FacadePart;
 import appeng.items.AEBaseItem;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import net.minecraft.block.Block;
+import net.minecraft.block.SoundType;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumBlockRenderType;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.SoundCategory;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.player.PlayerDestroyItemEvent;
+import org.jetbrains.annotations.Nullable;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class FacadeItem extends AEBaseItem implements IFacadeItem {
 
-    public FacadeItem(Properties properties) {
-        super(properties);
+    private static final String TAG_ITEM_ID = "item";
+    private static final String TAG_DAMAGE = "damage";
+    private static final Set<ResourceLocation> FACADE_BLOCK_WHITELIST = createFacadeBlockWhitelist();
+    private List<ItemStack> subTypes;
+
+    public FacadeItem() {
+        this.setHasSubtypes(true);
     }
 
-    @Override
-    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        if (stack.getItem() != this) {
-            return InteractionResult.PASS;
-        }
-
-        var level = context.getLevel();
-        var pos = context.getClickedPos();
-        var player = context.getPlayer();
-
-        var facade = createPartFromItemStack(stack, context.getClickedFace());
-        if (facade == null || !placeFacade(facade, level, pos)) {
-            return InteractionResult.PASS;
-        }
-
-        if (!level.isClientSide && player != null && !player.isCreative()) {
-            stack.grow(-1);
-            if (stack.isEmpty()) {
-                player.setItemInHand(context.getHand(), ItemStack.EMPTY);
-            }
-        }
-
-        return InteractionResult.sidedSuccess(level.isClientSide);
+    private static Set<ResourceLocation> createFacadeBlockWhitelist() {
+        Set<ResourceLocation> whitelist = new ObjectOpenHashSet<>();
+        whitelist.add(new ResourceLocation("ae2", "quartz_glass"));
+        whitelist.add(new ResourceLocation("ae2", "quartz_vibrant_glass"));
+        whitelist.add(new ResourceLocation("minecraft", "furnace"));
+        whitelist.add(new ResourceLocation("minecraft", "dropper"));
+        whitelist.add(new ResourceLocation("minecraft", "dispenser"));
+        return whitelist;
     }
 
-    public static boolean canPlaceFacade(IPartHost host, IFacadePart facade) {
-        // Can only place a facade on cables if there's actually a cable at the center to hold them
-        if (host.getPart(null) == null) {
-            return false;
-        }
-
-        return host.getFacadeContainer().canAddFacade(facade);
-    }
-
-    private static boolean placeFacade(FacadePart facade, Level level, BlockPos blockPos) {
-        var host = PartHelper.getPartHost(level, blockPos);
+    private static boolean placeFacade(FacadePart facade, World world, BlockPos pos) {
+        IPartHost host = appeng.api.parts.PartHelper.getPartHost(world, pos);
         if (host == null) {
             return false;
         }
@@ -98,119 +89,230 @@ public class FacadeItem extends AEBaseItem implements IFacadeItem {
             return false;
         }
 
-        // Play a placement sound of the underlying block
-        BlockState blockState = facade.getBlockState();
-        SoundType soundType = blockState.getSoundType();
-        level.playSound(null, blockPos, soundType.getPlaceSound(), SoundSource.BLOCKS,
-                (soundType.getVolume() + 1.0F) / 2.0F,
-                soundType.getPitch() * 0.8F);
+        SoundType soundType = facade.getBlockState().getBlock().getSoundType(facade.getBlockState(), world, pos, null);
+        world.playSound(null, pos, soundType.getPlaceSound(), SoundCategory.BLOCKS,
+            (soundType.getVolume() + 1.0F) / 2.0F, soundType.getPitch() * 0.8F);
 
         host.markForSave();
         host.markForUpdate();
         return true;
     }
 
-    public static IFacadePart createFacade(ItemStack held, Direction side) {
-        if (held.getItem() instanceof IFacadeItem) {
-            return ((IFacadeItem) held.getItem()).createPartFromItemStack(held, side);
+    public static boolean canPlaceFacade(IPartHost host, FacadePart facade) {
+        if (host == null || facade == null) {
+            return false;
         }
 
+        if (host.getPart(null) == null) {
+            return false;
+        }
+
+        return host.getFacadeContainer().canAddFacade(facade);
+    }
+
+    @SuppressWarnings("unused")
+    @Nullable
+    public static IFacadePart createFacade(ItemStack held, EnumFacing side) {
+        if (held.getItem() instanceof IFacadeItem facadeItem) {
+            return facadeItem.createPartFromItemStack(held, side);
+        }
         return null;
     }
 
     @Override
-    public Component getName(ItemStack is) {
-        try {
-            final ItemStack in = this.getTextureItem(is);
-            if (!in.isEmpty()) {
-                return super.getName(is).copy().append(" - ").append(in.getHoverName());
-            }
-        } catch (Throwable ignored) {
-
+    public EnumActionResult onItemUseFirst(EntityPlayer player, World world, BlockPos pos, EnumFacing side, float hitX,
+                                           float hitY, float hitZ, EnumHand hand) {
+        ItemStack stack = player.getHeldItem(hand);
+        if (stack.getItem() != this) {
+            return EnumActionResult.PASS;
         }
 
-        return super.getName(is);
+        FacadePart facade = createPartFromItemStack(stack, side);
+        if (!placeFacade(facade, world, pos)) {
+            return EnumActionResult.PASS;
+        }
+
+        if (!world.isRemote) {
+            if (!player.capabilities.isCreativeMode) {
+                stack.grow(-1);
+                if (stack.isEmpty()) {
+                    player.setHeldItem(hand, ItemStack.EMPTY);
+                    MinecraftForge.EVENT_BUS.post(new PlayerDestroyItemEvent(player, stack, hand));
+                }
+            }
+            return EnumActionResult.SUCCESS;
+        }
+
+        player.swingArm(hand);
+        return EnumActionResult.SUCCESS;
     }
 
     @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        // Don't show in creative mode, since it's not useful without NBT
+    public String getItemStackDisplayName(ItemStack stack) {
+        try {
+            ItemStack textureItem = this.getTextureItem(stack);
+            if (!textureItem.isEmpty()) {
+                return super.getItemStackDisplayName(stack) + " - " + textureItem.getDisplayName();
+            }
+        } catch (Throwable ignored) {
+        }
+
+        return super.getItemStackDisplayName(stack);
     }
 
+    @Override
+    protected void getCheckedSubItems(CreativeTabs creativeTab, net.minecraft.util.NonNullList<ItemStack> itemStacks) {
+        itemStacks.addAll(this.getFacades());
+    }
+
+    public List<ItemStack> getFacades() {
+        if (this.subTypes == null) {
+            this.subTypes = this.calculateSubTypes();
+        }
+        return this.subTypes;
+    }
+
+    public ItemStack getCreativeTabIcon() {
+        List<ItemStack> facades = this.getFacades();
+        return facades.isEmpty() ? new ItemStack(Items.CAKE) : facades.getFirst();
+    }
+
+    private List<ItemStack> calculateSubTypes() {
+        List<ItemStack> result = new ObjectArrayList<>(1000);
+        for (Block block : Block.REGISTRY) {
+            try {
+                Item item = Item.getItemFromBlock(block);
+                if (item == Items.AIR) {
+                    continue;
+                }
+
+                net.minecraft.util.NonNullList<ItemStack> subBlocks = net.minecraft.util.NonNullList.create();
+                block.getSubBlocks(block.getCreativeTab(), subBlocks);
+                for (ItemStack subBlock : subBlocks) {
+                    ItemStack facade = this.createFacadeForItem(subBlock, false);
+                    if (!facade.isEmpty()) {
+                        result.add(facade);
+                    }
+                }
+            } catch (Throwable ignored) {
+            }
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    @SuppressWarnings("deprecation")
     public ItemStack createFacadeForItem(ItemStack itemStack, boolean returnItem) {
-        if (itemStack.isEmpty() || !itemStack.getComponentsPatch().isEmpty()
-                || !(itemStack.getItem() instanceof BlockItem blockItem)) {
+        if (itemStack.isEmpty() || itemStack.hasTagCompound()) {
             return ItemStack.EMPTY;
         }
 
-        Block block = blockItem.getBlock();
+        Block block = Block.getBlockFromItem(itemStack.getItem());
         if (block == Blocks.AIR) {
             return ItemStack.EMPTY;
         }
 
-        BlockState blockState = block.defaultBlockState();
+        int metadata = itemStack.getItem().getMetadata(itemStack.getItemDamage());
+        IBlockState blockState;
+        try {
+            blockState = block.getStateFromMeta(metadata);
+        } catch (Exception e) {
+            return ItemStack.EMPTY;
+        }
 
-        final boolean isWhiteListed = block.builtInRegistryHolder().is(AETags.FACADE_BLOCK_WHITELIST);
-        final boolean isModel = blockState.getRenderShape() == RenderShape.MODEL;
+        boolean isModel = blockState.getRenderType() == EnumBlockRenderType.MODEL;
+        boolean isTileEntity = block.hasTileEntity(block.getDefaultState());
+        boolean isFullCube = block.isFullCube(block.getDefaultState());
+        ResourceLocation registryName = block.getRegistryName();
+        boolean isWhitelisted = registryName != null && FACADE_BLOCK_WHITELIST.contains(registryName);
 
-        final BlockState defaultState = block.defaultBlockState();
-        final boolean isBlockEntity = defaultState.hasBlockEntity();
-        final boolean isFullCube = defaultState.isCollisionShapeFullBlock(EmptyBlockGetter.INSTANCE, BlockPos.ZERO);
-
-        final boolean isBlockEntityAllowed = !isBlockEntity || isWhiteListed;
-        final boolean isBlockAllowed = isFullCube || isWhiteListed;
-
-        if (isModel && isBlockEntityAllowed && isBlockAllowed) {
+        if (isModel && (isFullCube || isWhitelisted) && (!isTileEntity || isWhitelisted)) {
             if (returnItem) {
                 return itemStack;
             }
 
-            return createFacadeForItemUnchecked(itemStack);
+            return this.createFacadeForItemUnchecked(itemStack);
         }
+
         return ItemStack.EMPTY;
     }
 
     public ItemStack createFacadeForItemUnchecked(ItemStack itemStack) {
-        var is = new ItemStack(this);
-        is.set(AEComponents.FACADE_ITEM, itemStack.getItemHolder());
-        return is;
+        ItemStack facade = new ItemStack(this);
+        NBTTagCompound data = new NBTTagCompound();
+        AEComponents.FACADE_ITEM_COMPONENT.writeTo(data,
+            new net.minecraft.nbt.NBTTagString(Objects.requireNonNull(itemStack.getItem().getRegistryName()).toString()));
+        data.setInteger(TAG_DAMAGE, itemStack.getItemDamage());
+        facade.setTagCompound(data);
+        return facade;
     }
 
     @Override
-    public FacadePart createPartFromItemStack(ItemStack is, Direction side) {
-        final ItemStack in = this.getTextureItem(is);
+    @Nullable
+    public FacadePart createPartFromItemStack(ItemStack is, EnumFacing side) {
+        ItemStack in = this.getTextureItem(is);
         if (!in.isEmpty()) {
-            return new FacadePart(getTextureBlockState(is), side);
+            return new FacadePart(this.getTextureBlockState(is), side);
         }
         return null;
     }
 
     @Override
     public ItemStack getTextureItem(ItemStack is) {
-        var baseItem = is.get(AEComponents.FACADE_ITEM);
+        NBTTagCompound nbt = is.getTagCompound();
+        if (nbt == null) {
+            return ItemStack.EMPTY;
+        }
 
+        ResourceLocation itemId;
+        int itemDamage;
+
+        if (AEComponents.FACADE_ITEM_COMPONENT.isPresentIn(nbt)) {
+            itemId = new ResourceLocation(Objects.requireNonNull(AEComponents.FACADE_ITEM_COMPONENT.readFrom(nbt)).getString());
+            itemDamage = nbt.getInteger(TAG_DAMAGE);
+        } else if (nbt.hasKey("x")) {
+            int[] data = nbt.getIntArray("x");
+            if (data.length != 2) {
+                return ItemStack.EMPTY;
+            }
+
+            Item item = Item.REGISTRY.getObjectById(data[0]);
+            if (item == null) {
+                return ItemStack.EMPTY;
+            }
+
+            itemId = item.getRegistryName();
+            itemDamage = data[1];
+        } else {
+            itemId = new ResourceLocation(nbt.getString(TAG_ITEM_ID));
+            itemDamage = nbt.getInteger(TAG_DAMAGE);
+        }
+
+        Item baseItem = Item.REGISTRY.getObject(itemId);
         if (baseItem == null) {
             return ItemStack.EMPTY;
         }
 
-        return new ItemStack(baseItem, 1);
+        return new ItemStack(baseItem, 1, itemDamage);
     }
 
     @Override
-    public BlockState getTextureBlockState(ItemStack is) {
-
+    @SuppressWarnings("deprecation")
+    public IBlockState getTextureBlockState(ItemStack is) {
         ItemStack baseItemStack = this.getTextureItem(is);
-
         if (baseItemStack.isEmpty()) {
-            return Blocks.GLASS.defaultBlockState();
+            return Blocks.GLASS.getDefaultState();
         }
 
-        Block block = Block.byItem(baseItemStack.getItem());
-
+        Block block = Block.getBlockFromItem(baseItemStack.getItem());
         if (block == Blocks.AIR) {
-            return Blocks.GLASS.defaultBlockState();
+            return Blocks.GLASS.getDefaultState();
         }
 
-        return block.defaultBlockState();
+        int metadata = baseItemStack.getItem().getMetadata(baseItemStack.getItemDamage());
+        try {
+            return block.getStateFromMeta(metadata);
+        } catch (Exception e) {
+            return Blocks.GLASS.getDefaultState();
+        }
     }
 }

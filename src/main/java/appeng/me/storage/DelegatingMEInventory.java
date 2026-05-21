@@ -1,14 +1,13 @@
 package appeng.me.storage;
 
-import java.util.Objects;
-
-import net.minecraft.network.chat.Component;
-
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import net.minecraft.util.text.ITextComponent;
+
+import java.util.Objects;
 
 /**
  * Convenient base class for wrapping another {@link MEStorage} and forwarding <strong>all</strong> methods to the base
@@ -57,7 +56,7 @@ public class DelegatingMEInventory implements MEStorage {
     }
 
     @Override
-    public Component getDescription() {
+    public ITextComponent getDescription() {
         return getDelegate().getDescription();
     }
 }

@@ -1,34 +1,41 @@
 package appeng.api.components;
 
+import net.minecraft.item.ItemStack;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.List;
-
-import com.mojang.serialization.Codec;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.world.item.ItemStack;
+import java.util.Objects;
 
 public record ExportedUpgrades(List<ItemStack> upgrades) {
-    // Defined using xmap since we previously used a List directly.
-    // TODO 1.21.1 Use a normal record codec
-    public static Codec<ExportedUpgrades> CODEC = ItemStack.CODEC.listOf().xmap(ExportedUpgrades::new,
-            ExportedUpgrades::upgrades);
-
-    public static StreamCodec<RegistryFriendlyByteBuf, ExportedUpgrades> STREAM_CODEC = StreamCodec.composite(
-            ItemStack.LIST_STREAM_CODEC, ExportedUpgrades::upgrades,
-            ExportedUpgrades::new);
+    public ExportedUpgrades {
+        upgrades = new ObjectArrayList<>(upgrades);
+    }
 
     @Override
     public boolean equals(Object object) {
-        if (this == object)
+        if (this == object) {
             return true;
-        if (!(object instanceof ExportedUpgrades that))
+        }
+        if (!(object instanceof ExportedUpgrades(List<ItemStack> upgrades1))) {
             return false;
-        return ItemStack.listMatches(upgrades, that.upgrades);
+        }
+        if (this.upgrades.size() != upgrades1.size()) {
+            return false;
+        }
+        for (int i = 0; i < this.upgrades.size(); i++) {
+            if (!ItemStack.areItemStacksEqual(this.upgrades.get(i), upgrades1.get(i))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
     public int hashCode() {
-        return ItemStack.hashStackList(upgrades);
+        int result = 1;
+        for (ItemStack stack : this.upgrades) {
+            result = 31 * result + Objects.hashCode(stack == null ? null : stack.serializeNBT());
+        }
+        return result;
     }
 }

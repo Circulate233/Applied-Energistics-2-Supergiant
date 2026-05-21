@@ -18,51 +18,100 @@
 
 package appeng.core.definitions;
 
-import java.util.function.Supplier;
-
-import net.minecraft.core.Holder;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ItemLike;
-import net.neoforged.neoforge.registries.DeferredItem;
-
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
+import appeng.core.MainCreativeTab;
 import appeng.util.helpers.ItemComparisonHelper;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
-public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
+import java.util.Locale;
+import java.util.Objects;
+import java.util.function.Supplier;
+
+public class ItemDefinition<T extends Item> implements Supplier<T> {
+
     private final String englishName;
-    private final DeferredItem<T> item;
+    private final ResourceLocation id;
+    private final T item;
 
-    public ItemDefinition(String englishName, DeferredItem<T> item) {
-        this.englishName = englishName;
-        this.item = item;
+    public ItemDefinition(ResourceLocation id, T item) {
+        this(defaultEnglishName(id), id, item, MainCreativeTab.INSTANCE);
     }
 
+    public ItemDefinition(ResourceLocation id, T item, @Nullable CreativeTabs creativeTab) {
+        this(defaultEnglishName(id), id, item, creativeTab);
+    }
+
+    public ItemDefinition(String englishName, ResourceLocation id, T item) {
+        this(englishName, id, item, MainCreativeTab.INSTANCE);
+    }
+
+    public ItemDefinition(String englishName, ResourceLocation id, T item, @Nullable CreativeTabs creativeTab) {
+        this.englishName = englishName;
+        this.id = id;
+        this.item = item;
+        this.item.setRegistryName(id);
+        this.item.setTranslationKey(id.getNamespace() + "." + id.getPath());
+        if (creativeTab != null) {
+            this.item.setCreativeTab(creativeTab);
+            if (creativeTab != MainCreativeTab.INSTANCE) {
+                MainCreativeTab.addExternal(creativeTab, this);
+            }
+        }
+    }
+
+    private static String defaultEnglishName(ResourceLocation id) {
+        String[] parts = id.getPath().split("_");
+        StringBuilder result = new StringBuilder();
+        for (String part : parts) {
+            if (part.isEmpty()) {
+                continue;
+            }
+            if (!result.isEmpty()) {
+                result.append(' ');
+            }
+            result.append(part.substring(0, 1).toUpperCase(Locale.ROOT));
+            if (part.length() > 1) {
+                result.append(part.substring(1));
+            }
+        }
+        return result.toString();
+    }
+
+    @SuppressWarnings("unused")
     public String getEnglishName() {
-        return englishName;
+        return this.englishName;
     }
 
     public ResourceLocation id() {
-        return this.item.getId();
+        return this.id;
     }
 
     public ItemStack stack() {
-        return stack(1);
+        return this.stack(1);
     }
 
     public ItemStack stack(int stackSize) {
-        return new ItemStack((ItemLike) item, stackSize);
+        return new ItemStack(this.item, stackSize);
     }
 
     public GenericStack genericStack(long stackSize) {
-        return new GenericStack(AEItemKey.of(item), stackSize);
+        return new GenericStack(Objects.requireNonNull(AEItemKey.of(this.item)), stackSize);
     }
 
-    public Holder<Item> holder() {
-        return item;
+    @Nullable
+    public T item() {
+        return this.item;
+    }
+
+    @Nullable
+    public T asItem() {
+        return this.item;
     }
 
     /**
@@ -71,9 +120,9 @@ public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
      * @param comparableStack compared item
      * @return true if the item stack is a matching item.
      */
-    @Deprecated(forRemoval = true, since = "1.21")
+    @Deprecated
     public final boolean isSameAs(ItemStack comparableStack) {
-        return is(comparableStack);
+        return this.is(comparableStack);
     }
 
     /**
@@ -91,7 +140,7 @@ public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
      */
     public final boolean is(AEKey key) {
         if (key instanceof AEItemKey itemKey) {
-            return asItem() == itemKey.getItem();
+            return this.asItem() == itemKey.getItem();
         }
         return false;
     }
@@ -99,18 +148,13 @@ public class ItemDefinition<T extends Item> implements ItemLike, Supplier<T> {
     /**
      * @return True if this item is represented by the given key.
      */
-    @Deprecated(forRemoval = true, since = "1.21")
+    @Deprecated
     public final boolean isSameAs(AEKey key) {
-        return is(key);
+        return this.is(key);
     }
 
     @Override
     public T get() {
-        return item.get();
-    }
-
-    @Override
-    public T asItem() {
-        return item.get();
+        return this.item;
     }
 }

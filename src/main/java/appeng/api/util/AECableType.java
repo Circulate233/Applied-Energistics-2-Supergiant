@@ -54,7 +54,7 @@ public enum AECableType {
      */
     DENSE_SMART(AECableVariant.SMART, AECableSize.DENSE);
 
-    public static final AECableType[] VALIDCABLES = { GLASS, COVERED, SMART, DENSE_COVERED, DENSE_SMART };
+    public static final AECableType[] VALIDCABLES = {GLASS, COVERED, SMART, DENSE_COVERED, DENSE_SMART};
 
     private final AECableVariant variant;
     private final AECableSize size;
@@ -62,26 +62,6 @@ public enum AECableType {
     AECableType(AECableVariant variant, AECableSize size) {
         this.variant = variant;
         this.size = size;
-    }
-
-    public AECableSize size() {
-        return this.size;
-    }
-
-    public AECableVariant variant() {
-        return this.variant;
-    }
-
-    public boolean isValid() {
-        return this.variant != AECableVariant.NONE && this.size != AECableSize.NONE;
-    }
-
-    public boolean isDense() {
-        return this.size == AECableSize.DENSE;
-    }
-
-    public boolean isSmart() {
-        return this.variant == AECableVariant.SMART;
     }
 
     public static AECableType min(AECableType a, AECableType b) {
@@ -135,5 +115,25 @@ public enum AECableType {
         }
 
         return NONE;
+    }
+
+    public AECableSize size() {
+        return this.size;
+    }
+
+    public AECableVariant variant() {
+        return this.variant;
+    }
+
+    public boolean isValid() {
+        return this.variant != AECableVariant.NONE && this.size != AECableSize.NONE;
+    }
+
+    public boolean isDense() {
+        return this.size == AECableSize.DENSE;
+    }
+
+    public boolean isSmart() {
+        return this.variant == AECableVariant.SMART;
     }
 }

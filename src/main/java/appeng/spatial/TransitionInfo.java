@@ -18,69 +18,61 @@
 
 package appeng.spatial;
 
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.math.BlockPos;
+
 import java.time.Instant;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtUtils;
-import net.minecraft.resources.ResourceLocation;
-
-/**
- * Defines the source level and area of a transition into the spatial storage plot.
- */
-public final class TransitionInfo {
+public record TransitionInfo(String worldId, int dimensionId, BlockPos min, BlockPos max, Instant timestamp) {
 
     public static final String TAG_WORLD_ID = "world_id";
+    public static final String TAG_DIMENSION_ID = "dimension_id";
     public static final String TAG_MIN = "min";
     public static final String TAG_MAX = "max";
     public static final String TAG_TIMESTAMP = "timestamp";
 
-    private final ResourceLocation worldId;
-
-    private final BlockPos min;
-
-    private final BlockPos max;
-
-    private final Instant timestamp;
-
-    public TransitionInfo(ResourceLocation worldId, BlockPos min, BlockPos max, Instant timestamp) {
+    public TransitionInfo(String worldId, int dimensionId, BlockPos min, BlockPos max, Instant timestamp) {
         this.worldId = worldId;
-        this.min = min.immutable();
-        this.max = max.immutable();
+        this.dimensionId = dimensionId;
+        this.min = min.toImmutable();
+        this.max = max.toImmutable();
         this.timestamp = timestamp;
     }
 
-    public ResourceLocation getWorldId() {
-        return worldId;
+    public static TransitionInfo fromTag(NBTTagCompound tag) {
+        BlockPos min = readPos(tag, TAG_MIN, "min_x", "min_y", "min_z");
+        BlockPos max = readPos(tag, TAG_MAX, "max_x", "max_y", "max_z");
+        return new TransitionInfo(
+            tag.getString(TAG_WORLD_ID),
+            tag.getInteger(TAG_DIMENSION_ID),
+            min,
+            max,
+            Instant.ofEpochMilli(tag.getLong(TAG_TIMESTAMP)));
     }
 
-    public BlockPos getMin() {
-        return min;
-    }
-
-    public BlockPos getMax() {
-        return max;
-    }
-
-    public Instant getTimestamp() {
-        return timestamp;
-    }
-
-    public CompoundTag toTag() {
-        CompoundTag tag = new CompoundTag();
-        tag.putString(TAG_WORLD_ID, worldId.toString());
-        tag.put(TAG_MIN, NbtUtils.writeBlockPos(min));
-        tag.put(TAG_MAX, NbtUtils.writeBlockPos(max));
-        tag.putLong(TAG_TIMESTAMP, timestamp.toEpochMilli());
+    private static NBTTagCompound writePos(BlockPos pos) {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("x", pos.getX());
+        tag.setInteger("y", pos.getY());
+        tag.setInteger("z", pos.getZ());
         return tag;
     }
 
-    public static TransitionInfo fromTag(CompoundTag tag) {
-        ResourceLocation worldId = ResourceLocation.parse(tag.getString(TAG_WORLD_ID));
-        BlockPos min = NbtUtils.readBlockPos(tag, TAG_MIN).orElseThrow();
-        BlockPos max = NbtUtils.readBlockPos(tag, TAG_MAX).orElseThrow();
-        Instant timestamp = Instant.ofEpochMilli(tag.getLong(TAG_TIMESTAMP));
-        return new TransitionInfo(worldId, min, max, timestamp);
+    private static BlockPos readPos(NBTTagCompound tag, String key, String legacyX, String legacyY, String legacyZ) {
+        if (tag.hasKey(key, 10)) {
+            NBTTagCompound posTag = tag.getCompoundTag(key);
+            return new BlockPos(posTag.getInteger("x"), posTag.getInteger("y"), posTag.getInteger("z"));
+        }
+        return new BlockPos(tag.getInteger(legacyX), tag.getInteger(legacyY), tag.getInteger(legacyZ));
     }
 
+    public NBTTagCompound toTag() {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setString(TAG_WORLD_ID, this.worldId);
+        tag.setInteger(TAG_DIMENSION_ID, this.dimensionId);
+        tag.setTag(TAG_MIN, writePos(this.min));
+        tag.setTag(TAG_MAX, writePos(this.max));
+        tag.setLong(TAG_TIMESTAMP, this.timestamp.toEpochMilli());
+        return tag;
+    }
 }

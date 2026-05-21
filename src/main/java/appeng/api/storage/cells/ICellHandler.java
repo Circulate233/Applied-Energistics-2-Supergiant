@@ -23,9 +23,8 @@
 
 package appeng.api.storage.cells;
 
+import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.item.ItemStack;
 
 /**
  * Implementations of this interface provide AE2 with a way to interact with storage cells that may be represented by

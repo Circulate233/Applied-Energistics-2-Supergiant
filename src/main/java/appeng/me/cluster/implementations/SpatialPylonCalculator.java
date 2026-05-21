@@ -18,58 +18,55 @@
 
 package appeng.me.cluster.implementations;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
-import appeng.blockentity.spatial.SpatialPylonBlockEntity;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.cluster.MBCalculator;
+import appeng.tile.spatial.TileSpatialPylon;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-public class SpatialPylonCalculator extends MBCalculator<SpatialPylonBlockEntity, SpatialPylonCluster> {
+public class SpatialPylonCalculator extends MBCalculator<TileSpatialPylon, SpatialPylonCluster> {
 
-    public SpatialPylonCalculator(SpatialPylonBlockEntity t) {
-        super(t);
+    public SpatialPylonCalculator(TileSpatialPylon target) {
+        super(target);
     }
 
     @Override
     public boolean checkMultiblockScale(BlockPos min, BlockPos max) {
         return min.getX() == max.getX() && min.getY() == max.getY() && min.getZ() != max.getZ()
-                || min.getX() == max.getX() && min.getY() != max.getY() && min.getZ() == max.getZ()
-                || min.getX() != max.getX() && min.getY() == max.getY() && min.getZ() == max.getZ();
+            || min.getX() == max.getX() && min.getY() != max.getY() && min.getZ() == max.getZ()
+            || min.getX() != max.getX() && min.getY() == max.getY() && min.getZ() == max.getZ();
     }
 
     @Override
-    public SpatialPylonCluster createCluster(ServerLevel level, BlockPos min, BlockPos max) {
+    public SpatialPylonCluster createCluster(World level, BlockPos min, BlockPos max) {
         return new SpatialPylonCluster(level, min, max);
     }
 
     @Override
-    public boolean verifyInternalStructure(ServerLevel level, BlockPos min, BlockPos max) {
-
-        for (BlockPos p : BlockPos.betweenClosed(min, max)) {
-            final IAEMultiBlock<?> te = (IAEMultiBlock<?>) level.getBlockEntity(p);
-
-            if (te == null || !te.isValid()) {
+    public boolean verifyInternalStructure(World level, BlockPos min, BlockPos max) {
+        for (BlockPos pos : BlockPos.getAllInBox(min, max)) {
+            var multiBlock = (IAEMultiBlock<?>) level.getTileEntity(pos);
+            if (multiBlock == null || !multiBlock.isValid()) {
                 return false;
             }
         }
-
         return true;
     }
 
     @Override
-    public void updateBlockEntities(SpatialPylonCluster c, ServerLevel level, BlockPos min,
-            BlockPos max) {
-        for (BlockPos p : BlockPos.betweenClosed(min, max)) {
-            final SpatialPylonBlockEntity te = (SpatialPylonBlockEntity) level.getBlockEntity(p);
-            te.updateStatus(c);
-            c.getLine().add(te);
+    public void updateBlockEntities(SpatialPylonCluster cluster, World level, BlockPos min, BlockPos max) {
+        for (BlockPos pos : BlockPos.getAllInBox(min, max)) {
+            var pylon = (TileSpatialPylon) level.getTileEntity(pos);
+            if (pylon != null) {
+                pylon.updateStatus(cluster);
+                cluster.getLine().add(pylon);
+            }
         }
     }
 
     @Override
-    public boolean isValidBlockEntity(BlockEntity te) {
-        return te instanceof SpatialPylonBlockEntity;
+    public boolean isValidBlockEntity(TileEntity te) {
+        return te instanceof TileSpatialPylon;
     }
 }

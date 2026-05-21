@@ -23,11 +23,11 @@
 
 package appeng.api.implementations.items;
 
-import net.minecraft.world.entity.player.Player;
+import net.minecraft.entity.player.EntityPlayer;
 
 /**
  * Memory Card API
- *
+ * <p>
  * AE's Memory Card Item Class implements this interface.
  */
 public interface IMemoryCard {
@@ -37,5 +37,5 @@ public interface IMemoryCard {
      * @param player that used the card.
      * @param msg    which message to send.
      */
-    void notifyUser(Player player, MemoryCardMessages msg);
+    void notifyUser(EntityPlayer player, MemoryCardMessages msg);
 }

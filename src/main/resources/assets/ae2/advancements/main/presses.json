@@ -1,0 +1,56 @@
+{
+  "display": {
+    "icon": {
+      "item": "ae2:logic_processor_press"
+    },
+    "title": {
+      "translate": "achievement.ae2.Presses"
+    },
+    "description": {
+      "translate": "achievement.ae2.Presses.desc"
+    }
+  },
+  "parent": "ae2:main/root",
+  "criteria": {
+    "calculation": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:calculation_processor_press"
+          }
+        ]
+      }
+    },
+    "engineering": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:engineering_processor_press"
+          }
+        ]
+      }
+    },
+    "logic": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:logic_processor_press"
+          }
+        ]
+      }
+    },
+    "silicon": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "item": "ae2:silicon_press"
+          }
+        ]
+      }
+    }
+  }
+}

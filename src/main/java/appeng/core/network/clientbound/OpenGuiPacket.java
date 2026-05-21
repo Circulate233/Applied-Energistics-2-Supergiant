@@ -1,0 +1,236 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
+package appeng.core.network.clientbound;
+
+import appeng.api.storage.ISubGuiHost;
+import appeng.api.storage.ITerminalHost;
+import appeng.client.component.TextComponents;
+import appeng.client.gui.implementations.GuiPriority;
+import appeng.client.gui.me.crafting.GuiCraftAmount;
+import appeng.client.gui.me.crafting.GuiCraftConfirm;
+import appeng.client.gui.me.crafting.GuiCraftingStatus;
+import appeng.client.gui.me.crafting.GuiSetStockAmount;
+import appeng.client.gui.style.GuiStyleManager;
+import appeng.container.AEBaseContainer;
+import appeng.container.GuiIds;
+import appeng.container.implementations.ContainerCraftAmount;
+import appeng.container.implementations.ContainerCraftConfirm;
+import appeng.container.implementations.ContainerCraftingStatus;
+import appeng.container.implementations.ContainerPriority;
+import appeng.container.implementations.ContainerSetStockAmount;
+import appeng.core.AELog;
+import appeng.core.gui.locator.GuiHostLocator;
+import appeng.core.gui.locator.GuiHostLocators;
+import appeng.core.network.ClientboundPacket;
+import appeng.helpers.IPriorityHost;
+import appeng.helpers.InterfaceLogicHost;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiScreen;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.network.play.client.CPacketCloseWindow;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Arrays;
+
+public class OpenGuiPacket extends ClientboundPacket {
+    private GuiIds.GuiKey guiKey;
+    private int windowId;
+    private GuiHostLocator locator;
+    private boolean returnedFromSubScreen;
+    @Nullable
+    private ITextComponent guiTitle;
+    private byte[] initialData = new byte[0];
+
+    public OpenGuiPacket() {
+    }
+
+    public OpenGuiPacket(GuiIds.GuiKey guiKey, int windowId, GuiHostLocator locator,
+                         boolean returnedFromSubScreen, @Nullable ITextComponent guiTitle, byte[] initialData) {
+        this.guiKey = guiKey;
+        this.windowId = windowId;
+        this.locator = locator;
+        this.returnedFromSubScreen = returnedFromSubScreen;
+        this.guiTitle = guiTitle;
+        this.initialData = Arrays.copyOf(initialData, initialData.length);
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Nullable
+    private static Class<?> getHostType(GuiIds.GuiKey guiKey) {
+        if (guiKey == GuiIds.GuiKey.CRAFT_AMOUNT || guiKey == GuiIds.GuiKey.CRAFT_CONFIRM) {
+            return ISubGuiHost.class;
+        }
+        if (guiKey == GuiIds.GuiKey.CRAFTING_STATUS) {
+            return ITerminalHost.class;
+        }
+        if (guiKey == GuiIds.GuiKey.SET_STOCK_AMOUNT) {
+            return InterfaceLogicHost.class;
+        }
+        if (guiKey == GuiIds.GuiKey.PRIORITY) {
+            return IPriorityHost.class;
+        }
+        return null;
+    }
+
+    @Override
+    protected void read(ByteBuf buf) {
+        PacketBuffer packetBuffer = new PacketBuffer(buf);
+        this.guiKey = GuiIds.GuiKey.fromId(packetBuffer.readVarInt());
+        this.windowId = packetBuffer.readInt();
+        this.locator = GuiHostLocators.readFromPacket(packetBuffer);
+        this.returnedFromSubScreen = packetBuffer.readBoolean();
+        this.guiTitle = TextComponents.readFromPacket(packetBuffer);
+        this.initialData = new byte[packetBuffer.readVarInt()];
+        packetBuffer.readBytes(this.initialData);
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        PacketBuffer packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeVarInt(this.guiKey.getGuiId());
+        packetBuffer.writeInt(this.windowId);
+        GuiHostLocators.writeToPacket(packetBuffer, this.locator);
+        packetBuffer.writeBoolean(this.returnedFromSubScreen);
+        TextComponents.writeToPacket(packetBuffer, this.guiTitle);
+        packetBuffer.writeVarInt(this.initialData.length);
+        packetBuffer.writeBytes(this.initialData);
+    }
+
+    @Override
+    @SideOnly(Side.CLIENT)
+    public void handleClient(Minecraft minecraft) {
+        if (minecraft.player == null) {
+            return;
+        }
+
+        if (this.guiKey == null) {
+            AELog.warn("Cannot open unknown gui key");
+            return;
+        }
+
+        AEBaseContainer container = createContainer(minecraft.player, minecraft.player.inventory);
+        if (container == null) {
+            AELog.warn("Cannot open gui {} on client", this.guiKey);
+            closeWindow(minecraft);
+            return;
+        }
+
+        container.windowId = this.windowId;
+        GuiScreen screen = createScreen(container, minecraft.player.inventory);
+        if (screen == null) {
+            AELog.warn("Cannot create screen for gui {} on client", this.guiKey);
+            closeWindow(minecraft);
+            return;
+        }
+
+        minecraft.player.openContainer = container;
+        minecraft.displayGuiScreen(screen);
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Nullable
+    private AEBaseContainer createContainer(EntityPlayer player, InventoryPlayer inventory) {
+        if (this.locator == null) {
+            return null;
+        }
+
+        Class<?> hostType = getHostType(this.guiKey);
+        if (hostType == null) {
+            return null;
+        }
+
+        Object host = this.locator.locate(player, hostType);
+        if (host == null) {
+            return null;
+        }
+
+        AEBaseContainer container = createContainer(inventory, host);
+        if (container != null) {
+            container.setLocator(this.locator);
+            container.setReturnedFromSubScreen(this.returnedFromSubScreen);
+            container.setGuiTitle(this.guiTitle);
+        }
+        return container;
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Nullable
+    private AEBaseContainer createContainer(InventoryPlayer inventory, Object host) {
+        if (this.guiKey == GuiIds.GuiKey.CRAFT_AMOUNT) {
+            return new ContainerCraftAmount(this.windowId, inventory, (ISubGuiHost) host);
+        }
+        if (this.guiKey == GuiIds.GuiKey.CRAFT_CONFIRM) {
+            return new ContainerCraftConfirm(this.windowId, inventory, (ISubGuiHost) host);
+        }
+        if (this.guiKey == GuiIds.GuiKey.CRAFTING_STATUS) {
+            return new ContainerCraftingStatus(this.windowId, inventory, (ITerminalHost) host);
+        }
+        if (this.guiKey == GuiIds.GuiKey.SET_STOCK_AMOUNT) {
+            return new ContainerSetStockAmount(this.windowId, inventory, (InterfaceLogicHost) host);
+        }
+        if (this.guiKey == GuiIds.GuiKey.PRIORITY) {
+            ContainerPriority priorityContainer = new ContainerPriority(this.windowId, inventory, (IPriorityHost) host);
+            if (this.initialData.length > 0) {
+                priorityContainer.setInitialPriority(new PacketBuffer(Unpooled.wrappedBuffer(this.initialData)).readVarInt());
+            }
+            return priorityContainer;
+        }
+        return null;
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Nullable
+    private GuiScreen createScreen(AEBaseContainer container, InventoryPlayer inventory) {
+        if (this.guiKey == GuiIds.GuiKey.CRAFT_AMOUNT) {
+            return new GuiCraftAmount((ContainerCraftAmount) container, inventory, this.guiTitle,
+                GuiStyleManager.loadStyleDoc("/screens/craft_amount.json"));
+        }
+        if (this.guiKey == GuiIds.GuiKey.CRAFT_CONFIRM) {
+            return new GuiCraftConfirm((ContainerCraftConfirm) container, inventory, this.guiTitle,
+                GuiStyleManager.loadStyleDoc("/screens/craft_confirm.json"));
+        }
+        if (this.guiKey == GuiIds.GuiKey.CRAFTING_STATUS) {
+            return new GuiCraftingStatus((ContainerCraftingStatus) container, inventory, this.guiTitle,
+                GuiStyleManager.loadStyleDoc("/screens/crafting_status.json"));
+        }
+        if (this.guiKey == GuiIds.GuiKey.SET_STOCK_AMOUNT) {
+            return new GuiSetStockAmount((ContainerSetStockAmount) container, inventory, this.guiTitle,
+                GuiStyleManager.loadStyleDoc("/screens/set_stock_amount.json"));
+        }
+        if (this.guiKey == GuiIds.GuiKey.PRIORITY) {
+            return new GuiPriority((ContainerPriority) container, inventory,
+                this.guiTitle != null ? this.guiTitle : container.getGuiTitle());
+        }
+        return null;
+    }
+
+    @SideOnly(Side.CLIENT)
+    private void closeWindow(Minecraft minecraft) {
+        if (minecraft.player.connection != null) {
+            minecraft.player.connection.sendPacket(new CPacketCloseWindow(this.windowId));
+        }
+    }
+}

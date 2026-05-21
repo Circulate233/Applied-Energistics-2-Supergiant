@@ -22,27 +22,26 @@ import java.util.Iterator;
 
 public class NonNullArrayIterator<E> implements Iterator<E> {
 
-    private final E[] g;
+    private final E[] values;
     private int offset = 0;
 
-    public NonNullArrayIterator(E[] o) {
-        this.g = o;
+    public NonNullArrayIterator(E[] values) {
+        this.values = values;
     }
 
     @Override
     public boolean hasNext() {
-        while (this.offset < this.g.length && this.g[this.offset] == null) {
+        while (this.offset < this.values.length && this.values[this.offset] == null) {
             this.offset++;
         }
 
-        return this.offset != this.g.length;
+        return this.offset != this.values.length;
     }
 
     @Override
     public E next() {
-        final E result = this.g[this.offset];
+        final E result = this.values[this.offset];
         this.offset++;
-
         return result;
     }
 

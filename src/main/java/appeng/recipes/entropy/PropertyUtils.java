@@ -18,88 +18,94 @@
 
 package appeng.recipes.entropy;
 
+import net.minecraft.block.Block;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.IBlockState;
+
 import java.util.Map;
 import java.util.Objects;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.StateHolder;
-import net.minecraft.world.level.block.state.properties.Property;
-
 final class PropertyUtils {
-    private static final Logger LOG = LoggerFactory.getLogger(PropertyUtils.class);
-
     private PropertyUtils() {
     }
 
-    static Property<?> getRequiredProperty(StateDefinition<?, ?> stateDefinition, String name) {
-        Objects.requireNonNull(stateDefinition, "stateDefinition must not be null");
+    static IProperty<?> getRequiredProperty(Block block, String name) {
+        Objects.requireNonNull(block, "block must not be null");
 
-        Property<?> property = stateDefinition.getProperty(name);
+        IProperty<?> property = block.getBlockState().getProperty(name);
         if (property == null) {
-            throw new IllegalArgumentException("Unknown property: " + name + " on " + stateDefinition.getOwner());
+            throw new IllegalArgumentException("Unknown property: " + name + " on " + block.getRegistryName());
         }
         return property;
     }
 
-    static <T extends Comparable<T>> T getRequiredPropertyValue(Property<T> property, String name) {
+    static <T extends Comparable<T>> T getRequiredPropertyValue(IProperty<T> property, String name) {
         Objects.requireNonNull(property, "property must be not null");
 
-        return property.getValue(name)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid value '" + name + "' for property "
-                        + property.getName()));
+        for (T value : property.getAllowedValues()) {
+            if (property.getName(value).equals(name)) {
+                return value;
+            }
+        }
+        throw new IllegalArgumentException("Invalid value '" + name + "' for property " + property.getName());
     }
 
-    static void validatePropertyMatchers(StateDefinition<?, ?> stateDefinition,
-            Map<String, PropertyValueMatcher> properties) {
-        for (var entry : properties.entrySet()) {
-            var property = stateDefinition.getProperty(entry.getKey());
-            if (property == null) {
-                throw new IllegalArgumentException("State definition " + stateDefinition
-                        + " does not have property '" + entry.getKey() + "'");
-            }
-
-            // this will throw if it doesnt have the value
+    static void validatePropertyMatchers(Block block, Map<String, PropertyValueMatcher> properties) {
+        for (Map.Entry<String, PropertyValueMatcher> entry : properties.entrySet()) {
+            IProperty<?> property = getRequiredProperty(block, entry.getKey());
             entry.getValue().validate(property);
         }
     }
 
-    public static <SH extends StateHolder<?, SH>> boolean doPropertiesMatch(StateDefinition<?, SH> stateDefinition,
-            SH state, Map<String, PropertyValueMatcher> properties) {
-        for (var entry : properties.entrySet()) {
-            var property = stateDefinition.getProperty(entry.getKey());
-            if (property == null) {
-                throw new IllegalArgumentException("State definition " + stateDefinition
-                        + " does not have property '" + entry.getKey() + "'");
-            }
-
-            if (!entry.getValue().matches(property, state)) {
+    static boolean doPropertiesMatch(Block block, IBlockState state, Map<String, PropertyValueMatcher> properties) {
+        for (Map.Entry<String, PropertyValueMatcher> entry : properties.entrySet()) {
+            IProperty<?> property = getRequiredProperty(block, entry.getKey());
+            if (!matches(entry.getValue(), property, state)) {
                 return false;
             }
         }
         return true;
     }
 
-    static <SH extends StateHolder<?, SH>> SH applyProperties(StateDefinition<?, SH> stateDefinition, SH state,
-            Map<String, String> properties) {
-        for (var entry : properties.entrySet()) {
-            // Get property
-            var property = stateDefinition.getProperty(entry.getKey());
+    static IBlockState applyProperties(IBlockState state, Map<String, String> properties) {
+        for (Map.Entry<String, String> entry : properties.entrySet()) {
+            IProperty<?> property = state.getBlock().getBlockState().getProperty(entry.getKey());
             if (property != null) {
                 state = applyProperty(state, property, entry.getValue());
-            } else {
-                LOG.warn("Cannot apply property {} since {} does not have that property", entry.getKey(),
-                        stateDefinition);
             }
         }
         return state;
     }
 
-    static <T extends Comparable<T>, SH extends StateHolder<?, SH>> SH applyProperty(SH state, Property<T> property,
-            String value) {
-        var parsedValue = property.getValue(value);
-        return parsedValue.map(t -> state.trySetValue(property, t)).orElse(state);
+    static IBlockState copyProperties(IBlockState from, IBlockState to) {
+        IBlockState result = to;
+        for (IProperty<?> sourceProperty : from.getPropertyKeys()) {
+            IProperty<?> targetProperty = to.getBlock().getBlockState().getProperty(sourceProperty.getName());
+            if (targetProperty != null) {
+                String value = getPropertyValue(from, sourceProperty);
+                result = applyProperty(result, targetProperty, value);
+            }
+        }
+        return result;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static boolean matches(PropertyValueMatcher matcher, IProperty property, IBlockState state) {
+        return matcher.matches(property, state);
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static IBlockState applyProperty(IBlockState state, IProperty property, String value) {
+        for (Comparable allowedValue : (Iterable<Comparable>) property.getAllowedValues()) {
+            if (property.getName(allowedValue).equals(value)) {
+                return state.withProperty(property, allowedValue);
+            }
+        }
+        return state;
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static String getPropertyValue(IBlockState state, IProperty property) {
+        return property.getName(state.getValue(property));
     }
 }

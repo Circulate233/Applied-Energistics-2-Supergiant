@@ -18,30 +18,23 @@
 
 package appeng.spatial;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.util.Mth;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.chunk.status.ChunkStatus;
-import net.minecraft.world.level.entity.Visibility;
-import net.minecraft.world.level.portal.DimensionTransition;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.Vec3;
-
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongSet;
-
 import appeng.core.definitions.AEBlocks;
-import appeng.core.stats.AdvancementTriggers;
+import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.init.Blocks;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.Teleporter;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+
+import javax.annotation.Nullable;
 
 public class SpatialStorageHelper {
 
@@ -54,75 +47,7 @@ public class SpatialStorageHelper {
         return instance;
     }
 
-    /**
-     * Mostly from dimensional doors.. which mostly got it form X-Comp.
-     *
-     * @param entity to be teleported entity
-     * @param link   destination
-     * @return teleported entity
-     */
-    private Entity teleportEntity(Entity entity, TelDestination link) {
-        final ServerLevel oldLevel;
-        final ServerLevel newLevel;
-
-        try {
-            oldLevel = (ServerLevel) entity.level();
-            newLevel = link.dim;
-        } catch (Throwable e) {
-            return entity;
-        }
-
-        if (oldLevel == null) {
-            return entity;
-        }
-        if (newLevel == null) {
-            return entity;
-        }
-        if (newLevel == oldLevel) {
-            // just set the location. Minecraft will handle eventual passengers
-            newLevel.getChunkSource().getChunk(Mth.floor(link.x) >> 4, Mth.floor(link.z) >> 4,
-                    ChunkStatus.FULL, true);
-            entity.teleportTo(link.x, link.y, link.z);
-            return entity;
-        }
-
-        // Are we riding something? Teleport it instead.
-        if (entity.isPassenger()) {
-            return this.teleportEntity(entity.getVehicle(), link);
-        }
-
-        // Is something riding us? Handle it first.
-        final List<Entity> passengers = entity.getPassengers();
-        final List<Entity> passengersOnOtherSide = new ArrayList<>(passengers.size());
-        for (Entity passenger : passengers) {
-            passenger.stopRiding();
-            passengersOnOtherSide.add(this.teleportEntity(passenger, link));
-        }
-        // We keep track of all so we can remount them on the other side.
-
-        // load the chunk!
-        newLevel.getChunkSource().getChunk(Mth.floor(link.x) >> 4, Mth.floor(link.z) >> 4,
-                ChunkStatus.FULL, true);
-
-        if (entity instanceof ServerPlayer && link.dim.dimension() == SpatialStorageDimensionIds.WORLD_ID) {
-            AdvancementTriggers.SPATIAL_EXPLORER.trigger((ServerPlayer) entity);
-        }
-
-        entity.changeDimension(new DimensionTransition(
-                newLevel, new Vec3(link.x, link.y, link.z), Vec3.ZERO, entity.getYRot(),
-                entity.getXRot(), transportedEntity -> {
-                    if (!passengersOnOtherSide.isEmpty()) {
-                        for (Entity passanger : passengersOnOtherSide) {
-                            passanger.startRiding(transportedEntity, true);
-                        }
-                    }
-                }));
-
-        return entity;
-    }
-
-    private void transverseEdges(int minX, int minY, int minZ, int maxX, int maxY,
-            int maxZ, ISpatialVisitor visitor) {
+    private void transverseEdges(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, ISpatialVisitor visitor) {
         for (int y = minY; y < maxY; y++) {
             for (int z = minZ; z < maxZ; z++) {
                 visitor.visit(new BlockPos(minX, y, z));
@@ -145,141 +70,207 @@ public class SpatialStorageHelper {
         }
     }
 
-    public void swapRegions(ServerLevel srcLevel, int srcX, int srcY, int srcZ,
-            ServerLevel dstLevel, int dstX, int dstY, int dstZ, int scaleX,
-            int scaleY, int scaleZ) {
+    public void swapRegions(WorldServer srcLevel, int srcX, int srcY, int srcZ,
+                            WorldServer dstLevel, int dstX, int dstY, int dstZ, int scaleX, int scaleY, int scaleZ) {
         Block matrixFrameBlock = AEBlocks.MATRIX_FRAME.block();
-        this.transverseEdges(dstX - 1, dstY - 1, dstZ - 1, dstX + scaleX + 1,
-                dstY + scaleY + 1, dstZ + scaleZ + 1,
-                new WrapInMatrixFrame(matrixFrameBlock.defaultBlockState(), dstLevel));
+        this.transverseEdges(dstX - 1, dstY - 1, dstZ - 1, dstX + scaleX + 1, dstY + scaleY + 1, dstZ + scaleZ + 1,
+            new WrapInMatrixFrame(matrixFrameBlock.getDefaultState(), dstLevel));
 
-        final AABB srcBox = new AABB(srcX, srcY, srcZ, srcX + scaleX + 1, srcY + scaleY + 1,
-                srcZ + scaleZ + 1);
+        AxisAlignedBB srcBox = new AxisAlignedBB(srcX, srcY, srcZ, srcX + scaleX + 1, srcY + scaleY + 1,
+            srcZ + scaleZ + 1);
+        AxisAlignedBB dstBox = new AxisAlignedBB(dstX, dstY, dstZ, dstX + scaleX + 1, dstY + scaleY + 1,
+            dstZ + scaleZ + 1);
 
-        final AABB dstBox = new AABB(dstX, dstY, dstZ, dstX + scaleX + 1, dstY + scaleY + 1,
-                dstZ + scaleZ + 1);
+        CachedPlane cDst = new CachedPlane(dstLevel, dstX, dstY, dstZ, dstX + scaleX, dstY + scaleY, dstZ + scaleZ);
+        CachedPlane cSrc = new CachedPlane(srcLevel, srcX, srcY, srcZ, srcX + scaleX, srcY + scaleY, srcZ + scaleZ);
 
-        final CachedPlane cDst = new CachedPlane(dstLevel, dstX, dstY, dstZ, dstX + scaleX, dstY + scaleY,
-                dstZ + scaleZ);
-        final CachedPlane cSrc = new CachedPlane(srcLevel, srcX, srcY, srcZ, srcX + scaleX, srcY + scaleY,
-                srcZ + scaleZ);
-
-        // do nearly all the work... swaps blocks, block entities, and block ticks
         cSrc.swap(cDst);
 
-        // Synchronously load entities
-        var loadedSrcChunks = loadEntityChunksSynchronously(srcLevel, srcBox);
-        var loadedDestChunks = loadEntityChunksSynchronously(dstLevel, dstBox);
-        try {
-            var srcE = srcLevel.getEntitiesOfClass(Entity.class, srcBox);
-            var dstE = dstLevel.getEntitiesOfClass(Entity.class, dstBox);
+        loadChunks(srcLevel, srcBox);
+        loadChunks(dstLevel, dstBox);
 
-            for (Entity e : dstE) {
-                this.teleportEntity(e, new TelDestination(srcLevel, srcBox, e.getX(), e.getY(), e.getZ(),
-                        -dstX + srcX, -dstY + srcY, -dstZ + srcZ));
-            }
+        ObjectList<Entity> srcEntities = new ObjectArrayList<>(srcLevel.getEntitiesWithinAABB(Entity.class, srcBox));
+        ObjectList<Entity> dstEntities = new ObjectArrayList<>(dstLevel.getEntitiesWithinAABB(Entity.class, dstBox));
 
-            for (Entity e : srcE) {
-                this.teleportEntity(e, new TelDestination(dstLevel, dstBox, e.getX(), e.getY(), e.getZ(),
-                        -srcX + dstX, -srcY + dstY, -srcZ + dstZ));
-            }
-        } finally {
-            unloadEntityChunks(srcLevel, loadedSrcChunks);
-            unloadEntityChunks(dstLevel, loadedDestChunks);
+        for (Entity entity : dstEntities) {
+            this.teleportEntity(entity, new TelDestination(srcLevel, srcBox, entity.posX, entity.posY, entity.posZ,
+                -dstX + srcX, -dstY + srcY, -dstZ + srcZ));
+        }
+
+        for (Entity entity : srcEntities) {
+            this.teleportEntity(entity, new TelDestination(dstLevel, dstBox, entity.posX, entity.posY, entity.posZ,
+                -srcX + dstX, -srcY + dstY, -srcZ + dstZ));
         }
 
         for (BlockPos pos : cDst.getUpdates()) {
-            cSrc.getLevel().updateNeighborsAt(pos, Blocks.AIR);
+            cDst.getLevel().notifyNeighborsOfStateChange(pos, Blocks.AIR, true);
         }
 
         for (BlockPos pos : cSrc.getUpdates()) {
-            cSrc.getLevel().updateNeighborsAt(pos, Blocks.AIR);
+            cSrc.getLevel().notifyNeighborsOfStateChange(pos, Blocks.AIR, true);
         }
 
         this.transverseEdges(srcX - 1, srcY - 1, srcZ - 1, srcX + scaleX + 1, srcY + scaleY + 1, srcZ + scaleZ + 1,
-                new TriggerUpdates(srcLevel));
+            new TriggerUpdates(srcLevel));
         this.transverseEdges(dstX - 1, dstY - 1, dstZ - 1, dstX + scaleX + 1, dstY + scaleY + 1, dstZ + scaleZ + 1,
-                new TriggerUpdates(dstLevel));
+            new TriggerUpdates(dstLevel));
 
         this.transverseEdges(srcX, srcY, srcZ, srcX + scaleX, srcY + scaleY, srcZ + scaleZ,
-                new TriggerUpdates(srcLevel));
+            new TriggerUpdates(srcLevel));
         this.transverseEdges(dstX, dstY, dstZ, dstX + scaleX, dstY + scaleY, dstZ + scaleZ,
-                new TriggerUpdates(dstLevel));
+            new TriggerUpdates(dstLevel));
     }
 
-    // Force-loads entity-chunks that are not currently loaded and returns the chunks
-    // that we loaded explicitly (to allow unloading them)
-    private LongSet loadEntityChunksSynchronously(ServerLevel level, AABB box) {
-        var minChunk = new ChunkPos(new BlockPos((int) box.minX, 0, (int) box.minZ));
-        var maxChunk = new ChunkPos(new BlockPos((int) Math.ceil(box.maxX), 0, (int) Math.ceil(box.maxZ)));
+    private void loadChunks(WorldServer level, AxisAlignedBB box) {
+        int minChunkX = MathHelper.floor(box.minX) >> 4;
+        int maxChunkX = MathHelper.floor(box.maxX) >> 4;
+        int minChunkZ = MathHelper.floor(box.minZ) >> 4;
+        int maxChunkZ = MathHelper.floor(box.maxZ) >> 4;
 
-        var chunksLoaded = new LongOpenHashSet();
-        var entityManager = level.entityManager;
-        ChunkPos.rangeClosed(minChunk, maxChunk).forEach(chunkPos -> {
-            var status = entityManager.chunkVisibility.get(chunkPos.toLong());
-            if (!status.isAccessible()) {
-                chunksLoaded.add(chunkPos.toLong());
-                entityManager.updateChunkStatus(chunkPos, Visibility.TRACKED);
+        for (int chunkX = minChunkX; chunkX <= maxChunkX; chunkX++) {
+            for (int chunkZ = minChunkZ; chunkZ <= maxChunkZ; chunkZ++) {
+                level.getChunkProvider().provideChunk(chunkX, chunkZ);
             }
-        });
-        if (!chunksLoaded.isEmpty()) {
-            entityManager.permanentStorage.flush(false);
-            entityManager.tick();
         }
-        return chunksLoaded;
     }
 
-    // Marks chunks previously loaded by loadEntityChunksSynchronously as unloadable
-    private static void unloadEntityChunks(ServerLevel srcLevel, LongSet loadedSrcChunks) {
-        loadedSrcChunks.forEach(chunkPos -> {
-            srcLevel.entityManager.updateChunkStatus(new ChunkPos(chunkPos), Visibility.HIDDEN);
-        });
+    @Nullable
+    private Entity teleportEntity(Entity entity, TelDestination destination) {
+        WorldServer oldLevel;
+        WorldServer newLevel;
+        try {
+            oldLevel = (WorldServer) entity.world;
+            newLevel = destination.dim;
+        } catch (Throwable ignored) {
+            return entity;
+        }
+
+        if (oldLevel == null || newLevel == null) {
+            return entity;
+        }
+
+        ObjectList<Entity> passengersOnOtherSide = new ObjectArrayList<>();
+        if (entity.isBeingRidden()) {
+            ObjectList<Entity> passengers = new ObjectArrayList<>(entity.getPassengers());
+            for (Entity passenger : passengers) {
+                passenger.dismountRidingEntity();
+                Entity movedPassenger = this.teleportEntity(passenger, destination);
+                if (movedPassenger != null) {
+                    passengersOnOtherSide.add(movedPassenger);
+                }
+            }
+        }
+
+        if (entity.isRiding()) {
+            Entity riding = entity.getRidingEntity();
+            if (riding != null) {
+                return this.teleportEntity(riding, destination);
+            }
+        }
+
+        if (oldLevel.provider.getDimension() == newLevel.provider.getDimension()) {
+            if (entity instanceof EntityPlayerMP player) {
+                player.connection.setPlayerLocation(destination.x, destination.y, destination.z, player.rotationYaw,
+                    player.rotationPitch);
+                for (Entity passenger : passengersOnOtherSide) {
+                    passenger.startRiding(player, true);
+                }
+                return player;
+            }
+
+            entity.setLocationAndAngles(destination.x, destination.y, destination.z, entity.rotationYaw,
+                entity.rotationPitch);
+            oldLevel.updateEntityWithOptionalForce(entity, false);
+            for (Entity passenger : passengersOnOtherSide) {
+                passenger.startRiding(entity, true);
+            }
+            return entity;
+        }
+
+        SpatialTeleporter teleporter = new SpatialTeleporter(newLevel, destination.x, destination.y, destination.z);
+        if (entity instanceof EntityPlayerMP player) {
+            player.getServer().getPlayerList().transferPlayerToDimension(player, newLevel.provider.getDimension(),
+                teleporter);
+            player.connection.setPlayerLocation(destination.x, destination.y, destination.z, player.rotationYaw,
+                player.rotationPitch);
+            for (Entity passenger : passengersOnOtherSide) {
+                passenger.startRiding(player, true);
+            }
+            return player;
+        }
+
+        Entity movedEntity = entity.changeDimension(newLevel.provider.getDimension(), teleporter);
+        if (movedEntity != null) {
+            for (Entity passenger : passengersOnOtherSide) {
+                passenger.startRiding(movedEntity, true);
+            }
+        }
+        return movedEntity;
     }
 
-    private static class TriggerUpdates implements ISpatialVisitor {
-
-        private final Level dst;
-
-        public TriggerUpdates(Level dst2) {
-            this.dst = dst2;
-        }
+    private record TriggerUpdates(World dst) implements ISpatialVisitor {
 
         @Override
         public void visit(BlockPos pos) {
-            final BlockState state = this.dst.getBlockState(pos);
-            state.handleNeighborChanged(this.dst, pos, state.getBlock(), pos, false);
+            IBlockState state = this.dst.getBlockState(pos);
+            this.dst.neighborChanged(pos, state.getBlock(), pos);
         }
     }
 
-    private static class WrapInMatrixFrame implements ISpatialVisitor {
-
-        private final Level dst;
-        private final BlockState state;
-
-        public WrapInMatrixFrame(BlockState state, Level dst2) {
-            this.dst = dst2;
-            this.state = state;
-        }
+    private record WrapInMatrixFrame(IBlockState state, World dst) implements ISpatialVisitor {
 
         @Override
         public void visit(BlockPos pos) {
-            this.dst.setBlockAndUpdate(pos, this.state);
+            this.dst.setBlockState(pos, this.state, 2);
         }
     }
 
     private static class TelDestination {
-        private final ServerLevel dim;
+        private final WorldServer dim;
         private final double x;
         private final double y;
         private final double z;
 
-        TelDestination(ServerLevel dimension, AABB srcBox, double x, double y,
-                double z, int blockEntityX, int blockEntityY, int blockEntityZ) {
+        private TelDestination(WorldServer dimension, AxisAlignedBB srcBox, double x, double y, double z,
+                               int dx, int dy, int dz) {
             this.dim = dimension;
-            this.x = Math.min(srcBox.maxX - 0.5, Math.max(srcBox.minX + 0.5, x + blockEntityX));
-            this.y = Math.min(srcBox.maxY - 0.5, Math.max(srcBox.minY + 0.5, y + blockEntityY));
-            this.z = Math.min(srcBox.maxZ - 0.5, Math.max(srcBox.minZ + 0.5, z + blockEntityZ));
+            this.x = Math.clamp(x + dx, srcBox.minX + 0.5, srcBox.maxX - 0.5);
+            this.y = Math.clamp(y + dy, srcBox.minY + 0.5, srcBox.maxY - 0.5);
+            this.z = Math.clamp(z + dz, srcBox.minZ + 0.5, srcBox.maxZ - 0.5);
         }
     }
 
+    private static class SpatialTeleporter extends Teleporter {
+
+        private final double x;
+        private final double y;
+        private final double z;
+
+        private SpatialTeleporter(WorldServer worldIn, double x, double y, double z) {
+            super(worldIn);
+            this.x = x;
+            this.y = y;
+            this.z = z;
+        }
+
+        @Override
+        public void placeInPortal(Entity entity, float rotationYaw) {
+            entity.setLocationAndAngles(this.x, this.y, this.z, entity.rotationYaw, entity.rotationPitch);
+        }
+
+        @Override
+        public boolean placeInExistingPortal(Entity entityIn, float rotationYaw) {
+            this.placeInPortal(entityIn, rotationYaw);
+            return true;
+        }
+
+        @Override
+        public boolean makePortal(Entity entityIn) {
+            return true;
+        }
+
+        @Override
+        public void removeStalePortalLocations(long worldTime) {
+        }
+    }
 }

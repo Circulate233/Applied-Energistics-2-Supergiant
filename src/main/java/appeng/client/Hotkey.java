@@ -1,16 +1,14 @@
 package appeng.client;
 
-import net.minecraft.client.KeyMapping;
-import net.neoforged.neoforge.network.PacketDistributor;
-
-import appeng.core.network.ServerboundPacket;
+import appeng.core.network.InitNetwork;
 import appeng.core.network.serverbound.HotkeyPacket;
+import net.minecraft.client.settings.KeyBinding;
 
-public record Hotkey(String name, KeyMapping mapping) {
+public record Hotkey(String name, KeyBinding mapping) {
+
     public void check() {
-        while (mapping().consumeClick()) {
-            ServerboundPacket message = new HotkeyPacket(this);
-            PacketDistributor.sendToServer(message);
+        while (mapping().isPressed()) {
+            InitNetwork.sendToServer(new HotkeyPacket(this));
         }
     }
 }

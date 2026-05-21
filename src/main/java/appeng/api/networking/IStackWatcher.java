@@ -1,10 +1,9 @@
 package appeng.api.networking;
 
-import org.jetbrains.annotations.ApiStatus;
-
 import appeng.api.networking.crafting.ICraftingWatcherNode;
 import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.stacks.AEKey;
+import org.jetbrains.annotations.ApiStatus;
 
 /**
  * DO NOT IMPLEMENT. Will be injected when adding an {@link IStorageWatcherNode} or {@link ICraftingWatcherNode} to a
@@ -21,7 +20,6 @@ public interface IStackWatcher {
 
     /**
      * Add a specific {@link AEKey} to watch.
-     *
      * Supports multiple values, duplicate ones will not be added.
      */
     void add(AEKey stack);

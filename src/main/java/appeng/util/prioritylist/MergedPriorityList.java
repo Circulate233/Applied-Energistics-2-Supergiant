@@ -18,15 +18,16 @@
 
 package appeng.util.prioritylist;
 
-import java.util.ArrayList;
-import java.util.Collection;
-
 import appeng.api.stacks.AEKey;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+
+import java.util.Collection;
 
 public final class MergedPriorityList implements IPartitionList {
 
-    private final Collection<IPartitionList> positive = new ArrayList<>();
-    private final Collection<IPartitionList> negative = new ArrayList<>();
+    private final Collection<IPartitionList> positive = new ObjectArrayList<>();
+    private final Collection<IPartitionList> negative = new ObjectArrayList<>();
 
     public void addNewList(IPartitionList list, boolean isWhitelist) {
         if (isWhitelist) {
@@ -38,15 +39,15 @@ public final class MergedPriorityList implements IPartitionList {
 
     @Override
     public boolean isListed(AEKey input) {
-        for (IPartitionList l : this.negative) {
-            if (l.isListed(input)) {
+        for (IPartitionList list : this.negative) {
+            if (list.isListed(input)) {
                 return false;
             }
         }
 
         if (!this.positive.isEmpty()) {
-            for (IPartitionList l : this.positive) {
-                if (l.isListed(input)) {
+            for (IPartitionList list : this.positive) {
+                if (list.isListed(input)) {
                     return true;
                 }
             }
@@ -64,6 +65,20 @@ public final class MergedPriorityList implements IPartitionList {
 
     @Override
     public Iterable<AEKey> getItems() {
-        throw new UnsupportedOperationException();
+        ObjectLinkedOpenHashSet<AEKey> items = new ObjectLinkedOpenHashSet<>();
+
+        for (IPartitionList list : this.positive) {
+            for (AEKey item : list.getItems()) {
+                items.add(item);
+            }
+        }
+
+        for (IPartitionList list : this.negative) {
+            for (AEKey item : list.getItems()) {
+                items.add(item);
+            }
+        }
+
+        return items;
     }
 }

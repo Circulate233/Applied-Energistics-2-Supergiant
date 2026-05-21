@@ -1,99 +1,37 @@
 package appeng.recipes.handlers;
 
-import com.mojang.serialization.MapCodec;
-import com.mojang.serialization.codecs.RecordCodecBuilder;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.NonNullList;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.Recipe;
-import net.minecraft.world.item.crafting.RecipeInput;
-import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraft.world.item.crafting.RecipeType;
-import net.minecraft.world.level.Level;
-
-import appeng.core.AppEng;
 import appeng.recipes.AERecipeTypes;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.Ingredient;
+import org.jspecify.annotations.Nullable;
 
-public class ChargerRecipe implements Recipe<RecipeInput> {
-    @Deprecated(forRemoval = true, since = "1.21.1")
-    public static final ResourceLocation TYPE_ID = AppEng.makeId("charger");
-    @Deprecated(forRemoval = true, since = "1.21.1")
-    public static final RecipeType<ChargerRecipe> TYPE = AERecipeTypes.CHARGER;
-
-    public final Ingredient ingredient;
-    public final NonNullList<Ingredient> ingredients;
-    public final ItemStack result;
-
-    public static final MapCodec<ChargerRecipe> CODEC = RecordCodecBuilder.mapCodec(
-            builder -> builder
-                    .group(
-                            Ingredient.CODEC_NONEMPTY.fieldOf("ingredient").forGetter(ChargerRecipe::getIngredient),
-                            ItemStack.CODEC.fieldOf("result").forGetter(cr -> cr.result))
-                    .apply(builder, ChargerRecipe::new));
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, ChargerRecipe> STREAM_CODEC = StreamCodec.composite(
-            Ingredient.CONTENTS_STREAM_CODEC,
-            ChargerRecipe::getIngredient,
-            ItemStack.STREAM_CODEC,
-            ChargerRecipe::getResultItem,
-            ChargerRecipe::new);
+public class ChargerRecipe {
+    private final Ingredient ingredient;
+    private final ItemStack result;
 
     public ChargerRecipe(Ingredient ingredient, ItemStack result) {
         this.ingredient = ingredient;
-        this.result = result;
-        this.ingredients = NonNullList.of(Ingredient.EMPTY, ingredient);
+        this.result = result.copy();
     }
 
-    @Override
-    public boolean matches(RecipeInput container, Level level) {
-        return false;
-    }
-
-    @Override
-    public ItemStack assemble(RecipeInput container, HolderLookup.Provider registries) {
+    public static @Nullable ChargerRecipe findRecipe(ItemStack input) {
+        for (var recipe : AERecipeTypes.CHARGER.getRecipes()) {
+            if (recipe.matches(input)) {
+                return recipe;
+            }
+        }
         return null;
     }
 
-    @Override
-    public boolean canCraftInDimensions(int width, int height) {
-        return false;
-    }
-
-    @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) {
-        return getResultItem();
+    public Ingredient getIngredient() {
+        return this.ingredient;
     }
 
     public ItemStack getResultItem() {
-        return result;
+        return this.result.copy();
     }
 
-    @Override
-    public RecipeSerializer<?> getSerializer() {
-        return ChargerRecipeSerializer.INSTANCE;
-    }
-
-    @Override
-    public RecipeType<?> getType() {
-        return TYPE;
-    }
-
-    public Ingredient getIngredient() {
-        return ingredient;
-    }
-
-    @Override
-    public NonNullList<Ingredient> getIngredients() {
-        return ingredients;
-    }
-
-    @Override
-    public boolean isSpecial() {
-        return true;
+    public boolean matches(ItemStack stack) {
+        return !stack.isEmpty() && this.ingredient.apply(stack);
     }
 }

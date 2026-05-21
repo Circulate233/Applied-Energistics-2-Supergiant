@@ -1,0 +1,24 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    " a ",
+    "bcb",
+    " b "
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:fluix_pearl"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "c": {
+      "item": "ae2:quartz_fiber"
+    }
+  },
+  "result": {
+    "item": "ae2:wireless_receiver",
+    "count": 1
+  }
+}

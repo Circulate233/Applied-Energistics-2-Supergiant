@@ -1,0 +1,431 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
+package appeng.container.implementations;
+
+import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.crafting.CalculationStrategy;
+import appeng.api.networking.crafting.CraftingSubmitErrorCode;
+import appeng.api.networking.crafting.ICraftingCPU;
+import appeng.api.networking.crafting.ICraftingPlan;
+import appeng.api.networking.crafting.ICraftingService;
+import appeng.api.networking.crafting.ICraftingSubmitResult;
+import appeng.api.networking.crafting.UnsuitableCpus;
+import appeng.api.networking.security.IActionHost;
+import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
+import appeng.api.storage.ISubGuiHost;
+import appeng.container.AEBaseContainer;
+import appeng.container.GuiIds;
+import appeng.container.ISubGui;
+import appeng.container.guisync.GuiSync;
+import appeng.container.guisync.PacketWritable;
+import appeng.container.interfaces.ICraftingGridContainer;
+import appeng.container.me.crafting.CraftingCPUCycler;
+import appeng.container.me.crafting.CraftingCPURecord;
+import appeng.container.me.crafting.CraftingPlanSummary;
+import appeng.core.AELog;
+import appeng.core.gui.locator.GuiHostLocator;
+import appeng.core.network.clientbound.CraftConfirmPlanPacket;
+import appeng.core.network.serverbound.SwitchGuisPacket;
+import appeng.crafting.execution.CraftingSubmitResult;
+import appeng.me.helpers.PlayerSource;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.world.World;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
+import java.util.Objects;
+import java.util.concurrent.Future;
+
+public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
+    private static final String ACTION_BACK = "back";
+    private static final String ACTION_CYCLE_CPU = "cycleCpu";
+    private static final String ACTION_START_JOB = "startJob";
+    private static final String ACTION_REPLAN = "replan";
+
+    private static final SyncableSubmitResult NO_ERROR = new SyncableSubmitResult((ICraftingSubmitResult) null);
+
+    private final CraftingCPUCycler cpuCycler;
+    private final ISubGuiHost host;
+    @GuiSync(3)
+    public boolean autoStart;
+    @GuiSync(6)
+    public boolean noCPU = true;
+    @GuiSync(1)
+    public long cpuBytesAvail;
+    @GuiSync(2)
+    public int cpuCoProcessors;
+    @GuiSync(7)
+    @Nullable
+    public ITextComponent cpuName;
+    @GuiSync(8)
+    public SyncableSubmitResult submitError = NO_ERROR;
+    @Nullable
+    private ICraftingCPU selectedCpu;
+    @Nullable
+    private AEKey whatToCraft;
+    private int amount;
+    @Nullable
+    private Future<ICraftingPlan> job;
+    @Nullable
+    private ICraftingPlan result;
+    @Nullable
+    private CraftingPlanSummary plan;
+    @Nullable
+    private List<ICraftingGridContainer.AutoCraftEntry> autoCraftingQueue;
+
+    public ContainerCraftConfirm(int windowId, InventoryPlayer ip, ISubGuiHost host) {
+        super(windowId, ip, host);
+        this.host = host;
+        this.cpuCycler = new CraftingCPUCycler(this::cpuMatches, this::onCPUSelectionChanged);
+        this.cpuCycler.setAllowNoSelection(true);
+
+        registerClientAction(ACTION_BACK, this::goBack);
+        registerClientAction(ACTION_CYCLE_CPU, Boolean.class, this::cycleSelectedCPU);
+        registerClientAction(ACTION_START_JOB, this::startJob);
+        registerClientAction(ACTION_REPLAN, this::replan);
+    }
+
+    public static void openWithCraftingList(@Nullable IActionHost terminal, EntityPlayerMP player,
+                                            @Nullable GuiHostLocator locator, List<ICraftingGridContainer.AutoCraftEntry> stacksToCraft) {
+        if (terminal == null || locator == null || stacksToCraft.isEmpty()) {
+            return;
+        }
+
+        ICraftingGridContainer.AutoCraftEntry firstToCraft = stacksToCraft.getFirst();
+        List<ICraftingGridContainer.AutoCraftEntry> subsequentCrafts = stacksToCraft.subList(1, stacksToCraft.size());
+
+        try {
+            SwitchGuisPacket.openSubGui(player, locator, GuiIds.GuiKey.CRAFT_CONFIRM);
+
+            if (player.openContainer instanceof ContainerCraftConfirm container) {
+                if (!container.planJob(firstToCraft.what(), firstToCraft.slots().size(), CalculationStrategy.CRAFT_LESS)) {
+                    container.setValidContainer(false);
+                    return;
+                }
+
+                container.autoCraftingQueue = subsequentCrafts;
+                container.detectAndSendChanges();
+            }
+        } catch (Throwable e) {
+            AELog.info(e);
+        }
+    }
+
+    public boolean planJob(AEKey what, int amount, CalculationStrategy strategy) {
+        if (this.job != null) {
+            this.job.cancel(true);
+        }
+        this.result = null;
+        this.clearError();
+        this.whatToCraft = what;
+        this.amount = amount;
+
+        IGrid grid = getGrid();
+        if (grid == null) {
+            return false;
+        }
+
+        this.job = grid.getCraftingService().beginCraftingCalculation(getPlayer().world, this::getActionSrc, what,
+            amount, strategy);
+        return true;
+    }
+
+    public void cycleSelectedCPU(boolean next) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_CYCLE_CPU, next);
+        } else {
+            this.cpuCycler.cycleCpu(next);
+        }
+    }
+
+    @Override
+    public void broadcastChanges() {
+        if (isClientSide()) {
+            return;
+        }
+
+        IGrid grid = this.getGrid();
+        if (grid == null) {
+            this.setValidContainer(false);
+            return;
+        }
+
+        this.cpuCycler.detectAndSendChanges(grid);
+        super.broadcastChanges();
+
+        if (this.job != null && this.job.isDone()) {
+            try {
+                this.result = this.job.get();
+
+                if (!this.result.simulation() && this.isAutoStart()) {
+                    this.startJob();
+                    return;
+                }
+
+                this.plan = CraftingPlanSummary.fromJob(this.getGrid(), this.getActionSrc(), this.result);
+                sendPacketToClient(new CraftConfirmPlanPacket(this.plan));
+            } catch (Throwable e) {
+                this.getPlayerInventory().player.sendMessage(new TextComponentString("Error: " + e));
+                AELog.warn("Failed to start crafting job.", e);
+                this.setValidContainer(false);
+                this.result = null;
+            }
+
+            this.job = null;
+        }
+    }
+
+    @Nullable
+    private IGrid getGrid() {
+        IActionHost actionHost = (IActionHost) this.getTarget();
+        IGridNode node = actionHost.getActionableNode();
+        return node != null ? node.getGrid() : null;
+    }
+
+    private boolean cpuMatches(ICraftingCPU cpu) {
+        if (this.plan == null) {
+            return true;
+        }
+        return cpu.getAvailableStorage() >= this.plan.usedBytes() && !cpu.isBusy();
+    }
+
+    public void startJob() {
+        clearError();
+
+        if (isClientSide()) {
+            sendClientAction(ACTION_START_JOB);
+            return;
+        }
+
+        if (this.result != null && !this.result.simulation()) {
+            IGrid grid = getGrid();
+            if (grid == null) {
+                this.setValidContainer(false);
+                return;
+            }
+            ICraftingService craftingService = grid.getCraftingService();
+            ICraftingSubmitResult submitResult = craftingService.submitJob(this.result, null, this.selectedCpu, true,
+                this.getActionSrc());
+            this.setAutoStart(false);
+            if (submitResult.successful()) {
+                if (this.autoCraftingQueue != null && !this.autoCraftingQueue.isEmpty()) {
+                    EntityPlayer player = getPlayer();
+                    if (player instanceof EntityPlayerMP serverPlayer) {
+                        ContainerCraftConfirm.openWithCraftingList(getActionHost(), serverPlayer, getLocator(),
+                            this.autoCraftingQueue);
+                    }
+                } else {
+                    this.host.returnToMainContainer(getPlayer(), this);
+                }
+            } else {
+                AELog.info("Couldn't submit crafting job for %dx%s: %s [Detail: %s]",
+                    this.result.finalOutput().amount(),
+                    this.result.finalOutput().what(),
+                    submitResult.errorCode(),
+                    submitResult.errorDetail());
+                this.submitError = new SyncableSubmitResult(submitResult);
+            }
+        }
+    }
+
+    private IActionSource getActionSrc() {
+        return new PlayerSource(this.getPlayerInventory().player, (IActionHost) this.getTarget());
+    }
+
+    @Override
+    public void onContainerClosed(EntityPlayer player) {
+        super.onContainerClosed(player);
+        if (this.job != null) {
+            this.job.cancel(true);
+            this.job = null;
+        }
+    }
+
+    private void onCPUSelectionChanged(@Nullable CraftingCPURecord cpuRecord, boolean cpusAvailable) {
+        this.noCPU = !cpusAvailable;
+
+        if (cpuRecord == null) {
+            this.cpuBytesAvail = 0;
+            this.cpuCoProcessors = 0;
+            this.cpuName = null;
+            this.selectedCpu = null;
+        } else {
+            this.cpuBytesAvail = cpuRecord.getSize();
+            this.cpuCoProcessors = cpuRecord.getProcessors();
+            this.cpuName = cpuRecord.getName();
+            this.selectedCpu = cpuRecord.getCpu();
+        }
+    }
+
+    public World getLevel() {
+        return this.getPlayerInventory().player.world;
+    }
+
+    public boolean isAutoStart() {
+        return this.autoStart;
+    }
+
+    public void setAutoStart(boolean autoStart) {
+        this.autoStart = autoStart;
+    }
+
+    public long getCpuAvailableBytes() {
+        return this.cpuBytesAvail;
+    }
+
+    public int getCpuCoProcessors() {
+        return this.cpuCoProcessors;
+    }
+
+    @Nullable
+    public ITextComponent getName() {
+        return this.cpuName;
+    }
+
+    public boolean hasNoCPU() {
+        return this.noCPU;
+    }
+
+    public void setJob(@Nullable Future<ICraftingPlan> job) {
+        this.job = job;
+    }
+
+    @Nullable
+    public CraftingPlanSummary getPlan() {
+        return this.plan;
+    }
+
+    public void setPlan(@Nullable CraftingPlanSummary plan) {
+        this.plan = plan;
+    }
+
+    public void goBack() {
+        clearError();
+
+        EntityPlayer player = getPlayerInventory().player;
+        if (player instanceof EntityPlayerMP serverPlayer) {
+            if (this.autoCraftingQueue != null && !this.autoCraftingQueue.isEmpty()) {
+                ContainerCraftConfirm.openWithCraftingList(getActionHost(), serverPlayer, getLocator(), this.autoCraftingQueue);
+            } else if (this.whatToCraft != null) {
+                ContainerCraftAmount.open(serverPlayer, getLocator(), this.whatToCraft, this.amount);
+            } else {
+                this.host.returnToMainContainer(getPlayer(), this);
+            }
+        } else {
+            sendClientAction(ACTION_BACK);
+        }
+    }
+
+    @Override
+    public ISubGuiHost getHost() {
+        return this.host;
+    }
+
+    public void replan() {
+        clearError();
+
+        if (isClientSide()) {
+            sendClientAction(ACTION_REPLAN);
+            return;
+        }
+
+        if (this.whatToCraft != null) {
+            if (!planJob(this.whatToCraft, this.amount, CalculationStrategy.CRAFT_LESS)) {
+                goBack();
+            }
+        } else {
+            goBack();
+        }
+    }
+
+    public void clearError() {
+        this.submitError = NO_ERROR;
+    }
+
+    public record SyncableSubmitResult(@Nullable ICraftingSubmitResult result) implements PacketWritable {
+
+        @SuppressWarnings("unused")
+        public SyncableSubmitResult(ByteBuf data) {
+            this(readFromPacket(new PacketBuffer(data)));
+        }
+
+        @Nullable
+        private static ICraftingSubmitResult readFromPacket(PacketBuffer buffer) {
+            if (!buffer.readBoolean()) {
+                return null;
+            }
+
+            if (buffer.readBoolean()) {
+                return CraftingSubmitResult.successful(null);
+            }
+
+            CraftingSubmitErrorCode errorCode = buffer.readEnumValue(CraftingSubmitErrorCode.class);
+            return switch (errorCode) {
+                case NO_SUITABLE_CPU_FOUND -> CraftingSubmitResult.noSuitableCpu(new UnsuitableCpus(
+                    buffer.readInt(),
+                    buffer.readInt(),
+                    buffer.readInt(),
+                    buffer.readInt()));
+                case MISSING_INGREDIENT -> CraftingSubmitResult.missingIngredient(GenericStack.readBuffer(buffer));
+                default -> CraftingSubmitResult.simpleError(errorCode);
+            };
+        }
+
+        @Override
+        public void writeToPacket(ByteBuf data) {
+            PacketBuffer buffer = new PacketBuffer(data);
+            if (this.result == null) {
+                buffer.writeBoolean(false);
+                return;
+            }
+
+            buffer.writeBoolean(true);
+            buffer.writeBoolean(this.result.successful());
+            if (!this.result.successful()) {
+                CraftingSubmitErrorCode errorCode = Objects.requireNonNull(this.result.errorCode());
+                buffer.writeEnumValue(errorCode);
+                switch (errorCode) {
+                    case NO_SUITABLE_CPU_FOUND:
+                        UnsuitableCpus unsuitableCpus = Objects.requireNonNull((UnsuitableCpus) this.result.errorDetail());
+                        buffer.writeInt(unsuitableCpus.offline());
+                        buffer.writeInt(unsuitableCpus.busy());
+                        buffer.writeInt(unsuitableCpus.tooSmall());
+                        buffer.writeInt(unsuitableCpus.excluded());
+                        break;
+                    case MISSING_INGREDIENT:
+                        GenericStack missingIngredient = Objects.requireNonNull((GenericStack) this.result.errorDetail());
+                        GenericStack.writeBuffer(missingIngredient, buffer);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+    }
+}

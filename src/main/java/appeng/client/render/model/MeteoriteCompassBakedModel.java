@@ -1,121 +1,92 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.client.render.model;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.jetbrains.annotations.Nullable;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.multiplayer.ClientLevel;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.renderer.block.model.ItemTransforms;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.item.ItemDisplayContext;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.client.model.BakedModelWrapper;
-import net.neoforged.neoforge.client.model.IDynamicBakedModel;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.neoforged.neoforge.client.model.data.ModelProperty;
-
 import appeng.hooks.CompassManager;
-import appeng.thirdparty.fabric.MutableQuadView;
-import appeng.thirdparty.fabric.RenderContext;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemCameraTransforms;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.World;
+import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
+import net.minecraftforge.common.model.TRSRTransformation;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import org.apache.commons.lang3.tuple.Pair;
 
-/**
- * This baked model combines the quads of a compass base and the quads of a compass pointer, which will be rotated
- * around the Y-axis to get the compass to point in the right direction.
- */
-public class MeteoriteCompassBakedModel implements IDynamicBakedModel {
-    // Rotation is expressed as radians
-    public static final ModelProperty<Float> ROTATION = new ModelProperty<>();
+import javax.annotation.Nullable;
+import javax.vecmath.Matrix4f;
+import javax.vecmath.Vector4f;
+import java.util.Collections;
+import java.util.List;
 
-    private final BakedModel base;
+@SuppressWarnings("deprecation")
+public class MeteoriteCompassBakedModel implements IBakedModel {
+    private final IBakedModel base;
+    private final IBakedModel pointer;
+    private final float rotation;
 
-    private final BakedModel pointer;
+    public MeteoriteCompassBakedModel(IBakedModel base, IBakedModel pointer) {
+        this(base, pointer, 0.0F);
+    }
 
-    public MeteoriteCompassBakedModel(BakedModel base, BakedModel pointer) {
+    private MeteoriteCompassBakedModel(IBakedModel base, IBakedModel pointer, float rotation) {
         this.base = base;
         this.pointer = pointer;
+        this.rotation = rotation;
     }
 
-    public BakedModel getPointer() {
-        return pointer;
-    }
+    public static float getAnimatedRotation(@Nullable BlockPos pos, boolean prefetch, float playerRotation) {
+        if (pos != null) {
+            ChunkPos ourChunkPos = new ChunkPos(pos);
+            BlockPos closestMeteorite = CompassManager.INSTANCE.getClosestMeteorite(ourChunkPos, prefetch);
+            if (closestMeteorite != null) {
+                double dx = pos.getX() - closestMeteorite.getX();
+                double dz = pos.getZ() - closestMeteorite.getZ();
+                double distanceSq = dx * dx + dz * dz;
+                if (distanceSq <= 36.0D) {
+                    long timeMillis = System.currentTimeMillis() % 500L;
+                    return timeMillis / 500.0F * (float) Math.PI * 2.0F;
+                }
 
-    @Override
-    public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand,
-            ModelData extraData, RenderType renderType) {
-        // Get rotation from the special block state
-        var rotation = Objects.requireNonNullElse(extraData.get(ROTATION), 0.0f);
-
-        // This is used to render a compass pointing in a specific direction when being
-        // held in hand
-        // Set up the rotation around the Y-axis for the pointer
-        RenderContext.QuadTransform transform = quad -> {
-            Quaternionf quaternion = new Quaternionf().rotationY(rotation);
-            Vector3f pos = new Vector3f();
-            for (int i = 0; i < 4; i++) {
-                quad.copyPos(i, pos);
-                pos.add(-0.5f, -0.5f, -0.5f);
-                pos.rotate(quaternion);
-                pos.add(0.5f, 0.5f, 0.5f);
-                quad.pos(i, pos);
-            }
-            return true;
-        };
-
-        // Pre-compute the quad count to avoid list resizes
-        List<BakedQuad> quads = new ArrayList<>(this.base.getQuads(state, side, rand, extraData, renderType));
-        // We'll add the pointer as "sideless" to the item rendering when state is null
-        if (side == null && state == null) {
-            var quadView = MutableQuadView.getInstance();
-            for (BakedQuad bakedQuad : this.pointer.getQuads(state, side, rand, extraData, renderType)) {
-                quadView.fromVanilla(bakedQuad, null);
-                transform.transform(quadView);
-                quads.add(quadView.toBlockBakedQuad());
+                return (float) rad(pos.getX(), pos.getZ(), closestMeteorite.getX(), closestMeteorite.getZ())
+                    + playerRotation;
             }
         }
 
+        long timeMillis = System.currentTimeMillis() % 3000L;
+        return timeMillis / 3000.0F * (float) Math.PI * 2.0F;
+    }
+
+    private static double rad(double ax, double az, double bx, double bz) {
+        double up = bz - az;
+        double side = bx - ax;
+        return Math.atan2(-up, side) - Math.PI / 2.0D;
+    }
+
+    @Override
+    public List<BakedQuad> getQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
+        List<BakedQuad> quads = new ObjectArrayList<>(this.base.getQuads(state, side, rand));
+        if (side == null && state == null) {
+            MatrixVertexTransformer transformer = new MatrixVertexTransformer(createRotationMatrix(this.rotation));
+            for (BakedQuad bakedQuad : this.pointer.getQuads(state, side, rand)) {
+                UnpackedBakedQuad.Builder builder = new UnpackedBakedQuad.Builder(bakedQuad.getFormat());
+                transformer.setParent(builder);
+                transformer.setVertexFormat(builder.getVertexFormat());
+                bakedQuad.pipe(transformer);
+                quads.add(builder.build());
+            }
+        }
         return quads;
     }
 
     @Override
-    public boolean useAmbientOcclusion() {
-        return this.base.useAmbientOcclusion();
+    public boolean isAmbientOcclusion() {
+        return this.base.isAmbientOcclusion();
     }
 
     @Override
@@ -124,131 +95,71 @@ public class MeteoriteCompassBakedModel implements IDynamicBakedModel {
     }
 
     @Override
-    public boolean usesBlockLight() {
-        return false;
+    public boolean isBuiltInRenderer() {
+        return this.base.isBuiltInRenderer();
     }
 
     @Override
-    public boolean isCustomRenderer() {
-        return false;
+    public TextureAtlasSprite getParticleTexture() {
+        return this.base.getParticleTexture();
     }
 
     @Override
-    public TextureAtlasSprite getParticleIcon() {
-        return this.base.getParticleIcon();
+    public ItemCameraTransforms getItemCameraTransforms() {
+        return this.base.getItemCameraTransforms();
     }
 
     @Override
-    public ItemTransforms getTransforms() {
-        return this.base.getTransforms();
-    }
-
-    @Override
-    public ItemOverrides getOverrides() {
-        /*
-         * The entity is given when an item rendered on the hotbar, or when held in hand.
-         */
-        return new ItemOverrides() {
+    public ItemOverrideList getOverrides() {
+        return new ItemOverrideList(Collections.emptyList()) {
             @Override
-            public BakedModel resolve(BakedModel originalModel, ItemStack stack, @Nullable ClientLevel level,
-                    @Nullable LivingEntity entity, int seed) {
-                float rotation;
-                if (level != null && entity != null) {
-                    rotation = getAnimatedRotation(entity.position(), true, 0);
-                } else {
-                    rotation = getAnimatedRotation(null, false, 0);
-                }
-
-                return new FixedRotationModel(rotation);
+            public IBakedModel handleItemState(IBakedModel originalModel, ItemStack stack, World world,
+                                               EntityLivingBase entity) {
+                BlockPos pos = entity != null ? entity.getPosition() : getPlayerPos();
+                float playerRotation = entity != null ? (float) (entity.rotationYaw / 180.0F * Math.PI + Math.PI) : 0.0F;
+                float animatedRotation = getAnimatedRotation(pos, entity != null, playerRotation);
+                return new MeteoriteCompassBakedModel(MeteoriteCompassBakedModel.this.base,
+                    MeteoriteCompassBakedModel.this.pointer, animatedRotation);
             }
         };
     }
 
-    // Model wrapper that allows us to pass a rotation along to the baked model
-    class FixedRotationModel extends BakedModelWrapper<MeteoriteCompassBakedModel> {
-        private final float rotation;
-
-        public FixedRotationModel(float rotation) {
-            super(MeteoriteCompassBakedModel.this);
-            this.rotation = rotation;
+    @Override
+    public Pair<? extends IBakedModel, Matrix4f> handlePerspective(ItemCameraTransforms.TransformType cameraTransformType) {
+        Pair<? extends IBakedModel, Matrix4f> pair = this.base.handlePerspective(cameraTransformType);
+        Matrix4f matrix = pair != null ? pair.getValue() : TRSRTransformation.identity().getMatrix();
+        float adjustedRotation = this.rotation + getDisplayRotationOffset(matrix);
+        if (pair != null) {
+            return Pair.of(new MeteoriteCompassBakedModel(this.base, this.pointer, adjustedRotation), pair.getValue());
         }
-
-        @Override
-        public List<BakedQuad> getQuads(@Nullable BlockState state, @Nullable Direction side, RandomSource rand) {
-            var modelData = ModelData.builder().with(ROTATION, rotation).build();
-            return originalModel.getQuads(state, side, rand, modelData, null);
-        }
-
-        @Override
-        public BakedModel applyTransform(ItemDisplayContext cameraTransformType, PoseStack poseStack,
-                boolean applyLeftHandTransform) {
-            super.applyTransform(cameraTransformType, poseStack, applyLeftHandTransform);
-
-            // In the pointer model, it is pointing towards z+
-            // Apply the camera and item transform to determine where in world coordinates it is now pointing
-            var pointerNormal = poseStack.last().transformNormal(0, 0, 1, new Vector3f());
-            pointerNormal.y = 0; // Project onto x/z plane
-            pointerNormal.normalize();
-
-            // The angle around Y that the pointer is rotated just due to the current camera transform
-            var d = Mth.atan2(pointerNormal.z, pointerNormal.x) - Mth.atan2(1, 0);
-
-            // GUI obviously will not include the players view rotation
-            if (cameraTransformType == ItemDisplayContext.GUI) {
-                if (Minecraft.getInstance() != null && Minecraft.getInstance().player != null) {
-                    var player = Minecraft.getInstance().player;
-                    float offRads = (float) (player.getYRot() / 180.0f * (float) Math.PI + Math.PI);
-                    d += offRads;
-                }
-            }
-
-            return new FixedRotationModel((float) d + rotation);
-        }
-
-        @Override
-        public List<BakedModel> getRenderPasses(ItemStack itemStack, boolean fabulous) {
-            return List.of(this);
-        }
+        return Pair.of(new MeteoriteCompassBakedModel(this.base, this.pointer, adjustedRotation), matrix);
     }
 
-    /**
-     * Gets the effective, animated rotation for the compass given the current position of the compass.
-     */
-    public static float getAnimatedRotation(@Nullable Vec3 pos, boolean prefetch, float playerRotation) {
-
-        // Only query for a meteor position if we know our own position
-        if (pos != null) {
-            var ourChunkPos = new ChunkPos(BlockPos.containing(pos));
-            var closestMeteorite = CompassManager.INSTANCE.getClosestMeteorite(ourChunkPos, prefetch);
-
-            // No close meteorite was found -> spin slowly
-            if (closestMeteorite == null) {
-                long timeMillis = System.currentTimeMillis();
-                // .5 seconds per full rotation
-                timeMillis %= 500;
-                return timeMillis / 500.f * (float) Math.PI * 2;
-            } else {
-                var dx = pos.x - closestMeteorite.getX();
-                var dz = pos.z - closestMeteorite.getZ();
-                var distanceSq = dx * dx + dz * dz;
-                if (distanceSq > 6 * 6) {
-                    var x = closestMeteorite.getX();
-                    var z = closestMeteorite.getZ();
-                    return (float) rad(pos.x(), pos.z(), x, z) + playerRotation;
-                }
-            }
+    @Nullable
+    private BlockPos getPlayerPos() {
+        if (net.minecraft.client.Minecraft.getMinecraft().player == null) {
+            return null;
         }
-
-        long timeMillis = System.currentTimeMillis();
-        // 3 seconds per full rotation
-        timeMillis %= 3000;
-        return timeMillis / 3000.f * (float) Math.PI * 2;
+        return net.minecraft.client.Minecraft.getMinecraft().player.getPosition();
     }
 
-    private static double rad(double ax, double az, double bx, double bz) {
-        var up = bz - az;
-        var side = bx - ax;
+    private Matrix4f createRotationMatrix(float rotation) {
+        Matrix4f transform = new Matrix4f();
+        transform.setIdentity();
+        transform.rotY(rotation);
+        return transform;
+    }
 
-        return Math.atan2(-up, side) - Math.PI / 2.0;
+    private float getDisplayRotationOffset(Matrix4f transform) {
+        Vector4f pointerNormal = new Vector4f(0.0F, 0.0F, 1.0F, 0.0F);
+        transform.transform(pointerNormal);
+
+        double x = pointerNormal.x;
+        double z = pointerNormal.z;
+        if (x * x + z * z < 1.0E-6D) {
+            return 0.0F;
+        }
+
+        return (float) (Math.atan2(z, x) - Math.atan2(1.0D, 0.0D));
     }
 }

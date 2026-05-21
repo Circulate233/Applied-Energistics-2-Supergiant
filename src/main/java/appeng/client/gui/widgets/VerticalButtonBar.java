@@ -18,39 +18,36 @@
 
 package appeng.client.gui.widgets;
 
-import java.util.ArrayList;
+import appeng.client.Point;
+import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.ICompositeWidget;
+import appeng.client.gui.Rect2i;
+import appeng.client.gui.Tooltip;
+import appeng.client.gui.style.Blitter;
+import appeng.core.AppEng;
+import net.minecraft.client.gui.GuiButton;
+import org.jetbrains.annotations.Nullable;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
 import java.util.List;
 import java.util.function.Consumer;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
-import net.minecraft.client.renderer.Rect2i;
-
-import appeng.client.Point;
-import appeng.client.gui.AEBaseScreen;
-import appeng.client.gui.ICompositeWidget;
-import appeng.core.AppEng;
-
-/**
- * A stacked button panel on the left or right side of our UIs.
- */
 public class VerticalButtonBar implements ICompositeWidget {
-    // Vertical space between buttons
+    private static final Blitter BACKGROUND = Blitter.texture(
+        AppEng.makeId("textures/gui/sprites/vertical_buttons_bg.png"), 21, 26);
+    private static final int BACKGROUND_WIDTH = 21;
+    private static final int BACKGROUND_HEIGHT = 26;
+    private static final int BACKGROUND_TOP_BORDER = 2;
+    private static final int BACKGROUND_BOTTOM_BORDER = 4;
     private static final int VERTICAL_SPACING = 6;
-    // The margin between the right side of the buttons and the GUI
     private static final int MARGIN = 2;
-    private final List<Button> buttons = new ArrayList<>();
-    // The origin of the last initialized screen in window coordinates
+
+    private final List<GuiButton> buttons = new ObjectArrayList<>();
     private Point screenOrigin = Point.ZERO;
-    // This bounding rectangle relative to the screens origin
     private Rect2i bounds = new Rect2i(0, 0, 0, 0);
-    private Point position;
+    private Point position = Point.ZERO;
 
-    public VerticalButtonBar() {
-    }
-
-    public void add(Button button) {
+    public void add(GuiButton button) {
         buttons.add(button);
     }
 
@@ -61,7 +58,6 @@ public class VerticalButtonBar implements ICompositeWidget {
 
     @Override
     public void setSize(int width, int height) {
-        // Setting the size for this control is not supported
     }
 
     @Override
@@ -69,65 +65,95 @@ public class VerticalButtonBar implements ICompositeWidget {
         return bounds;
     }
 
-    /**
-     * We need to update every frame because buttons can become visible/invisible at any point in time.
-     */
     @Override
     public void updateBeforeRender() {
-        int currentY = position.getY() + MARGIN;
+        int currentY = position.y() + MARGIN;
         int maxWidth = 0;
 
-        // Align the button's right edge with the UI and account for margin
-        for (Button button : buttons) {
+        for (GuiButton button : buttons) {
             if (!button.visible) {
                 continue;
             }
 
-            // Vanilla widgets need to be in window space
-            button.setX(screenOrigin.getX() + position.getX() - MARGIN - button.getWidth());
-            button.setY(screenOrigin.getY() + currentY);
+            button.x = screenOrigin.x() + position.x() - MARGIN - button.width;
+            button.y = screenOrigin.y() + currentY;
 
-            currentY += button.getHeight() + VERTICAL_SPACING;
-            maxWidth = Math.max(button.getWidth(), maxWidth);
+            currentY += button.height + VERTICAL_SPACING;
+            maxWidth = Math.max(button.width, maxWidth);
         }
 
-        // Set up a bounding rectangle for JEI exclusion zones
         if (maxWidth == 0) {
             bounds = new Rect2i(0, 0, 0, 0);
         } else {
-            int boundX = position.getX() - maxWidth - 2 * MARGIN;
-            int boundY = position.getY();
-            bounds = new Rect2i(
-                    boundX,
-                    boundY,
-                    maxWidth + 2 * MARGIN,
-                    currentY - boundY);
+            int boundX = position.x() - maxWidth - 2 * MARGIN;
+            int boundY = position.y();
+            bounds = new Rect2i(boundX, boundY, maxWidth + 2 * MARGIN, currentY - boundY);
         }
     }
 
-    /**
-     * Called when the parent UI is repositioned or resized. All buttons need to be re-added since Vanilla clears the
-     * widgets when this happens.
-     */
     @Override
-    public void populateScreen(Consumer<AbstractWidget> addWidget, Rect2i bounds, AEBaseScreen<?> screen) {
+    public void populateScreen(Consumer<GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
         this.screenOrigin = Point.fromTopLeft(bounds);
         for (var button : this.buttons) {
-            if (button.isFocused()) {
-                button.setFocused(false);
+            if (button instanceof TabButton tabButton && tabButton.isFocused()) {
+                tabButton.setFocused(false);
+            } else if (button instanceof AECheckbox checkbox && checkbox.isFocused()) {
+                checkbox.setFocused(false);
+            } else if (button instanceof IconButton iconButton && iconButton.isFocused()) {
+                iconButton.setFocused(false);
             }
             addWidget.accept(button);
         }
     }
 
     @Override
-    public void drawBackgroundLayer(GuiGraphics guiGraphics, Rect2i bounds, Point mouse) {
-        guiGraphics.blitSprite(
-                AppEng.makeId("vertical_buttons_bg"),
-                bounds.getX() + this.bounds.getX() - 2,
-                bounds.getY() + this.bounds.getY() - 1,
-                1,
-                this.bounds.getWidth() + 1,
-                this.bounds.getHeight() + 4);
+    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+        if (this.bounds.width() <= 0 || this.bounds.height() <= 0) {
+            return;
+        }
+
+        int x = bounds.x() + this.bounds.x() - 2;
+        int y = bounds.y() + this.bounds.y() - 1;
+        int width = this.bounds.width() + 1;
+        int height = this.bounds.height() + 4;
+        int middleHeight = Math.max(0, height - BACKGROUND_TOP_BORDER - BACKGROUND_BOTTOM_BORDER);
+
+        BACKGROUND.copy()
+                  .src(0, 0, BACKGROUND_WIDTH, BACKGROUND_TOP_BORDER)
+                  .dest(x, y, width, BACKGROUND_TOP_BORDER)
+                  .blit();
+
+        if (middleHeight > 0) {
+            BACKGROUND.copy()
+                      .src(0, BACKGROUND_TOP_BORDER, BACKGROUND_WIDTH,
+                          BACKGROUND_HEIGHT - BACKGROUND_TOP_BORDER - BACKGROUND_BOTTOM_BORDER)
+                      .dest(x, y + BACKGROUND_TOP_BORDER, width, middleHeight)
+                      .blit();
+        }
+
+        BACKGROUND.copy()
+                  .src(0, BACKGROUND_HEIGHT - BACKGROUND_BOTTOM_BORDER, BACKGROUND_WIDTH,
+                      BACKGROUND_BOTTOM_BORDER)
+                  .dest(x, y + height - BACKGROUND_BOTTOM_BORDER, width, BACKGROUND_BOTTOM_BORDER)
+                  .blit();
+    }
+
+    @Nullable
+    @Override
+    public Tooltip getTooltip(int mouseX, int mouseY) {
+        for (GuiButton button : buttons) {
+            if (button instanceof ITooltip tooltip && tooltip.isTooltipAreaVisible()) {
+                Rect2i area = new Rect2i(
+                    button.x - screenOrigin.x(),
+                    button.y - screenOrigin.y(),
+                    tooltip.getTooltipArea().width(),
+                    tooltip.getTooltipArea().height());
+                if (mouseX >= area.x() && mouseX < area.x() + area.width()
+                    && mouseY >= area.y() && mouseY < area.y() + area.height()) {
+                    return new Tooltip(tooltip.getTooltipMessage());
+                }
+            }
+        }
+        return null;
     }
 }

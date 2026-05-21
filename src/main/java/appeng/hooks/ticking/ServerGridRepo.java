@@ -15,68 +15,36 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.hooks.ticking;
 
-import java.util.Collections;
-import java.util.Objects;
-import java.util.Set;
-
+import appeng.me.Grid;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
 
-import appeng.me.Grid;
+import java.util.Collections;
+import java.util.Set;
 
-/**
- * A class to hold data related to ticking networks.
- */
 class ServerGridRepo {
     private final ObjectSet<Grid> networks = new ObjectOpenHashSet<>();
     private final ObjectSet<Grid> toAdd = new ObjectOpenHashSet<>();
     private final ObjectSet<Grid> toRemove = new ObjectOpenHashSet<>();
 
-    /**
-     * Resets all internal data
-     */
     void clear() {
         this.networks.clear();
         this.toAdd.clear();
         this.toRemove.clear();
     }
 
-    /**
-     * Queues adding a new network.
-     * <p>
-     * Is added once {@link ServerGridRepo#updateNetworks()} is called.
-     * <p>
-     * Also removes it from the removal list, in case the network is validated again.
-     */
-    synchronized void addNetwork(Grid g) {
-        Objects.requireNonNull(g);
-
-        this.toAdd.add(g);
-        this.toRemove.remove(g);
+    synchronized void addNetwork(Grid grid) {
+        this.toAdd.add(grid);
+        this.toRemove.remove(grid);
     }
 
-    /**
-     * Queues removal of a network.
-     * <p>
-     * Is fully removed once {@link ServerGridRepo#updateNetworks()} is called.
-     * <p>
-     * Also removes it from the list to add in case it got invalid.
-     */
-    synchronized void removeNetwork(Grid g) {
-        Objects.requireNonNull(g);
-
-        this.toRemove.add(g);
-        this.toAdd.remove(g);
+    synchronized void removeNetwork(Grid grid) {
+        this.toRemove.add(grid);
+        this.toAdd.remove(grid);
     }
 
-    /**
-     * Processes all networks to add or remove.
-     * <p>
-     * First all removals are handled, then the ones queued to be added.
-     */
     synchronized void updateNetworks() {
         this.networks.removeAll(this.toRemove);
         this.toRemove.clear();
@@ -85,11 +53,7 @@ class ServerGridRepo {
         this.toAdd.clear();
     }
 
-    /**
-     * Get all registered {@link Grid}s
-     */
     public Set<Grid> getNetworks() {
-        return Collections.unmodifiableSet(networks);
+        return Collections.unmodifiableSet(this.networks);
     }
-
 }

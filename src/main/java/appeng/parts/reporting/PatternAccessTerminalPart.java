@@ -18,53 +18,46 @@
 
 package appeng.parts.reporting;
 
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.phys.Vec3;
-
 import appeng.api.config.Settings;
 import appeng.api.config.ShowPatternProviders;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.storage.ILinkStatus;
-import appeng.api.storage.IPatternAccessTermMenuHost;
+import appeng.api.storage.IPatternAccessTermContainerHost;
 import appeng.api.util.IConfigManager;
+import appeng.container.GuiIds;
 import appeng.core.AppEng;
+import appeng.core.gui.GuiOpener;
 import appeng.items.parts.PartModels;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.PatternAccessTermMenu;
-import appeng.menu.locator.MenuLocators;
 import appeng.parts.PartModel;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.Vec3d;
 
-public class PatternAccessTerminalPart extends AbstractDisplayPart implements IPatternAccessTermMenuHost {
+public class PatternAccessTerminalPart extends AbstractDisplayPart implements IPatternAccessTermContainerHost {
 
     @PartModels
-    public static final ResourceLocation MODEL_OFF = AppEng.makeId(
-            "part/pattern_access_terminal_off");
+    public static final ResourceLocation MODEL_OFF = AppEng.makeId("part/pattern_access_terminal_off");
     @PartModels
-    public static final ResourceLocation MODEL_ON = AppEng.makeId(
-            "part/pattern_access_terminal_on");
+    public static final ResourceLocation MODEL_ON = AppEng.makeId("part/pattern_access_terminal_on");
 
     public static final IPartModel MODELS_OFF = new PartModel(MODEL_BASE, MODEL_OFF, MODEL_STATUS_OFF);
     public static final IPartModel MODELS_ON = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_ON);
     public static final IPartModel MODELS_HAS_CHANNEL = new PartModel(MODEL_BASE, MODEL_ON, MODEL_STATUS_HAS_CHANNEL);
 
-    private final IConfigManager configManager = IConfigManager.builder(() -> {
-        this.getHost().markForSave();
-    })
-            .registerSetting(Settings.TERMINAL_SHOW_PATTERN_PROVIDERS, ShowPatternProviders.VISIBLE)
-            .build();
+    private final IConfigManager configManager = IConfigManager.builder(() -> this.getHost().markForSave())
+                                                               .registerSetting(Settings.TERMINAL_SHOW_PATTERN_PROVIDERS, ShowPatternProviders.VISIBLE)
+                                                               .build();
 
     public PatternAccessTerminalPart(IPartItem<?> partItem) {
         super(partItem, true);
     }
 
     @Override
-    public boolean onUseWithoutItem(Player player, Vec3 pos) {
+    public boolean onUseWithoutItem(EntityPlayer player, Vec3d pos) {
         if (!super.onUseWithoutItem(player, pos) && !isClientSide()) {
-            MenuOpener.open(PatternAccessTermMenu.TYPE, player, MenuLocators.forPart(this));
+            GuiOpener.openPartGui(player, GuiIds.GuiKey.PATTERN_ACCESS_TERMINAL, this);
         }
         return true;
     }
@@ -76,17 +69,19 @@ public class PatternAccessTerminalPart extends AbstractDisplayPart implements IP
 
     @Override
     public IConfigManager getConfigManager() {
-        return configManager;
+        return this.configManager;
     }
 
-    public void writeToNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.writeToNBT(tag, registries);
-        configManager.writeToNBT(tag, registries);
+    @Override
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+        this.configManager.writeToNBT(data);
     }
 
-    public void readFromNBT(CompoundTag tag, HolderLookup.Provider registries) {
-        super.readFromNBT(tag, registries);
-        configManager.readFromNBT(tag, registries);
+    @Override
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
+        this.configManager.readFromNBT(data);
     }
 
     @Override

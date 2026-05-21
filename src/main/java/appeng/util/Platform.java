@@ -1,4 +1,3 @@
-
 /*
  * This file is part of Applied Energistics 2.
  * Copyright (c) 2013 - 2015, AlgorithmX2, All rights reserved.
@@ -19,115 +18,75 @@
 
 package appeng.util;
 
+import appeng.api.config.PowerUnit;
+import appeng.api.config.SortOrder;
+import appeng.api.util.AEPartLocation;
+import appeng.api.util.DimensionalBlockPos;
+import appeng.core.AEConfig;
+import appeng.integration.Integrations;
+import appeng.integration.modules.bogosorter.InventoryBogoSortModule;
+import appeng.util.helpers.P2PHelper;
+import com.mojang.authlib.GameProfile;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.play.server.SPacketUpdateTileEntity;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.util.FakePlayer;
+import net.minecraftforge.common.util.FakePlayerFactory;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.ModContainer;
+
+import javax.annotation.Nullable;
 import java.text.DecimalFormat;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.mojang.authlib.GameProfile;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.Holder;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.Packet;
-import net.minecraft.network.protocol.game.ClientboundLevelChunkWithLightPacket;
-import net.minecraft.resources.ResourceKey;
-import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.Containers;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.RecipeManager;
-import net.minecraft.world.item.enchantment.Enchantment;
-import net.minecraft.world.level.ChunkPos;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.chunk.LevelChunk;
-import net.minecraft.world.level.material.Fluid;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.loading.FMLEnvironment;
-import net.neoforged.fml.util.thread.SidedThreadGroups;
-import net.neoforged.neoforge.common.util.FakePlayerFactory;
-import net.neoforged.neoforge.fluids.FluidStack;
-
-import appeng.api.config.AccessRestriction;
-import appeng.api.config.PowerUnit;
-import appeng.api.config.SortOrder;
-import appeng.api.implementations.items.IAEItemPowerStorage;
-import appeng.api.util.DimensionalBlockPos;
-import appeng.core.AEConfig;
-import appeng.core.AELog;
-import appeng.hooks.VisualStateSaving;
-import appeng.hooks.ticking.TickHandler;
-import appeng.util.helpers.P2PHelper;
-
-public class Platform {
-
-    @VisibleForTesting
-    public static ThreadGroup serverThreadGroup = SidedThreadGroups.SERVER;
-
+public final class Platform {
+    public static final EnumFacing[] DIRECTIONS_WITH_NULL = new EnumFacing[]{
+        EnumFacing.DOWN,
+        EnumFacing.UP,
+        EnumFacing.NORTH,
+        EnumFacing.SOUTH,
+        EnumFacing.WEST,
+        EnumFacing.EAST,
+        null
+    };
+    private static final UUID DEFAULT_FAKE_PLAYER_UUID = UUID.fromString("60C173A5-E1E6-4B87-85B1-272CE424521D");
     private static final P2PHelper P2P_HELPER = new P2PHelper();
 
-    public static final Direction[] DIRECTIONS_WITH_NULL = new Direction[] { Direction.DOWN, Direction.UP,
-            Direction.NORTH, Direction.SOUTH, Direction.WEST, Direction.EAST, null };
-
-    /**
-     * Class of the Create Ponder Level. Enables {@link VisualStateSaving} if a block entity is attached to a Ponder
-     * level.
-     */
-    @Nullable
-    private static final Class<?> ponderLevelClass = findPonderLevelClass(
-            "net.createmod.ponder.api.level.PonderLevel");
-
-    // This hack is used to allow tests and the guidebook to provide a recipe manager before the client loads a world
-    public static RecipeManager fallbackClientRecipeManager;
-    public static RegistryAccess fallbackClientRegistryAccess;
-
-    public static RegistryAccess getClientRegistryAccess() {
-        if (Minecraft.getInstance() != null && Minecraft.getInstance().level != null) {
-            return Minecraft.getInstance().level.registryAccess();
-        }
-        return Objects.requireNonNull(Platform.fallbackClientRegistryAccess);
-    }
-
-    public static RecipeManager getClientRecipeManager() {
-        var minecraft = Minecraft.getInstance();
-        if (minecraft.level != null) {
-            return minecraft.level.getRecipeManager();
-        }
-
-        return fallbackClientRecipeManager;
-    }
-
-    private static Class<?> findPonderLevelClass(String className) {
-        if (!hasClientClasses()) {
-            return null; // Don't attempt this on a dedicated server
-        }
-
-        if (!ModList.get().isLoaded("ponder")) {
-            return null;
-        }
-
-        try {
-            return Class.forName(className);
-        } catch (ClassNotFoundException ignored) {
-            AELog.warn("Unable to find class %s. Integration with PonderJS disabled.", className);
-            return null;
-        }
+    private Platform() {
     }
 
     public static P2PHelper p2p() {
         return P2P_HELPER;
+    }
+
+    public static NBTTagCompound openNbtData(final ItemStack stack) {
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            stack.setTagCompound(tag);
+        }
+        return tag;
+    }
+
+    public static boolean isNbtEmpty(final NBTTagCompound tag) {
+        return tag == null || tag.getKeySet().isEmpty();
+    }
+
+    public static boolean isServer() {
+        return FMLCommonHandler.instance().getEffectiveSide().isServer();
     }
 
     /**
@@ -145,7 +104,7 @@ public class Platform {
         var displayUnits = AEConfig.instance().getSelectedEnergyUnit();
         p = PowerUnit.AE.convertTo(displayUnits, p);
 
-        final String[] preFixes = { "k", "M", "G", "T", "P", "T", "P", "E", "Z", "Y" };
+        final String[] preFixes = {"k", "M", "G", "T", "P", "T", "P", "E", "Z", "Y"};
         var unitName = displayUnits.getSymbolName();
 
         String level = "";
@@ -174,243 +133,146 @@ public class Platform {
         return ms + "ms";
     }
 
-    public static Direction crossProduct(Direction forward, Direction up) {
-        final int west_x = forward.getStepY() * up.getStepZ() - forward.getStepZ() * up.getStepY();
-        final int west_y = forward.getStepZ() * up.getStepX() - forward.getStepX() * up.getStepZ();
-        final int west_z = forward.getStepX() * up.getStepY() - forward.getStepY() * up.getStepX();
-
-        return switch (west_x + west_y * 2 + west_z * 3) {
-            case 1 -> Direction.EAST;
-            case -1 -> Direction.WEST;
-            case 2 -> Direction.UP;
-            case -2 -> Direction.DOWN;
-            case 3 -> Direction.SOUTH;
-            case -3 -> Direction.NORTH;
-            default ->
-
-                // something is better then nothing?
-                Direction.NORTH;
-        };
-
+    public static String getModName(String modId) {
+        ModContainer mod = Loader.instance().getIndexedModList().get(modId);
+        if (mod == null) {
+            return modId;
+        }
+        return mod.getName();
     }
 
-    /**
-     * @return True if client-side classes (such as Renderers) are available.
-     */
-    public static boolean hasClientClasses() {
-        // The null check is for tests
-        return FMLEnvironment.dist == null || FMLEnvironment.dist.isClient();
-    }
-
-    /*
-     * returns true if the code is on the client.
-     */
-    public static boolean isClient() {
-        return Thread.currentThread().getThreadGroup() != SidedThreadGroups.SERVER;
-    }
-
-    public static boolean hasPermissions(DimensionalBlockPos dc, Player player) {
-        if (!dc.isInWorld(player.level())) {
+    public static boolean areBlockEntitiesTicking(@Nullable World level, BlockPos pos) {
+        if (level == null || level.isRemote) {
             return false;
         }
-        return player.level().mayInteract(player, dc.getPos());
-    }
-
-    /*
-     * Generates Item entities in the level similar to how items are generally dropped.
-     */
-    public static void spawnDrops(Level level, BlockPos pos, List<ItemStack> drops) {
-        if (!level.isClientSide()) {
-            for (var i : drops) {
-                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), i);
-            }
-        }
-    }
-
-    /*
-     * returns true if the code is on the server.
-     */
-    public static boolean isServer() {
-        return Thread.currentThread().getThreadGroup() == SidedThreadGroups.SERVER;
-    }
-
-    /**
-     * Throws an exception if the current thread is not one of the server threads.
-     */
-    public static void assertServerThread() {
-        if (Thread.currentThread().getThreadGroup() != serverThreadGroup) {
-            throw new UnsupportedOperationException(
-                    "This code can only be called server-side and this is most likely a bug.");
-        }
-    }
-
-    public static String formatModName(String modId) {
-        return "" + ChatFormatting.BLUE + ChatFormatting.ITALIC + getModName(modId);
+        return level.isBlockLoaded(pos);
     }
 
     @Nullable
-    public static String getModName(String modId) {
-        return ModList.get().getModContainerById(modId).map(mc -> mc.getModInfo().getDisplayName())
-                .orElse(modId);
+    public static TileEntity getTickingTile(@Nullable World level, BlockPos pos) {
+        if (!areBlockEntitiesTicking(level, pos)) {
+            return null;
+        }
+        return level.getTileEntity(pos);
     }
 
-    public static Component getFluidDisplayName(Fluid fluid) {
-        var fluidStack = new FluidStack(fluid, 1);
-        return fluidStack.getHoverName();
-    }
-
-    public static boolean isChargeable(ItemStack i) {
-        if (i.isEmpty()) {
+    public static boolean hasPermissions(DimensionalBlockPos dc, net.minecraft.entity.player.EntityPlayer player) {
+        if (!dc.isInWorld(player.world)) {
             return false;
         }
-        if (i.getItem() instanceof IAEItemPowerStorage powerStorage) {
-            return powerStorage.getAEMaxPower(i) > 0 &&
-                    powerStorage.getPowerFlow(i) != AccessRestriction.READ;
-        }
-        return false;
+        return player.canPlayerEdit(dc.getPos(), EnumFacing.UP, ItemStack.EMPTY);
     }
 
-    private static final UUID DEFAULT_FAKE_PLAYER_UUID = UUID.fromString("60C173A5-E1E6-4B87-85B1-272CE424521D");
-
-    public static Player getFakePlayer(ServerLevel level, @Nullable UUID playerUuid) {
-        Objects.requireNonNull(level);
+    public static FakePlayer getFakeEntityPlayer(World level, @Nullable UUID playerUuid) {
+        if (!(level instanceof WorldServer worldServer)) {
+            throw new IllegalArgumentException("Fake players can only be created for server worlds.");
+        }
 
         if (playerUuid == null) {
             playerUuid = DEFAULT_FAKE_PLAYER_UUID;
         }
-
-        return FakePlayerFactory.get(level, new GameProfile(playerUuid, "[AE2]"));
+        return FakePlayerFactory.get(worldServer, new GameProfile(playerUuid, "[AE2]"));
     }
 
-    public static Direction rotateAround(Direction forward, Direction axis) {
+    public static void configurePlayer(final EntityPlayer player, final AEPartLocation side, final TileEntity tile) {
+        float pitch = 0.0f;
+        float yaw = 0.0f;
+
+        switch (side) {
+            case DOWN:
+                pitch = 90.0f;
+                break;
+            case EAST:
+                yaw = -90.0f;
+                break;
+            case NORTH:
+                yaw = 180.0f;
+                break;
+            case SOUTH:
+                yaw = 0.0f;
+                break;
+            case INTERNAL:
+                break;
+            case UP:
+                pitch = -90.0f;
+                break;
+            case WEST:
+                yaw = 90.0f;
+                break;
+        }
+
+        player.posX = tile.getPos().getX() + 0.5;
+        player.posY = tile.getPos().getY() + 0.5;
+        player.posZ = tile.getPos().getZ() + 0.5;
+
+        player.rotationPitch = player.prevCameraPitch = player.cameraPitch = pitch;
+        player.rotationYaw = player.prevCameraYaw = player.cameraYaw = yaw;
+    }
+
+    public static EnumFacing rotateAround(EnumFacing forward, EnumFacing axis) {
         if (forward.getAxis() == axis.getAxis()) {
             return forward;
         }
-        var newForward = forward.getNormal().cross(axis.getNormal());
-        return Objects.requireNonNull(Direction.fromDelta(newForward.getX(), newForward.getY(), newForward.getZ()));
+
+        Vec3i newForward = forward.getDirectionVec().crossProduct(axis.getDirectionVec());
+        return EnumFacing.getFacingFromVector(newForward.getX(), newForward.getY(), newForward.getZ());
     }
 
-    public static void configurePlayer(Player player, Direction side, BlockEntity blockEntity) {
-        float pitch = 0.0f;
-        float yaw = 0.0f;
-        switch (side) {
-            case DOWN, UP -> pitch = 90.0f;
-            case EAST -> yaw = -90.0f;
-            case NORTH -> yaw = 180.0f;
-            case SOUTH -> yaw = 0.0f;
-            case WEST -> yaw = 90.0f;
-            default -> {
+    public static void spawnDrops(World level, BlockPos pos, List<net.minecraft.item.ItemStack> drops) {
+        if (level == null || level.isRemote) {
+            return;
+        }
+
+        for (var stack : drops) {
+            if (stack.isEmpty()) {
+                continue;
             }
-        }
 
-        player.moveTo(blockEntity.getBlockPos().getX() + 0.5, blockEntity.getBlockPos().getY() + 0.5,
-                blockEntity.getBlockPos().getZ() + 0.5,
-                yaw, pitch);
+            double offsetX = (level.rand.nextFloat() * 0.5F) + 0.25F;
+            double offsetY = (level.rand.nextFloat() * 0.5F) + 0.25F;
+            double offsetZ = (level.rand.nextFloat() * 0.5F) + 0.25F;
+            var entity = new EntityItem(level,
+                pos.getX() + offsetX,
+                pos.getY() + offsetY,
+                pos.getZ() + offsetZ,
+                stack.copy());
+            entity.motionX = MathHelper.clamp(level.rand.nextGaussian() * 0.05D, -0.25D, 0.25D);
+            entity.motionY = MathHelper.clamp(level.rand.nextGaussian() * 0.05D + 0.2D, -0.25D, 0.25D);
+            entity.motionZ = MathHelper.clamp(level.rand.nextGaussian() * 0.05D, -0.25D, 0.25D);
+            level.spawnEntity(entity);
+        }
     }
 
-    public static void notifyBlocksOfNeighbors(Level level, BlockPos pos) {
-        if (level != null && !level.isClientSide) {
-            TickHandler.instance().addCallable(level, new BlockUpdate(pos));
+    public static void notifyBlocksOfNeighbors(World level, BlockPos pos) {
+        if (level == null || level.isRemote) {
+            return;
         }
+
+        var state = level.getBlockState(pos);
+        level.notifyNeighborsOfStateChange(pos, state.getBlock(), true);
     }
 
     public static boolean isSortOrderAvailable(SortOrder order) {
-        return true;
+        return order != SortOrder.INVTWEAKS
+            || Integrations.invTweaks().isEnabled()
+            || InventoryBogoSortModule.isLoaded();
     }
 
-    /**
-     * Retrieves a BlockEntity from a given position, but only if that particular BlockEntity would be in a state where
-     * it would be ticked by the chunk.
-     * <p/>
-     * This method also doesn't return a block entity on the client-side.
-     */
-    @Nullable
-    public static BlockEntity getTickingBlockEntity(@Nullable Level level, BlockPos pos) {
-        if (!areBlockEntitiesTicking(level, pos)) {
-            return null;
+    public static void sendImmediateTileEntityUpdate(net.minecraft.entity.player.EntityPlayer player, BlockPos pos) {
+        if (!(player instanceof EntityPlayerMP serverPlayer)) {
+            return;
         }
 
-        return level.getBlockEntity(pos);
-    }
-
-    /**
-     * Checks that the chunk at the given position in the given level is in a state where block entities would tick.
-     * This means that it must both be fully loaded, and close enough to a ticking ticket.
-     */
-    public static boolean areBlockEntitiesTicking(@Nullable Level level, BlockPos pos) {
-        return areBlockEntitiesTicking(level, ChunkPos.asLong(pos));
-    }
-
-    public static boolean areBlockEntitiesTicking(@Nullable Level level, long chunkPos) {
-        // isPositionTicking checks both that the chunk is loaded, and that it's in ticking range...
-        return level instanceof ServerLevel serverLevel && serverLevel.getChunkSource().isPositionTicking(chunkPos);
-    }
-
-    /**
-     * Create a full packet of the chunks data with lighting.
-     */
-    public static Packet<?> getFullChunkPacket(LevelChunk c) {
-        return new ClientboundLevelChunkWithLightPacket(c, c.getLevel().getLightEngine(), null, null);
-    }
-
-    public static ItemStack getInsertionRemainder(ItemStack original, long inserted) {
-        if (inserted >= original.getCount()) {
-            return ItemStack.EMPTY;
-        } else {
-            return copyStackWithSize(original, (int) (original.getCount() - inserted));
+        TileEntity tile = serverPlayer.world.getTileEntity(pos);
+        if (tile == null) {
+            return;
         }
-    }
 
-    public static ItemStack copyStackWithSize(ItemStack itemStack, int size) {
-        if (size <= 0) {
-            return ItemStack.EMPTY;
+        SPacketUpdateTileEntity packet = tile.getUpdatePacket();
+        if (packet != null) {
+            serverPlayer.connection.sendPacket(packet);
         }
-        ItemStack copy = itemStack.copy();
-        copy.setCount(size);
-        return copy;
-    }
-
-    /**
-     * Send an update packet for the block entity at the given position to the player immediately, if they're a server
-     * player.
-     */
-    public static void sendImmediateBlockEntityUpdate(Player player, BlockPos pos) {
-        if (player instanceof ServerPlayer serverPlayer) {
-            var be = player.level().getBlockEntity(pos);
-            if (be != null) {
-                var packet = be.getUpdatePacket();
-                if (packet != null) {
-                    serverPlayer.connection.send(packet);
-                }
-            }
-        }
-    }
-
-    /**
-     * Checks if the given level is a "fake" level used by Ponder to render our BE.
-     */
-    public static boolean isPonderLevel(Level level) {
-        return ponderLevelClass != null && ponderLevelClass.isInstance(level);
-    }
-
-    /**
-     * @return True if AE2 is being run within a dev environment.
-     */
-    public static boolean isDevelopmentEnvironment() {
-        return !FMLEnvironment.production;
-    }
-
-    /**
-     * Uses the given server to look up an enchantment.
-     */
-    public static Holder<Enchantment> getEnchantment(MinecraftServer server, ResourceKey<Enchantment> enchantment) {
-        return server.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(enchantment);
-    }
-
-    /**
-     * Uses the given server-level to look up an enchantment.
-     */
-    public static Holder<Enchantment> getEnchantment(ServerLevel level, ResourceKey<Enchantment> enchantment) {
-        return level.registryAccess().lookupOrThrow(Registries.ENCHANTMENT).getOrThrow(enchantment);
     }
 }
+
+

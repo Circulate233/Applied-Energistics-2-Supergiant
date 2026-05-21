@@ -1,17 +1,5 @@
 package appeng.me.storage;
 
-import java.util.Set;
-
-import javax.annotation.Nullable;
-
-import com.google.common.primitives.Ints;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
-import net.neoforged.neoforge.fluids.capability.IFluidHandler;
-import net.neoforged.neoforge.items.IItemHandler;
-
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEFluidKey;
@@ -23,6 +11,16 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
+import com.google.common.primitives.Ints;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraftforge.fluids.FluidStack;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidTankProperties;
+import net.minecraftforge.items.IItemHandler;
+
+import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * Adapts external platform storage to behave like an {@link MEStorage}.
@@ -32,11 +30,17 @@ public abstract class ExternalStorageFacade implements MEStorage {
      * Clamp reported values to avoid overflows when amounts get too close to Long.MAX_VALUE.
      */
     private static final long MAX_REPORTED_AMOUNT = 1L << 42;
-
+    protected boolean extractableOnly;
     @Nullable
     private Runnable changeListener;
 
-    protected boolean extractableOnly;
+    public static ExternalStorageFacade of(IFluidHandler handler) {
+        return new FluidHandlerFacade(handler);
+    }
+
+    public static ExternalStorageFacade of(IItemHandler handler) {
+        return new ItemHandlerFacade(handler);
+    }
 
     public void setChangeListener(@Nullable Runnable listener) {
         this.changeListener = listener;
@@ -72,8 +76,8 @@ public abstract class ExternalStorageFacade implements MEStorage {
     }
 
     @Override
-    public Component getDescription() {
-        return GuiText.ExternalStorage.text(AEKeyType.fluids().getDescription());
+    public ITextComponent getDescription() {
+        return GuiText.ExternalStorage.text(getKeyType().getDescription());
     }
 
     protected abstract int insertExternal(AEKey what, int amount, Actionable mode);
@@ -81,14 +85,6 @@ public abstract class ExternalStorageFacade implements MEStorage {
     protected abstract int extractExternal(AEKey what, int amount, Actionable mode);
 
     public abstract boolean containsAnyFuzzy(Set<AEKey> keys);
-
-    public static ExternalStorageFacade of(IFluidHandler handler) {
-        return new FluidHandlerFacade(handler);
-    }
-
-    public static ExternalStorageFacade of(IItemHandler handler) {
-        return new ItemHandlerFacade(handler);
-    }
 
     public void setExtractableOnly(boolean extractableOnly) {
         this.extractableOnly = extractableOnly;
@@ -99,6 +95,69 @@ public abstract class ExternalStorageFacade implements MEStorage {
 
         public ItemHandlerFacade(IItemHandler handler) {
             this.handler = handler;
+        }
+
+        /**
+         * Extracts as much as possible from a single slot of an item handler, ignoring the usual max stack size
+         * restriction.
+         */
+        private static int extractFromHandler(IItemHandler handler, int slot, AEItemKey itemKey, int maxExtract,
+                                              Actionable actionable) {
+            ItemStack stackInInventorySlot = handler.getStackInSlot(slot);
+            if (!itemKey.matches(stackInInventorySlot)) {
+                return 0;
+            }
+
+            return switch (actionable) {
+                case SIMULATE -> {
+                    // Query amount before the stack potentially gets modified
+                    int amountInSlot = stackInInventorySlot.getCount();
+
+                    int extracted = wrapHandlerExtract(handler, slot, maxExtract, true);
+                    // Heuristic for simulation: looping in case of simulations is pointless, since the state of the
+                    // underlying inventory does not change after a simulated extraction. To still support
+                    // inventories that report stacks that are larger than maxStackSize, we use this heuristic
+                    if (extracted == itemKey.getMaxStackSize() && maxExtract > itemKey.getMaxStackSize()
+                        && amountInSlot > itemKey.getMaxStackSize()) {
+                        yield Math.min(amountInSlot, maxExtract);
+                    } else {
+                        yield extracted;
+                    }
+                }
+                case MODULATE -> {
+                    // We have to loop here because according to the docs, the handler shouldn't return a stack with
+                    // size > maxSize, even if we request more. So even if it returns a valid stack, it might have more
+                    // stuff.
+                    int totalExtracted = 0;
+                    while (true) {
+                        int extracted = wrapHandlerExtract(handler, slot, maxExtract - totalExtracted, false);
+                        if (extracted > 0) {
+                            totalExtracted += extracted;
+                        } else {
+                            break;
+                        }
+                    }
+                    yield totalExtracted;
+                }
+            };
+        }
+
+        /**
+         * Guards {@link IItemHandler#extractItem(int, int, boolean)} to make sure that we don't extract more than
+         * requested.
+         */
+        private static int wrapHandlerExtract(IItemHandler handler, int slot, int maxExtract, boolean simulate) {
+            int extracted = handler.extractItem(slot, maxExtract, simulate).getCount();
+            if (extracted > maxExtract) {
+                // Something broke. It should never return more than we requested...
+                // We're going to silently eat the remainder
+                AELog.warn(
+                    "Mod that provided item handler %s is broken. Returned %d items while only requesting %d.",
+                    handler.getClass().getName(), extracted, maxExtract);
+                return maxExtract;
+            } else {
+                return extracted;
+            }
         }
 
         @Override
@@ -164,69 +223,6 @@ public abstract class ExternalStorageFacade implements MEStorage {
             return totalExtracted;
         }
 
-        /**
-         * Extracts as much as possible from a single slot of an item handler, ignoring the usual max stack size
-         * restriction.
-         */
-        private static int extractFromHandler(IItemHandler handler, int slot, AEItemKey itemKey, int maxExtract,
-                Actionable actionable) {
-            ItemStack stackInInventorySlot = handler.getStackInSlot(slot);
-            if (!itemKey.matches(stackInInventorySlot)) {
-                return 0;
-            }
-
-            return switch (actionable) {
-                case SIMULATE -> {
-                    // Query amount before the stack potentially gets modified
-                    int amountInSlot = stackInInventorySlot.getCount();
-
-                    int extracted = wrapHandlerExtract(handler, slot, maxExtract, true);
-                    // Heuristic for simulation: looping in case of simulations is pointless, since the state of the
-                    // underlying inventory does not change after a simulated extraction. To still support
-                    // inventories that report stacks that are larger than maxStackSize, we use this heuristic
-                    if (extracted == itemKey.getMaxStackSize() && maxExtract > itemKey.getMaxStackSize()
-                            && amountInSlot > itemKey.getMaxStackSize()) {
-                        yield Math.min(amountInSlot, maxExtract);
-                    } else {
-                        yield extracted;
-                    }
-                }
-                case MODULATE -> {
-                    // We have to loop here because according to the docs, the handler shouldn't return a stack with
-                    // size > maxSize, even if we request more. So even if it returns a valid stack, it might have more
-                    // stuff.
-                    int totalExtracted = 0;
-                    while (true) {
-                        int extracted = wrapHandlerExtract(handler, slot, maxExtract - totalExtracted, false);
-                        if (extracted > 0) {
-                            totalExtracted += extracted;
-                        } else {
-                            break;
-                        }
-                    }
-                    yield totalExtracted;
-                }
-            };
-        }
-
-        /**
-         * Guards {@link IItemHandler#extractItem(int, int, boolean)} to make sure that we don't extract more than
-         * requested.
-         */
-        private static int wrapHandlerExtract(IItemHandler handler, int slot, int maxExtract, boolean simulate) {
-            int extracted = handler.extractItem(slot, maxExtract, simulate).getCount();
-            if (extracted > maxExtract) {
-                // Something broke. It should never return more than we requested...
-                // We're going to silently eat the remainder
-                AELog.warn(
-                        "Mod that provided item handler %s is broken. Returned %d items while only requesting %d.",
-                        handler.getClass().getName(), extracted, maxExtract);
-                return maxExtract;
-            } else {
-                return extracted;
-            }
-        }
-
         @Override
         public boolean containsAnyFuzzy(Set<AEKey> keys) {
             for (int i = 0; i < handler.getSlots(); i++) {
@@ -271,13 +267,17 @@ public abstract class ExternalStorageFacade implements MEStorage {
 
         @Override
         public int getSlots() {
-            return handler.getTanks();
+            return handler.getTankProperties().length;
         }
 
         @Nullable
         @Override
         public GenericStack getStackInSlot(int slot) {
-            return GenericStack.fromFluidStack(handler.getFluidInTank(slot));
+            var tanks = handler.getTankProperties();
+            if (slot < 0 || slot >= tanks.length) {
+                return null;
+            }
+            return GenericStack.fromFluidStack(tanks[slot].getContents());
         }
 
         @Override
@@ -304,18 +304,18 @@ public abstract class ExternalStorageFacade implements MEStorage {
 
             // Drain the fluid from the tank
             FluidStack gathered = handler.drain(fluidStack, mode.getFluidAction());
-            if (gathered.isEmpty()) {
+            if (gathered == null || gathered.amount <= 0) {
                 // If nothing was pulled from the tank, return null
                 return 0;
             }
 
-            return gathered.getAmount();
+            return gathered.amount;
         }
 
         @Override
         public boolean containsAnyFuzzy(Set<AEKey> keys) {
-            for (int i = 0; i < handler.getTanks(); i++) {
-                var what = AEFluidKey.of(handler.getFluidInTank(i));
+            for (IFluidTankProperties tank : handler.getTankProperties()) {
+                var what = AEFluidKey.of(tank.getContents());
                 if (what != null) {
                     if (keys.contains(what.dropSecondary())) {
                         return true;
@@ -327,20 +327,21 @@ public abstract class ExternalStorageFacade implements MEStorage {
 
         @Override
         public void getAvailableStacks(KeyCounter out) {
-            for (int i = 0; i < handler.getTanks(); i++) {
+            for (IFluidTankProperties tank : handler.getTankProperties()) {
                 // Skip resources that cannot be extracted if that filter was enabled
-                var stack = handler.getFluidInTank(i);
-                if (stack.isEmpty()) {
+                var stack = tank.getContents();
+                if (stack == null || stack.amount <= 0) {
                     continue;
                 }
 
                 if (extractableOnly) {
-                    if (handler.drain(stack, IFluidHandler.FluidAction.SIMULATE).isEmpty()) {
+                    var simulated = handler.drain(stack, false);
+                    if (simulated == null || simulated.amount <= 0) {
                         continue;
                     }
                 }
 
-                out.add(AEFluidKey.of(stack), stack.getAmount());
+                out.add(AEFluidKey.of(stack), stack.amount);
             }
         }
     }

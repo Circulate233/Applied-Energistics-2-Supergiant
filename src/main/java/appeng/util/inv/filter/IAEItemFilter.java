@@ -18,9 +18,8 @@
 
 package appeng.util.inv.filter;
 
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.inventories.InternalInventory;
+import net.minecraft.item.ItemStack;
 
 public interface IAEItemFilter {
     default boolean allowExtract(InternalInventory inv, int slot, int amount) {

@@ -1,0 +1,27 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "cdc",
+    "aba"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:quartz_glass"
+    },
+    "b": {
+      "item": "ae2:fluix_glass_cable"
+    },
+    "c": {
+      "type": "forge:ore_dict",
+      "ore": "dustFluix"
+    },
+    "d": {
+      "item": "ae2:fluix_crystal"
+    }
+  },
+  "result": {
+    "item": "ae2:spatial_pylon",
+    "count": 1
+  }
+}

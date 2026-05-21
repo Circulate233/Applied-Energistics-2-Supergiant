@@ -18,29 +18,23 @@
 
 package appeng.parts.reporting;
 
-import java.util.List;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.MenuType;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.inventories.InternalInventory;
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
+import appeng.container.GuiIds;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
-import appeng.menu.me.items.CraftingTermMenu;
 import appeng.parts.PartModel;
 import appeng.util.inv.AppEngInternalInventory;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.ResourceLocation;
+
+import java.util.List;
 
 public class CraftingTerminalPart extends AbstractTerminalPart {
 
-    /**
-     * A sub-inventory that contains crafting ingredients used in the crafting grid.
-     */
     public static final ResourceLocation INV_CRAFTING = AppEng.makeId("crafting_terminal_crafting");
 
     @PartModels
@@ -61,7 +55,7 @@ public class CraftingTerminalPart extends AbstractTerminalPart {
     @Override
     public void addAdditionalDrops(List<ItemStack> drops, boolean wrenched) {
         super.addAdditionalDrops(drops, wrenched);
-        for (var is : this.craftingGrid) {
+        for (ItemStack is : this.craftingGrid) {
             if (!is.isEmpty()) {
                 drops.add(is);
             }
@@ -71,30 +65,30 @@ public class CraftingTerminalPart extends AbstractTerminalPart {
     @Override
     public void clearContent() {
         super.clearContent();
-        craftingGrid.clear();
+        this.craftingGrid.clear();
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.readFromNBT(data, registries);
-        this.craftingGrid.readFromNBT(data, "craftingGrid", registries);
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
+        this.craftingGrid.readFromNBT(data, "craftingGrid");
     }
 
     @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.writeToNBT(data, registries);
-        this.craftingGrid.writeToNBT(data, "craftingGrid", registries);
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+        this.craftingGrid.writeToNBT(data, "craftingGrid");
     }
 
     @Override
-    public MenuType<?> getMenuType(Player p) {
-        return CraftingTermMenu.TYPE;
+    public GuiIds.GuiKey getGuiKey(EntityPlayer player) {
+        return GuiIds.GuiKey.CRAFTING_TERMINAL;
     }
 
     @Override
     public InternalInventory getSubInventory(ResourceLocation id) {
         if (id.equals(INV_CRAFTING)) {
-            return craftingGrid;
+            return this.craftingGrid;
         } else {
             return super.getSubInventory(id);
         }

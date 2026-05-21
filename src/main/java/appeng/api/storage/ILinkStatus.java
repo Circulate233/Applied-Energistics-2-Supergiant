@@ -1,12 +1,11 @@
 package appeng.api.storage;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.network.chat.Component;
-
 import appeng.api.networking.IManagedGridNode;
 import appeng.core.localization.GuiText;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextFormatting;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Describes the current connection status of a {@link ITerminalHost} to the grid.
@@ -29,7 +28,7 @@ public interface ILinkStatus {
     /**
      * @return A link status indicating the host is disconnected from the grid with the given reason.
      */
-    static ILinkStatus ofDisconnected(@Nullable Component statusDescription) {
+    static ILinkStatus ofDisconnected(@Nullable ITextComponent statusDescription) {
         return new LinkStatus(false, statusDescription);
     }
 
@@ -40,9 +39,9 @@ public interface ILinkStatus {
         if (node.isOnline()) {
             return ofConnected();
         } else if (!node.isPowered()) {
-            return ofDisconnected(GuiText.OutOfPower.text().withStyle(ChatFormatting.DARK_RED));
+            return ofDisconnected(GuiText.OutOfPower.text().setStyle(new Style().setColor(TextFormatting.DARK_RED)));
         } else if (node.getNode() != null && !node.getNode().meetsChannelRequirements()) {
-            return ofDisconnected(GuiText.NoChannel.text().withStyle(ChatFormatting.DARK_RED));
+            return ofDisconnected(GuiText.NoChannel.text().setStyle(new Style().setColor(TextFormatting.DARK_RED)));
         } else {
             return ofDisconnected(null);
         }
@@ -58,5 +57,5 @@ public interface ILinkStatus {
      * only not-null if {@link #connected()} returns false.
      */
     @Nullable
-    Component statusDescription();
+    ITextComponent statusDescription();
 }

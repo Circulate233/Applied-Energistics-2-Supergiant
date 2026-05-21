@@ -18,94 +18,144 @@
 
 package appeng.block.paint;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.biome.Biome;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.block.state.properties.IntegerProperty;
-import net.minecraft.world.level.material.Fluid;
-import net.minecraft.world.level.material.MapColor;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
+import appeng.block.AEBaseTileBlock;
+import appeng.core.DebugCreativeTab;
+import appeng.helpers.Splotch;
+import appeng.tile.misc.TilePaint;
+import appeng.util.Platform;
+import net.minecraft.block.material.MapColor;
+import net.minecraft.block.material.MaterialLiquid;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.BlockRenderLayer;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
+import net.minecraft.world.World;
+import net.minecraftforge.common.property.ExtendedBlockState;
+import net.minecraftforge.common.property.IExtendedBlockState;
+import net.minecraftforge.common.property.IUnlistedProperty;
+import org.jspecify.annotations.Nullable;
 
-import appeng.api.orientation.IOrientationStrategy;
-import appeng.api.orientation.OrientationStrategies;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.misc.PaintSplotchesBlockEntity;
+import java.util.Collections;
+import java.util.Random;
 
-public class PaintSplotchesBlock extends AEBaseEntityBlock<PaintSplotchesBlockEntity> {
+public class PaintSplotchesBlock extends AEBaseTileBlock<TilePaint> {
+
+    static final PaintSplotchesProperty SPLOTCHES = new PaintSplotchesProperty();
+    private static final AxisAlignedBB NULL_AABB = new AxisAlignedBB(0, 0, 0, 0, 0, 0);
+
+    public PaintSplotchesBlock() {
+        super(new MaterialLiquid(MapColor.AIR));
+        this.setOpaque();
+        this.setFullSize();
+        this.setTileEntity(TilePaint.class);
+        this.setLightOpacity(0);
+        this.setHardness(0.0F);
+        this.setResistance(0.0F);
+    }
+
+    @Override
+    protected BlockStateContainer createBlockState() {
+        return new ExtendedBlockState(this, new IProperty<?>[0], new IUnlistedProperty<?>[]{SPLOTCHES});
+    }
+
+    @Override
+    public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        if (!(state instanceof IExtendedBlockState)) {
+            return state;
+        }
+
+        TilePaint tile = this.getTileEntity(world, pos);
+        var splotches = tile != null ? tile.getDots() : Collections.<Splotch>emptyList();
+        return ((IExtendedBlockState) state).withProperty(SPLOTCHES, new PaintSplotches(splotches));
+    }
+
+    @Override
+    public BlockRenderLayer getRenderLayer() {
+        return BlockRenderLayer.CUTOUT;
+    }
+
+    public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
+        return layer == BlockRenderLayer.CUTOUT;
+    }
+
+    @Override
+    public boolean isReplaceable(IBlockAccess worldIn, BlockPos pos) {
+        return true;
+    }
+
+    @Override
+    public AxisAlignedBB getBoundingBox(IBlockState state, IBlockAccess source, BlockPos pos) {
+        return NULL_AABB;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public AxisAlignedBB getCollisionBoundingBox(IBlockState blockState, IBlockAccess worldIn, BlockPos pos) {
+        return NULL_AABB;
+    }
+
+    @Override
+    public boolean canCollideCheck(IBlockState state, boolean hitIfLiquid) {
+        return false;
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void neighborChanged(IBlockState state, World worldIn, BlockPos pos, net.minecraft.block.Block blockIn,
+                                BlockPos fromPos) {
+        TilePaint tile = this.getTileEntity(worldIn, pos);
+        if (tile != null) {
+            tile.neighborChanged();
+        }
+    }
+
+    @Override
+    public void getSubBlocks(CreativeTabs itemIn, NonNullList<ItemStack> items) {
+        if (itemIn == DebugCreativeTab.INSTANCE) {
+            items.add(new ItemStack(this));
+        }
+    }
+
+    @Override
+    public @Nullable Item getItemDropped(IBlockState state, Random rand, int fortune) {
+        return null;
+    }
+
+    @Override
+    public void dropBlockAsItemWithChance(World worldIn, BlockPos pos, IBlockState state, float chance, int fortune) {
+    }
+
+    @Override
+    public void fillWithRain(World worldIn, BlockPos pos) {
+        if (Platform.isServer()) {
+            worldIn.setBlockToAir(pos);
+        }
+    }
+
+    @Override
+    public boolean canPlaceBlockAt(World worldIn, BlockPos pos) {
+        return true;
+    }
 
     /**
      * Lumen paint splotches contribute light-level 12, two or more have light-level 15. We model this with 0 = 0, 1 =
      * 12, 2 = 15.
      */
-    public static final IntegerProperty LIGHT_LEVEL = IntegerProperty.create("light_level", 0, 2);
-
-    public PaintSplotchesBlock() {
-        super(defaultProps(MapColor.NONE, SoundType.WET_GRASS).noOcclusion().air().lightLevel(state -> {
-            var lightLevel = state.getValue(LIGHT_LEVEL);
-            return switch (lightLevel) {
-                default -> 0;
-                case 1 -> 12;
-                case 2 -> 15;
-            };
-        }));
-        registerDefaultState(defaultBlockState().setValue(LIGHT_LEVEL, 0));
+    @Override
+    public int getLightValue(IBlockState state, IBlockAccess world, BlockPos pos) {
+        TilePaint tile = this.getTileEntity(world, pos);
+        return tile != null ? tile.getLightLevel() : 0;
     }
 
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(LIGHT_LEVEL);
-    }
-
-    @Override
-    public IOrientationStrategy getOrientationStrategy() {
-        return OrientationStrategies.facingNoPlayerRotation();
-    }
-
-    @Override
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        // do nothing
-    }
-
-    @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return Shapes.empty();
-    }
-
-    @Override
-    public void neighborChanged(BlockState state, Level level, BlockPos pos, Block blockIn, BlockPos fromPos,
-            boolean isMoving) {
-        final PaintSplotchesBlockEntity tp = this.getBlockEntity(level, pos);
-
-        if (tp != null) {
-            tp.neighborChanged();
-        }
-    }
-
-    @Override
-    public void handlePrecipitation(BlockState state, Level level, BlockPos pos, Biome.Precipitation precipitation) {
-        if (!level.isClientSide() && precipitation == Biome.Precipitation.RAIN) {
-            level.removeBlock(pos, false);
-        }
-    }
-
-    @Override
-    public boolean canBeReplaced(BlockState state, BlockPlaceContext useContext) {
+    public boolean isAir(IBlockState state, IBlockAccess world, BlockPos pos) {
         return true;
     }
-
-    @Override
-    public boolean canBeReplaced(BlockState state, Fluid fluid) {
-        return true;
-    }
-
 }

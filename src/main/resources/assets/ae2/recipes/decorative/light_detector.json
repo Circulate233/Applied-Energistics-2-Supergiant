@@ -1,0 +1,19 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "ab"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "gemQuartz"
+    },
+    "b": {
+      "item": "ae2:cable_anchor"
+    }
+  },
+  "result": {
+    "item": "ae2:light_detector",
+    "count": 1
+  }
+}

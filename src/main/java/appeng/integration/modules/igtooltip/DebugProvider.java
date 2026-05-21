@@ -1,31 +1,30 @@
 package appeng.integration.modules.igtooltip;
 
-import java.util.ArrayList;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.ChatFormatting;
-import net.minecraft.core.Direction;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IManagedGridNode;
 import appeng.api.networking.ticking.IGridTickable;
+import appeng.api.orientation.BlockOrientation;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.core.definitions.AEItems;
 import appeng.me.InWorldGridNode;
-import appeng.me.helpers.IGridConnectedBlockEntity;
+import appeng.me.helpers.IGridConnectedTile;
 import appeng.me.service.TickManagerService;
 import appeng.parts.AEBasePart;
 import appeng.util.Platform;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraftforge.common.util.Constants;
+import org.jetbrains.annotations.Nullable;
 
 public final class DebugProvider {
     private static final String TAG_NODES = "debugNodes";
@@ -37,12 +36,15 @@ public final class DebugProvider {
     private static final String TAG_TICK_QUEUED = "tickQueued";
     private static final String TAG_TICK_CURRENT_RATE = "tickCurrentRate";
     private static final String TAG_TICK_LAST_TICK = "tickLastTick";
+    private static final String TAG_TICK_TIME_AVG = "avg";
+    private static final String TAG_TICK_TIME_MAX = "max";
+    private static final String TAG_TICK_TIME_SUM = "sum";
     private static final String TAG_NODE_EXPOSED = "exposedSides";
 
     private DebugProvider() {
     }
 
-    public static void provideBlockEntityBody(BlockEntity object, TooltipContext context, TooltipBuilder tooltip) {
+    public static void provideBlockEntityBody(TileEntity object, TooltipContext context, TooltipBuilder tooltip) {
         var player = context.player();
 
         if (!DebugProvider.isVisible(player)) {
@@ -53,9 +55,9 @@ public final class DebugProvider {
         DebugProvider.addToTooltip(context.serverData(), tooltip);
     }
 
-    public static void provideBlockEntityData(Player player, BlockEntity object, CompoundTag serverData) {
-        if (object instanceof IGridConnectedBlockEntity gridConnected && DebugProvider.isVisible(player)) {
-            DebugProvider.addServerDataMainNode(serverData, gridConnected.getMainNode());
+    public static void provideBlockEntityData(EntityPlayer player, TileEntity object, NBTTagCompound serverData) {
+        if (object instanceof IGridConnectedTile gridConnectedTile && DebugProvider.isVisible(player)) {
+            DebugProvider.addServerDataMainNode(serverData, gridConnectedTile.getMainNode());
         }
     }
 
@@ -63,66 +65,60 @@ public final class DebugProvider {
         DebugProvider.addToTooltip(context.serverData(), tooltip);
     }
 
-    public static void providePartData(Player player, AEBasePart part, CompoundTag serverData) {
+    public static void providePartData(EntityPlayer player, AEBasePart part, NBTTagCompound serverData) {
         if (DebugProvider.isVisible(player)) {
             DebugProvider.addServerDataMainNode(serverData, part.getMainNode());
             DebugProvider.addServerDataNode(serverData, "External Node", part.getExternalFacingNode());
         }
     }
 
-    private static void addBlockEntityRotation(BlockEntity blockEntity, TooltipBuilder tooltip) {
-        var blockState = blockEntity.getBlockState();
+    private static void addBlockEntityRotation(TileEntity blockEntity, TooltipBuilder tooltip) {
+        var blockState = blockEntity.getWorld().getBlockState(blockEntity.getPos());
         var strategy = IOrientationStrategy.get(blockState);
         if (!strategy.getProperties().isEmpty()) {
-            var forward = strategy.getFacing(blockState);
-            var spin = strategy.getSpin(blockState);
-            tooltip.addLine(
-                    Component.literal("")
-                            .append(Component.literal(" Forward: ").withStyle(ChatFormatting.WHITE))
-                            .append(Component.literal(forward.name()))
-                            .append(Component.literal(" Spin: ").withStyle(ChatFormatting.WHITE))
-                            .append(Component.literal(String.valueOf(spin))));
+            var orientation = BlockOrientation.get(strategy, blockState);
+            tooltip.addLine(new TextComponentString("")
+                .appendSibling(styled(" Forward: ", TextFormatting.WHITE))
+                .appendSibling(new TextComponentString(orientation.getSide(appeng.api.orientation.RelativeSide.FRONT).name()))
+                .appendSibling(styled(" Spin: ", TextFormatting.WHITE))
+                .appendSibling(new TextComponentString(String.valueOf(orientation.getSpin()))));
         }
     }
 
-    private static void addToTooltip(CompoundTag serverData, TooltipBuilder tooltip) {
-        var nodes = serverData.getList(TAG_NODES, Tag.TAG_COMPOUND);
+    private static void addToTooltip(NBTTagCompound serverData, TooltipBuilder tooltip) {
+        var nodes = serverData.getTagList(TAG_NODES, Constants.NBT.TAG_COMPOUND);
 
-        for (var node : nodes) {
-            var nodeCompound = (CompoundTag) node;
-            if (nodes.size() > 1) {
-                var nodeName = ((CompoundTag) node).getString(TAG_NODE_NAME);
-                tooltip.addLine(Component.literal(nodeName).withStyle(ChatFormatting.ITALIC));
+        for (int i = 0; i < nodes.tagCount(); i++) {
+            var nodeCompound = nodes.getCompoundTagAt(i);
+            if (nodes.tagCount() > 1) {
+                var nodeName = nodeCompound.getString(TAG_NODE_NAME);
+                tooltip.addLine(styled(nodeName, TextFormatting.ITALIC));
             }
             addNodeToTooltip(nodeCompound, tooltip);
         }
     }
 
-    private static void addNodeToTooltip(CompoundTag tag, TooltipBuilder tooltip) {
-        if (tag.contains(TAG_TICK_TIME, Tag.TAG_LONG_ARRAY)) {
-            long[] tickTimes = tag.getLongArray(TAG_TICK_TIME);
+    private static void addNodeToTooltip(NBTTagCompound tag, TooltipBuilder tooltip) {
+        if (tag.hasKey(TAG_TICK_TIME, Constants.NBT.TAG_COMPOUND)) {
+            long[] tickTimes = readLongArray(tag);
             if (tickTimes.length == 3) {
                 var avg = tickTimes[0];
                 var max = tickTimes[1];
                 var sum = tickTimes[2];
 
-                tooltip.addLine(
-                        Component.literal("")
-                                .append(Component.literal("Tick Time: ").withStyle(ChatFormatting.WHITE))
-                                .append(Component.literal("Avg: ").withStyle(ChatFormatting.ITALIC))
-                                .append(Component.literal(Platform.formatTimeMeasurement(avg))
-                                        .withStyle(ChatFormatting.WHITE))
-                                .append(Component.literal(" Max: ").withStyle(ChatFormatting.ITALIC))
-                                .append(Component.literal(Platform.formatTimeMeasurement(max))
-                                        .withStyle(ChatFormatting.WHITE))
-                                .append(Component.literal(" Sum: ").withStyle(ChatFormatting.ITALIC))
-                                .append(Component.literal(Platform.formatTimeMeasurement(sum))
-                                        .withStyle(ChatFormatting.WHITE)));
+                tooltip.addLine(new TextComponentString("")
+                    .appendSibling(styled("Tick Time: ", TextFormatting.WHITE))
+                    .appendSibling(styled("Avg: ", TextFormatting.ITALIC))
+                    .appendSibling(styled(Platform.formatTimeMeasurement(avg), TextFormatting.WHITE))
+                    .appendSibling(styled(" Max: ", TextFormatting.ITALIC))
+                    .appendSibling(styled(Platform.formatTimeMeasurement(max), TextFormatting.WHITE))
+                    .appendSibling(styled(" Sum: ", TextFormatting.ITALIC))
+                    .appendSibling(styled(Platform.formatTimeMeasurement(sum), TextFormatting.WHITE)));
             }
         }
 
-        if (tag.contains(TAG_TICK_QUEUED)) {
-            var status = new ArrayList<String>();
+        if (tag.hasKey(TAG_TICK_QUEUED)) {
+            var status = new ObjectArrayList<String>();
             if (tag.getBoolean(TAG_TICK_SLEEPING)) {
                 status.add("Sleeping");
             }
@@ -136,57 +132,56 @@ public final class DebugProvider {
                 status.add("Queued");
             }
 
-            tooltip.addLine(
-                    Component.literal("")
-                            .append(Component.literal("Tick Status: ").withStyle(ChatFormatting.WHITE))
-                            .append(String.join(", ", status)));
-            tooltip.addLine(
-                    Component.literal("")
-                            .append(Component.literal("Tick Rate: ").withStyle(ChatFormatting.WHITE))
-                            .append(String.valueOf(tag.getInt(TAG_TICK_CURRENT_RATE)))
-                            .append(Component.literal(" Last: ").withStyle(ChatFormatting.WHITE))
-                            .append(tag.getInt(TAG_TICK_LAST_TICK) + " ticks ago"));
+            tooltip.addLine(new TextComponentString("")
+                .appendSibling(styled("Tick Status: ", TextFormatting.WHITE))
+                .appendText(String.join(", ", status)));
+            tooltip.addLine(new TextComponentString("")
+                .appendSibling(styled("Tick Rate: ", TextFormatting.WHITE))
+                .appendText(String.valueOf(tag.getInteger(TAG_TICK_CURRENT_RATE)))
+                .appendSibling(styled(" Last: ", TextFormatting.WHITE))
+                .appendText(tag.getLong(TAG_TICK_LAST_TICK) + " ticks ago"));
         }
 
-        if (tag.contains(TAG_NODE_EXPOSED, Tag.TAG_INT)) {
-            var exposedSides = tag.getInt(TAG_NODE_EXPOSED);
-            var line = Component.literal("Node Exposed: ").withStyle(ChatFormatting.WHITE);
-            for (Direction value : Direction.values()) {
-                var sideText = Component.literal(value.name().substring(0, 1));
-                if ((exposedSides & (1 << value.ordinal())) == 0) {
-                    sideText.withStyle(ChatFormatting.GRAY);
-                } else {
-                    sideText.withStyle(ChatFormatting.GREEN);
-                }
-                line.append(sideText);
+        if (tag.hasKey(TAG_NODE_EXPOSED, Constants.NBT.TAG_INT)) {
+            var exposedSides = tag.getInteger(TAG_NODE_EXPOSED);
+            var line = styled("Node Exposed: ", TextFormatting.WHITE);
+            for (EnumFacing value : EnumFacing.values()) {
+                var sideText = new TextComponentString(value.name().substring(0, 1));
+                sideText.setStyle(new Style()
+                    .setColor((exposedSides & (1 << value.ordinal())) == 0 ? TextFormatting.GRAY
+                        : TextFormatting.GREEN));
+                line.appendSibling(sideText);
             }
             tooltip.addLine(line);
         }
     }
 
-    private static void addServerDataMainNode(CompoundTag tag, IManagedGridNode managedGridNode) {
+    private static void addServerDataMainNode(NBTTagCompound tag, IManagedGridNode managedGridNode) {
         addServerDataNode(tag, "Main Node", managedGridNode.getNode());
     }
 
-    private static void addServerDataNode(CompoundTag tag, String name, @Nullable IGridNode node) {
+    private static void addServerDataNode(NBTTagCompound tag, String name, @Nullable IGridNode node) {
         var nodeTag = toServerData(node, name);
         if (nodeTag != null) {
-            var nodes = (ListTag) tag.get(TAG_NODES);
-            if (nodes == null) {
-                nodes = new ListTag();
-                tag.put(TAG_NODES, nodes);
+            NBTTagList nodes;
+            if (tag.hasKey(TAG_NODES, Constants.NBT.TAG_LIST)) {
+                nodes = (NBTTagList) tag.getTag(TAG_NODES);
+            } else {
+                nodes = new NBTTagList();
+                tag.setTag(TAG_NODES, nodes);
             }
-            nodes.add(nodeTag);
+            nodes.appendTag(nodeTag);
         }
     }
 
-    private static CompoundTag toServerData(IGridNode node, String name) {
+    @Nullable
+    private static NBTTagCompound toServerData(@Nullable IGridNode node, String name) {
         if (node == null) {
             return null;
         }
 
-        CompoundTag tag = new CompoundTag();
-        tag.putString(TAG_NODE_NAME, name);
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setString(TAG_NODE_NAME, name);
 
         if (node.getService(IGridTickable.class) != null) {
             var tickManager = (TickManagerService) node.getGrid().getTickManager();
@@ -194,34 +189,51 @@ public final class DebugProvider {
             var max = tickManager.getMaximumTime(node);
             var sum = tickManager.getOverallTime(node);
 
-            tag.putLongArray(TAG_TICK_TIME, new long[] { avg, max, sum });
+            NBTTagCompound tickTime = new NBTTagCompound();
+            tickTime.setLong(TAG_TICK_TIME_AVG, avg);
+            tickTime.setLong(TAG_TICK_TIME_MAX, max);
+            tickTime.setLong(TAG_TICK_TIME_SUM, sum);
+            tag.setTag(TAG_TICK_TIME, tickTime);
 
             var status = tickManager.getStatus(node);
-            tag.putBoolean(TAG_TICK_SLEEPING, status.sleeping());
-            tag.putBoolean(TAG_TICK_ALERTABLE, status.alertable());
-            tag.putBoolean(TAG_TICK_AWAKE, status.awake());
-            tag.putBoolean(TAG_TICK_QUEUED, status.queued());
-            tag.putInt(TAG_TICK_CURRENT_RATE, status.currentRate());
-            tag.putLong(TAG_TICK_LAST_TICK, status.lastTick());
+            tag.setBoolean(TAG_TICK_SLEEPING, status.sleeping());
+            tag.setBoolean(TAG_TICK_ALERTABLE, status.alertable());
+            tag.setBoolean(TAG_TICK_AWAKE, status.awake());
+            tag.setBoolean(TAG_TICK_QUEUED, status.queued());
+            tag.setInteger(TAG_TICK_CURRENT_RATE, status.currentRate());
+            tag.setLong(TAG_TICK_LAST_TICK, status.lastTick());
         }
 
         if (node instanceof InWorldGridNode inWorldNode) {
-            // Record on which sides the node is exposed
             int exposedSides = 0;
-            for (var value : Direction.values()) {
+            for (var value : EnumFacing.values()) {
                 if (inWorldNode.isExposedOnSide(value)) {
                     exposedSides |= 1 << value.ordinal();
                 }
             }
-            tag.putInt(TAG_NODE_EXPOSED, exposedSides);
+            tag.setInteger(TAG_NODE_EXPOSED, exposedSides);
         }
 
         return tag;
     }
 
-    private static boolean isVisible(Player player) {
-        return AEItems.DEBUG_CARD.is(player.getItemInHand(InteractionHand.OFF_HAND))
-                || AEItems.DEBUG_CARD.is(player.getItemInHand(InteractionHand.MAIN_HAND));
+    private static boolean isVisible(EntityPlayer player) {
+        return AEItems.DEBUG_CARD.is(player.getHeldItem(EnumHand.OFF_HAND))
+            || AEItems.DEBUG_CARD.is(player.getHeldItem(EnumHand.MAIN_HAND));
     }
 
+    private static TextComponentString styled(String text, TextFormatting formatting) {
+        TextComponentString component = new TextComponentString(text);
+        component.setStyle(new Style().setColor(formatting));
+        return component;
+    }
+
+    private static long[] readLongArray(NBTTagCompound tag) {
+        NBTTagCompound tickTime = tag.getCompoundTag(DebugProvider.TAG_TICK_TIME);
+        return new long[]{
+            tickTime.getLong(TAG_TICK_TIME_AVG),
+            tickTime.getLong(TAG_TICK_TIME_MAX),
+            tickTime.getLong(TAG_TICK_TIME_SUM)
+        };
+    }
 }

@@ -23,15 +23,12 @@
 
 package appeng.api.networking;
 
-import java.io.IOException;
-
 import com.google.gson.stream.JsonWriter;
-
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.world.level.Level;
+import java.io.IOException;
 
 /**
  * Allows you to create a grid-wide service. AE2 uses these for providing item, spatial, and tunnel services.
@@ -50,17 +47,17 @@ public interface IGridServiceProvider {
     /**
      * Called each tick for the network, allows you to have active network wide behaviors.
      * <p>
-     * Called at the beginning of a level tick. Will happen for each {@link Level} separately.
+     * Called at the beginning of a level tick. Will happen for each {@link World} separately.
      */
-    default void onLevelStartTick(Level level) {
+    default void onLevelStartTick(World level) {
     }
 
     /**
      * Called each tick for the network, allows you to have active network wide behaviors.
      * <p>
-     * Called at the end of a level tick. Will happen for each {@link Level} separately.
+     * Called at the end of a level tick. Will happen for each {@link World} separately.
      */
-    default void onLevelEndTick(Level level) {
+    default void onLevelEndTick(World level) {
     }
 
     /**
@@ -92,19 +89,19 @@ public interface IGridServiceProvider {
      * @param savedData The grid-related saved data for the node joining the grid. May be null. Contains data written by
      *                  {@link #saveNodeData}.
      */
-    default void addNode(IGridNode gridNode, @Nullable CompoundTag savedData) {
+    default void addNode(IGridNode gridNode, @Nullable NBTTagCompound savedData) {
     }
 
     /**
      * Save provider-specific data for the given node to the given tag. Note that the tag is shared between all
      * providers, so take care to use unique names for your properties!
      */
-    default void saveNodeData(IGridNode gridNode, CompoundTag savedData) {
+    default void saveNodeData(IGridNode gridNode, NBTTagCompound savedData) {
     }
 
     /**
      * Write debug information about this service to the given writer.
      */
-    default void debugDump(JsonWriter writer, HolderLookup.Provider registries) throws IOException {
+    default void debugDump(JsonWriter writer) throws IOException {
     }
 }

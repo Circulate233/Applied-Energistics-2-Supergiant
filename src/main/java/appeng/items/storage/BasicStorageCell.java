@@ -18,21 +18,6 @@
 
 package appeng.items.storage;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.InteractionResultHolder;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.tooltip.TooltipComponent;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.level.Level;
-
 import appeng.api.config.FuzzyMode;
 import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKeyType;
@@ -42,28 +27,34 @@ import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.core.localization.PlayerMessages;
-import appeng.hooks.AEToolItem;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.CellConfig;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.util.ConfigInventory;
 import appeng.util.InteractionUtil;
-import appeng.util.Platform;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagString;
+import net.minecraft.util.ActionResult;
+import net.minecraft.util.EnumActionResult;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.world.World;
 
-public class BasicStorageCell extends AEBaseItem implements IBasicCellItem, AEToolItem {
+import java.util.List;
+import java.util.Set;
+
+public class BasicStorageCell extends AEBaseItem implements IBasicCellItem {
     protected final double idleDrain;
     protected final int totalBytes;
     protected final int bytesPerType;
     protected final int totalTypes;
     private final AEKeyType keyType;
 
-    public BasicStorageCell(Properties properties,
-            double idleDrain,
-            int kilobytes,
-            int bytesPerType,
-            int totalTypes,
-            AEKeyType keyType) {
-        super(properties);
+    public BasicStorageCell(double idleDrain, int kilobytes, int bytesPerType, int totalTypes, AEKeyType keyType) {
+        this.setMaxStackSize(1);
         this.idleDrain = idleDrain;
         this.totalBytes = kilobytes * 1024;
         this.bytesPerType = bytesPerType;
@@ -71,19 +62,20 @@ public class BasicStorageCell extends AEBaseItem implements IBasicCellItem, AETo
         this.keyType = keyType;
     }
 
-    @Override
-    public void appendHoverText(ItemStack stack,
-            TooltipContext context,
-            List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        if (Platform.isClient()) {
-            addCellInformationToTooltip(stack, lines);
+    public static int getColor(ItemStack stack, int tintIndex) {
+        if (tintIndex == 1) {
+            var cellInv = StorageCells.getCellInventory(stack, null);
+            var cellStatus = cellInv != null ? cellInv.getStatus() : CellState.EMPTY;
+            return cellStatus.getStateColor();
+        } else {
+            return 0xFFFFFF;
         }
     }
 
     @Override
-    public Optional<TooltipComponent> getTooltipImage(ItemStack stack) {
-        return getCellTooltipImage(stack);
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        addToTooltip(stack, lines);
     }
 
     @Override
@@ -123,22 +115,36 @@ public class BasicStorageCell extends AEBaseItem implements IBasicCellItem, AETo
 
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
-        return is.getOrDefault(AEComponents.STORAGE_CELL_FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+        NBTTagCompound tag = is.getTagCompound();
+        if (tag != null) {
+            try {
+                var value = AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.readFrom(tag);
+                if (value != null) {
+                    return FuzzyMode.valueOf(value.getString());
+                }
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+        return FuzzyMode.IGNORE_ALL;
     }
 
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
-        is.set(AEComponents.STORAGE_CELL_FUZZY_MODE, fzMode);
+        NBTTagCompound tag = is.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            is.setTagCompound(tag);
+        }
+        AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.writeTo(tag, new NBTTagString(fzMode.name()));
     }
 
     @Override
-    public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
-        this.disassembleDrive(player.getItemInHand(hand), level, player);
-        return new InteractionResultHolder<>(InteractionResult.sidedSuccess(level.isClientSide()),
-                player.getItemInHand(hand));
+    public ActionResult<ItemStack> onItemRightClick(World level, EntityPlayer player, EnumHand hand) {
+        this.disassembleDrive(player.getHeldItem(hand), level, player);
+        return new ActionResult<>(EnumActionResult.SUCCESS, player.getHeldItem(hand));
     }
 
-    private boolean disassembleDrive(ItemStack stack, Level level, Player player) {
+    private boolean disassembleDrive(ItemStack stack, World level, EntityPlayer player) {
         if (!InteractionUtil.isInAlternateUseMode(player)) {
             return false;
         }
@@ -148,46 +154,39 @@ public class BasicStorageCell extends AEBaseItem implements IBasicCellItem, AETo
             return false;
         }
 
-        var playerInventory = player.getInventory();
-        if (playerInventory.getSelected() != stack) {
+        var playerInventory = player.inventory;
+        if (playerInventory.getCurrentItem() != stack) {
             return false;
         }
 
         var inv = StorageCells.getCellInventory(stack, null);
         if (inv != null && !inv.getAvailableStacks().isEmpty()) {
-            player.displayClientMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
+            player.sendStatusMessage(PlayerMessages.OnlyEmptyCellsCanBeDisassembled.text(), true);
             return false;
         }
 
-        playerInventory.setItem(playerInventory.selected, ItemStack.EMPTY);
+        playerInventory.setInventorySlotContents(playerInventory.currentItem, ItemStack.EMPTY);
 
-        // Drop items from the recipe.
         for (var disassembledStack : disassembledStacks) {
-            playerInventory.placeItemBackInInventory(disassembledStack.copy());
+            playerInventory.placeItemBackInInventory(level, disassembledStack.copy());
         }
 
-        // Drop upgrades
-        getUpgrades(stack).forEach(playerInventory::placeItemBackInInventory);
+        getUpgrades(stack).forEach(upgrade -> playerInventory.placeItemBackInInventory(level, upgrade));
 
         return true;
     }
 
     @Override
-    public InteractionResult onItemUseFirst(ItemStack stack, UseOnContext context) {
-        return this.disassembleDrive(stack, context.getLevel(), context.getPlayer())
-                ? InteractionResult.sidedSuccess(context.getLevel().isClientSide())
-                : InteractionResult.PASS;
-    }
-
-    public static int getColor(ItemStack stack, int tintIndex) {
-        if (tintIndex == 1) {
-            // Determine LED color
-            var cellInv = StorageCells.getCellInventory(stack, null);
-            var cellStatus = cellInv != null ? cellInv.getStatus() : CellState.EMPTY;
-            return cellStatus.getStateColor();
-        } else {
-            // White
-            return 0xFFFFFF;
-        }
+    public EnumActionResult onItemUseFirst(EntityPlayer player, World world, net.minecraft.util.math.BlockPos pos,
+                                           EnumFacing side, float hitX, float hitY, float hitZ, EnumHand hand) {
+        return this.disassembleDrive(player.getHeldItem(hand), world, player)
+            ? EnumActionResult.SUCCESS
+            : EnumActionResult.PASS;
     }
 }
+
+
+
+
+
+

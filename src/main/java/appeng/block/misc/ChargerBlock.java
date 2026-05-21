@@ -15,50 +15,49 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.block.misc;
 
-import java.util.List;
-
-import org.joml.Vector3f;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.Mth;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.ItemInteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
-import appeng.api.orientation.BlockOrientation;
+import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
 import appeng.api.util.AEAxisAlignedBB;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.misc.ChargerBlockEntity;
-import appeng.blockentity.misc.ChargerRecipes;
+import appeng.block.AEBaseTileBlock;
 import appeng.client.render.effects.LightningArcParticleData;
+import appeng.client.render.effects.ParticleTypes;
 import appeng.core.AEConfig;
-import appeng.core.AppEngClient;
+import appeng.core.AppEngBase;
+import appeng.helpers.ICustomCollision;
+import appeng.tile.misc.ChargerRecipes;
+import appeng.tile.misc.TileCharger;
 import appeng.util.Platform;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumBlockRenderType;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3i;
+import net.minecraft.world.World;
 
-public class ChargerBlock extends AEBaseEntityBlock<ChargerBlockEntity> {
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
 
+@SuppressWarnings("deprecation")
+public class ChargerBlock extends AEBaseTileBlock<TileCharger> implements ICustomCollision {
     public ChargerBlock() {
-        super(metalProps().noOcclusion());
+        super(Material.IRON);
+        setOpaque();
+        setFullSize();
+        setHardness(2.2F);
+        setResistance(11.0F);
+        setTileEntity(TileCharger.class);
     }
 
     @Override
@@ -67,135 +66,159 @@ public class ChargerBlock extends AEBaseEntityBlock<ChargerBlockEntity> {
     }
 
     @Override
-    public int getLightBlock(BlockState state, BlockGetter level, BlockPos pos) {
-        return 2; // FIXME Double check this (esp. value range)
+    public EnumBlockRenderType getRenderType(IBlockState state) {
+        return EnumBlockRenderType.MODEL;
     }
 
     @Override
-    protected ItemInteractionResult useItemOn(ItemStack heldItem, BlockState state, Level level, BlockPos pos,
-            Player player, InteractionHand hand, BlockHitResult hit) {
-        if (level.getBlockEntity(pos) instanceof ChargerBlockEntity charger) {
-            var inv = charger.getInternalInventory();
-            var chargingItem = inv.getStackInSlot(0);
-            if (chargingItem.isEmpty()) {
-                if (ChargerRecipes.findRecipe(level, heldItem) != null || Platform.isChargeable(heldItem)) {
-                    var toInsert = heldItem.split(1);
-                    inv.setItemDirect(0, toInsert);
-                    return ItemInteractionResult.sidedSuccess(level.isClientSide);
-                }
-            }
-        }
-
-        return super.useItemOn(heldItem, state, level, pos, player, hand, hit);
-    }
-
-    @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof ChargerBlockEntity charger) {
-            var inv = charger.getInternalInventory();
-            var chargingItem = inv.getStackInSlot(0);
-            if (!chargingItem.isEmpty()) {
-                inv.setItemDirect(0, ItemStack.EMPTY);
-                Platform.spawnDrops(player.level(), charger.getBlockPos().relative(charger.getFront()),
-                        List.of(chargingItem));
-                return InteractionResult.sidedSuccess(level.isClientSide);
-            }
-        }
-
-        return super.useWithoutItem(state, level, pos, player, hitResult);
-    }
-
-    @Override
-    @OnlyIn(Dist.CLIENT)
-    public void animateTick(BlockState state, Level level, BlockPos pos, RandomSource r) {
+    public void randomDisplayTick(IBlockState state, World world, BlockPos pos, Random random) {
         if (!AEConfig.instance().isEnableEffects()) {
             return;
         }
 
-        var blockEntity = this.getBlockEntity(level, pos);
-        if (blockEntity != null && blockEntity.isWorking()) {
-            if (r.nextFloat() < 0.5) {
-                return;
+        TileCharger tile = this.getTileEntity(world, pos);
+        if (tile == null || !tile.isWorking()) {
+            return;
+        }
+
+        if (random.nextFloat() < 0.5f) {
+            return;
+        }
+
+        var up = tile.getOrientation().getSide(RelativeSide.TOP);
+        var forward = tile.getOrientation().getSide(RelativeSide.FRONT);
+        Vec3i side = forward.getDirectionVec().crossProduct(up.getDirectionVec());
+
+        for (int bolts = 0; bolts < 3; bolts++) {
+            float xOff = (random.nextFloat() * 0.3f) - 0.15f;
+            float zOff = (random.nextFloat() * 0.3f) - 0.15f;
+
+            double centerX = pos.getX() + 0.5D;
+            double centerY = pos.getY() + 0.5D;
+            double centerZ = pos.getZ() + 0.5D;
+
+            double originX = centerX + side.getX() * xOff + up.getXOffset() * -0.3D + forward.getXOffset() * zOff;
+            double originY = centerY + side.getY() * xOff + up.getYOffset() * -0.3D + forward.getYOffset() * zOff;
+            double originZ = centerZ + side.getZ() * xOff + up.getZOffset() * -0.3D + forward.getZOffset() * zOff;
+
+            double targetX = centerX + side.getX() * xOff + up.getXOffset() * 0.3D + forward.getXOffset() * zOff;
+            double targetY = centerY + side.getY() * xOff + up.getYOffset() * 0.3D + forward.getYOffset() * zOff;
+            double targetZ = centerZ + side.getZ() * xOff + up.getZOffset() * 0.3D + forward.getZOffset() * zOff;
+
+            if (random.nextBoolean()) {
+                double swapX = targetX;
+                double swapY = targetY;
+                double swapZ = targetZ;
+                targetX = originX;
+                targetY = originY;
+                targetZ = originZ;
+                originX = swapX;
+                originY = swapY;
+                originZ = swapZ;
             }
 
-            var rotation = BlockOrientation.get(blockEntity);
-
-            for (int bolts = 0; bolts < 3; bolts++) {
-                // Slightly offset the lightning arc on the x/z plane
-                var xOff = Mth.randomBetween(r, -0.15f, 0.15f);
-                var zOff = Mth.randomBetween(r, -0.15f, 0.15f);
-
-                // Compute two points in the charger block. One at the bottom, and one on the top.
-                // Account for the rotation while doing this.
-                var center = new Vector3f(pos.getX() + 0.5f, pos.getY() + 0.5f, pos.getZ() + 0.5f);
-                var origin = new Vector3f(xOff, -0.3f, zOff);
-                origin.rotate(rotation.getQuaternion());
-                origin.add(center);
-                var target = new Vector3f(xOff, 0.3f, zOff);
-                target.rotate(rotation.getQuaternion());
-                target.add(center);
-
-                // Split the arcs between arc coming from the top/bottom of the charger since it's symmetrical
-                if (r.nextBoolean()) {
-                    var tmp = target;
-                    target = origin;
-                    origin = tmp;
-                }
-
-                if (AppEngClient.instance().shouldAddParticles(r)) {
-                    Minecraft.getInstance().particleEngine.createParticle(
-                            new LightningArcParticleData(target),
-                            origin.x(),
-                            origin.y(),
-                            origin.z(),
-                            0.0, 0.0, 0.0);
-                }
+            if (AppEngBase.runtime().shouldAddParticles(random)) {
+                ParticleTypes.LIGHTNING_ARC.spawn(world, originX, originY, originZ, 1.0D, 1.0D, 1.0D,
+                    new LightningArcParticleData(targetX, targetY, targetZ));
             }
         }
     }
 
     @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        var orientation = getOrientation(state);
-        var up = orientation.getSide(RelativeSide.TOP);
-        var forward = orientation.getSide(RelativeSide.FRONT);
-        var twoPixels = 2.0 / 16.0;
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
+        }
 
-        var bb = new AEAxisAlignedBB(twoPixels, twoPixels, twoPixels, 1.0 - twoPixels,
-                1.0 - twoPixels, 1.0 - twoPixels);
+        if (player.isSneaking()) {
+            return false;
+        }
 
-        if (up.getStepX() != 0) {
+        TileCharger tile = this.getTileEntity(world, pos);
+        if (tile == null) {
+            return false;
+        }
+
+        ItemStack held = player.getHeldItem(hand);
+        ItemStack chargingItem = tile.getInternalInventory().getStackInSlot(0);
+
+        if (chargingItem.isEmpty()) {
+            if (!held.isEmpty() && (held.getItem() instanceof IAEItemPowerStorage || ChargerRecipes.allowInsert(held))) {
+                if (!world.isRemote) {
+                    tile.getInternalInventory().setItemDirect(0, held.splitStack(1));
+                }
+                return true;
+            }
+        } else if (held.isEmpty()) {
+            if (!world.isRemote) {
+                List<ItemStack> drops = new ObjectArrayList<>();
+                drops.add(chargingItem.copy());
+                tile.getInternalInventory().setItemDirect(0, ItemStack.EMPTY);
+                Platform.spawnDrops(world, pos.offset(tile.getOrientation().getSide(RelativeSide.FRONT)), drops);
+            }
+            return true;
+        }
+
+        return false;
+    }
+
+    @Override
+    public Iterable<AxisAlignedBB> getSelectedBoundingBoxesFromPool(World world, BlockPos pos, Entity entity,
+                                                                    boolean hitFluids) {
+        TileCharger tile = this.getTileEntity(world, pos);
+        if (tile == null) {
+            return Collections.singletonList(FULL_BLOCK_AABB);
+        }
+
+        final double twoPixels = 2.0 / 16.0;
+        final EnumFacing up = tile.getOrientation().getSide(RelativeSide.TOP);
+        final EnumFacing forward = tile.getOrientation().getSide(RelativeSide.FRONT);
+        final AEAxisAlignedBB bb = new AEAxisAlignedBB(twoPixels, twoPixels, twoPixels, 1.0 - twoPixels,
+            1.0 - twoPixels, 1.0 - twoPixels);
+
+        if (up.getXOffset() != 0) {
             bb.minX = 0;
             bb.maxX = 1;
         }
-        if (up.getStepY() != 0) {
+        if (up.getYOffset() != 0) {
             bb.minY = 0;
             bb.maxY = 1;
         }
-        if (up.getStepZ() != 0) {
+        if (up.getZOffset() != 0) {
             bb.minZ = 0;
             bb.maxZ = 1;
         }
 
         switch (forward) {
-            case DOWN -> bb.maxY = 1;
-            case UP -> bb.minY = 0;
-            case NORTH -> bb.maxZ = 1;
-            case SOUTH -> bb.minZ = 0;
-            case EAST -> bb.minX = 0;
-            case WEST -> bb.maxX = 1;
-            default -> {
-            }
+            case DOWN:
+                bb.maxY = 1;
+                break;
+            case UP:
+                bb.minY = 0;
+                break;
+            case NORTH:
+                bb.maxZ = 1;
+                break;
+            case SOUTH:
+                bb.minZ = 0;
+                break;
+            case EAST:
+                bb.minX = 0;
+                break;
+            case WEST:
+                bb.maxX = 1;
+                break;
+            default:
+                break;
         }
 
-        return Shapes.create(bb.getBoundingBox());
+        return Collections.singletonList(bb.getBoundingBox());
     }
 
     @Override
-    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos,
-            CollisionContext context) {
-        return Shapes.create(new AABB(0.0, 0.0, 0.0, 1.0, 1.0, 1.0));
+    public void addCollidingBlockToList(World world, BlockPos pos, AxisAlignedBB bb, List<AxisAlignedBB> out,
+                                        Entity entity) {
+        out.add(FULL_BLOCK_AABB);
     }
-
 }

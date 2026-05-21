@@ -18,30 +18,6 @@
 
 package appeng.client.gui.me.common;
 
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.crafting.Ingredient;
-
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongSet;
-
 import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
@@ -50,10 +26,31 @@ import appeng.api.stacks.AEKey;
 import appeng.client.gui.me.search.RepoSearch;
 import appeng.client.gui.widgets.IScrollSource;
 import appeng.client.gui.widgets.ISortSource;
+import appeng.container.me.common.GridInventoryEntry;
+import appeng.container.me.common.IClientRepo;
 import appeng.core.AELog;
-import appeng.menu.me.common.GridInventoryEntry;
-import appeng.menu.me.common.IClientRepo;
 import appeng.util.prioritylist.IPartitionList;
+import com.google.common.collect.BiMap;
+import com.google.common.collect.HashBiMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongSet;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.item.Item;
+import net.minecraft.item.crafting.Ingredient;
+import org.jetbrains.annotations.Nullable;
+
+import java.time.Instant;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 
 /**
  * For showing the network content of a storage channel, this class will maintain a client-side copy of the current
@@ -62,39 +59,53 @@ import appeng.util.prioritylist.IPartitionList;
 public class Repo implements IClientRepo {
 
     public static final Comparator<GridInventoryEntry> AMOUNT_ASC = Comparator
-            .comparingDouble((GridInventoryEntry entry) -> ((double) entry.getStoredAmount())
-                    / ((double) entry.getWhat().getAmountPerUnit()));
+        .comparingDouble((GridInventoryEntry entry) -> {
+            var what = Objects.requireNonNull(entry.what());
+            return ((double) entry.storedAmount()) / ((double) what.getAmountPerUnit());
+        });
 
     public static final Comparator<GridInventoryEntry> AMOUNT_DESC = AMOUNT_ASC.reversed();
 
     private static final Comparator<GridInventoryEntry> PINNED_ROW_COMPARATOR = Comparator.comparing(entry -> {
-        var pinInfo = PinnedKeys.getPinInfo(entry.getWhat());
+        var pinInfo = PinnedKeys.getPinInfo(entry.what());
         return pinInfo != null ? pinInfo.since : Instant.MAX;
     });
-
-    private int rowSize = 9;
-
-    private boolean enabled = false;
-
     private final BiMap<Long, GridInventoryEntry> entries = HashBiMap.create();
-    private final ArrayList<GridInventoryEntry> view = new ArrayList<>();
-    private final ArrayList<GridInventoryEntry> pinnedRow = new ArrayList<>();
+    private final ObjectList<GridInventoryEntry> view = new ObjectArrayList<>();
+    private final ObjectList<GridInventoryEntry> pinnedRow = new ObjectArrayList<>();
     /**
      * Entries by item ID to speed up ingredient matching.
      */
     private final Int2ObjectOpenHashMap<List<GridInventoryEntry>> entriesByItemId = new Int2ObjectOpenHashMap<>();
-    private boolean entriesByItemIdNeedsUpdate = true;
     private final RepoSearch search = new RepoSearch();
-    private IPartitionList partitionList;
-    private Runnable updateViewListener;
-
     private final IScrollSource src;
     private final ISortSource sortSrc;
+    private int rowSize = 9;
+    private boolean enabled = false;
+    private boolean entriesByItemIdNeedsUpdate = true;
+    private IPartitionList partitionList;
+    private Runnable updateViewListener;
     private boolean paused;
 
     public Repo(IScrollSource src, ISortSource sortSrc) {
         this.src = src;
         this.sortSrc = sortSrc;
+    }
+
+    private static boolean takeOverSlotOccupiedByRemovedItem(GridInventoryEntry serverEntry,
+                                                             Map<AEKey, IntList> freeSlots, List<GridInventoryEntry> slots) {
+        IntList freeSlotIndices = freeSlots.get(serverEntry.what());
+        if (freeSlotIndices == null) {
+            return false;
+        }
+
+        int i = freeSlotIndices.removeInt(freeSlotIndices.size() - 1);
+        if (freeSlotIndices.isEmpty()) {
+            freeSlots.remove(serverEntry.what());
+        }
+
+        slots.set(i, serverEntry);
+        return true;
     }
 
     public void setPartitionList(IPartitionList partitionList) {
@@ -120,31 +131,31 @@ public class Repo implements IClientRepo {
     private void handleUpdate(GridInventoryEntry serverEntry) {
         entriesByItemIdNeedsUpdate = true;
 
-        var localEntry = entries.get(serverEntry.getSerial());
+        var localEntry = entries.get(serverEntry.serial());
         if (localEntry == null) {
             // First time we're seeing this serial -> create new entry
-            if (serverEntry.getWhat() == null) {
-                AELog.warn("First time seeing serial %s, but incomplete info received", serverEntry.getSerial());
+            if (serverEntry.what() == null) {
+                AELog.warn("First time seeing serial %s, but incomplete info received", serverEntry.serial());
                 return;
             }
             if (serverEntry.isMeaningful()) {
-                entries.put(serverEntry.getSerial(), serverEntry);
+                entries.put(serverEntry.serial(), serverEntry);
             }
             return;
         }
 
         // Update the local entry
         if (!serverEntry.isMeaningful()) {
-            entries.remove(serverEntry.getSerial());
-        } else if (serverEntry.getWhat() == null) {
-            entries.put(serverEntry.getSerial(), new GridInventoryEntry(
-                    serverEntry.getSerial(),
-                    localEntry.getWhat(),
-                    serverEntry.getStoredAmount(),
-                    serverEntry.getRequestableAmount(),
-                    serverEntry.isCraftable()));
+            entries.remove(serverEntry.serial());
+        } else if (serverEntry.what() == null) {
+            entries.put(serverEntry.serial(), new GridInventoryEntry(
+                serverEntry.serial(),
+                localEntry.what(),
+                serverEntry.storedAmount(),
+                serverEntry.requestableAmount(),
+                serverEntry.craftable()));
         } else {
-            entries.put(serverEntry.getSerial(), serverEntry);
+            entries.put(serverEntry.serial(), serverEntry);
         }
     }
 
@@ -160,18 +171,18 @@ public class Repo implements IClientRepo {
             var pinnedRowFreeSlots = getFreeSlots(pinnedRow);
             var viewFreeSlots = getFreeSlots(view);
 
-            var entriesToAdd = new ArrayList<GridInventoryEntry>();
+            ObjectList<GridInventoryEntry> entriesToAdd = new ObjectArrayList<>();
 
             // Determine what to do with server entries that are not currently being shown
             for (var serverEntry : entries.values()) {
-                if (visibleSerials.contains(serverEntry.getSerial())) {
+                if (visibleSerials.contains(serverEntry.serial())) {
                     continue; // Entry is already visible
                 }
 
                 // First, try to find an empty/meaningless slot in the view that is visually indistinguishable
                 // and fill it
                 if (takeOverSlotOccupiedByRemovedItem(serverEntry, pinnedRowFreeSlots, pinnedRow)
-                        || takeOverSlotOccupiedByRemovedItem(serverEntry, viewFreeSlots, view)) {
+                    || takeOverSlotOccupiedByRemovedItem(serverEntry, viewFreeSlots, view)) {
                     continue;
                 }
 
@@ -183,9 +194,6 @@ public class Repo implements IClientRepo {
         } else {
             this.view.clear();
             this.pinnedRow.clear();
-
-            this.view.ensureCapacity(this.entries.size());
-            this.pinnedRow.ensureCapacity(rowSize);
 
             addEntriesToView(this.entries.values());
         }
@@ -214,24 +222,25 @@ public class Repo implements IClientRepo {
 
         for (var entry : entries) {
             // Pinned keys ignore all filters & search
-            if (hasPinnedRow && pinnedRow.size() < rowSize && PinnedKeys.isPinned(entry.getWhat())) {
+            if (hasPinnedRow && pinnedRow.size() < rowSize && PinnedKeys.isPinned(entry.what())) {
                 pinnedRow.add(entry);
                 continue;
             }
 
-            if (this.partitionList != null && !this.partitionList.isListed(entry.getWhat())) {
+            if (this.partitionList != null && !this.partitionList.isListed(entry.what())) {
                 continue;
             }
 
-            if (viewMode == ViewItems.CRAFTABLE && !entry.isCraftable()) {
+            if (viewMode == ViewItems.CRAFTABLE && !entry.craftable()) {
                 continue;
             }
 
-            if (viewMode == ViewItems.STORED && entry.getStoredAmount() == 0) {
+            if (viewMode == ViewItems.STORED && entry.storedAmount() == 0) {
                 continue;
             }
 
-            if (!typeFilter.contains(entry.getWhat().getType())) {
+            var what = Objects.requireNonNull(entry.what());
+            if (!typeFilter.contains(what.getType())) {
                 continue;
             }
 
@@ -246,10 +255,10 @@ public class Repo implements IClientRepo {
         if (hasPinnedRow) {
             for (var pinnedKey : PinnedKeys.getPinnedKeys()) {
                 var info = PinnedKeys.getPinInfo(pinnedKey);
-                if (info.reason != PinnedKeys.PinReason.CRAFTING
-                        && pinnedRow.stream().noneMatch(r -> pinnedKey.equals(r.getWhat()))) {
+                if (info != null && info.reason != PinnedKeys.PinReason.CRAFTING
+                    && pinnedRow.stream().noneMatch(r -> pinnedKey.equals(r.what()))) {
                     this.pinnedRow.add(new GridInventoryEntry(
-                            -1, pinnedKey, 0, 0, false));
+                        -1, pinnedKey, 0, 0, false));
                 }
             }
         }
@@ -260,21 +269,21 @@ public class Repo implements IClientRepo {
             var entry = shownEntries.get(i);
 
             // Update entries with data from server, which doesn't move them
-            var serverEntry = entries.get(entry.getSerial());
+            var serverEntry = entries.get(entry.serial());
             if (serverEntry == null) {
                 // The server has removed the entry. Let's replace it with an entry that is not meaningful, but shows
                 // amount 0
                 entry = new GridInventoryEntry(
-                        entry.getSerial(),
-                        entry.getWhat(),
-                        0,
-                        0,
-                        false);
+                    entry.serial(),
+                    entry.what(),
+                    0,
+                    0,
+                    false);
             } else {
                 entry = serverEntry;
             }
 
-            visibleSerials.add(entry.getSerial());
+            visibleSerials.add(entry.serial());
             shownEntries.set(i, entry);
         }
     }
@@ -283,12 +292,12 @@ public class Repo implements IClientRepo {
      * Computes free slot indices by AEKey. Used to replace removed items by items that are visually indistinguishable.
      */
     private Map<AEKey, IntList> getFreeSlots(List<GridInventoryEntry> slots) {
-        Map<AEKey, IntList> freeSlots = new HashMap<>();
+        Map<AEKey, IntList> freeSlots = new it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap<>();
 
         for (int i = 0; i < slots.size(); ++i) {
             var entry = slots.get(i);
-            if (!entries.containsKey(entry.getSerial())) {
-                freeSlots.computeIfAbsent(entry.getWhat(), k -> new IntArrayList()).add(i);
+            if (!entries.containsKey(entry.serial())) {
+                freeSlots.computeIfAbsent(entry.what(), ignored -> new IntArrayList()).add(i);
             }
         }
 
@@ -300,28 +309,13 @@ public class Repo implements IClientRepo {
         return freeSlots;
     }
 
-    private static boolean takeOverSlotOccupiedByRemovedItem(GridInventoryEntry serverEntry,
-            Map<AEKey, IntList> freeSlots, List<GridInventoryEntry> slots) {
-        IntList freeSlotIndices = freeSlots.get(serverEntry.getWhat());
-        if (freeSlotIndices == null) {
-            return false;
-        }
-
-        int i = freeSlotIndices.removeInt(freeSlotIndices.size() - 1);
-        if (freeSlotIndices.size() == 0) {
-            freeSlots.remove(serverEntry.getWhat());
-        }
-
-        slots.set(i, serverEntry);
-        return true;
-    }
-
     private Comparator<? super GridInventoryEntry> getComparator(SortOrder sortOrder, SortDir sortDir) {
         if (sortOrder == SortOrder.AMOUNT) {
             return sortDir == SortDir.ASCENDING ? AMOUNT_ASC : AMOUNT_DESC;
         }
 
-        return Comparator.comparing(GridInventoryEntry::getWhat, getKeyComparator(sortOrder, sortDir));
+        return Comparator.comparing(GridInventoryEntry::what, getKeyComparator(sortOrder, sortDir))
+                         .thenComparingLong(GridInventoryEntry::serial);
     }
 
     public List<GridInventoryEntry> getPinnedEntries() {
@@ -373,6 +367,7 @@ public class Repo implements IClientRepo {
         this.enabled = enabled;
     }
 
+    @SuppressWarnings("unused")
     public final int getRowSize() {
         return this.rowSize;
     }
@@ -414,11 +409,10 @@ public class Repo implements IClientRepo {
 
     @Override
     public List<GridInventoryEntry> getByIngredient(Ingredient ingredient) {
-        var entries = new ArrayList<GridInventoryEntry>();
-        for (int i = 0; i < ingredient.getStackingIds().size(); i++) {
-            var itemId = ingredient.getStackingIds().getInt(i);
-            for (var entry : getByItemId(itemId)) {
-                if (((AEItemKey) entry.getWhat()).matches(ingredient)) {
+        ObjectList<GridInventoryEntry> entries = new ObjectArrayList<>();
+        for (var stack : ingredient.getMatchingStacks()) {
+            for (var entry : getByItemId(Item.getIdFromItem(stack.getItem()))) {
+                if (entry.what() instanceof AEItemKey itemKey && itemKey.matches(ingredient)) {
                     entries.add(entry);
                 }
             }
@@ -438,15 +432,15 @@ public class Repo implements IClientRepo {
     private void rebuildItemIdToEntries() {
         entriesByItemId.clear();
         for (var entry : getAllEntries()) {
-            if (entry.getWhat() instanceof AEItemKey itemKey) {
-                var itemId = BuiltInRegistries.ITEM.getId(itemKey.getItem());
+            if (entry.what() instanceof AEItemKey itemKey) {
+                var itemId = Item.getIdFromItem(itemKey.getItem());
                 var currentList = entriesByItemId.get(itemId);
                 if (currentList == null) {
                     // For many items without NBT, this list will only ever have one entry
                     entriesByItemId.put(itemId, List.of(entry));
                 } else if (currentList.size() == 1) {
                     // Convert the list from an immutable single-entry list to a mutable normal arraylist
-                    var mutableList = new ArrayList<GridInventoryEntry>(10);
+                    ObjectList<GridInventoryEntry> mutableList = new ObjectArrayList<>(10);
                     mutableList.addAll(currentList);
                     mutableList.add(entry);
                     entriesByItemId.put(itemId, mutableList);
@@ -465,12 +459,14 @@ public class Repo implements IClientRepo {
     /**
      * Checks if the repo knows that the given key can be crafted.
      */
+    @SuppressWarnings("unused")
     public boolean isCraftable(AEKey what) {
         for (var entry : entries.values()) {
-            if (entry.isCraftable() && what.equals(entry.getWhat())) {
+            if (entry.craftable() && what.equals(entry.what())) {
                 return true;
             }
         }
         return false;
     }
 }
+

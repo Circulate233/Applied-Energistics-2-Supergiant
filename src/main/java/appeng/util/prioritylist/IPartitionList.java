@@ -18,14 +18,17 @@
 
 package appeng.util.prioritylist;
 
-import org.jetbrains.annotations.Nullable;
-
 import appeng.api.config.FuzzyMode;
 import appeng.api.config.IncludeExclude;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import org.jetbrains.annotations.Nullable;
 
 public interface IPartitionList {
+    static Builder builder() {
+        return new Builder();
+    }
+
     boolean isListed(AEKey input);
 
     boolean isEmpty();
@@ -36,7 +39,7 @@ public interface IPartitionList {
      * Checks if the given stack matches this partition list assuming a given WHITELIST/BLACKLIST mode.
      */
     default boolean matchesFilter(AEKey key, IncludeExclude mode) {
-        if (!isEmpty()) { // Always return true for empty lists
+        if (!isEmpty()) {
             switch (mode) {
                 case WHITELIST -> {
                     if (!isListed(key)) {
@@ -53,22 +56,19 @@ public interface IPartitionList {
         return true;
     }
 
-    static Builder builder() {
-        return new Builder(null);
-    }
-
     class Builder {
         private final KeyCounter keys = new KeyCounter();
+
         @Nullable
         private FuzzyMode fuzzyMode;
 
-        private Builder(@Nullable FuzzyMode fuzzyMode) {
-            this.fuzzyMode = fuzzyMode;
+        private Builder() {
+            this.fuzzyMode = null;
         }
 
         public void add(@Nullable AEKey key) {
             if (key != null) {
-                keys.add(key, 1);
+                this.keys.add(key, 1);
             }
         }
 
@@ -83,15 +83,15 @@ public interface IPartitionList {
         }
 
         public IPartitionList build() {
-            if (keys.isEmpty()) {
+            if (this.keys.isEmpty()) {
                 return DefaultPriorityList.INSTANCE;
             }
 
-            if (fuzzyMode != null) {
-                return new FuzzyPriorityList(keys, fuzzyMode);
-            } else {
-                return new PrecisePriorityList(keys);
+            if (this.fuzzyMode != null) {
+                return new FuzzyPriorityList(this.keys, this.fuzzyMode);
             }
+
+            return new PrecisePriorityList(this.keys);
         }
     }
 }

@@ -23,10 +23,10 @@
 
 package appeng.api.inventories;
 
+import net.minecraft.item.ItemStack;
+
 import java.util.Iterator;
 import java.util.NoSuchElementException;
-
-import net.minecraft.world.item.ItemStack;
 
 /**
  * Iterates over the slots of an {@link InternalInventory} that are not empty.

@@ -37,11 +37,6 @@ import appeng.api.networking.IManagedGridNode;
  */
 public interface IStorageProvider extends IGridNodeService {
     /**
-     * Allow the cell provider to make inventories available to the network by mounting them.
-     */
-    void mountInventories(IStorageMounts storageMounts);
-
-    /**
      * This convenience method can be used to request an update of the mounted storage by the storage provider. This
      * only works if the given managed grid node provides this service.
      */
@@ -51,4 +46,9 @@ public interface IStorageProvider extends IGridNodeService {
             node.getGrid().getStorageService().refreshNodeStorageProvider(node);
         }
     }
+
+    /**
+     * Allow the cell provider to make inventories available to the network by mounting them.
+     */
+    void mountInventories(IStorageMounts storageMounts);
 }

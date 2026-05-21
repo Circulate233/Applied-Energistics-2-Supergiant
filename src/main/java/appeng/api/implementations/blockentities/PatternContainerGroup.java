@@ -1,134 +1,147 @@
 package appeng.api.implementations.blockentities;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.ComponentSerialization;
-import net.minecraft.world.Nameable;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.Level;
-import net.neoforged.neoforge.capabilities.Capabilities;
-
 import appeng.api.parts.IPartHost;
 import appeng.api.stacks.AEItemKey;
-import appeng.core.localization.GuiText;
+import appeng.client.component.TextComponents;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraft.world.IWorldNameable;
+import net.minecraft.world.World;
+import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.items.CapabilityItemHandler;
+import net.minecraftforge.items.IItemHandler;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * Provides both a key for grouping pattern providers, and displaying the group in the pattern access terminal.
- * <p/>
- * The group can be the crafting container itself, for example if it is given a custom name by the player. It might
- * default to the crafting machine it is adjacent otherwise.
- *
- * @param icon    The icon to display when referring to the grouped containers. This stack will NEVER be modified. It
- *                will be used to show an icon, as well as compared to group similar containers. It may be
- *                {@link ItemStack#EMPTY}
- * @param name    The name to use to refer to the group.
- * @param tooltip Additional tooltip lines to describe the group (i.e. installed upgrades).
- */
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+
 public record PatternContainerGroup(
-        @Nullable AEItemKey icon,
-        Component name,
-        List<Component> tooltip) {
+    @Nullable AEItemKey icon,
+    ITextComponent name,
+    List<ITextComponent> tooltip) {
 
-    private static final PatternContainerGroup NOTHING = new PatternContainerGroup(AEItemKey.of(Items.AIR),
-            GuiText.Nothing.text(), List.of());
+    private static final PatternContainerGroup NOTHING = new PatternContainerGroup(null,
+        new TextComponentTranslation("ae2.guitext.nothing"), Collections.emptyList());
 
     public static PatternContainerGroup nothing() {
         return NOTHING;
     }
 
-    public void writeToPacket(RegistryFriendlyByteBuf buffer) {
-        buffer.writeBoolean(icon != null);
-        if (icon != null) {
-            icon.writeToPacket(buffer);
-        }
-        ComponentSerialization.TRUSTED_STREAM_CODEC.encode(buffer, name);
-        buffer.writeVarInt(tooltip.size());
-        for (var component : tooltip) {
-            ComponentSerialization.TRUSTED_STREAM_CODEC.encode(buffer, component);
-        }
-    }
-
-    public static PatternContainerGroup readFromPacket(RegistryFriendlyByteBuf buffer) {
-        var icon = buffer.readBoolean() ? AEItemKey.fromPacket(buffer) : null;
-        var name = ComponentSerialization.TRUSTED_STREAM_CODEC.decode(buffer);
-        var lineCount = buffer.readVarInt();
-        var lines = new ArrayList<Component>(lineCount);
+    public static PatternContainerGroup readFromPacket(PacketBuffer buffer) {
+        AEItemKey icon = buffer.readBoolean() ? AEItemKey.fromPacket(buffer) : null;
+        ITextComponent name = TextComponents.readFromPacket(buffer);
+        int lineCount = buffer.readVarInt();
+        ObjectList<ITextComponent> lines = new ObjectArrayList<>(lineCount);
         for (int i = 0; i < lineCount; i++) {
-            lines.add(ComponentSerialization.TRUSTED_STREAM_CODEC.decode(buffer));
+            lines.add(TextComponents.readFromPacket(buffer));
         }
         return new PatternContainerGroup(icon, name, lines);
     }
 
     @Nullable
-    public static PatternContainerGroup fromMachine(Level level, BlockPos pos, Direction side) {
-        // Check for first-class support
-        var craftingMachine = ICraftingMachine.of(level, pos, side);
+    public static PatternContainerGroup fromMachine(World level, BlockPos pos, EnumFacing side) {
+        ICraftingMachine craftingMachine = ICraftingMachine.of(level, pos, side);
         if (craftingMachine != null) {
             return craftingMachine.getCraftingMachineInfo();
         }
 
-        // Anything else requires a block entity
-        var target = level.getBlockEntity(pos);
+        TileEntity target = level.getTileEntity(pos);
         if (target == null) {
             return null;
         }
 
-        // Heuristic: If it doesn't allow item or fluid transfers, ignore it
-        var itemHandler = level.getCapability(Capabilities.ItemHandler.BLOCK, pos, target.getBlockState(), target,
-                side);
+        IItemHandler itemHandler = target.getCapability(CapabilityItemHandler.ITEM_HANDLER_CAPABILITY, side);
         if (itemHandler == null || itemHandler.getSlots() <= 0) {
-            var fluidHandler = level.getCapability(Capabilities.FluidHandler.BLOCK, pos, target.getBlockState(), target,
-                    side);
-            if (fluidHandler == null || fluidHandler.getTanks() == 0) {
+            IFluidHandler fluidHandler = target.getCapability(CapabilityFluidHandler.FLUID_HANDLER_CAPABILITY, side);
+            if (fluidHandler == null || fluidHandler.getTankProperties().length == 0) {
                 return null;
             }
         }
 
         AEItemKey icon;
-        Component name;
-        List<Component> tooltip = List.of();
+        ITextComponent name;
+        List<ITextComponent> tooltip = Collections.emptyList();
 
-        // For scenarios like pattern providers against cable bus
         if (target instanceof IPartHost partHost) {
-            var part = partHost.getPart(side);
+            appeng.api.parts.IPart part = partHost.getPart(side);
             if (part == null) {
-                // No part at side -> ignore, we don't interface with the cable
                 return null;
             }
 
-            icon = AEItemKey.of(part.getPartItem());
-            if (part instanceof Nameable nameable) {
+            icon = AEItemKey.of(part.getPartItem().asItem());
+            if (icon == null) {
+                return null;
+            }
+
+            if (part instanceof IWorldNameable nameable) {
                 name = nameable.getDisplayName();
             } else {
                 name = icon.getDisplayName();
             }
         } else {
-            // Try to wrestle an item from the adjacent block entity
-            // TODO On Forge we can use pick block here
-            var targetBlock = target.getBlockState().getBlock();
-            var targetItem = new ItemStack(targetBlock);
+            net.minecraft.item.ItemStack targetItem = new net.minecraft.item.ItemStack(target.getBlockType());
             icon = AEItemKey.of(targetItem);
 
-            if (target instanceof Nameable nameable && nameable.hasCustomName()) {
-                name = nameable.getCustomName();
+            if (target instanceof IWorldNameable nameable && nameable.hasCustomName()) {
+                name = nameable.getDisplayName();
             } else {
                 if (targetItem.isEmpty()) {
-                    // If the object isn't named, and we didn't get an item from it,
-                    // we can't show either icon nor name!
                     return null;
                 }
-                name = targetItem.getHoverName();
+                name = TextComponents.of(targetItem);
             }
         }
 
         return new PatternContainerGroup(icon, name, tooltip);
+    }
+
+    public void writeToPacket(PacketBuffer buffer) {
+        buffer.writeBoolean(this.icon != null);
+        if (this.icon != null) {
+            this.icon.writeToPacket(buffer);
+        }
+        TextComponents.writeToPacket(buffer, this.name);
+        buffer.writeVarInt(this.tooltip.size());
+        for (ITextComponent component : this.tooltip) {
+            TextComponents.writeToPacket(buffer, component);
+        }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (!(o instanceof PatternContainerGroup(AEItemKey icon1, ITextComponent name1, List<ITextComponent> tooltip1))) {
+            return false;
+        }
+        return Objects.equals(this.icon, icon1)
+            && Objects.equals(componentKey(this.name), componentKey(name1))
+            && Objects.equals(componentListKey(this.tooltip), componentListKey(tooltip1));
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(this.icon, componentKey(this.name), componentListKey(this.tooltip));
+    }
+
+    private static String componentKey(ITextComponent component) {
+        return TextComponents.componentKey(component);
+    }
+
+    private static List<String> componentListKey(List<ITextComponent> components) {
+        ObjectList<String> result = new ObjectArrayList<>(components.size());
+        for (ITextComponent component : components) {
+            result.add(componentKey(component));
+        }
+        return result;
     }
 }

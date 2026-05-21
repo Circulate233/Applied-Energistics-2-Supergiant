@@ -18,23 +18,6 @@
 
 package appeng.parts.reporting;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.phys.Vec3;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.implementations.parts.IStorageMonitorPart;
 import appeng.api.networking.IGrid;
@@ -50,26 +33,29 @@ import appeng.api.stacks.AmountFormat;
 import appeng.client.render.BlockEntityRenderHelper;
 import appeng.core.localization.PlayerMessages;
 import appeng.util.InteractionUtil;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+import org.jetbrains.annotations.Nullable;
 
-/**
- * A basic subclass for any item monitor like display with an item icon and an amount.
- * <p>
- * It can also be used to extract items from somewhere and spawned into the level.
- *
- * @author AlgorithmX2
- * @author thatsIch
- * @author yueh
- * @version rv3
- * @since rv3
- */
-public abstract class AbstractMonitorPart extends AbstractDisplayPart
-        implements IStorageMonitorPart {
+public abstract class AbstractMonitorPart extends AbstractDisplayPart implements IStorageMonitorPart {
+
     @Nullable
     private AEKey configuredItem;
     private long amount;
     private boolean canCraft;
     private String lastHumanReadableText;
-    private boolean isLocked;
+    private boolean locked;
     private IStackWatcher storageWatcher;
     private IStackWatcher craftingWatcher;
 
@@ -89,9 +75,8 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
                     AbstractMonitorPart.this.amount = amount;
 
                     var humanReadableText = amount == 0 && canCraft ? "Craft"
-                            : what.formatAmount(amount, AmountFormat.SLOT);
+                        : what.formatAmount(amount, AmountFormat.SLOT);
 
-                    // Try throttling to only relevant updates
                     if (!humanReadableText.equals(lastHumanReadableText)) {
                         lastHumanReadableText = humanReadableText;
                         getHost().markForUpdate();
@@ -119,58 +104,51 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
     }
 
     @Override
-    public void readFromNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.readFromNBT(data, registries);
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
+        this.locked = data.getBoolean("isLocked");
 
-        this.isLocked = data.getBoolean("isLocked");
-
-        if (data.contains("configuredItem", Tag.TAG_COMPOUND)) {
-            this.configuredItem = AEKey.fromTagGeneric(registries, data.getCompound("configuredItem"));
+        if (data.hasKey("configuredItem", 10)) {
+            this.configuredItem = AEKey.fromTagGeneric(data.getCompoundTag("configuredItem"));
         } else {
             this.configuredItem = null;
         }
     }
 
     @Override
-    public void writeToNBT(CompoundTag data, HolderLookup.Provider registries) {
-        super.writeToNBT(data, registries);
-
-        data.putBoolean("isLocked", this.isLocked);
+    public void writeToNBT(NBTTagCompound data) {
+        super.writeToNBT(data);
+        data.setBoolean("isLocked", this.locked);
 
         if (this.configuredItem != null) {
-            data.put("configuredItem", this.configuredItem.toTagGeneric(registries));
+            data.setTag("configuredItem", this.configuredItem.toTagGeneric());
         }
     }
 
     @Override
-    public void writeToStream(RegistryFriendlyByteBuf data) {
+    public void writeToStream(PacketBuffer data) {
         super.writeToStream(data);
-
-        data.writeBoolean(this.isLocked);
-        data.writeBoolean(this.configuredItem != null);
+        data.writeBoolean(this.locked);
+        AEKey.writeOptionalKey(data, this.configuredItem);
         if (this.configuredItem != null) {
-            AEKey.writeKey(data, this.configuredItem);
             data.writeVarLong(this.amount);
             data.writeBoolean(this.canCraft);
         }
     }
 
     @Override
-    public boolean readFromStream(RegistryFriendlyByteBuf data) {
+    public boolean readFromStream(PacketBuffer data) {
         boolean needRedraw = super.readFromStream(data);
 
-        var isLocked = data.readBoolean();
-        needRedraw |= this.isLocked != isLocked;
+        boolean locked = data.readBoolean();
+        needRedraw |= this.locked != locked;
+        this.locked = locked;
 
-        this.isLocked = isLocked;
-
-        // This item is rendered dynamically and doesn't need to trigger a chunk update
-        if (data.readBoolean()) {
-            this.configuredItem = AEKey.readKey(data);
+        this.configuredItem = AEKey.readOptionalKey(data);
+        if (this.configuredItem != null) {
             this.amount = data.readVarLong();
             this.canCraft = data.readBoolean();
         } else {
-            this.configuredItem = null;
             this.amount = 0;
             this.canCraft = false;
         }
@@ -179,21 +157,21 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
     }
 
     @Override
-    public void writeVisualStateToNBT(CompoundTag data) {
+    public void writeVisualStateToNBT(NBTTagCompound data) {
         super.writeVisualStateToNBT(data);
-        data.putLong("amount", this.amount);
-        data.putBoolean("canCraft", this.canCraft);
+        data.setLong("amount", this.amount);
+        data.setBoolean("canCraft", this.canCraft);
     }
 
     @Override
-    public void readVisualStateFromNBT(CompoundTag data) {
+    public void readVisualStateFromNBT(NBTTagCompound data) {
         super.readVisualStateFromNBT(data);
         this.amount = data.getLong("amount");
         this.canCraft = data.getBoolean("canCraft");
     }
 
     @Override
-    public boolean onUseWithoutItem(Player player, Vec3 pos) {
+    public boolean onUseWithoutItem(EntityPlayer player, Vec3d pos) {
         if (InteractionUtil.isInAlternateUseMode(player)) {
             if (isClientSide()) {
                 return true;
@@ -203,9 +181,9 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
                 return false;
             }
 
-            this.isLocked = !this.isLocked;
-            player.displayClientMessage(
-                    (this.isLocked ? PlayerMessages.isNowLocked : PlayerMessages.isNowUnlocked).text(), true);
+            this.locked = !this.locked;
+            player.sendStatusMessage((this.locked ? PlayerMessages.isNowLocked : PlayerMessages.isNowUnlocked).text(),
+                true);
             this.getHost().markForSave();
             this.getHost().markForUpdate();
             return true;
@@ -215,8 +193,8 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
     }
 
     @Override
-    public boolean onUseItemOn(ItemStack heldItem, Player player, InteractionHand hand, Vec3 pos) {
-        if (!this.isLocked && !InteractionUtil.isInAlternateUseMode(player)) {
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, net.minecraft.util.EnumHand hand, Vec3d pos) {
+        if (!this.locked && !InteractionUtil.isInAlternateUseMode(player)) {
             if (isClientSide()) {
                 return true;
             }
@@ -226,7 +204,6 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
             }
 
             if (AEItemKey.matches(this.configuredItem, heldItem)) {
-                // Already matches: try to swap to key contained in the item.
                 var containedStack = ContainerItemStrategies.getContainedStack(heldItem);
                 if (containedStack != null) {
                     this.configuredItem = containedStack.what();
@@ -234,6 +211,7 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
             } else {
                 this.configuredItem = AEItemKey.of(heldItem);
             }
+
             this.configureWatchers();
             this.getHost().markForSave();
             this.getHost().markForUpdate();
@@ -243,7 +221,6 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
         return super.onUseItemOn(heldItem, player, hand, pos);
     }
 
-    // update the system...
     protected void configureWatchers() {
         if (this.storageWatcher != null) {
             this.storageWatcher.reset();
@@ -279,31 +256,28 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
     }
 
     @Override
-    @OnlyIn(Dist.CLIENT)
-    public void renderDynamic(float partialTicks, PoseStack poseStack, MultiBufferSource buffers,
-            int combinedLightIn, int combinedOverlayIn) {
-
+    @SideOnly(Side.CLIENT)
+    public void renderDynamic(double x, double y, double z, float partialTicks, int destroyStage) {
         if (!isActive()) {
             return;
         }
 
-        if (configuredItem == null) {
+        if (this.configuredItem == null) {
             return;
         }
 
-        poseStack.pushPose();
+        EnumFacing side = this.getSide();
+        if (side == null) {
+            return;
+        }
 
-        var orientation = BlockOrientation.get(getSide(), getSpin());
-
-        poseStack.translate(0.5, 0.5, 0.5); // Move into the center of the block
-        BlockEntityRenderHelper.rotateToFace(poseStack, orientation);
-        poseStack.translate(0, 0.05, 0.5);
-
-        BlockEntityRenderHelper.renderItem2dWithAmount(poseStack, buffers, getDisplayed(), amount, canCraft,
-                0.4f, -0.23f, getColor().contrastTextColor, getLevel());
-
-        poseStack.popPose();
-
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x + 0.5, y + 0.5, z + 0.5);
+        BlockEntityRenderHelper.rotateToFace(BlockOrientation.get(side, this.getSpin()));
+        GlStateManager.translate(0, 0.05, 0.5);
+        BlockEntityRenderHelper.renderItem2dWithAmount(this.configuredItem, this.amount, this.canCraft,
+            0.4f, -0.23f, getColor().contrastTextColor);
+        GlStateManager.popMatrix();
     }
 
     @Override
@@ -324,47 +298,39 @@ public abstract class AbstractMonitorPart extends AbstractDisplayPart
 
     @Override
     public long getAmount() {
-        return amount;
+        return this.amount;
     }
 
     public boolean canCraft() {
-        return canCraft;
+        return this.canCraft;
     }
 
     @Override
     public boolean isLocked() {
-        return this.isLocked;
+        return this.locked;
     }
 
     public void setLocked(boolean locked) {
-        isLocked = locked;
+        this.locked = locked;
         getHost().markForUpdate();
     }
 
     @Override
-    public boolean showNetworkInfo(UseOnContext context) {
+    public boolean showNetworkInfo(EntityPlayer player, World world, BlockPos pos, EnumHand hand, ItemStack stack,
+                                   RayTraceResult hit) {
         return false;
     }
 
     protected IPartModel selectModel(IPartModel off, IPartModel on, IPartModel hasChannel, IPartModel lockedOff,
-            IPartModel lockedOn, IPartModel lockedHasChannel) {
+                                     IPartModel lockedOn, IPartModel lockedHasChannel) {
         if (this.isActive()) {
-            if (this.isLocked()) {
-                return lockedHasChannel;
-            } else {
-                return hasChannel;
-            }
+            return this.isLocked() ? lockedHasChannel : hasChannel;
         } else if (this.isPowered()) {
-            if (this.isLocked()) {
-                return lockedOn;
-            } else {
-                return on;
-            }
+            return this.isLocked() ? lockedOn : on;
         } else if (this.isLocked()) {
             return lockedOff;
         } else {
             return off;
         }
     }
-
 }

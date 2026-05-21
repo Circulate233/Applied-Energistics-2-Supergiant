@@ -1,6 +1,6 @@
 /*
  * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
  *
  * Applied Energistics 2 is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -15,26 +15,40 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.model;
 
-import net.minecraft.world.item.Item;
-import net.neoforged.neoforge.client.model.data.ModelData;
-import net.neoforged.neoforge.client.model.data.ModelProperty;
+import appeng.api.implementations.blockentities.IChestOrDrive;
+import net.minecraft.item.Item;
+import org.jetbrains.annotations.Nullable;
 
-public final class DriveModelData {
-    public final static ModelProperty<Item[]> STATE = new ModelProperty<>();
+import java.util.Arrays;
 
-    private DriveModelData() {
+public class DriveModelData {
+    private final Item[] items;
+
+    private DriveModelData(Item[] items) {
+        this.items = items;
     }
 
-    public static ModelData.Builder builder(Item[] cells) {
-        return AEModelData.builder()
-                .with(STATE, cells)
-                .with(AEModelData.SKIP_CACHE, true);
+    public static DriveModelData fromDrive(IChestOrDrive drive) {
+        Item[] items = new Item[drive.getCellCount()];
+        for (int i = 0; i < items.length; i++) {
+            items[i] = drive.getCellItem(i);
+        }
+        return new DriveModelData(items);
     }
 
-    public static ModelData create(Item[] cells) {
-        return builder(cells).build();
+    public static DriveModelData createEmpty(int slotCount) {
+        return new DriveModelData(new Item[slotCount]);
+    }
+
+    @Nullable
+    public Item getItem(int index) {
+        return index >= 0 && index < this.items.length ? this.items[index] : null;
+    }
+
+    @Override
+    public String toString() {
+        return Arrays.toString(this.items);
     }
 }

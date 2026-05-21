@@ -18,40 +18,6 @@
 
 package appeng.me;
 
-import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.EnumMap;
-import java.util.EnumSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.UUID;
-
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.MutableClassToInstanceMap;
-import com.google.gson.stream.JsonWriter;
-
-import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import net.minecraft.CrashReportCategory;
-import net.minecraft.core.Direction;
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-
-import it.unimi.dsi.fastutil.objects.Reference2IntMap;
-
 import appeng.api.features.IPlayerRegistry;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGrid;
@@ -66,45 +32,70 @@ import appeng.api.networking.pathing.ChannelMode;
 import appeng.api.parts.IPart;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.util.AEColor;
-import appeng.blockentity.networking.ControllerBlockEntity;
 import appeng.core.AELog;
 import appeng.me.pathfinding.IPathItem;
+import appeng.tile.networking.TileController;
 import appeng.util.IDebugExportable;
 import appeng.util.JsonStreamUtil;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.gson.stream.JsonWriter;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import net.minecraft.crash.CrashReportCategory;
+import net.minecraft.nbt.NBTBase;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import org.jetbrains.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.UUID;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     private static final Logger LOG = LoggerFactory.getLogger(GridNode.class);
-
-    private final ServerLevel level;
+    protected final IGridNodeListener<?> listener;
+    protected final List<GridConnection> connections = new ObjectArrayList<>();
+    private final WorldServer level;
     /**
-     * This is the logical host of the node, which could be any object. In many cases this will be a block entity or
+     * This is the logical host of the node, which could be any object. In many cases this will be a tile entity or
      * part.
      */
 
     private final Object owner;
-
-    protected final IGridNodeListener<?> listener;
-
+    private final EnumSet<GridFlags> flags;
+    /**
+     * Will be modified during pathing and should not be exposed outside of that purpose.
+     */
+    int usedChannels = 0;
     /**
      * Indicates whether this node will be available for connections or will attempt to make connections.
      */
     private boolean ready;
-    protected final List<GridConnection> connections = new ArrayList<>();
     // old power draw, used to diff
     private double previousDraw = 0.0;
     // idle power usage per tick in AE
     private double idlePowerUsage = 1.0;
     @Nullable
     private AEItemKey visualRepresentation = null;
-
     private AEColor gridColor = AEColor.TRANSPARENT;
     private int owningPlayerId = -1;
     private Grid myGrid;
     private Object visitorIterationNumber = null;
-    /**
-     * Will be modified during pathing and should not be exposed outside of that purpose.
-     */
-    int usedChannels = 0;
     /**
      * Finalized version of {@link #usedChannels} once pathing is done.
      */
@@ -127,20 +118,18 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     private GridNode highestSimilarAncestor = null;
     private int subtreeMaxChannels;
     private boolean subtreeAllowsCompressedChannels;
-
-    private final EnumSet<GridFlags> flags;
     private ClassToInstanceMap<IGridNodeService> services;
 
     /**
      * Loaded from NBT and used when the node joins the grid.
      */
     @Nullable
-    private CompoundTag savedData;
+    private NBTTagCompound savedData;
 
-    public <T> GridNode(ServerLevel level,
-            T owner,
-            IGridNodeListener<T> listener,
-            Set<GridFlags> flags) {
+    public <T> GridNode(WorldServer level,
+                        T owner,
+                        IGridNodeListener<T> listener,
+                        Set<GridFlags> flags) {
         this.level = level;
         this.owner = owner;
         this.listener = listener;
@@ -151,11 +140,6 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
 
     Grid getMyGrid() {
         return this.myGrid;
-    }
-
-    @FunctionalInterface
-    public interface ListenerCallback<T> {
-        void call(IGridNodeListener<T> listener, T owner, IGridNode node);
     }
 
     // The unchecked cast is safe because the constructor is correctly typed and ties logicalHost and listener together
@@ -170,7 +154,7 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
      * Notifies the grid node's listener about a potential change in the grid node's status.
      */
     public void notifyStatusChange(IGridNodeListener.State reason) {
-        callListener((listener, owner, node) -> listener.onStateChanged(owner, node, reason));
+        callListener((nodeListener, nodeOwner, node) -> nodeListener.onStateChanged(nodeOwner, node, reason));
     }
 
     void addConnection(IGridConnection gridConnection) {
@@ -266,49 +250,6 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         }
     }
 
-    /**
-     * tell the node who was responsible for placing it, failure to do this may result in in-compatibility with the
-     * security system. Called instead of loadFromNBT when initially placed, once set never required again, the value is
-     * saved with the Node NBT.
-     *
-     * @param ownerPlayerId ME player id of the owner. See {@link IPlayerRegistry}.
-     */
-    public void setOwningPlayerId(int ownerPlayerId) {
-        if (ownerPlayerId >= 0 && this.owningPlayerId != ownerPlayerId) {
-            this.owningPlayerId = ownerPlayerId;
-            if (ready) {
-                callListener(IGridNodeListener::onOwnerChanged);
-            }
-        }
-    }
-
-    /**
-     * @param usagePerTick The power in AE/t that will be drained by this node.
-     */
-    public void setIdlePowerUsage(double usagePerTick) {
-        this.idlePowerUsage = usagePerTick;
-        if (myGrid != null && ready) {
-            myGrid.postEvent(new GridPowerIdleChange(this));
-        }
-    }
-
-    /**
-     * Sets an itemstack that will only be used to represent this grid node in user interfaces. Can be set to
-     * <code>null</code> to hide the node from UIs.
-     */
-    public void setVisualRepresentation(@Nullable AEItemKey visualRepresentation) {
-        this.visualRepresentation = visualRepresentation;
-    }
-
-    /**
-     * Colors can be used to prevent adjacent grid nodes from connecting. {@link AEColor#TRANSPARENT} indicates that the
-     * node will connect to nodes of any color.
-     */
-    public void setGridColor(AEColor color) {
-        this.gridColor = Objects.requireNonNull(color);
-        this.updateState();
-    }
-
     @Override
     public IGrid getGrid() {
         if (this.myGrid == null) {
@@ -324,7 +265,7 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
 
         // Save any data from the old grid to move it over to the new grid
         if (this.myGrid != null) {
-            this.savedData = new CompoundTag();
+            this.savedData = new NBTTagCompound();
             this.myGrid.saveNodeData(this, savedData);
             this.myGrid.remove(this);
         }
@@ -357,7 +298,7 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
             // is potentially beneficial by assuming the controller has a lot more connected
             // nodes that are not disrupted by this node being destroyed.
             if (!movedPivot && connection.a() != this && myGrid != null) {
-                myGrid.setPivot((GridNode) connection.a());
+                myGrid.setPivot(connection.a());
                 movedPivot = true;
             }
 
@@ -400,8 +341,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     }
 
     @Override
-    public EnumSet<Direction> getConnectedSides() {
-        var result = EnumSet.noneOf(Direction.class);
+    public EnumSet<EnumFacing> getConnectedSides() {
+        var result = EnumSet.noneOf(EnumFacing.class);
         for (IGridConnection connection : this.connections) {
             if (connection.isInWorld()) {
                 result.add(connection.getDirection(this));
@@ -411,8 +352,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     }
 
     @Override
-    public Map<Direction, IGridConnection> getInWorldConnections() {
-        var result = new EnumMap<Direction, IGridConnection>(Direction.class);
+    public Map<EnumFacing, IGridConnection> getInWorldConnections() {
+        var result = new EnumMap<EnumFacing, IGridConnection>(EnumFacing.class);
         for (IGridConnection connection : this.connections) {
             var direction = connection.getDirection(this);
             if (direction != null) {
@@ -447,14 +388,15 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         return myGrid.getEnergyService().isNetworkPowered();
     }
 
-    public void loadFromNBT(String name, CompoundTag nodeDataContainer) {
+    public void loadFromNBT(String name, NBTTagCompound nodeDataContainer) {
         this.owningPlayerId = -1;
 
         var oldNodeData = this.savedData;
-        if (nodeDataContainer.get(name) instanceof CompoundTag newNodeData) {
+        if (nodeDataContainer.hasKey(name, 10)) {
+            var newNodeData = nodeDataContainer.getCompoundTag(name);
             this.savedData = newNodeData;
-            if (newNodeData.contains("p", Tag.TAG_INT)) {
-                this.owningPlayerId = newNodeData.getInt("p");
+            if (newNodeData.hasKey("p", 3)) {
+                this.owningPlayerId = newNodeData.getInteger("p");
             }
         } else {
             this.savedData = null;
@@ -468,15 +410,15 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         }
     }
 
-    private boolean areTagsEqualIgnoringPlayerId(CompoundTag newData, CompoundTag oldData) {
-        Set<String> newKeys = newData != null ? newData.getAllKeys() : Set.of();
-        Set<String> oldKeys = oldData != null ? oldData.getAllKeys() : Set.of();
+    private boolean areTagsEqualIgnoringPlayerId(NBTTagCompound newData, NBTTagCompound oldData) {
+        Set<String> newKeys = newData != null ? newData.getKeySet() : Set.of();
+        Set<String> oldKeys = oldData != null ? oldData.getKeySet() : Set.of();
         for (var newKey : newKeys) {
             if ("p".equals(newKey)) {
                 continue; // Ignore player ID
             }
-            var newTag = newData.get(newKey);
-            var oldTag = oldData != null ? oldData.get(newKey) : null;
+            NBTBase newTag = newData.getTag(newKey);
+            NBTBase oldTag = oldData != null ? oldData.getTag(newKey) : null;
             if (!Objects.equals(newTag, oldTag)) {
                 return false;
             }
@@ -490,16 +432,16 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         return true;
     }
 
-    public void saveToNBT(String name, CompoundTag nodeData) {
+    public void saveToNBT(String name, NBTTagCompound nodeData) {
         if (this.myGrid != null) {
 
-            var node = new CompoundTag();
-            node.putInt("p", this.owningPlayerId);
+            var node = new NBTTagCompound();
+            node.setInteger("p", this.owningPlayerId);
             this.myGrid.saveNodeData(this, node);
 
-            nodeData.put(name, node);
+            nodeData.setTag(name, node);
         } else {
-            nodeData.remove(name);
+            nodeData.removeTag(name);
         }
     }
 
@@ -518,10 +460,28 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         return idlePowerUsage;
     }
 
+    /**
+     * @param usagePerTick The power in AE/t that will be drained by this node.
+     */
+    public void setIdlePowerUsage(double usagePerTick) {
+        this.idlePowerUsage = usagePerTick;
+        if (myGrid != null && ready) {
+            myGrid.postEvent(new GridPowerIdleChange(this));
+        }
+    }
+
     @Nullable
     @Override
     public AEItemKey getVisualRepresentation() {
         return visualRepresentation;
+    }
+
+    /**
+     * Sets an itemstack that will only be used to represent this grid node in user interfaces. Can be set to
+     * <code>null</code> to hide the node from UIs.
+     */
+    public void setVisualRepresentation(@Nullable AEItemKey visualRepresentation) {
+        this.visualRepresentation = visualRepresentation;
     }
 
     @Override
@@ -529,9 +489,34 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         return gridColor;
     }
 
+    /**
+     * Colors can be used to prevent adjacent grid nodes from connecting. {@link AEColor#TRANSPARENT} indicates that the
+     * node will connect to nodes of any color.
+     */
+    public void setGridColor(AEColor color) {
+        this.gridColor = Objects.requireNonNull(color);
+        this.updateState();
+    }
+
     @Override
     public int getOwningPlayerId() {
         return this.owningPlayerId;
+    }
+
+    /**
+     * tell the node who was responsible for placing it, failure to do this may result in in-compatibility with the
+     * security system. Called instead of loadFromNBT when initially placed, once set never required again, the value is
+     * saved with the Node NBT.
+     *
+     * @param ownerPlayerId ME player id of the owner. See {@link IPlayerRegistry}.
+     */
+    public void setOwningPlayerId(int ownerPlayerId) {
+        if (ownerPlayerId >= 0 && this.owningPlayerId != ownerPlayerId) {
+            this.owningPlayerId = ownerPlayerId;
+            if (ready) {
+                callListener(IGridNodeListener::onOwnerChanged);
+            }
+        }
     }
 
     @Override
@@ -547,7 +532,7 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     }
 
     private void visitorConnection(Object tracker, IGridVisitor g, Deque<GridNode> nextRun,
-            Deque<IGridConnection> nextConnections) {
+                                   Deque<IGridConnection> nextConnections) {
         if (g.visitNode(this)) {
             for (IGridConnection gc : this.getConnections()) {
                 final GridNode gn = (GridNode) gc.getOtherSide(this);
@@ -594,18 +579,10 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     public IPathItem getControllerRoute() {
         if (this.connections.isEmpty()) {
             throw new IllegalStateException(
-                    "Node %s has no connections, cannot have a controller route!".formatted(this));
+                "Node %s has no connections, cannot have a controller route!".formatted(this));
         }
 
         return this.connections.getFirst();
-    }
-
-    public @Nullable GridNode getHighestSimilarAncestor() {
-        return highestSimilarAncestor;
-    }
-
-    public boolean getSubtreeAllowsCompressedChannels() {
-        return subtreeAllowsCompressedChannels;
     }
 
     @Override
@@ -613,7 +590,7 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         this.usedChannels = 0;
 
         var nodeParent = (GridNode) fast.getControllerRoute();
-        if (nodeParent.getOwner() instanceof ControllerBlockEntity) {
+        if (nodeParent.getOwner() instanceof TileController) {
             this.highestSimilarAncestor = null;
             this.subtreeMaxChannels = getMaxChannels();
             this.subtreeAllowsCompressedChannels = !hasFlag(GridFlags.CANNOT_CARRY_COMPRESSED);
@@ -630,7 +607,7 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
             }
             this.subtreeMaxChannels = Math.min(nodeParent.subtreeMaxChannels, getMaxChannels());
             this.subtreeAllowsCompressedChannels = nodeParent.subtreeAllowsCompressedChannels
-                    && !hasFlag(GridFlags.CANNOT_CARRY_COMPRESSED);
+                && !hasFlag(GridFlags.CANNOT_CARRY_COMPRESSED);
         }
 
         GridConnection connection = (GridConnection) fast;
@@ -638,8 +615,16 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         final int idx = this.connections.indexOf(connection);
         if (idx > 0) {
             this.connections.remove(connection);
-            this.connections.add(0, connection);
+            this.connections.addFirst(connection);
         }
+    }
+
+    public @Nullable GridNode getHighestSimilarAncestor() {
+        return highestSimilarAncestor;
+    }
+
+    public boolean getSubtreeAllowsCompressedChannels() {
+        return subtreeAllowsCompressedChannels;
     }
 
     @Override
@@ -683,8 +668,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
 
         if (this.usedChannels > getMaxChannels()) {
             LOG.error(
-                    "Internal channel assignment error. Grid node {} has {} channels passing through it but it only supports up to {}. Please open an issue on the AE2 repository.",
-                    this, this.usedChannels, getMaxChannels());
+                "Internal channel assignment error. Grid node {} has {} channels passing through it but it only supports up to {}. Please open an issue on the AE2 repository.",
+                this, this.usedChannels, getMaxChannels());
         }
 
         return this.usedChannels;
@@ -738,14 +723,14 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     }
 
     @Override
-    public ServerLevel getLevel() {
+    public WorldServer getLevel() {
         return level;
     }
 
     @Override
     public String toString() {
-        if (getOwner() instanceof BlockEntity blockEntity) {
-            var beType = BuiltInRegistries.BLOCK_ENTITY_TYPE.getKey(blockEntity.getType());
+        if (getOwner() instanceof TileEntity blockEntity) {
+            var beType = blockEntity.getBlockType().getRegistryName();
             return "node@" + Integer.toHexString(hashCode()) + " hosted by " + beType;
         } else {
             return "node@" + Integer.toHexString(hashCode()) + " hosted by " + getOwner().getClass().getName();
@@ -754,36 +739,40 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
 
     @Override
     public void fillCrashReportCategory(CrashReportCategory category) {
-        category.setDetail("Node", toString());
+        category.addCrashSection("Node", toString());
         if (getOwner() instanceof IPart part) {
             part.addEntityCrashInfo(category);
-        } else if (getOwner() instanceof BlockEntity blockEntity) {
-            blockEntity.fillCrashReportCategory(category);
-            Level level = blockEntity.getLevel();
+        } else if (getOwner() instanceof TileEntity blockEntity) {
+            blockEntity.addInfoToCrashReport(category);
+            World level = blockEntity.getWorld();
             if (level != null) {
-                category.setDetail("Level", level.dimension());
+                category.addCrashSection("Level", level.provider.getDimension());
             }
         }
     }
 
     @Override
-    public final void debugExport(JsonWriter writer, HolderLookup.Provider registries,
-            Reference2IntMap<Object> machineIds,
-            Reference2IntMap<IGridNode> nodeIds) throws IOException {
+    public final void debugExport(JsonWriter writer, Reference2IntMap<Object> machineIds,
+                                  Reference2IntMap<IGridNode> nodeIds) throws IOException {
         writer.beginObject();
         exportProperties(writer, machineIds, nodeIds);
         writer.endObject();
     }
 
     protected void exportProperties(JsonWriter writer, Reference2IntMap<Object> machineIds,
-            Reference2IntMap<IGridNode> nodeIds)
-            throws IOException {
+                                    Reference2IntMap<IGridNode> nodeIds)
+        throws IOException {
         var id = nodeIds.getInt(this);
         var machineId = machineIds.getInt(owner);
         JsonStreamUtil.writeProperties(Map.of(
-                "id", id, "owner", machineId), writer);
+            "id", id, "owner", machineId), writer);
 
         writer.name("level");
-        writer.value(level.dimension().location().toString());
+        writer.value(Integer.toString(level.provider.getDimension()));
+    }
+
+    @FunctionalInterface
+    public interface ListenerCallback<T> {
+        void call(IGridNodeListener<T> listener, T owner, IGridNode node);
     }
 }

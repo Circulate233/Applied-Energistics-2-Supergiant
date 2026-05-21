@@ -18,10 +18,10 @@
 
 package appeng.decorative.solid;
 
+import net.minecraft.util.EnumFacing;
+
 import java.util.Arrays;
 import java.util.Objects;
-
-import net.minecraft.core.Direction;
 
 /**
  * Immutable (and thus thread-safe) class that encapsulates the rendering state required for a connected texture glass
@@ -29,10 +29,11 @@ import net.minecraft.core.Direction;
  */
 public final class GlassState {
     public static final GlassState DEFAULT;
+
     static {
-        var masks = new int[6];
-        Arrays.fill(masks, 0b1111); // Render all 4 borders
-        var adjacentGlassBlocks = new boolean[6]; // Not adjacent to any glass block
+        int[] masks = new int[6];
+        Arrays.fill(masks, 0b1111);
+        boolean[] adjacentGlassBlocks = new boolean[6];
         DEFAULT = new GlassState(masks, adjacentGlassBlocks);
     }
 
@@ -44,25 +45,28 @@ public final class GlassState {
         this.adjacentGlassBlocks = adjacentGlassBlocks.clone();
     }
 
-    public int getMask(Direction side) {
-        return masks[side.get3DDataValue()];
+    public int getMask(EnumFacing side) {
+        return this.masks[side.getIndex()];
     }
 
-    public boolean hasAdjacentGlassBlock(Direction side) {
-        return adjacentGlassBlocks[side.get3DDataValue()];
+    public boolean hasAdjacentGlassBlock(EnumFacing side) {
+        return this.adjacentGlassBlocks[side.getIndex()];
     }
 
     @Override
     public boolean equals(Object o) {
-        if (this == o)
+        if (this == o) {
             return true;
-        if (!(o instanceof GlassState that))
+        }
+        if (!(o instanceof GlassState that)) {
             return false;
-        return Arrays.equals(masks, that.masks) && Arrays.equals(adjacentGlassBlocks, that.adjacentGlassBlocks);
+        }
+        return Arrays.equals(this.masks, that.masks)
+            && Arrays.equals(this.adjacentGlassBlocks, that.adjacentGlassBlocks);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(Arrays.hashCode(masks), Arrays.hashCode(adjacentGlassBlocks));
+        return Objects.hash(Arrays.hashCode(this.masks), Arrays.hashCode(this.adjacentGlassBlocks));
     }
 }

@@ -1,32 +1,5 @@
 package appeng.parts.automation;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.item.enchantment.EnchantmentHelper;
-import net.minecraft.world.item.enchantment.Enchantments;
-import net.minecraft.world.item.enchantment.ItemEnchantments;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.phys.AABB;
-
 import appeng.api.behaviors.PickupSink;
 import appeng.api.behaviors.PickupStrategy;
 import appeng.api.config.Actionable;
@@ -37,32 +10,57 @@ import appeng.core.AppEng;
 import appeng.core.network.clientbound.BlockTransitionEffectPacket;
 import appeng.core.network.clientbound.ItemTransitionEffectPacket;
 import appeng.util.Platform;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.enchantment.Enchantment;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.item.EntityItem;
+import net.minecraft.init.Enchantments;
+import net.minecraft.init.Items;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.util.FakePlayer;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class ItemPickupStrategy implements PickupStrategy {
 
-    public static final ResourceLocation TAG_BLACKLIST = AppEng.makeId(
-            "blacklisted/annihilation_plane");
-
-    private static final TagKey<Block> BLOCK_BLACKLIST = TagKey.create(Registries.BLOCK, TAG_BLACKLIST);
-
-    private static final TagKey<Item> ITEM_BLACKLIST = TagKey.create(Registries.ITEM, TAG_BLACKLIST);
-
-    private final ServerLevel level;
+    private final WorldServer level;
     private final BlockPos pos;
-    private final Direction side;
-    private final ItemEnchantments enchantments;
+    private final EnumFacing side;
+    private final Object2IntMap<Enchantment> enchantments;
     @Nullable
     private final UUID ownerUuid;
 
     private boolean isAccepting = true;
 
-    public ItemPickupStrategy(ServerLevel level, BlockPos pos, Direction side, BlockEntity host,
-            ItemEnchantments enchantments, @Nullable UUID owningPlayerId) {
+    public ItemPickupStrategy(WorldServer level, BlockPos pos, EnumFacing side, TileEntity host,
+                              Object2IntMap<Enchantment> enchantments, @Nullable UUID owningEntityPlayerId) {
         this.level = level;
         this.pos = pos;
         this.side = side;
         this.enchantments = enchantments;
-        this.ownerUuid = owningPlayerId;
+        this.ownerUuid = owningEntityPlayerId;
+    }
+
+    public static boolean isBlockBlacklisted(Block block) {
+        return false;
+    }
+
+    public static boolean isItemBlacklisted(Item item) {
+        return false;
     }
 
     @Override
@@ -70,25 +68,26 @@ public class ItemPickupStrategy implements PickupStrategy {
         this.isAccepting = true;
     }
 
+    @Override
     public boolean canPickUpEntity(Entity entity) {
-        return entity instanceof ItemEntity;
+        return entity instanceof EntityItem;
     }
 
+    @Override
     public boolean pickUpEntity(IEnergySource energySource, PickupSink sink, Entity entity) {
-        if (!this.isAccepting || !(entity instanceof ItemEntity itemEntity)) {
+        if (!this.isAccepting || !(entity instanceof EntityItem entityItem)) {
             return false;
         }
 
-        if (isItemBlacklisted(itemEntity.getItem().getItem())) {
+        if (isItemBlacklisted(entityItem.getItem().getItem())) {
             return false;
         }
 
-        var changed = this.storeEntityItem(sink, itemEntity);
+        boolean changed = this.storeEntityItem(sink, entityItem);
 
         if (changed) {
             AppEng.instance().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 64,
-                    level, new ItemTransitionEffectPacket(entity.getX(),
-                            entity.getY(), entity.getZ(), side));
+                level, new ItemTransitionEffectPacket(entity.posX, entity.posY, entity.posZ, side));
         }
 
         return true;
@@ -97,15 +96,14 @@ public class ItemPickupStrategy implements PickupStrategy {
     @Override
     public Result tryPickup(IEnergySource energySource, PickupSink sink) {
         if (this.isAccepting) {
-            var blockState = level.getBlockState(pos);
+            IBlockState blockState = level.getBlockState(pos);
             if (this.canHandleBlock(level, pos, blockState)) {
-                // Query the loot-table and get a potential outcome of the loot-table evaluation
-                var items = this.obtainBlockDrops(level, pos);
-                var requiredPower = this.calculateEnergyUsage(level, pos, items);
+                List<ItemStack> items = this.obtainBlockDrops(level, pos);
+                float requiredPower = this.calculateEnergyUsage(level, pos, items);
 
-                var hasPower = energySource.extractAEPower(requiredPower, Actionable.SIMULATE,
-                        PowerMultiplier.CONFIG) > requiredPower - 0.1;
-                var canStore = this.canStoreItemStacks(sink, items);
+                boolean hasPower = energySource.extractAEPower(requiredPower, Actionable.SIMULATE,
+                    PowerMultiplier.CONFIG) > requiredPower - 0.1F;
+                boolean canStore = this.canStoreItemStacks(sink, items);
 
                 if (hasPower && canStore) {
                     this.completePickup(energySource, sink, items, requiredPower, blockState);
@@ -120,19 +118,15 @@ public class ItemPickupStrategy implements PickupStrategy {
     }
 
     private void completePickup(IEnergySource energySource, PickupSink sink, List<ItemStack> items, float requiredPower,
-            BlockState blockState) {
+                                IBlockState blockState) {
         if (!this.breakBlockAndStoreExtraItems(sink, level, pos)) {
-            // We failed to actually replace the block with air, or it already was the case
             return;
         }
 
-        for (var item : items) {
-            var inserted = storeItemStack(sink, item);
-            // If inserting the item fully was not possible, drop it as an item entity instead if the storage clears up,
-            // we'll pick it up that way
-            // This will mainly be the case with storages like a compacting drawer (where two inserts can simulate
-            // correctly but only one will succeed)
+        for (ItemStack item : items) {
+            int inserted = storeItemStack(sink, item);
             if (inserted < item.getCount()) {
+                item = item.copy();
                 item.shrink(inserted);
                 Platform.spawnDrops(level, pos, Collections.singletonList(item));
             }
@@ -141,161 +135,122 @@ public class ItemPickupStrategy implements PickupStrategy {
         energySource.extractAEPower(requiredPower, Actionable.MODULATE, PowerMultiplier.CONFIG);
 
         AppEng.instance().sendToAllNearExcept(null, pos.getX(), pos.getY(), pos.getZ(), 64, level,
-                new BlockTransitionEffectPacket(pos, blockState, side, BlockTransitionEffectPacket.SoundMode.NONE));
+            new BlockTransitionEffectPacket(pos, blockState, side, BlockTransitionEffectPacket.SoundMode.NONE));
     }
 
-    /**
-     * Stores an {@link ItemEntity} inside the network and either marks it as dead or sets it to the leftover stackSize.
-     *
-     * @param entityItem {@link ItemEntity} to store
-     */
-    private boolean storeEntityItem(PickupSink sink, ItemEntity entityItem) {
-        if (entityItem.isAlive()) {
-            var inserted = this.storeItemStack(sink, entityItem.getItem());
-
+    private boolean storeEntityItem(PickupSink sink, EntityItem entityItem) {
+        if (!entityItem.isDead) {
+            int inserted = this.storeItemStack(sink, entityItem.getItem());
             return this.handleOverflow(entityItem, inserted);
         }
-
         return false;
     }
 
-    /**
-     * Stores an {@link ItemStack} inside the network.
-     *
-     * @param item {@link ItemStack} to store
-     * @return count inserted
-     */
     private int storeItemStack(PickupSink sink, ItemStack item) {
         if (item.isEmpty()) {
             return 0;
         }
 
         var what = AEItemKey.of(item);
-        var amount = item.getCount();
-        var inserted = (int) sink.insert(what, amount, Actionable.MODULATE);
-
-        this.isAccepting = inserted >= amount;
-
-        return inserted;
+        long inserted = sink.insert(what, item.getCount(), Actionable.MODULATE);
+        this.isAccepting = inserted >= item.getCount();
+        return (int) inserted;
     }
 
-    /**
-     * Handles a possible overflow or none at all. It will update the entity to match the leftover stack size as well as
-     * mark it as dead without any leftover amount.
-     *
-     * @param entityItem the entity to update or destroy
-     * @param inserted   amount inserted
-     * @return true, if the entity was changed otherwise false.
-     */
-    private boolean handleOverflow(ItemEntity entityItem, int inserted) {
+    private boolean handleOverflow(EntityItem entityItem, int inserted) {
         int entityItemCount = entityItem.getItem().getCount();
         if (inserted >= entityItemCount) {
-            entityItem.discard();
+            entityItem.setDead();
             return true;
         }
 
-        var newStackSize = entityItemCount - inserted;
-        var changed = entityItemCount != newStackSize;
-
+        int newStackSize = entityItemCount - inserted;
+        boolean changed = entityItemCount != newStackSize;
         entityItem.getItem().setCount(newStackSize);
-
         return changed;
     }
 
-    /**
-     * Checks if this plane can handle the block at the specific coordinates.
-     */
-    private boolean canHandleBlock(ServerLevel level, BlockPos pos, BlockState state) {
-        if (state.isAir()) {
-            return false;
-        }
+    private boolean canHandleBlock(WorldServer level, BlockPos pos, IBlockState state) {
+        Material material = state.getMaterial();
+        float hardness = state.getBlockHardness(level, pos);
+        boolean ignoreMaterials = material == Material.AIR || material == Material.LAVA || material == Material.WATER
+            || material.isLiquid();
+        boolean ignoreBlocks = isBlockBlacklisted(state.getBlock());
 
-        if (isBlockBlacklisted(state.getBlock())) {
-            return false;
-        }
+        FakePlayer fakePlayer = Platform.getFakeEntityPlayer(level, ownerUuid);
 
-        // Note: bedrock, portals, and other unbreakable blocks have a hardness < 0, hence the >= 0 check below.
-        var hardness = state.getDestroySpeed(level, pos);
-        var ignoreAirAndFluids = state.isAir() || state.liquid();
-
-        return !ignoreAirAndFluids && hardness >= 0f && level.isLoaded(pos)
-                && level.mayInteract(Platform.getFakePlayer(level, ownerUuid), pos);
+        return !ignoreMaterials && !ignoreBlocks && hardness >= 0F && !level.isAirBlock(pos) && level.isBlockLoaded(pos)
+            && level.canMineBlockBody(fakePlayer, pos);
     }
 
-    protected List<ItemStack> obtainBlockDrops(ServerLevel level, BlockPos pos) {
-        var fakePlayer = Platform.getFakePlayer(level, ownerUuid);
-        var state = level.getBlockState(pos);
-        var blockEntity = level.getBlockEntity(pos);
+    protected List<ItemStack> obtainBlockDrops(WorldServer level, BlockPos pos) {
+        FakePlayer fakePlayer = Platform.getFakeEntityPlayer(level, ownerUuid);
+        IBlockState state = level.getBlockState(pos);
 
-        var harvestTool = createHarvestTool(state);
-        var harvestToolItem = harvestTool.item();
+        if (state.getBlock().canSilkHarvest(level, pos, state, fakePlayer)
+            && enchantments.containsKey(Enchantments.SILK_TOUCH)) {
+            Item item = Item.getItemFromBlock(state.getBlock());
+            if (item == Items.AIR) {
+                return Collections.emptyList();
+            }
 
-        if (!state.requiresCorrectToolForDrops() && harvestTool.fallback()) {
-            // Do not use a tool when not required, no hints about it and not enchanted in cases like silk touch.
-            harvestToolItem = ItemStack.EMPTY;
+            int meta = item.getHasSubtypes() ? state.getBlock().getMetaFromState(state) : 0;
+            return Collections.singletonList(new ItemStack(item, 1, meta));
         }
 
-        var drops = Block.getDrops(state, level, pos, blockEntity, fakePlayer, harvestToolItem);
-        // Some modded blocks can have empty stacks, filter them out!
-        return drops.stream().filter(stack -> !stack.isEmpty()).toList();
+        NonNullList<ItemStack> drops = NonNullList.create();
+        int fortune = enchantments.getInt(Enchantments.FORTUNE);
+        state.getBlock().getDrops(drops, level, pos, state, fortune);
+        drops.removeIf(ItemStack::isEmpty);
+        return drops;
     }
 
-    /**
-     * Checks if this plane can handle the block at the specific coordinates.
-     */
-    protected float calculateEnergyUsage(ServerLevel level, BlockPos pos, List<ItemStack> items) {
+    protected float calculateEnergyUsage(WorldServer level, BlockPos pos, List<ItemStack> items) {
         boolean useEnergy = true;
 
-        var state = level.getBlockState(pos);
-        var hardness = state.getDestroySpeed(level, pos);
+        IBlockState state = level.getBlockState(pos);
+        float hardness = state.getBlockHardness(level, pos);
 
-        var requiredEnergy = 1 + hardness;
-        for (var is : items) {
+        float requiredEnergy = 1 + hardness;
+        for (ItemStack is : items) {
             requiredEnergy += is.getCount();
         }
 
-        if (enchantments != null) {
-            var enchantmentRegistry = level.registryAccess().registryOrThrow(Registries.ENCHANTMENT);
-
-            var efficiencyFactor = 1f;
-            var efficiencyLevel = enchantments.getLevel(enchantmentRegistry.getHolderOrThrow(Enchantments.EFFICIENCY));
+        if (!enchantments.isEmpty()) {
+            float efficiencyFactor = 1F;
+            int efficiencyLevel = enchantments.getInt(Enchantments.EFFICIENCY);
             if (efficiencyLevel > 0) {
-                // Reduce total energy usage incurred by other enchantments by 15% per Efficiency level.
-                efficiencyFactor *= Math.pow(0.85, efficiencyLevel);
+                efficiencyFactor *= (float) Math.pow(0.85, efficiencyLevel);
             }
-            var unbreakingLevel = enchantments.getLevel(enchantmentRegistry.getHolderOrThrow(Enchantments.UNBREAKING));
+
+            int unbreakingLevel = enchantments.getInt(Enchantments.UNBREAKING);
             if (unbreakingLevel > 0) {
-                // Give plane only a (100 / (level + 1))% chance to use energy.
-                // This is similar to vanilla Unbreaking behaviour for tools.
-                int randomNumber = level.getRandom().nextInt(unbreakingLevel + 1);
+                int randomNumber = ThreadLocalRandom.current().nextInt(unbreakingLevel + 1);
                 useEnergy = randomNumber == 0;
             }
-            // Increase energy usage 8x for each *other* enchantment that might affect the pickup.
-            // Ignore efficiency & unbreaking since we did account for them here explicitly.
-            var levelSum = enchantments.entrySet().stream().map(Map.Entry::getValue).reduce(0, Integer::sum)
-                    - efficiencyLevel - unbreakingLevel;
+
+            int levelSum = 0;
+            for (Object2IntMap.Entry<Enchantment> entry : enchantments.object2IntEntrySet()) {
+                Enchantment enchantment = entry.getKey();
+                if (enchantment != Enchantments.EFFICIENCY && enchantment != Enchantments.UNBREAKING) {
+                    levelSum += entry.getIntValue();
+                }
+            }
             requiredEnergy *= (levelSum > 0 ? 8 * levelSum : 1) * efficiencyFactor;
         }
 
         return useEnergy ? requiredEnergy : 0;
     }
 
-    /**
-     * Checks if the network can store the drops.
-     * <p>
-     * It also sets isAccepting to false, if the item can not be stored.
-     *
-     * @param itemStacks an array of {@link ItemStack} to test
-     * @return true, if the network can store all drops or no drops are reported
-     */
     private boolean canStoreItemStacks(PickupSink sink, List<ItemStack> itemStacks) {
-        var canStore = itemStacks.isEmpty();
+        boolean canStore = true;
 
-        for (var itemStack : itemStacks) {
+        for (ItemStack itemStack : itemStacks) {
             var itemToTest = AEItemKey.of(itemStack);
-            var inserted = sink.insert(itemToTest, itemStack.getCount(), Actionable.SIMULATE);
-            if (inserted == itemStack.getCount()) {
-                canStore = true;
+            long inserted = sink.insert(itemToTest, itemStack.getCount(), Actionable.SIMULATE);
+            if (inserted < itemStack.getCount()) {
+                canStore = false;
+                break;
             }
         }
 
@@ -303,69 +258,16 @@ public class ItemPickupStrategy implements PickupStrategy {
         return canStore;
     }
 
-    private boolean breakBlockAndStoreExtraItems(PickupSink sink, ServerLevel level, BlockPos pos) {
-        // Kill the block, but signal no drops
+    private boolean breakBlockAndStoreExtraItems(PickupSink sink, WorldServer level, BlockPos pos) {
         if (!level.destroyBlock(pos, false)) {
-            // The block was no longer there
             return false;
         }
 
-        // This handles items that do not spawn via loot-tables but rather normal block breaking i.e. our cable-buses do
-        // this (bad practice, really)
-        var box = new AABB(pos).inflate(0.2);
-        for (var itemEntity : level.getEntitiesOfClass(ItemEntity.class, box)) {
+        AxisAlignedBB box = new AxisAlignedBB(pos).grow(0.2);
+        for (EntityItem itemEntity : level.getEntitiesWithinAABB(EntityItem.class, box)) {
             this.storeEntityItem(sink, itemEntity);
         }
         return true;
-    }
-
-    /**
-     * Creates the fake (and temporary) tool based on the provided hints in case a loot table relies on it.
-     * <p>
-     * Generally could use a stick as tool or anything else which can be enchanted. {@link ItemStack#EMPTY} is not an
-     * option as at least anything having a fortune effect need something enchantable even without the enchantment,
-     * otherwise it will not drop anything.
-     *
-     * @param state The block state of the block about to be broken.
-     */
-    private HarvestTool createHarvestTool(BlockState state) {
-        ItemStack tool;
-        boolean fallback = false;
-
-        if (state.is(BlockTags.MINEABLE_WITH_PICKAXE)) {
-            tool = new ItemStack(Items.DIAMOND_PICKAXE, 1);
-        } else if (state.is(BlockTags.MINEABLE_WITH_AXE)) {
-            tool = new ItemStack(Items.DIAMOND_AXE, 1);
-        } else if (state.is(BlockTags.MINEABLE_WITH_SHOVEL)) {
-            tool = new ItemStack(Items.DIAMOND_SHOVEL, 1);
-        } else if (state.is(BlockTags.MINEABLE_WITH_HOE)) {
-            tool = new ItemStack(Items.DIAMOND_HOE, 1);
-        } else {
-            // Use a pickaxe for everything else, to allow enchanting it
-            tool = new ItemStack(Items.DIAMOND_PICKAXE, 1);
-            fallback = true;
-        }
-
-        if (!enchantments.isEmpty()) {
-            // For silk touch / fortune purposes, enchant the fake tool
-            EnchantmentHelper.setEnchantments(tool, enchantments);
-
-            // Setting fallback to false ensures it'll be used even if not strictly required
-            fallback = false;
-        }
-
-        return new HarvestTool(tool, fallback);
-    }
-
-    public static boolean isBlockBlacklisted(Block b) {
-        return b.builtInRegistryHolder().is(BLOCK_BLACKLIST);
-    }
-
-    public static boolean isItemBlacklisted(Item i) {
-        return i.builtInRegistryHolder().is(ITEM_BLACKLIST);
-    }
-
-    record HarvestTool(ItemStack item, boolean fallback) {
     }
 
 }

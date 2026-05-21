@@ -18,24 +18,6 @@
 
 package appeng.helpers.externalstorage;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.Set;
-
-import com.google.common.base.Preconditions;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.ListTag;
-import net.minecraft.nbt.Tag;
-import net.minecraft.network.chat.Component;
-
-import it.unimi.dsi.fastutil.objects.Reference2LongArrayMap;
-import it.unimi.dsi.fastutil.objects.Reference2LongMap;
-
 import appeng.api.behaviors.GenericInternalInventory;
 import appeng.api.behaviors.GenericSlotCapacities;
 import appeng.api.config.Actionable;
@@ -49,32 +31,35 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.AEKeySlotFilter;
 import appeng.api.storage.MEStorage;
 import appeng.core.AELog;
-import appeng.util.ConfigMenuInventory;
+import appeng.core.localization.GuiText;
+import appeng.util.ConfigGuiInventory;
+import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Reference2LongArrayMap;
+import it.unimi.dsi.fastutil.objects.Reference2LongMap;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentTranslation;
+import net.minecraftforge.common.util.Constants;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 public class GenericStackInv implements MEStorage, GenericInternalInventory {
     protected final GenericStack[] stacks;
+    protected final Mode mode;
     private final Runnable listener;
-    private boolean suppressOnChange;
-    private boolean onChangeSuppressed;
     private final Reference2LongMap<AEKeyType> capacities = new Reference2LongArrayMap<>();
     private final Set<AEKeyType> supportedKeyTypes;
+    private boolean suppressOnChange;
+    private boolean onChangeSuppressed;
     @Nullable
     private AEKeySlotFilter filter;
-    protected final Mode mode;
-    private Component description = Component.empty();
-
-    public enum Mode {
-        /**
-         * When in types mode, the config inventory will ignore all amounts and always return amount 1 for stacks in the
-         * inventory.
-         */
-        CONFIG_TYPES,
-        /**
-         * When in stack mode, the config inventory will respect amounts and drop stacks with amounts of 0 or less.
-         */
-        CONFIG_STACKS,
-        STORAGE
-    }
+    private TextComponentTranslation description = new TextComponentTranslation(GuiText.Nothing.getTranslationKey());
 
     public GenericStackInv(@Nullable Runnable listener, int size) {
         this(listener, Mode.STORAGE, size);
@@ -91,13 +76,13 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
         this.mode = mode;
     }
 
-    protected void setFilter(@Nullable AEKeySlotFilter filter) {
-        this.filter = filter;
-    }
-
     @Nullable
     public AEKeySlotFilter getFilter() {
         return filter;
+    }
+
+    protected void setFilter(@Nullable AEKeySlotFilter filter) {
+        this.filter = filter;
     }
 
     @Override
@@ -138,7 +123,6 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
 
     @Override
     public void setStack(int slot, @Nullable GenericStack stack) {
-        // Clamp to capacity
         if (stack != null && getMaxAmount(stack.what()) < stack.amount()) {
             stack = new GenericStack(stack.what(), getMaxAmount(stack.what()));
         }
@@ -164,7 +148,6 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
             if (newAmount > currentAmount) {
                 if (mode == Actionable.MODULATE) {
                     setStack(slot, new GenericStack(what, newAmount));
-                    // Ensure setStack didn't screw us over
                     newAmount = getAmount(slot);
                 }
                 return newAmount - currentAmount;
@@ -173,6 +156,7 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
         return 0;
     }
 
+    @Override
     public boolean isAllowedIn(int slot, AEKey what) {
         return isSupportedType(what) && (filter == null || filter.isAllowed(slot, what));
     }
@@ -184,31 +168,28 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
 
         var currentWhat = getKey(slot);
         if (!canExtract() || currentWhat == null || !currentWhat.equals(what)) {
-            // Can't extract from empty slot or mismatched type
             return 0;
         }
 
         var currentAmount = getAmount(slot);
         var canExtract = Math.min(currentAmount, amount);
 
-        if (canExtract > 0) {
-            if (mode == Actionable.MODULATE) {
-                var newAmount = currentAmount - canExtract;
-                if (newAmount <= 0) {
-                    setStack(slot, null);
-                } else {
-                    setStack(slot, new GenericStack(what, newAmount));
-                }
-                // Ensure setStack didn't screw us over
-                var reallyExtracted = Math.max(0, currentAmount - getAmount(slot));
-                if (reallyExtracted != canExtract) {
-                    AELog.warn(
-                            "GenericStackInv simulation/modulation extraction mismatch: canExtract=%d, reallyExtracted=%d",
-                            canExtract, reallyExtracted);
-                    canExtract = reallyExtracted;
-                }
+        if (canExtract > 0 && mode == Actionable.MODULATE) {
+            var newAmount = currentAmount - canExtract;
+            if (newAmount <= 0) {
+                setStack(slot, null);
+            } else {
+                setStack(slot, new GenericStack(what, newAmount));
+            }
+            var reallyExtracted = Math.max(0, currentAmount - getAmount(slot));
+            if (reallyExtracted != canExtract) {
+                AELog.warn(
+                    "GenericStackInv simulation/modulation extraction mismatch: canExtract=%d, reallyExtracted=%d",
+                    canExtract, reallyExtracted);
+                canExtract = reallyExtracted;
             }
         }
+
         return canExtract;
     }
 
@@ -260,26 +241,13 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
         }
     }
 
-    public ListTag writeToTag(HolderLookup.Provider registries) {
-        ListTag tag = new ListTag();
-
-        for (var stack : stacks) {
-            tag.add(GenericStack.writeTag(registries, stack));
-        }
-
-        // Strip out trailing nulls
-        for (int i = tag.size() - 1; i >= 0; i--) {
-            if (tag.getCompound(i).isEmpty()) {
-                tag.remove(i);
-            } else {
-                break;
-            }
-        }
-
-        return tag;
+    public NBTTagList writeToTag() {
+        List<GenericStack> stacks = new ObjectArrayList<>(this.stacks.length);
+        Collections.addAll(stacks, this.stacks);
+        return GenericStack.writeList(stacks);
     }
 
-    public void writeToChildTag(CompoundTag tag, String name, HolderLookup.Provider registries) {
+    public void writeToChildTag(NBTTagCompound tag, String name) {
         boolean isEmpty = true;
         for (var stack : stacks) {
             if (stack != null) {
@@ -289,38 +257,27 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
         }
 
         if (!isEmpty) {
-            tag.put(name, writeToTag(registries));
+            tag.setTag(name, writeToTag());
         } else {
-            tag.remove(name);
+            tag.removeTag(name);
         }
     }
 
-    public void readFromTag(ListTag tag, HolderLookup.Provider registries) {
+    public void readFromTag(NBTTagList tag) {
+        var decoded = GenericStack.readList(tag);
         boolean changed = false;
-        for (int i = 0; i < Math.min(size(), tag.size()); ++i) {
-            var stack = GenericStack.readTag(registries, tag.getCompound(i));
+        for (int i = 0; i < size(); i++) {
+            GenericStack stack = i < decoded.size() ? decoded.get(i) : null;
             if (!Objects.equals(stack, stacks[i])) {
                 stacks[i] = stack;
                 changed = true;
             }
         }
-        // Ensure any of the remaining slots are cleared
-        for (int i = tag.size(); i < size(); i++) {
-            if (stacks[i] != null) {
-                stacks[i] = null;
-                changed = true;
-            }
-        }
-
         if (changed) {
             onChange();
         }
     }
 
-    /**
-     * Convenience method to clear the inventory, by setting all slots to null. Triggers only a single change
-     * notification at the end.
-     */
     public void clear() {
         boolean changed = false;
         for (int i = 0; i < stacks.length; i++) {
@@ -332,9 +289,9 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
         }
     }
 
-    public void readFromChildTag(CompoundTag tag, String name, HolderLookup.Provider registries) {
-        if (tag.contains(name, Tag.TAG_LIST)) {
-            readFromTag(tag.getList(name, Tag.TAG_COMPOUND), registries);
+    public void readFromChildTag(NBTTagCompound tag, String name) {
+        if (tag.hasKey(name, Constants.NBT.TAG_LIST)) {
+            readFromTag(tag.getTagList(name, Constants.NBT.TAG_COMPOUND));
         } else {
             clear();
         }
@@ -351,27 +308,19 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
     }
 
     public List<@Nullable GenericStack> toList() {
-        var result = new ArrayList<GenericStack>(size());
+        List<GenericStack> result = new ObjectArrayList<>(size());
         for (int i = 0; i < size(); i++) {
             result.add(getStack(i));
         }
         return result;
     }
 
-    /**
-     * Begin a section where change notifications are suppressed until {@link #endBatch()} is called. If a change after
-     * calling this method would cause a notification to occur, a <strong>single</strong> change notification will occur
-     * upon calling {@link #endBatch()} instead.
-     */
     @Override
     public void beginBatch() {
         Preconditions.checkState(!suppressOnChange, "beginBatch was called without endBatch");
         suppressOnChange = true;
     }
 
-    /**
-     * Ends a batch that was begun by calling {@link #beginBatch()} and triggers a pending change notification.
-     */
     @Override
     public void endBatch() {
         Preconditions.checkState(suppressOnChange, "endBatch was called without beginBatch");
@@ -382,9 +331,6 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
         }
     }
 
-    /**
-     * Ends a batch that was begun by calling {@link #beginBatch()} and drops the change notification.
-     */
     @Override
     public void endBatchSuppressed() {
         Preconditions.checkState(suppressOnChange, "endBatch was called without beginBatch");
@@ -396,11 +342,8 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
         return mode;
     }
 
-    /**
-     * Creates a wrapper around this config inventory for use with {@link appeng.menu.slot.FakeSlot} in menus.
-     */
-    public ConfigMenuInventory createMenuWrapper() {
-        return new ConfigMenuInventory(this);
+    public ConfigGuiInventory createGuiWrapper() {
+        return new ConfigGuiInventory(this);
     }
 
     @Override
@@ -411,8 +354,6 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
             return 0;
         }
 
-        // For type configs it makes no sense to try and spread the insert across multiple slots, so we use specific
-        // logic here to just shove it into the first potential slot
         if (this.mode == Mode.CONFIG_TYPES) {
             int freeSlot = -1;
             for (int i = 0; i < stacks.length; i++) {
@@ -458,14 +399,17 @@ public class GenericStackInv implements MEStorage, GenericInternalInventory {
     }
 
     @Override
-    public Component getDescription() {
+    public ITextComponent getDescription() {
         return description;
     }
 
-    /**
-     * Changes how this generic stack inventory is reported to outside sources when used as an {@link MEStorage}.
-     */
-    public void setDescription(Component description) {
+    public void setDescription(TextComponentTranslation description) {
         this.description = description;
+    }
+
+    public enum Mode {
+        CONFIG_TYPES,
+        CONFIG_STACKS,
+        STORAGE
     }
 }

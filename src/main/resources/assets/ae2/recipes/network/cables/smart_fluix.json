@@ -1,0 +1,20 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "item": "ae2:fluix_covered_cable"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustRedstone"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustGlowstone"
+    }
+  ],
+  "result": {
+    "item": "ae2:fluix_smart_cable",
+    "count": 1
+  }
+}

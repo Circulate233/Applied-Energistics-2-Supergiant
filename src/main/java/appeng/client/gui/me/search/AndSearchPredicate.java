@@ -1,9 +1,9 @@
 package appeng.client.gui.me.search;
 
+import appeng.container.me.common.GridInventoryEntry;
+
 import java.util.List;
 import java.util.function.Predicate;
-
-import appeng.menu.me.common.GridInventoryEntry;
 
 final class AndSearchPredicate implements Predicate<GridInventoryEntry> {
     private final List<Predicate<GridInventoryEntry>> terms;
@@ -33,3 +33,4 @@ final class AndSearchPredicate implements Predicate<GridInventoryEntry> {
         return true;
     }
 }
+

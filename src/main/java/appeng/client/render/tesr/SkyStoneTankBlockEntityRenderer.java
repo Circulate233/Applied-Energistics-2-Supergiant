@@ -1,117 +1,116 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2021, TeamAppliedEnergistics, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.client.render.tesr;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import com.mojang.blaze3d.vertex.VertexConsumer;
-
+import appeng.tile.storage.TileSkyStoneTank;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
-import net.minecraft.client.renderer.blockentity.BlockEntityRendererProvider;
-import net.minecraft.client.renderer.texture.OverlayTexture;
+import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.OpenGlHelper;
+import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.core.BlockPos;
-import net.minecraft.util.Mth;
-import net.minecraft.world.inventory.InventoryMenu;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.entity.BlockEntity;
-import net.neoforged.neoforge.client.extensions.common.IClientFluidTypeExtensions;
-import net.neoforged.neoforge.fluids.FluidStack;
+import net.minecraft.client.renderer.texture.TextureMap;
+import net.minecraft.client.renderer.tileentity.TileEntitySpecialRenderer;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraftforge.fluids.Fluid;
+import net.minecraftforge.fluids.FluidStack;
+import org.lwjgl.opengl.GL11;
 
-import appeng.blockentity.storage.SkyStoneTankBlockEntity;
-import appeng.client.render.cablebus.CubeBuilder;
+public final class SkyStoneTankBlockEntityRenderer extends TileEntitySpecialRenderer<TileSkyStoneTank> {
+    private static final float TANK_W = 1 / 16.0F + 0.001F;
 
-public final class SkyStoneTankBlockEntityRenderer implements BlockEntityRenderer<SkyStoneTankBlockEntity> {
+    public static void drawFluidInTank(FluidStack fluid, float fill, double x, double y, double z) {
+        Fluid fluidType = fluid.getFluid();
+        TextureAtlasSprite sprite = Minecraft.getMinecraft()
+                                             .getTextureMapBlocks()
+                                             .getAtlasSprite(fluidType.getStill(fluid).toString());
+        int color = fluidType.getColor(fluid);
+        float r = ((color >> 16) & 255) / 256.0F;
+        float g = ((color >> 8) & 255) / 256.0F;
+        float b = (color & 255) / 256.0F;
 
-    public SkyStoneTankBlockEntityRenderer(BlockEntityRendererProvider.Context context) {
+        float fillY = TANK_W + Math.clamp(fill, 0.0F, 1.0F) * (1.0F - 2.0F * TANK_W);
+        float bottomHeight = TANK_W;
+        float topHeight = fillY;
+        if (fluidType.isGaseous(fluid)) {
+            topHeight = 1.0F - TANK_W;
+            bottomHeight = 1.0F - fillY;
+        }
+
+        Minecraft.getMinecraft().renderEngine.bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
+        float lastLightX = OpenGlHelper.lastBrightnessX;
+        float lastLightY = OpenGlHelper.lastBrightnessY;
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(x, y, z);
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        GlStateManager.enableBlend();
+        GlStateManager.blendFunc(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA);
+        GlStateManager.disableLighting();
+        GlStateManager.disableCull();
+        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, 240.0F, 240.0F);
+
+        BufferBuilder buffer = Tessellator.getInstance().getBuffer();
+        buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
+        renderCube(buffer, sprite, bottomHeight, topHeight, r, g, b);
+        Tessellator.getInstance().draw();
+
+        GlStateManager.enableCull();
+        GlStateManager.enableLighting();
+        GlStateManager.disableBlend();
+        GlStateManager.popMatrix();
+        OpenGlHelper.setLightmapTextureCoords(OpenGlHelper.lightmapTexUnit, lastLightX, lastLightY);
+    }
+
+    private static void renderCube(BufferBuilder buffer, TextureAtlasSprite sprite, float y1,
+                                   float y2, float r, float g, float b) {
+        float u1 = sprite.getMinU();
+        float u2 = sprite.getMaxU();
+        float v1 = sprite.getMinV();
+        float v2 = sprite.getMaxV();
+
+        vertex(buffer, (float) 0.9365, y1, SkyStoneTankBlockEntityRenderer.TANK_W, u2, v2, r, g, b);
+        vertex(buffer, (float) 0.9365, y1, (float) 0.9365, u1, v2, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y1, (float) 0.9365, u1, v1, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y1, SkyStoneTankBlockEntityRenderer.TANK_W, u2, v1, r, g, b);
+
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y2, SkyStoneTankBlockEntityRenderer.TANK_W, u1, v1, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y2, (float) 0.9365, u1, v2, r, g, b);
+        vertex(buffer, (float) 0.9365, y2, (float) 0.9365, u2, v2, r, g, b);
+        vertex(buffer, (float) 0.9365, y2, SkyStoneTankBlockEntityRenderer.TANK_W, u2, v1, r, g, b);
+
+        vertex(buffer, (float) 0.9365, y2, SkyStoneTankBlockEntityRenderer.TANK_W, u2, v1, r, g, b);
+        vertex(buffer, (float) 0.9365, y1, SkyStoneTankBlockEntityRenderer.TANK_W, u2, v2, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y1, SkyStoneTankBlockEntityRenderer.TANK_W, u1, v2, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y2, SkyStoneTankBlockEntityRenderer.TANK_W, u1, v1, r, g, b);
+
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y2, (float) 0.9365, u1, v1, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y1, (float) 0.9365, u1, v2, r, g, b);
+        vertex(buffer, (float) 0.9365, y1, (float) 0.9365, u2, v2, r, g, b);
+        vertex(buffer, (float) 0.9365, y2, (float) 0.9365, u2, v1, r, g, b);
+
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y2, SkyStoneTankBlockEntityRenderer.TANK_W, u1, v1, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y1, SkyStoneTankBlockEntityRenderer.TANK_W, u1, v2, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y1, (float) 0.9365, u2, v2, r, g, b);
+        vertex(buffer, SkyStoneTankBlockEntityRenderer.TANK_W, y2, (float) 0.9365, u2, v1, r, g, b);
+
+        vertex(buffer, (float) 0.9365, y2, (float) 0.9365, u2, v1, r, g, b);
+        vertex(buffer, (float) 0.9365, y1, (float) 0.9365, u2, v2, r, g, b);
+        vertex(buffer, (float) 0.9365, y1, SkyStoneTankBlockEntityRenderer.TANK_W, u1, v2, r, g, b);
+        vertex(buffer, (float) 0.9365, y2, SkyStoneTankBlockEntityRenderer.TANK_W, u1, v1, r, g, b);
+    }
+
+    private static void vertex(BufferBuilder buffer, float x, float y, float z, float u, float v, float r, float g,
+                               float b) {
+        buffer.pos(x, y, z).tex(u, v).color(r, g, b, 1.0F).endVertex();
     }
 
     @Override
-    public void render(SkyStoneTankBlockEntity tank, float tickDelta, PoseStack ms, MultiBufferSource vertexConsumers,
-            int light, int overlay) {
-        if (!tank.getTank().getFluid().isEmpty()) {
-
-            /*
-             * 
-             * // Uncomment to allow the liquid to rotate with the tank ms.pushPose(); ms.translate(0.5, 0.5, 0.5);
-             * FacingToRotation.get(tank.getForward(), tank.getUp()).push(ms); ms.translate(-0.5, -0.5, -0.5);
-             */
-
-            drawFluidInTank(tank, ms, vertexConsumers, tank.getTank().getFluid(),
-                    (float) tank.getTank().getFluid().getAmount() / tank.getTank().getCapacity());
-
-            // ms.popPose();
-        }
-    }
-
-    private static final float TANK_W = 1 / 16f + 0.001f; // avoiding Z-fighting
-    public static final int FULL_LIGHT = 0x00F0_00F0;
-
-    public static void drawFluidInTank(BlockEntity be, PoseStack ms, MultiBufferSource vcp, FluidStack fluid,
-            float fill) {
-        drawFluidInTank(be.getLevel(), be.getBlockPos(), ms, vcp, fluid, fill);
-    }
-
-    public static void drawFluidInTank(Level level, BlockPos pos, PoseStack ps, MultiBufferSource mbs,
-            FluidStack fluid, float fill) {
-        // From Modern Industrialization
-        VertexConsumer vc = mbs.getBuffer(RenderType.translucentMovingBlock());
-        var renderProps = IClientFluidTypeExtensions.of(fluid.getFluid());
-        TextureAtlasSprite sprite = Minecraft.getInstance().getTextureAtlas(InventoryMenu.BLOCK_ATLAS)
-                .apply(renderProps.getStillTexture(fluid));
-
-        int color = renderProps.getTintColor(fluid);
-
-        float r = ((color >> 16) & 255) / 256f;
-        float g = ((color >> 8) & 255) / 256f;
-        float b = (color & 255) / 256f;
-
-        var fillY = Mth.lerp(Mth.clamp(fill, 0, 1), TANK_W, 1 - TANK_W);
-
-        // Top and bottom positions of the fluid inside the tank
-        float topHeight = fillY;
-        float bottomHeight = TANK_W;
-
-        // Render gas from top to bottom
-        var attributes = fluid.getFluid().getFluidType();
-        if (attributes.isLighterThanAir()) {
-            topHeight = 1 - TANK_W;
-            bottomHeight = 1 - fillY;
+    public void render(TileSkyStoneTank tank, double x, double y, double z, float partialTicks, int destroyStage,
+                       float alpha) {
+        FluidStack fluid = tank.getTank().getFluid();
+        if (fluid == null || fluid.amount <= 0) {
+            return;
         }
 
-        var builder = new CubeBuilder();
-        builder.setTexture(sprite);
-
-        var x1 = TANK_W * 16;
-        var z1 = TANK_W * 16;
-        var x2 = (1 - TANK_W) * 16;
-        var z2 = (1 - TANK_W) * 16;
-        var y1 = bottomHeight * 16;
-        var y2 = topHeight * 16;
-        builder.addCube(x1, y1, z1, x2, y2, z2);
-
-        for (var bakedQuad : builder.getOutput()) {
-            vc.putBulkData(ps.last(), bakedQuad, r, g, b, 1.0f, FULL_LIGHT, OverlayTexture.NO_OVERLAY);
-        }
-
+        float fill = (float) fluid.amount / tank.getTank().getCapacity();
+        drawFluidInTank(fluid, fill, x, y, z);
     }
-
 }

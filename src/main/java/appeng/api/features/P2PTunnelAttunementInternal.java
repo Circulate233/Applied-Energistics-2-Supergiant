@@ -18,18 +18,18 @@
 
 package appeng.api.features;
 
-import java.util.HashSet;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraftforge.common.capabilities.Capability;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.tags.TagKey;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.ItemLike;
-import net.neoforged.neoforge.capabilities.ItemCapability;
 
 /**
  * Internal methods that complement {@link P2PTunnelAttunement} and which are not part of the public API.
@@ -42,10 +42,11 @@ public final class P2PTunnelAttunementInternal {
     /**
      * Gets a report which sources of attunement exist for a given tunnel type.
      */
-    public static AttunementInfo getAttunementInfo(ItemLike tunnelType) {
-        var tunnelItem = tunnelType.asItem();
+    @SuppressWarnings("unused")
+    public static AttunementInfo getAttunementInfo(ResourceLocation tunnelType) {
+        var tunnelItem = P2PTunnelAttunement.validateTunnelPartItem(tunnelType);
 
-        Set<ItemCapability<?, Void>> caps = new HashSet<>();
+        Set<Capability<?>> caps = new ReferenceOpenHashSet<>();
 
         for (var entry : P2PTunnelAttunement.apiAttunements) {
             if (entry.tunnelType() == tunnelItem) {
@@ -57,17 +58,20 @@ public final class P2PTunnelAttunementInternal {
     }
 
     public static List<Resultant> getApiTunnels() {
-        return P2PTunnelAttunement.apiAttunements.stream()
-                .map(info -> new Resultant(info.component(), info.tunnelType(), info::hasApi)).toList();
+        var result = new ObjectArrayList<Resultant>(P2PTunnelAttunement.apiAttunements.size());
+        for (var info : P2PTunnelAttunement.apiAttunements) {
+            result.add(new Resultant(info.description(), info.tunnelType(), info::hasApi));
+        }
+        return result;
     }
 
-    public static Map<TagKey<Item>, Item> getTagTunnels() {
+    public static Map<String, Item> getTagTunnels() {
         return P2PTunnelAttunement.tagTunnels;
     }
 
-    public record AttunementInfo(Set<ItemCapability<?, Void>> apis) {
+    public record AttunementInfo(Set<Capability<?>> apis) {
     }
 
-    public record Resultant(Component description, Item tunnelType, Predicate<ItemStack> stackPredicate) {
+    public record Resultant(ITextComponent description, Item tunnelType, Predicate<ItemStack> stackPredicate) {
     }
 }

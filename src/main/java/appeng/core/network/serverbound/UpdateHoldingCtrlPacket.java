@@ -1,38 +1,34 @@
 package appeng.core.network.serverbound;
 
-import org.jetbrains.annotations.NotNull;
-
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.server.level.ServerPlayer;
-
-import appeng.core.definitions.AEAttachmentTypes;
-import appeng.core.network.CustomAppEngPayload;
+import appeng.core.PlayerState;
 import appeng.core.network.ServerboundPacket;
+import io.netty.buffer.ByteBuf;
+import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.network.PacketBuffer;
 
-public record UpdateHoldingCtrlPacket(boolean keyDown) implements ServerboundPacket {
-    public static final StreamCodec<RegistryFriendlyByteBuf, UpdateHoldingCtrlPacket> STREAM_CODEC = StreamCodec
-            .ofMember(UpdateHoldingCtrlPacket::write, UpdateHoldingCtrlPacket::decode);
+public class UpdateHoldingCtrlPacket extends ServerboundPacket {
 
-    public static final Type<UpdateHoldingCtrlPacket> TYPE = CustomAppEngPayload.createType("toggle_ctrl_down");
+    private boolean keyDown;
 
-    @NotNull
-    @Override
-    public Type<UpdateHoldingCtrlPacket> type() {
-        return TYPE;
+    public UpdateHoldingCtrlPacket() {
     }
 
-    public static UpdateHoldingCtrlPacket decode(RegistryFriendlyByteBuf buf) {
-        var keyDown = buf.readBoolean();
-        return new UpdateHoldingCtrlPacket(keyDown);
-    }
-
-    public void write(RegistryFriendlyByteBuf data) {
-        data.writeBoolean(keyDown);
+    public UpdateHoldingCtrlPacket(boolean keyDown) {
+        this.keyDown = keyDown;
     }
 
     @Override
-    public void handleOnServer(ServerPlayer player) {
-        player.setData(AEAttachmentTypes.HOLDING_CTRL, keyDown);
+    protected void read(ByteBuf buf) {
+        this.keyDown = new PacketBuffer(buf).readBoolean();
+    }
+
+    @Override
+    protected void write(ByteBuf buf) {
+        new PacketBuffer(buf).writeBoolean(this.keyDown);
+    }
+
+    @Override
+    public void handleServer(EntityPlayerMP player) {
+        PlayerState.setHoldingCtrl(player, this.keyDown);
     }
 }

@@ -1,68 +1,41 @@
 package appeng.recipes.game;
 
-import com.mojang.serialization.MapCodec;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.HolderLookup;
-import net.minecraft.core.NonNullList;
-import net.minecraft.network.RegistryFriendlyByteBuf;
-import net.minecraft.network.codec.StreamCodec;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.crafting.CraftingBookCategory;
-import net.minecraft.world.item.crafting.CraftingInput;
-import net.minecraft.world.item.crafting.CustomRecipe;
-import net.minecraft.world.item.crafting.Ingredient;
-import net.minecraft.world.item.crafting.RecipeSerializer;
-import net.minecraft.world.level.Level;
-
 import appeng.api.upgrades.IUpgradeableItem;
-import appeng.core.AppEng;
+import net.minecraft.inventory.InventoryCrafting;
+import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.IRecipe;
+import net.minecraft.util.NonNullList;
+import net.minecraft.world.World;
+import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.registries.IForgeRegistryEntry;
+import org.jspecify.annotations.Nullable;
 
-/**
- * Allows adding upgrades to upgradable items.
- */
-public class RemoveItemUpgradeRecipe extends CustomRecipe {
-    public static final RemoveItemUpgradeRecipe INSTANCE = new RemoveItemUpgradeRecipe();
+public final class RemoveItemUpgradeRecipe extends IForgeRegistryEntry.Impl<IRecipe> implements IRecipe {
+    private static @Nullable RemovalResult attemptRemoval(InventoryCrafting inv) {
+        ItemStack found = ItemStack.EMPTY;
+        int foundSlot = -1;
+        for (int i = 0; i < inv.getSizeInventory(); i++) {
+            ItemStack stack = inv.getStackInSlot(i);
+            if (stack.isEmpty()) {
+                continue;
+            }
+            if (!found.isEmpty()) {
+                return null;
+            }
+            found = stack;
+            foundSlot = i;
+        }
 
-    public static final ResourceLocation SERIALIZER_ID = AppEng.makeId("remove_item_upgrade");
-    private static final NonNullList<Ingredient> INGREDIENTS = NonNullList.create();
-
-    private RemoveItemUpgradeRecipe() {
-        super(CraftingBookCategory.MISC);
-    }
-
-    public static final MapCodec<RemoveItemUpgradeRecipe> CODEC = MapCodec.unit(INSTANCE);
-
-    public static final StreamCodec<RegistryFriendlyByteBuf, RemoveItemUpgradeRecipe> STREAM_CODEC = StreamCodec
-            .unit(INSTANCE);
-
-    @Override
-    public NonNullList<Ingredient> getIngredients() {
-        return INGREDIENTS;
-    }
-
-    record RemovalResult(ItemStack upgradableItem, ItemStack upgrade) {
-    }
-
-    @Nullable
-    private static RemovalResult attemptRemoval(CraftingInput input) {
-        if (input.size() != 1) {
+        if (found.isEmpty() || !(found.getItem() instanceof IUpgradeableItem upgradableItem)) {
             return null;
         }
 
-        var item = input.getItem(0);
-        if (!(item.getItem() instanceof IUpgradeableItem upgradableItem)) {
-            return null;
-        }
-
-        var upgradable = item.copy();
-        var upgrades = upgradableItem.getUpgrades(upgradable);
+        ItemStack upgraded = found.copy();
+        var upgrades = upgradableItem.getUpgrades(upgraded);
         for (int i = 0; i < upgrades.size(); i++) {
-            var upgrade = upgrades.extractItem(i, 1, false);
+            ItemStack upgrade = upgrades.extractItem(i, 1, false);
             if (!upgrade.isEmpty()) {
-                return new RemovalResult(upgradable, upgrade);
+                return new RemovalResult(upgraded, upgrade, foundSlot);
             }
         }
 
@@ -70,42 +43,38 @@ public class RemoveItemUpgradeRecipe extends CustomRecipe {
     }
 
     @Override
-    public boolean matches(CraftingInput input, Level level) {
-        return attemptRemoval(input) != null;
+    public boolean matches(InventoryCrafting inv, World worldIn) {
+        return attemptRemoval(inv) != null;
     }
 
     @Override
-    public ItemStack getResultItem(HolderLookup.Provider registries) {
-        return ItemStack.EMPTY;
-    }
-
-    /**
-     * Assemble returns the extracted upgrade.
-     */
-    @Override
-    public ItemStack assemble(CraftingInput input, HolderLookup.Provider registries) {
-        var result = attemptRemoval(input);
-        return result != null ? result.upgrade() : ItemStack.EMPTY;
+    public ItemStack getCraftingResult(InventoryCrafting inv) {
+        RemovalResult result = attemptRemoval(inv);
+        return result != null ? result.upgrade : ItemStack.EMPTY;
     }
 
     @Override
-    public NonNullList<ItemStack> getRemainingItems(CraftingInput input) {
-        var result = attemptRemoval(input);
-        if (result == null || input.size() != 1) {
-            return super.getRemainingItems(input);
+    public NonNullList<ItemStack> getRemainingItems(InventoryCrafting inv) {
+        RemovalResult result = attemptRemoval(inv);
+        if (result == null) {
+            return ForgeHooks.defaultRecipeGetRemainingItems(inv);
         }
 
-        return NonNullList.of(ItemStack.EMPTY, result.upgradableItem());
+        NonNullList<ItemStack> remaining = NonNullList.withSize(inv.getSizeInventory(), ItemStack.EMPTY);
+        remaining.set(result.slot, result.upgradedItem);
+        return remaining;
     }
 
     @Override
-    public boolean canCraftInDimensions(int width, int height) {
+    public boolean canFit(int width, int height) {
         return width * height >= 1;
     }
 
     @Override
-    public RecipeSerializer<?> getSerializer() {
-        return RemoveItemUpgradeRecipeSerializer.INSTANCE;
+    public ItemStack getRecipeOutput() {
+        return ItemStack.EMPTY;
     }
 
+    private record RemovalResult(ItemStack upgradedItem, ItemStack upgrade, int slot) {
+    }
 }

@@ -18,31 +18,49 @@
 
 package appeng.block;
 
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SoundType;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition;
-import net.minecraft.world.level.material.MapColor;
-import net.minecraft.world.level.material.PushReaction;
-
 import appeng.api.orientation.IOrientableBlock;
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.hooks.WrenchHook;
+import appeng.core.AELog;
+import appeng.helpers.ICustomCollision;
+import appeng.util.InteractionUtil;
+import appeng.util.LookDirection;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import net.minecraft.block.Block;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.creativetab.CreativeTabs;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.RayTraceResult;
+import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.World;
+import org.jspecify.annotations.Nullable;
 
+@SuppressWarnings("deprecation")
 public abstract class AEBaseBlock extends Block implements IOrientableBlock {
 
-    protected AEBaseBlock(Properties props) {
-        super(props);
+    protected AxisAlignedBB boundingBox = FULL_BLOCK_AABB;
+    private boolean isOpaque = true;
+    private boolean isFullSize = true;
+    private boolean isInventory = false;
+
+    protected AEBaseBlock(Material material) {
+        super(material);
     }
 
     @Override
@@ -51,70 +69,193 @@ public abstract class AEBaseBlock extends Block implements IOrientableBlock {
     }
 
     @Override
-    protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        for (var property : getOrientationStrategy().getProperties()) {
-            builder.add(property);
+    protected BlockStateContainer createBlockState() {
+        return createBlockState(new IProperty<?>[0]);
+    }
+
+    protected final BlockStateContainer createBlockState(IProperty<?>... additionalProperties) {
+        ObjectSet<IProperty<?>> properties = new ObjectLinkedOpenHashSet<>(
+            getOrientationStrategy().getProperties());
+        java.util.Collections.addAll(properties, additionalProperties);
+        return new BlockStateContainer(this, properties.toArray(new IProperty<?>[0]));
+    }
+
+    @Override
+    public IBlockState getStateForPlacement(World world, BlockPos pos, EnumFacing facing, float hitX, float hitY,
+                                            float hitZ, int meta, EntityLivingBase placer, EnumHand hand) {
+        IBlockState state = this.getStateFromMeta(meta);
+        return getOrientationStrategy().getStateForPlacement(state, world, pos, facing, hitX, hitY, hitZ, placer);
+    }
+
+    @Override
+    public int getMetaFromState(IBlockState state) {
+        return getOrientationStrategy().getFacing(state).getIndex();
+    }
+
+    @Override
+    public IBlockState getStateFromMeta(int meta) {
+        IOrientationStrategy strategy = this.getOrientationStrategy();
+        EnumFacing facing = EnumFacing.byIndex(meta & 7);
+        if (facing == null) {
+            facing = EnumFacing.NORTH;
+        }
+        return strategy.setOrientation(this.getDefaultState(), facing, 0);
+    }
+
+    @Override
+    public boolean isOpaqueCube(net.minecraft.block.state.IBlockState state) {
+        return this.isOpaque() && this.isFullSize();
+    }
+
+    @Override
+    public boolean isFullCube(net.minecraft.block.state.IBlockState state) {
+        return this.isFullSize();
+    }
+
+    public boolean isOpaque() {
+        return this.isOpaque;
+    }
+
+    protected void setOpaque() {
+        this.isOpaque = false;
+    }
+
+    public boolean isFullSize() {
+        return this.isFullSize;
+    }
+
+    protected void setFullSize() {
+        this.isFullSize = false;
+    }
+
+    public boolean isInventory() {
+        return this.isInventory;
+    }
+
+    protected void setInventory(boolean isInventory) {
+        this.isInventory = isInventory;
+    }
+
+    @Override
+    public void getSubBlocks(CreativeTabs creativeTab, NonNullList<ItemStack> itemStacks) {
+        itemStacks.add(new ItemStack(Item.getItemFromBlock(this)));
+    }
+
+    @Override
+    public AxisAlignedBB getBoundingBox(IBlockState state, net.minecraft.world.IBlockAccess source, BlockPos pos) {
+        return this.boundingBox;
+    }
+
+    @Override
+    public void addCollisionBoxToList(IBlockState state, World world, BlockPos pos, AxisAlignedBB bb,
+                                      java.util.List<AxisAlignedBB> out, Entity entity, boolean isActualState) {
+        ICustomCollision collisionHandler = getCustomCollision(world, pos);
+        if (collisionHandler == null || bb == null) {
+            super.addCollisionBoxToList(state, world, pos, bb, out, entity, isActualState);
+            return;
+        }
+
+        java.util.List<AxisAlignedBB> boxes = new ObjectArrayList<>();
+        collisionHandler.addCollidingBlockToList(world, pos, bb, boxes, entity);
+        for (AxisAlignedBB box : boxes) {
+            AxisAlignedBB offset = box.offset(pos);
+            if (bb.intersects(offset)) {
+                out.add(offset);
+            }
         }
     }
 
-    /**
-     * Utility function to create block properties with some sensible defaults for AE blocks.
-     */
-    public static Properties defaultProps(MapColor mapColor, SoundType soundType) {
-        return Properties.of()
-                // These values previously were encoded in AEBaseBlock
-                .strength(2.2f, 11.f)
-                .mapColor(mapColor)
-                .sound(soundType);
+    @Override
+    public AxisAlignedBB getSelectedBoundingBox(IBlockState state, World world, BlockPos pos) {
+        ICustomCollision collisionHandler = getCustomCollision(world, pos);
+        if (collisionHandler == null) {
+            return super.getSelectedBoundingBox(state, world, pos);
+        }
+
+        if (world.isRemote) {
+            EntityPlayer player = Minecraft.getMinecraft().player;
+            if (player != null) {
+                LookDirection ray = InteractionUtil.getPlayerRay(player, 5.0D);
+                AxisAlignedBB selected = null;
+                double bestDistance = 0;
+
+                for (AxisAlignedBB box : collisionHandler.getSelectedBoundingBoxesFromPool(world, pos, player, true)) {
+                    this.boundingBox = box;
+                    RayTraceResult hit = super.collisionRayTrace(state, world, pos, ray.a(), ray.b());
+                    this.boundingBox = FULL_BLOCK_AABB;
+
+                    if (hit == null) {
+                        continue;
+                    }
+
+                    double distance = ray.a().squareDistanceTo(hit.hitVec);
+                    if (selected == null || distance < bestDistance) {
+                        bestDistance = distance;
+                        selected = box;
+                    }
+                }
+
+                if (selected != null) {
+                    return selected.offset(pos);
+                }
+            }
+        }
+
+        AxisAlignedBB result = null;
+        for (AxisAlignedBB box : collisionHandler.getSelectedBoundingBoxesFromPool(world, pos, null, false)) {
+            result = result == null ? box : result.union(box);
+        }
+
+        return result == null ? FULL_BLOCK_AABB.offset(pos) : result.offset(pos);
     }
 
-    public static Properties stoneProps() {
-        return defaultProps(MapColor.STONE, SoundType.STONE).forceSolidOn();
+    @Override
+    public RayTraceResult collisionRayTrace(IBlockState state, World world, BlockPos pos, Vec3d start, Vec3d end) {
+        ICustomCollision collisionHandler = getCustomCollision(world, pos);
+        if (collisionHandler != null) {
+            RayTraceResult bestHit = null;
+            double bestDistance = 0;
+
+            for (AxisAlignedBB box : collisionHandler.getSelectedBoundingBoxesFromPool(world, pos, null, true)) {
+                this.boundingBox = box;
+                RayTraceResult hit = super.collisionRayTrace(state, world, pos, start, end);
+                this.boundingBox = FULL_BLOCK_AABB;
+
+                if (hit == null) {
+                    continue;
+                }
+
+                double distance = start.squareDistanceTo(hit.hitVec);
+                if (bestHit == null || distance < bestDistance) {
+                    bestDistance = distance;
+                    bestHit = hit;
+                }
+            }
+
+            this.boundingBox = FULL_BLOCK_AABB;
+            return bestHit;
+        }
+
+        AxisAlignedBB boundingBox = state.getBoundingBox(world, pos);
+        if (boundingBox == null) {
+            AELog.error("Null bounding box for %s at %s with state %s", this, pos, state);
+            return null;
+        }
+        this.boundingBox = FULL_BLOCK_AABB;
+        return super.collisionRayTrace(state, world, pos, start, end);
     }
 
-    public static Properties metalProps() {
-        return defaultProps(MapColor.METAL, SoundType.METAL).forceSolidOn();
-    }
-
-    public static Properties glassProps() {
-        return defaultProps(MapColor.NONE, SoundType.GLASS);
-    }
-
-    public static Properties fixtureProps() {
-        return defaultProps(MapColor.METAL, SoundType.GLASS)
-                .noCollission()
-                .noOcclusion()
-                .pushReaction(PushReaction.DESTROY);
-    }
-
-    public void addToMainCreativeTab(CreativeModeTab.ItemDisplayParameters parameters, CreativeModeTab.Output output) {
-        output.accept(this);
+    protected @Nullable ICustomCollision getCustomCollision(World world, BlockPos pos) {
+        if (world != null && pos != null && this instanceof ICustomCollision collision) {
+            return collision;
+        }
+        return null;
     }
 
     @Override
     public String toString() {
-        String regName = this.getRegistryName() != null ? this.getRegistryName().getPath() : "unregistered";
+        ResourceLocation id = this.getRegistryName();
+        String regName = id != null ? id.getPath() : "unregistered";
         return this.getClass().getSimpleName() + "[" + regName + "]";
-    }
-
-    @Nullable
-    public ResourceLocation getRegistryName() {
-        var id = BuiltInRegistries.BLOCK.getKey(this);
-        return id != BuiltInRegistries.BLOCK.getDefaultKey() ? id : null;
-    }
-
-    @Override
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        var state = this.defaultBlockState();
-        return getOrientationStrategy().getStateForPlacement(state, context);
-    }
-
-    @Override
-    protected void spawnDestroyParticles(Level level, Player player, BlockPos pos, BlockState state) {
-        // Suppress break particles & sound when being disassembled by a wrench
-        if (!WrenchHook.isDisassembling()) {
-            super.spawnDestroyParticles(level, player, pos, state);
-        }
     }
 }

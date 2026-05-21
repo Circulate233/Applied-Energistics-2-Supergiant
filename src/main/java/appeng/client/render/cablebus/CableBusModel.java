@@ -1,96 +1,109 @@
-/*
- * This file is part of Applied Energistics 2.
- * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
- *
- * Applied Energistics 2 is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Applied Energistics 2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public License
- * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
- */
-
 package appeng.client.render.cablebus;
 
-import java.util.ArrayList;
+import appeng.api.parts.PartModels;
+import appeng.api.util.AEColor;
+import appeng.core.AELog;
+import appeng.core.AppEng;
+import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
+import appeng.core.definitions.AEParts;
+import com.google.common.collect.ImmutableMap;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
+
+import javax.annotation.Nonnull;
+import net.minecraftforge.client.model.IModel;
+import net.minecraftforge.client.model.ModelLoaderRegistry;
+import net.minecraftforge.common.model.IModelState;
+import net.minecraftforge.common.model.TRSRTransformation;
+
+import java.lang.reflect.Method;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.Collection;
 import java.util.Map;
 import java.util.function.Function;
 
-import com.google.common.collect.ImmutableMap;
+public class CableBusModel implements IModel {
 
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.client.resources.model.BakedModel;
-import net.minecraft.client.resources.model.Material;
-import net.minecraft.client.resources.model.ModelBaker;
-import net.minecraft.client.resources.model.ModelState;
-import net.minecraft.client.resources.model.UnbakedModel;
-import net.minecraft.resources.ResourceLocation;
+    public static final ResourceLocation CABLE_ANCHOR_STILT_MODEL = AppEng.makeId("part/cable_anchor_short");
 
-import appeng.api.parts.PartModelsInternal;
-import appeng.api.util.AEColor;
-import appeng.client.render.BasicUnbakedModel;
-import appeng.core.AELog;
-import appeng.core.AppEng;
+    @SuppressWarnings("unchecked")
+    private static Collection<ResourceLocation> getRegisteredPartModels() {
+        try {
+            AEParts.init();
 
-/**
- * The built-in model for the cable bus block.
- */
-public class CableBusModel implements BasicUnbakedModel {
+            Method freeze = PartModels.class.getDeclaredMethod("freeze");
+            freeze.setAccessible(true);
+            freeze.invoke(null);
 
-    public static final ResourceLocation TRANSLUCENT_FACADE_MODEL = AppEng.makeId("part/translucent_facade");
+            Method getModels = PartModels.class.getDeclaredMethod("getModels");
+            getModels.setAccessible(true);
+
+            return new ObjectLinkedOpenHashSet<>((Collection<ResourceLocation>) getModels.invoke(null));
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException("Failed to resolve registered part models.", e);
+        }
+    }
 
     @Override
     public Collection<ResourceLocation> getDependencies() {
-        PartModelsInternal.freeze();
-        var models = new ArrayList<>(PartModelsInternal.getModels());
-        models.add(TRANSLUCENT_FACADE_MODEL);
-        return models;
+        ObjectList<ResourceLocation> dependencies = new ObjectArrayList<>(getRegisteredPartModels());
+        dependencies.add(CABLE_ANCHOR_STILT_MODEL);
+        return dependencies;
     }
 
     @Override
-    public void resolveParents(Function<ResourceLocation, UnbakedModel> function) {
+    public Collection<ResourceLocation> getTextures() {
+        ObjectList<ResourceLocation> textures = new ObjectArrayList<>(CableBuilder.getTextureDependencies());
+        textures.add(AppEng.makeId("part/cable_anchor"));
+        return textures;
     }
 
     @Override
-    public BakedModel bake(ModelBaker baker, Function<Material, TextureAtlasSprite> spriteGetter,
-            ModelState modelState) {
-        Map<ResourceLocation, BakedModel> partModels = this.loadPartModels(baker, spriteGetter, modelState);
-
-        CableBuilder cableBuilder = new CableBuilder(spriteGetter);
-
-        BakedModel translucentFacadeModel = baker.bake(TRANSLUCENT_FACADE_MODEL, modelState,
-                spriteGetter);
-
-        FacadeBuilder facadeBuilder = new FacadeBuilder(baker, translucentFacadeModel);
-
-        // This should normally not be used, but we *have* to provide a particle texture
-        // or otherwise damage models will
-        // crash
+    public IBakedModel bake(@Nonnull IModelState state, @Nonnull VertexFormat format,
+                            @Nonnull Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        Map<ResourceLocation, IBakedModel> partModels = this.loadPartModels(state, format, bakedTextureGetter);
+        CableBuilder cableBuilder = new CableBuilder(bakedTextureGetter);
+        IBakedModel cableAnchorStiltModel = this.loadOptionalModel(state, format, bakedTextureGetter);
+        FacadeBuilder facadeBuilder = new FacadeBuilder(cableAnchorStiltModel);
         TextureAtlasSprite particleTexture = cableBuilder.getCoreTexture(CableCoreType.GLASS, AEColor.TRANSPARENT);
-
         return new CableBusBakedModel(cableBuilder, facadeBuilder, partModels, particleTexture);
     }
 
-    private Map<ResourceLocation, BakedModel> loadPartModels(ModelBaker baker,
-            Function<Material, TextureAtlasSprite> spriteGetterIn, ModelState transformIn) {
-        ImmutableMap.Builder<ResourceLocation, BakedModel> result = ImmutableMap.builder();
+    @Override
+    public IModelState getDefaultState() {
+        return TRSRTransformation.identity();
+    }
 
-        for (ResourceLocation location : PartModelsInternal.getModels()) {
-            BakedModel bakedModel = baker.bake(location, transformIn, spriteGetterIn);
-            if (bakedModel == null) {
+    private Map<ResourceLocation, IBakedModel> loadPartModels(IModelState state, VertexFormat format,
+                                                              Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        ImmutableMap.Builder<ResourceLocation, IBakedModel> result = ImmutableMap.builder();
+        for (ResourceLocation location : getRegisteredPartModels()) {
+            try {
+                IBakedModel bakedModel = ModelLoaderRegistry.getModel(location).bake(state, format, bakedTextureGetter);
+                if (bakedModel == null) {
+                    AELog.warn("Failed to bake part model {}", location);
+                } else {
+                    result.put(location, bakedModel);
+                }
+            } catch (Exception e) {
                 AELog.warn("Failed to bake part model {}", location);
-            } else {
-                result.put(location, bakedModel);
             }
         }
-
         return result.build();
+    }
+
+    @Nullable
+    private IBakedModel loadOptionalModel(IModelState state, VertexFormat format,
+                                          Function<ResourceLocation, TextureAtlasSprite> bakedTextureGetter) {
+        try {
+            return ModelLoaderRegistry.getModel(CABLE_ANCHOR_STILT_MODEL).bake(state, format, bakedTextureGetter);
+        } catch (Exception e) {
+            AELog.warn("Failed to bake optional model {}", CABLE_ANCHOR_STILT_MODEL);
+            return null;
+        }
     }
 }

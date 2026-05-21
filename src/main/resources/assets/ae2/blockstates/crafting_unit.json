@@ -1,0 +1,19 @@
+{
+  "variants": {
+    "formed=false,powered=false": {
+      "model": "ae2:crafting/unit"
+    },
+    "formed=false,powered=true": {
+      "model": "ae2:crafting/unit"
+    },
+    "formed=true,powered=false": {
+      "model": "ae2:crafting/unit_formed"
+    },
+    "formed=true,powered=true": {
+      "model": "ae2:crafting/unit_formed"
+    },
+    "inventory": {
+      "model": "ae2:item/crafting_unit"
+    }
+  }
+}

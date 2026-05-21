@@ -1,16 +1,31 @@
+/*
+ * This file is part of Applied Energistics 2.
+ * Copyright (c) 2013 - 2014, AlgorithmX2, All rights reserved.
+ *
+ * Applied Energistics 2 is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Applied Energistics 2 is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public License
+ * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
+ */
+
 package appeng.me.service;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-
-import org.jetbrains.annotations.Nullable;
-
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 
 import appeng.api.networking.energy.IPassiveEnergyGenerator;
 import appeng.core.AELog;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Comparator;
+import java.util.List;
 
 /**
  * This class caches all energy services that are part of the overlay energy grid. This overlay grid can span multiple
@@ -22,8 +37,8 @@ class EnergyOverlayGrid {
      * Prefer grids with high energy storage for operations by sorting them to the front of the list.
      */
     private static final Comparator<EnergyService> SERVICE_COMPARATOR = Comparator
-            .comparingDouble(EnergyService::getMaxStoredPower)
-            .reversed();
+        .comparingDouble(EnergyService::getMaxStoredPower)
+        .reversed();
 
     final List<EnergyService> energyServices;
 
@@ -35,22 +50,6 @@ class EnergyOverlayGrid {
 
     private EnergyOverlayGrid(List<EnergyService> energyServices) {
         this.energyServices = energyServices;
-    }
-
-    void invalidate() {
-        currentPassiveGenerator = null;
-        for (var service : energyServices) {
-            service.overlayGrid = null;
-        }
-    }
-
-    @Nullable
-    public IPassiveEnergyGenerator getCurrentPassiveGenerator() {
-        return currentPassiveGenerator;
-    }
-
-    public void setCurrentPassiveGenerator(@Nullable IPassiveEnergyGenerator currentPassiveGenerator) {
-        this.currentPassiveGenerator = currentPassiveGenerator;
     }
 
     /**
@@ -77,7 +76,7 @@ class EnergyOverlayGrid {
         }
 
         // Sort services by capacity
-        var sortedServices = new ArrayList<>(connectedServices);
+        var sortedServices = new ObjectArrayList<>(connectedServices);
         sortedServices.sort(SERVICE_COMPARATOR);
         var overlayGrid = new EnergyOverlayGrid(List.copyOf(sortedServices));
 
@@ -90,5 +89,21 @@ class EnergyOverlayGrid {
 
             service.overlayGrid = overlayGrid;
         }
+    }
+
+    void invalidate() {
+        currentPassiveGenerator = null;
+        for (var service : energyServices) {
+            service.overlayGrid = null;
+        }
+    }
+
+    @Nullable
+    public IPassiveEnergyGenerator getCurrentPassiveGenerator() {
+        return currentPassiveGenerator;
+    }
+
+    public void setCurrentPassiveGenerator(@Nullable IPassiveEnergyGenerator currentPassiveGenerator) {
+        this.currentPassiveGenerator = currentPassiveGenerator;
     }
 }

@@ -23,15 +23,12 @@
 
 package appeng.api.features;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-
+import appeng.api.networking.security.IActionHost;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-import net.minecraft.world.level.Level;
-
-import appeng.api.networking.security.IActionHost;
+import java.util.Objects;
 
 /**
  * A Registry for locatable items, works based on serial numbers.
@@ -40,8 +37,18 @@ public final class Locatables {
 
     private static final Type<IActionHost> QUANTUM_NETWORK_BRIDGES = new Type<>();
 
+    private Locatables() {
+    }
+
+    /**
+     * @return The registry that can be used to locate quantum network bridges using their unique key.
+     */
+    public static Type<IActionHost> quantumNetworkBridges() {
+        return QUANTUM_NETWORK_BRIDGES;
+    }
+
     public static class Type<T> {
-        private final Map<Long, T> objects = new HashMap<>();
+        private final Long2ObjectOpenHashMap<T> objects = new Long2ObjectOpenHashMap<>();
 
         /**
          * Gets the currently registered locatable object for a given key. This only works server-side, which is why a
@@ -52,12 +59,12 @@ public final class Locatables {
          *              null.
          * @param key   The unique ID of the locatable object.
          * @return The locatable object or null, if no object is registered for the given key, or if the given level was
-         *         a client-side level.
+         * a client-side level.
          */
         @Nullable
-        public T get(Level level, long key) {
+        public T get(World level, long key) {
             Objects.requireNonNull(level, "level");
-            if (level.isClientSide()) {
+            if (level.isRemote) {
                 return null;
             } else {
                 return objects.get(key);
@@ -73,11 +80,11 @@ public final class Locatables {
          * @param key       The unique key to register under.
          * @param locatable The locatable object to register.
          */
-        public void register(Level level, long key, T locatable) {
+        public void register(World level, long key, T locatable) {
             Objects.requireNonNull(level, "level");
             Objects.requireNonNull(locatable, "locatable");
 
-            if (!level.isClientSide()) {
+            if (!level.isRemote) {
                 objects.put(key, locatable);
             }
         }
@@ -89,23 +96,13 @@ public final class Locatables {
          * @param level A level to ensure this is called only on the server-side. Calls on the client-side are silently
          *              ignored.
          */
-        public void unregister(Level level, long key) {
+        public void unregister(World level, long key) {
             Objects.requireNonNull(level, "level");
 
-            if (!level.isClientSide()) {
+            if (!level.isRemote) {
                 objects.remove(key);
             }
         }
-    }
-
-    private Locatables() {
-    }
-
-    /**
-     * @return The registry that can be used to locate quantum network bridges using their unique key.
-     */
-    public static Type<IActionHost> quantumNetworkBridges() {
-        return QUANTUM_NETWORK_BRIDGES;
     }
 
 }

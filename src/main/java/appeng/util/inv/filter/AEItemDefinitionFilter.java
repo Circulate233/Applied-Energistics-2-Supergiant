@@ -18,10 +18,9 @@
 
 package appeng.util.inv.filter;
 
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.inventories.InternalInventory;
 import appeng.core.definitions.ItemDefinition;
+import net.minecraft.item.ItemStack;
 
 public class AEItemDefinitionFilter implements IAEItemFilter {
     private final ItemDefinition<?> definition;
@@ -31,13 +30,7 @@ public class AEItemDefinitionFilter implements IAEItemFilter {
     }
 
     @Override
-    public boolean allowExtract(InternalInventory inv, int slot, int amount) {
-        return true;
-    }
-
-    @Override
     public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
         return this.definition.is(stack);
     }
-
 }

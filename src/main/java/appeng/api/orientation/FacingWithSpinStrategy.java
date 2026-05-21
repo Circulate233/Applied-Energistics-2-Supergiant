@@ -1,59 +1,61 @@
 package appeng.api.orientation;
 
+import net.minecraft.block.BlockDirectional;
+import net.minecraft.block.properties.IProperty;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.EntityLivingBase;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
+
 import java.util.Collection;
 import java.util.List;
-
-import net.minecraft.core.Direction;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.Property;
 
 /**
  * Extends {@link FacingStrategy} to also allow the block to be rotated around its facing axis.
  */
 public class FacingWithSpinStrategy implements IOrientationStrategy {
 
-    private final List<Property<?>> properties;
+    private final List<IProperty<?>> properties;
 
     protected FacingWithSpinStrategy() {
         this.properties = List.of(
-                BlockStateProperties.FACING,
-                SPIN);
+            BlockDirectional.FACING,
+            SPIN);
     }
 
     @Override
-    public Direction getFacing(BlockState state) {
-        return state.getValue(BlockStateProperties.FACING);
+    public EnumFacing getFacing(IBlockState state) {
+        return state.getValue(BlockDirectional.FACING);
     }
 
     @Override
-    public int getSpin(BlockState state) {
+    public int getSpin(IBlockState state) {
         return state.getValue(SPIN);
     }
 
     @Override
-    public BlockState setFacing(BlockState state, Direction facing) {
-        return state.setValue(BlockStateProperties.FACING, facing);
+    public IBlockState setFacing(IBlockState state, EnumFacing facing) {
+        return state.withProperty(BlockDirectional.FACING, facing);
     }
 
     @Override
-    public BlockState setSpin(BlockState state, int spin) {
-        return state.setValue(SPIN, spin);
+    public IBlockState setSpin(IBlockState state, int spin) {
+        return state.withProperty(SPIN, spin);
     }
 
     @Override
-    public BlockState getStateForPlacement(BlockState state, BlockPlaceContext context) {
-        var up = Direction.UP;
-        var forward = context.getHorizontalDirection().getOpposite();
-        var player = context.getPlayer();
-        if (player != null) {
-            if (player.getXRot() > 65) {
+    public IBlockState getStateForPlacement(IBlockState state, World world, BlockPos pos, EnumFacing clickedSide,
+                                            float hitX, float hitY, float hitZ, EntityLivingBase placer) {
+        var up = EnumFacing.UP;
+        var forward = placer == null ? EnumFacing.NORTH : placer.getHorizontalFacing().getOpposite();
+        if (placer != null) {
+            if (placer.rotationPitch > 65) {
                 up = forward.getOpposite();
-                forward = Direction.UP;
-            } else if (player.getXRot() < -65) {
+                forward = EnumFacing.UP;
+            } else if (placer.rotationPitch < -65) {
                 up = forward.getOpposite();
-                forward = Direction.DOWN;
+                forward = EnumFacing.DOWN;
             }
         }
 
@@ -61,7 +63,7 @@ public class FacingWithSpinStrategy implements IOrientationStrategy {
     }
 
     @Override
-    public Collection<Property<?>> getProperties() {
+    public Collection<IProperty<?>> getProperties() {
         return properties;
     }
 }

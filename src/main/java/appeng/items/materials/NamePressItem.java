@@ -18,31 +18,45 @@
 
 package appeng.items.materials;
 
-import java.util.List;
-
-import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
-
 import appeng.api.ids.AEComponents;
 import appeng.items.AEBaseItem;
+import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.ITextComponent.Serializer;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
+
+import java.util.List;
 
 public class NamePressItem extends AEBaseItem {
-    public NamePressItem(Properties properties) {
-        super(properties);
+    public NamePressItem() {
+        super();
     }
 
-    @OnlyIn(Dist.CLIENT)
+    @SideOnly(Side.CLIENT)
     @Override
-    public void appendHoverText(ItemStack stack, TooltipContext context, List<Component> lines,
-            TooltipFlag advancedTooltips) {
-        super.appendHoverText(stack, context, lines, advancedTooltips);
+    protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
-        var inscribedName = stack.get(AEComponents.NAME_PRESS_NAME);
+        ITextComponent inscribedName = null;
+        if (stack.hasTagCompound()) {
+            var nameTag = AEComponents.NAME_PRESS_NAME_COMPONENT.readFrom(stack.getTagCompound());
+            String rawName = nameTag != null ? nameTag.getString() : "";
+            if (!rawName.isEmpty()) {
+                try {
+                    inscribedName = Serializer.jsonToComponent(rawName);
+                } catch (Exception ignored) {
+                    inscribedName = new TextComponentString(rawName);
+                }
+            }
+        }
+
         if (inscribedName != null) {
-            lines.add(inscribedName);
+            lines.add(TextFormatting.GRAY + inscribedName.getFormattedText());
         }
     }
 }

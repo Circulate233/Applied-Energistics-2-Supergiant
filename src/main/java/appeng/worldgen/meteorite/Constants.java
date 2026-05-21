@@ -15,13 +15,14 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
+
 package appeng.worldgen.meteorite;
 
 public class Constants {
-    public static final String TAG_POS = "c";
-    public static final String TAG_RADIUS = "r";
-    public static final String TAG_CRATER = "t";
-    public static final String TAG_FALLOUT = "f";
-    public static final String TAG_PURE = "p";
-    public static final String TAG_LAKE = "l";
+    public static final String TAG_POS = "pos";
+    public static final String TAG_RADIUS = "radius";
+    public static final String TAG_CRATER = "crater";
+    public static final String TAG_FALLOUT = "fallout";
+    public static final String TAG_PURE = "pure";
+    public static final String TAG_LAKE = "lake";
 }

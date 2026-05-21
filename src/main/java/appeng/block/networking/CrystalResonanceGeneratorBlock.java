@@ -18,130 +18,81 @@
 
 package appeng.block.networking;
 
-import java.util.Locale;
-
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.core.BlockPos;
-import net.minecraft.core.Direction;
-import net.minecraft.util.StringRepresentable;
-import net.minecraft.world.item.context.BlockPlaceContext;
-import net.minecraft.world.level.BlockGetter;
-import net.minecraft.world.level.LevelAccessor;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.SimpleWaterloggedBlock;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BlockStateProperties;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.level.material.FluidState;
-import net.minecraft.world.level.material.Fluids;
-import net.minecraft.world.phys.AABB;
-import net.minecraft.world.phys.shapes.CollisionContext;
-import net.minecraft.world.phys.shapes.Shapes;
-import net.minecraft.world.phys.shapes.VoxelShape;
-
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
 import appeng.api.orientation.RelativeSide;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.networking.CrystalResonanceGeneratorBlockEntity;
+import appeng.block.AEBaseTileBlock;
+import appeng.tile.networking.TileCrystalResonanceGenerator;
+import net.minecraft.block.BlockDirectional;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.AxisAlignedBB;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.IBlockAccess;
 
-public class CrystalResonanceGeneratorBlock extends AEBaseEntityBlock<CrystalResonanceGeneratorBlockEntity>
-        implements SimpleWaterloggedBlock {
-
-    public enum State implements StringRepresentable {
-        OFF, ON, HAS_CHANNEL;
-
-        @Override
-        public String getSerializedName() {
-            return this.name().toLowerCase(Locale.ROOT);
-        }
-    }
-
-    private static final BooleanProperty WATERLOGGED = BlockStateProperties.WATERLOGGED;
+public class CrystalResonanceGeneratorBlock extends AEBaseTileBlock<TileCrystalResonanceGenerator> {
+    private static final AxisAlignedBB DOWN_AABB = createAabb(EnumFacing.DOWN);
+    private static final AxisAlignedBB UP_AABB = createAabb(EnumFacing.UP);
+    private static final AxisAlignedBB NORTH_AABB = createAabb(EnumFacing.NORTH);
+    private static final AxisAlignedBB SOUTH_AABB = createAabb(EnumFacing.SOUTH);
+    private static final AxisAlignedBB WEST_AABB = createAabb(EnumFacing.WEST);
+    private static final AxisAlignedBB EAST_AABB = createAabb(EnumFacing.EAST);
 
     public CrystalResonanceGeneratorBlock() {
-        super(glassProps().noOcclusion().forceSolidOn());
-        this.registerDefaultState(this.defaultBlockState().setValue(WATERLOGGED, false));
+        super(Material.GLASS);
+        this.setOpaque();
+        this.setFullSize();
+        this.setHardness(0.5F);
+        this.setResistance(3.0F);
+        this.setTileEntity(TileCrystalResonanceGenerator.class);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(BlockDirectional.FACING, EnumFacing.UP));
     }
 
-    @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(WATERLOGGED);
-    }
+    private static AxisAlignedBB createAabb(EnumFacing facing) {
+        double minX = 0.0D;
+        double minY = 0.0D;
+        double minZ = 0.0D;
+        double maxX = 1.0D;
+        double maxY = 1.0D;
+        double maxZ = 1.0D;
 
-    @Override
-    public VoxelShape getShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return getVoxelShape(state);
-    }
-
-    @Override
-    public VoxelShape getCollisionShape(BlockState state, BlockGetter level, BlockPos pos, CollisionContext context) {
-        return getVoxelShape(state);
-    }
-
-    @NotNull
-    private VoxelShape getVoxelShape(BlockState state) {
-        var orientation = getOrientation(state);
-        var forward = orientation.getSide(RelativeSide.FRONT);
-
-        double minX = 0;
-        double minY = 0;
-        double minZ = 0;
-        double maxX = 1;
-        double maxY = 1;
-        double maxZ = 1;
-
-        switch (forward) {
-            case DOWN -> {
-                minZ = minX = 2.0 / 16.0;
-                maxZ = maxX = 14.0 / 16.0;
-                maxY = 1.0;
-                minY = 1.0 / 16.0;
-            }
-            case EAST -> {
-                minZ = minY = 2.0 / 16.0;
-                maxZ = maxY = 14.0 / 16.0;
-                maxX = 15.0 / 16.0;
-                minX = 0.0;
-            }
-            case NORTH -> {
-                minY = minX = 2.0 / 16.0;
-                maxY = maxX = 14.0 / 16.0;
-                maxZ = 1.0;
-                minZ = 1.0 / 16.0;
-            }
-            case SOUTH -> {
-                minY = minX = 2.0 / 16.0;
-                maxY = maxX = 14.0 / 16.0;
-                maxZ = 15.0 / 16.0;
-                minZ = 0.0;
-            }
-            case UP -> {
-                minZ = minX = 2.0 / 16.0;
-                maxZ = maxX = 14.0 / 16.0;
-                maxY = 15.0 / 16.0;
-                minY = 0.0;
-            }
-            case WEST -> {
-                minZ = minY = 2.0 / 16.0;
-                maxZ = maxY = 14.0 / 16.0;
-                maxX = 1.0;
-                minX = 1.0 / 16.0;
-            }
-            default -> {
-            }
+        switch (facing) {
+            case DOWN:
+                minX = minZ = 2.0D / 16.0D;
+                maxX = maxZ = 14.0D / 16.0D;
+                minY = 1.0D / 16.0D;
+                break;
+            case EAST:
+                minY = minZ = 2.0D / 16.0D;
+                maxY = maxZ = 14.0D / 16.0D;
+                maxX = 15.0D / 16.0D;
+                break;
+            case NORTH:
+                minX = minY = 2.0D / 16.0D;
+                maxX = maxY = 14.0D / 16.0D;
+                minZ = 1.0D / 16.0D;
+                break;
+            case SOUTH:
+                minX = minY = 2.0D / 16.0D;
+                maxX = maxY = 14.0D / 16.0D;
+                maxZ = 15.0D / 16.0D;
+                break;
+            case UP:
+                minX = minZ = 2.0D / 16.0D;
+                maxX = maxZ = 14.0D / 16.0D;
+                maxY = 15.0D / 16.0D;
+                break;
+            case WEST:
+                minY = minZ = 2.0D / 16.0D;
+                maxY = maxZ = 14.0D / 16.0D;
+                minX = 1.0D / 16.0D;
+                break;
+            default:
+                break;
         }
 
-        return Shapes.create(new AABB(minX, minY, minZ, maxX, maxY, maxZ));
-    }
-
-    @Override
-    public boolean propagatesSkylightDown(BlockState state, BlockGetter reader, BlockPos pos) {
-        return true;
+        return new AxisAlignedBB(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
     @Override
@@ -150,28 +101,30 @@ public class CrystalResonanceGeneratorBlock extends AEBaseEntityBlock<CrystalRes
     }
 
     @Override
-    @Nullable
-    public BlockState getStateForPlacement(BlockPlaceContext context) {
-        var fluidState = context.getLevel().getFluidState(context.getClickedPos());
-        return super.getStateForPlacement(context)
-                .setValue(WATERLOGGED, fluidState.getType() == Fluids.WATER);
+    public int getMetaFromState(IBlockState state) {
+        return state.getValue(BlockDirectional.FACING).getIndex();
     }
 
     @Override
-    public FluidState getFluidState(BlockState blockState) {
-        return blockState.getValue(WATERLOGGED).booleanValue()
-                ? Fluids.WATER.getSource(false)
-                : super.getFluidState(blockState);
-    }
-
-    @Override
-    public BlockState updateShape(BlockState blockState, Direction facing, BlockState facingState, LevelAccessor level,
-            BlockPos currentPos, BlockPos facingPos) {
-        if (blockState.getValue(WATERLOGGED).booleanValue()) {
-            level.scheduleTick(currentPos, Fluids.WATER, Fluids.WATER.getTickDelay(level));
+    public IBlockState getStateFromMeta(int meta) {
+        int facingIndex = meta & 7;
+        if (facingIndex > 5) {
+            facingIndex = 0;
         }
-
-        return super.updateShape(blockState, facing, facingState, level, currentPos, facingPos);
+        return this.getDefaultState().withProperty(BlockDirectional.FACING, EnumFacing.byIndex(facingIndex));
     }
 
+    @Override
+    public AxisAlignedBB getBoundingBox(IBlockState state, IBlockAccess source, BlockPos pos) {
+        return switch (this.getOrientation(state).getSide(RelativeSide.FRONT)) {
+            case DOWN -> DOWN_AABB;
+            case NORTH -> NORTH_AABB;
+            case SOUTH -> SOUTH_AABB;
+            case WEST -> WEST_AABB;
+            case EAST -> EAST_AABB;
+            case UP -> UP_AABB;
+        };
+    }
 }
+
+

@@ -18,39 +18,72 @@
 
 package appeng.parts.p2p;
 
-import java.util.List;
-
-import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.capabilities.Capabilities;
-import net.neoforged.neoforge.items.IItemHandler;
-import net.neoforged.neoforge.items.ItemHandlerHelper;
-
 import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEKeyType;
 import appeng.core.AppEng;
 import appeng.items.parts.PartModels;
+import net.minecraft.item.ItemStack;
+import net.minecraftforge.items.CapabilityItemHandler;
+import net.minecraftforge.items.IItemHandler;
+import net.minecraftforge.items.ItemHandlerHelper;
+import org.jspecify.annotations.NonNull;
+
+import java.util.List;
 
 public class ItemP2PTunnelPart extends CapabilityP2PTunnelPart<ItemP2PTunnelPart, IItemHandler> {
 
     private static final P2PModels MODELS = new P2PModels(AppEng.makeId("part/p2p/p2p_tunnel_items"));
     private static final IItemHandler NULL_ITEM_HANDLER = new NullItemHandler();
 
-    @PartModels
-    public static List<IPartModel> getModels() {
-        return MODELS.getModels();
-    }
-
     public ItemP2PTunnelPart(IPartItem<?> partItem) {
-        super(partItem, Capabilities.ItemHandler.BLOCK);
+        super(partItem, CapabilityItemHandler.ITEM_HANDLER_CAPABILITY);
         inputHandler = new InputItemHandler();
         outputHandler = new OutputItemHandler();
         emptyHandler = NULL_ITEM_HANDLER;
     }
 
+    @PartModels
+    public static List<IPartModel> getModels() {
+        return MODELS.getModels();
+    }
+
     @Override
     public IPartModel getStaticModels() {
         return MODELS.getModel(this.isPowered(), this.isActive());
+    }
+
+    private static class NullItemHandler implements IItemHandler {
+
+        @Override
+        public int getSlots() {
+            return 0;
+        }
+
+        @Override
+        public @NonNull ItemStack getStackInSlot(int slot) {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public @NonNull ItemStack insertItem(int slot, @NonNull ItemStack stack, boolean simulate) {
+            return stack;
+        }
+
+        @Override
+        public @NonNull ItemStack extractItem(int slot, int amount, boolean simulate) {
+            return ItemStack.EMPTY;
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return 0;
+        }
+
+        @Override
+        public boolean isItemValid(int slot, @NonNull ItemStack stack) {
+            return false;
+        }
     }
 
     private class InputItemHandler implements IItemHandler {
@@ -61,12 +94,12 @@ public class ItemP2PTunnelPart extends CapabilityP2PTunnelPart<ItemP2PTunnelPart
         }
 
         @Override
-        public ItemStack getStackInSlot(int slot) {
+        public @NonNull ItemStack getStackInSlot(int slot) {
             return ItemStack.EMPTY;
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+        public @NonNull ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
             int remainder = stack.getCount();
 
             final int outputTunnels = ItemP2PTunnelPart.this.getOutputs().size();
@@ -77,7 +110,7 @@ public class ItemP2PTunnelPart extends CapabilityP2PTunnelPart<ItemP2PTunnelPart
             }
 
             final int amountPerOutput = amount / outputTunnels;
-            int overflow = amountPerOutput == 0 ? amount : amount % amountPerOutput;
+            int overflow = amount % outputTunnels;
 
             for (ItemP2PTunnelPart target : ItemP2PTunnelPart.this.getOutputs()) {
                 try (CapabilityGuard capabilityGuard = target.getAdjacentCapability()) {
@@ -118,7 +151,7 @@ public class ItemP2PTunnelPart extends CapabilityP2PTunnelPart<ItemP2PTunnelPart
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        public @NonNull ItemStack extractItem(int slot, int amount, boolean simulate) {
             return ItemStack.EMPTY;
         }
 
@@ -128,7 +161,7 @@ public class ItemP2PTunnelPart extends CapabilityP2PTunnelPart<ItemP2PTunnelPart
         }
 
         @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
+        public boolean isItemValid(int slot, @NonNull ItemStack stack) {
             return true;
         }
 
@@ -143,19 +176,19 @@ public class ItemP2PTunnelPart extends CapabilityP2PTunnelPart<ItemP2PTunnelPart
         }
 
         @Override
-        public ItemStack getStackInSlot(int slot) {
+        public @NonNull ItemStack getStackInSlot(int slot) {
             try (CapabilityGuard input = getInputCapability()) {
                 return input.get().getStackInSlot(slot);
             }
         }
 
         @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+        public @NonNull ItemStack insertItem(int slot, @NonNull ItemStack stack, boolean simulate) {
             return stack;
         }
 
         @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+        public @NonNull ItemStack extractItem(int slot, int amount, boolean simulate) {
             try (CapabilityGuard input = getInputCapability()) {
                 ItemStack result = input.get().extractItem(slot, amount, simulate);
 
@@ -175,43 +208,10 @@ public class ItemP2PTunnelPart extends CapabilityP2PTunnelPart<ItemP2PTunnelPart
         }
 
         @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
+        public boolean isItemValid(int slot, @NonNull ItemStack stack) {
             try (CapabilityGuard input = getInputCapability()) {
                 return input.get().isItemValid(slot, stack);
             }
-        }
-    }
-
-    private static class NullItemHandler implements IItemHandler {
-
-        @Override
-        public int getSlots() {
-            return 0;
-        }
-
-        @Override
-        public ItemStack getStackInSlot(int slot) {
-            return ItemStack.EMPTY;
-        }
-
-        @Override
-        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
-            return stack;
-        }
-
-        @Override
-        public ItemStack extractItem(int slot, int amount, boolean simulate) {
-            return ItemStack.EMPTY;
-        }
-
-        @Override
-        public int getSlotLimit(int slot) {
-            return 0;
-        }
-
-        @Override
-        public boolean isItemValid(int slot, ItemStack stack) {
-            return false;
         }
     }
 }

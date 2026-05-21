@@ -1,0 +1,17 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "type": "forge:ore_dict",
+      "ore": "gemCertusQuartz"
+    },
+    "top": {
+      "item": "ae2:calculation_processor_press"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "id": "ae2:printed_calculation_processor",
+    "count": 1
+  }
+}

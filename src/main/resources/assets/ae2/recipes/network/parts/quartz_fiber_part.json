@@ -1,0 +1,22 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aaa",
+    "bbb",
+    "aaa"
+  ],
+  "key": {
+    "a": {
+      "type": "forge:ore_dict",
+      "ore": "blockGlass"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "dustCertusQuartz"
+    }
+  },
+  "result": {
+    "item": "ae2:quartz_fiber",
+    "count": 3
+  }
+}

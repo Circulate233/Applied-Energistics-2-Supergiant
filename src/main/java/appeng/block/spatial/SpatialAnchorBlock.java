@@ -18,62 +18,73 @@
 
 package appeng.block.spatial;
 
-import net.minecraft.core.BlockPos;
-import net.minecraft.world.InteractionResult;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
-import net.minecraft.world.level.block.state.StateDefinition.Builder;
-import net.minecraft.world.level.block.state.properties.BooleanProperty;
-import net.minecraft.world.phys.BlockHitResult;
-
 import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.orientation.OrientationStrategies;
-import appeng.block.AEBaseEntityBlock;
-import appeng.blockentity.spatial.SpatialAnchorBlockEntity;
-import appeng.menu.MenuOpener;
-import appeng.menu.implementations.SpatialAnchorMenu;
-import appeng.menu.locator.MenuLocators;
+import appeng.block.AEBaseTileBlock;
+import appeng.container.GuiIds;
+import appeng.core.gui.GuiOpener;
+import appeng.tile.spatial.TileSpatialAnchor;
+import net.minecraft.block.material.Material;
+import net.minecraft.block.properties.PropertyBool;
+import net.minecraft.block.state.BlockStateContainer;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.world.World;
 
-/**
- * The block for our chunk loader
- */
-public class SpatialAnchorBlock extends AEBaseEntityBlock<SpatialAnchorBlockEntity> {
+public class SpatialAnchorBlock extends AEBaseTileBlock<TileSpatialAnchor> {
 
-    public static final BooleanProperty POWERED = BooleanProperty.create("powered");
+    public static final PropertyBool POWERED = PropertyBool.create("powered");
 
     public SpatialAnchorBlock() {
-        super(metalProps());
-        this.registerDefaultState(this.defaultBlockState().setValue(POWERED, false));
+        super(Material.IRON);
+        this.setHardness(2.2F);
+        this.setResistance(11.0F);
+        this.setTileEntity(TileSpatialAnchor.class);
+        this.setDefaultState(this.blockState.getBaseState().withProperty(POWERED, Boolean.FALSE));
     }
 
     @Override
-    protected void createBlockStateDefinition(Builder<Block, BlockState> builder) {
-        super.createBlockStateDefinition(builder);
-        builder.add(POWERED);
+    protected BlockStateContainer createBlockState() {
+        return createBlockState(POWERED);
     }
 
     @Override
-    protected BlockState updateBlockStateFromBlockEntity(BlockState currentState, SpatialAnchorBlockEntity be) {
-        return currentState.setValue(POWERED, be.isActive());
+    public int getMetaFromState(IBlockState state) {
+        return super.getMetaFromState(state);
     }
 
     @Override
-    protected InteractionResult useWithoutItem(BlockState state, Level level, BlockPos pos, Player player,
-            BlockHitResult hitResult) {
-        if (level.getBlockEntity(pos) instanceof SpatialAnchorBlockEntity be) {
-            if (!level.isClientSide()) {
-                MenuOpener.open(SpatialAnchorMenu.TYPE, player, MenuLocators.forBlockEntity(be));
-            }
-            return InteractionResult.sidedSuccess(level.isClientSide());
+    public IBlockState getStateFromMeta(int meta) {
+        return super.getStateFromMeta(meta).withProperty(POWERED, Boolean.FALSE);
+    }
+
+    @Override
+    protected IBlockState updateBlockStateFromTileEntity(IBlockState currentState, TileSpatialAnchor be) {
+        return currentState.withProperty(POWERED, be.isActive());
+    }
+
+    @Override
+    public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
+                                    EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
         }
 
-        return super.useWithoutItem(state, level, pos, player, hitResult);
+        TileSpatialAnchor tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            if (!world.isRemote) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.SPATIAL_ANCHOR, tile);
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override
     public IOrientationStrategy getOrientationStrategy() {
-        return OrientationStrategies.facing();
+        return OrientationStrategies.full();
     }
 }

@@ -18,97 +18,87 @@
 
 package appeng.client.render.cablebus;
 
+import appeng.api.parts.IPartBakedModel;
+import appeng.api.util.AEColor;
+import appeng.util.Platform;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.IBakedModel;
+import net.minecraft.client.renderer.block.model.ItemOverrideList;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.renderer.vertex.VertexFormat;
+import net.minecraft.util.EnumFacing;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
+public class P2PTunnelFrequencyBakedModel implements IBakedModel, IPartBakedModel {
 
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.block.model.BakedQuad;
-import net.minecraft.client.renderer.block.model.ItemOverrides;
-import net.minecraft.client.renderer.texture.TextureAtlasSprite;
-import net.minecraft.core.Direction;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.client.model.IDynamicBakedModel;
-import net.neoforged.neoforge.client.model.data.ModelData;
+    private static final Cache<Long, List<BakedQuad>> MODEL_CACHE = CacheBuilder.newBuilder().maximumSize(100).build();
+    private static final int[][] QUAD_OFFSETS = new int[][]{{3, 11, 2}, {11, 11, 2}, {3, 3, 2}, {11, 3, 2}};
 
-import appeng.api.util.AEColor;
-import appeng.util.Platform;
-
-public class P2PTunnelFrequencyBakedModel implements IDynamicBakedModel {
-
+    private final VertexFormat format;
     private final TextureAtlasSprite texture;
 
-    private final static Cache<Long, List<BakedQuad>> modelCache = CacheBuilder.newBuilder().maximumSize(100).build();
-
-    private static final int[][] QUAD_OFFSETS = new int[][] { { 3, 11, 2 }, { 11, 11, 2 }, { 3, 3, 2 }, { 11, 3, 2 } };
-
-    public P2PTunnelFrequencyBakedModel(TextureAtlasSprite texture) {
+    public P2PTunnelFrequencyBakedModel(VertexFormat format, TextureAtlasSprite texture) {
+        this.format = format;
         this.texture = texture;
     }
 
     @Override
-    public List<BakedQuad> getQuads(BlockState state, Direction side, RandomSource rand, ModelData modelData,
-            RenderType renderType) {
-        if (side != null || !modelData.has(P2PTunnelFrequencyModelData.FREQUENCY)) {
-            return Collections.emptyList();
-        }
-
-        return this.getPartQuads(modelData.get(P2PTunnelFrequencyModelData.FREQUENCY));
-    }
-
-    private List<BakedQuad> getQuadsForFrequency(short frequency, boolean active) {
-        final AEColor[] colors = Platform.p2p().toColors(frequency);
-        final CubeBuilder cb = new CubeBuilder();
-
-        cb.setTexture(this.texture);
-        cb.setEmissiveMaterial(active);
-
-        for (int i = 0; i < 4; ++i) {
-            final int[] offs = QUAD_OFFSETS[i];
-            for (int j = 0; j < 4; ++j) {
-                final AEColor col = colors[j];
-
-                if (active) {
-                    cb.setColorRGB(col.mediumVariant);
-                } else {
-                    final float scale = 0.3f / 255.0f;
-                    cb.setColorRGB((col.blackVariant >> 16 & 0xff) * scale,
-                            (col.blackVariant >> 8 & 0xff) * scale, (col.blackVariant & 0xff) * scale);
-                }
-
-                final int startx = j % 2;
-                final int starty = 1 - j / 2;
-
-                cb.addCube(offs[0] + startx, offs[1] + starty, offs[2], offs[0] + startx + 1, offs[1] + starty + 1,
-                        offs[2] + 1);
-            }
-
-        }
-
-        // Reset back to default
-        cb.setEmissiveMaterial(false);
-
-        return cb.getOutput();
-    }
-
-    private List<BakedQuad> getPartQuads(long partFlags) {
+    public List<BakedQuad> getPartQuads(Object partModelData, long rand) {
+        long resolvedFlags = partModelData instanceof Long ? (Long) partModelData : 0L;
         try {
-            return modelCache.get(partFlags, () -> {
-                short frequency = (short) (partFlags & 0xffffL);
-                boolean active = (partFlags & 0x10000L) != 0;
-                return this.getQuadsForFrequency(frequency, active);
-            });
+            return MODEL_CACHE.get(resolvedFlags, () -> this.getQuadsForFrequency(
+                P2PTunnelFrequencyModelData.getFrequency(resolvedFlags),
+                P2PTunnelFrequencyModelData.isActive(resolvedFlags)));
         } catch (ExecutionException e) {
             return Collections.emptyList();
         }
     }
 
     @Override
-    public boolean useAmbientOcclusion() {
+    public List<BakedQuad> getQuads(IBlockState state, EnumFacing side, long rand) {
+        if (side != null) {
+            return Collections.emptyList();
+        }
+        return this.getPartQuads(null, rand);
+    }
+
+    private List<BakedQuad> getQuadsForFrequency(short frequency, boolean active) {
+        AEColor[] colors = Platform.p2p().toColors(frequency);
+        CubeBuilder builder = new CubeBuilder(this.format);
+        builder.setTexture(this.texture);
+        builder.useStandardUV();
+        builder.setRenderFullBright(active);
+
+        for (int i = 0; i < 4; ++i) {
+            int[] offsets = QUAD_OFFSETS[i];
+            for (int j = 0; j < 4; ++j) {
+                AEColor color = colors[j];
+                if (active) {
+                    builder.setColorRGB(color.mediumVariant);
+                } else {
+                    final float scale = 0.3f / 255.0f;
+                    builder.setColorRGB((color.blackVariant >> 16 & 0xff) * scale,
+                        (color.blackVariant >> 8 & 0xff) * scale, (color.blackVariant & 0xff) * scale);
+                }
+
+                int startX = j % 2;
+                int startY = 1 - j / 2;
+                builder.addCube(offsets[0] + startX, offsets[1] + startY, offsets[2],
+                    offsets[0] + startX + 1, offsets[1] + startY + 1, offsets[2] + 1);
+            }
+        }
+
+        return builder.getOutput();
+    }
+
+    @Override
+    public boolean isAmbientOcclusion() {
         return false;
     }
 
@@ -118,22 +108,17 @@ public class P2PTunnelFrequencyBakedModel implements IDynamicBakedModel {
     }
 
     @Override
-    public boolean usesBlockLight() {
-        return false;// TODO
-    }
-
-    @Override
-    public boolean isCustomRenderer() {
+    public boolean isBuiltInRenderer() {
         return true;
     }
 
     @Override
-    public TextureAtlasSprite getParticleIcon() {
+    public TextureAtlasSprite getParticleTexture() {
         return this.texture;
     }
 
     @Override
-    public ItemOverrides getOverrides() {
-        return ItemOverrides.EMPTY;
+    public ItemOverrideList getOverrides() {
+        return ItemOverrideList.NONE;
     }
 }

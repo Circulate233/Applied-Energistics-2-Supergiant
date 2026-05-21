@@ -15,79 +15,52 @@
  * You should have received a copy of the GNU Lesser General Public License
  * along with Applied Energistics 2.  If not, see <http://www.gnu.org/licenses/lgpl>.
  */
-
 package appeng.client.render.effects;
 
-import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.particle.Particle;
-import net.minecraft.client.particle.ParticleProvider;
-import net.minecraft.client.particle.ParticleRenderType;
-import net.minecraft.client.particle.SpriteSet;
-import net.minecraft.client.particle.TextureSheetParticle;
-import net.minecraft.core.Direction;
-import net.minecraft.core.particles.SimpleParticleType;
-import net.neoforged.api.distmarker.Dist;
-import net.neoforged.api.distmarker.OnlyIn;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.world.World;
 
-public class MatterCannonFX extends TextureSheetParticle {
+public class MatterCannonFX extends Particle {
 
-    public MatterCannonFX(ClientLevel level, double x, double y, double z,
-            SpriteSet sprite) {
-        super(level, x, y, z);
-        this.gravity = 0;
-        this.bCol = 1;
-        this.gCol = 1;
-        this.rCol = 1;
-        this.alpha = 1.4f;
-        this.quadSize = 1.1f;
-        this.xd = 0.0f;
-        this.yd = 0.0f;
-        this.zd = 0.0f;
-        this.pickSprite(sprite);
-    }
-
-    public void fromItem(Direction d) {
-        this.quadSize *= 1.2f;
+    public MatterCannonFX(World world, double x, double y, double z, TextureAtlasSprite sprite) {
+        super(world, x, y, z, 0.0D, 0.0D, 0.0D);
+        this.particleGravity = 0.0f;
+        this.particleRed = 1.0f;
+        this.particleGreen = 1.0f;
+        this.particleBlue = 1.0f;
+        this.particleAlpha = 1.4f;
+        this.particleScale *= 1.1f;
+        this.motionX = 0.0f;
+        this.motionY = 0.0f;
+        this.motionZ = 0.0f;
+        if (sprite != null) {
+            this.setParticleTexture(sprite);
+        }
     }
 
     @Override
-    public ParticleRenderType getRenderType() {
-        return ParticleRenderType.PARTICLE_SHEET_OPAQUE;
+    public int getFXLayer() {
+        return 1;
     }
 
     @Override
-    public void tick() {
-        this.xo = this.x;
-        this.yo = this.y;
-        this.zo = this.z;
+    public void onUpdate() {
+        this.prevPosX = this.posX;
+        this.prevPosY = this.posY;
+        this.prevPosZ = this.posZ;
 
-        if (this.age++ >= this.lifetime) {
-            this.remove();
+        if (this.particleAge++ >= this.particleMaxAge) {
+            this.setExpired();
         }
 
-        this.yd -= 0.04D * this.gravity;
-        this.move(this.xd, this.yd, this.zd);
-        this.xd *= 0.9800000190734863D;
-        this.yd *= 0.9800000190734863D;
-        this.zd *= 0.9800000190734863D;
+        this.motionY -= 0.04D * this.particleGravity;
+        this.move(this.motionX, this.motionY, this.motionZ);
+        this.motionX *= 0.9800000190734863D;
+        this.motionY *= 0.9800000190734863D;
+        this.motionZ *= 0.9800000190734863D;
 
-        this.quadSize *= 1.19f;
-        this.alpha *= 0.59f;
+        this.particleScale *= 1.19f;
+        this.particleAlpha *= 0.59f;
     }
-
-    @OnlyIn(Dist.CLIENT)
-    public static class Factory implements ParticleProvider<SimpleParticleType> {
-        private final SpriteSet spriteSet;
-
-        public Factory(SpriteSet spriteSet) {
-            this.spriteSet = spriteSet;
-        }
-
-        @Override
-        public Particle createParticle(SimpleParticleType data, ClientLevel level, double x, double y, double z,
-                double xSpeed, double ySpeed, double zSpeed) {
-            return new MatterCannonFX(level, x, y, z, spriteSet);
-        }
-    }
-
 }

@@ -1,36 +1,30 @@
 package appeng.items.tools.powered;
 
-import java.util.function.DoubleSupplier;
-
-import org.jetbrains.annotations.Nullable;
-
-import net.minecraft.world.entity.SlotAccess;
-import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ClickAction;
-import net.minecraft.world.inventory.Slot;
-import net.minecraft.world.item.ItemStack;
-
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.config.Actionable;
-import appeng.api.implementations.menuobjects.IMenuItem;
+import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
+import appeng.core.gui.locator.GuiHostLocators;
 import appeng.items.tools.powered.powersink.AEBasePoweredItem;
-import appeng.menu.locator.MenuLocators;
+import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
 
-public abstract class PoweredContainerItem extends AEBasePoweredItem implements IMenuItem {
-    public PoweredContainerItem(DoubleSupplier powerCapacity, Properties props) {
-        super(powerCapacity, props);
+public abstract class PoweredContainerItem extends AEBasePoweredItem implements IGuiItem {
+    protected PoweredContainerItem(double powerCapacity) {
+        super(powerCapacity);
     }
 
-    protected long insert(Player player, ItemStack stack, AEKey what, @Nullable AEKeyType allowed, long amount,
-            Actionable mode) {
+    protected long insert(EntityPlayer player, ItemStack stack, AEKey what, @Nullable AEKeyType allowed, long amount,
+                          Actionable mode) {
         if (allowed != null && what.getType() != allowed) {
             return 0;
         }
 
-        var host = getMenuHost(player, MenuLocators.forStack(stack), null);
+        var host = getGuiHost(player, GuiHostLocators.forStack(stack), null);
         if (host == null) {
             return 0;
         }
@@ -38,79 +32,64 @@ public abstract class PoweredContainerItem extends AEBasePoweredItem implements 
         return host.insert(player, what, amount, mode);
     }
 
-    // Allow "hovering" up the content of container items in the inventory by right-clicking them
-    // with a compatible portable cell.
     @Override
-    public boolean overrideStackedOnOther(ItemStack stack, Slot slot, ClickAction action, Player player) {
-        if (action != ClickAction.SECONDARY || !slot.allowModification(player)) {
+    public boolean onStackedOnOther(ItemStack containerStack, Slot slot, EntityPlayer player) {
+        if (!slot.canTakeStack(player)) {
             return false;
         }
 
-        var other = slot.getItem();
+        var other = slot.getStack();
         if (other.isEmpty()) {
             return true;
         }
 
-        tryInsertFromPlayerOwnedItem(player, stack, other);
+        tryInsertFromPlayerOwnedItem(player, containerStack, other);
         return true;
     }
 
-    /**
-     * Allows directly inserting items and fluids into portable cells by right-clicking the cell with the item or bucket
-     * in hand.
-     */
     @Override
-    public boolean overrideOtherStackedOnMe(ItemStack stack, ItemStack other, Slot slot, ClickAction action,
-            Player player, SlotAccess access) {
-        if (action != ClickAction.SECONDARY || !slot.allowModification(player)) {
+    public boolean onOtherStackedOnMe(ItemStack containerStack, ItemStack otherStack, Slot slot,
+                                      EntityPlayer player) {
+        if (!slot.canTakeStack(player)) {
             return false;
         }
 
-        if (other.isEmpty()) {
+        if (otherStack.isEmpty()) {
             return false;
         }
 
-        tryInsertFromPlayerOwnedItem(player, stack, other);
+        tryInsertFromPlayerOwnedItem(player, containerStack, otherStack);
         return true;
     }
 
-    protected boolean tryInsertFromPlayerOwnedItem(Player player,
-            ItemStack cellStack,
-            ItemStack otherStack) {
-        // Try all available strategies
+    protected void tryInsertFromPlayerOwnedItem(EntityPlayer player, ItemStack cellStack, ItemStack otherStack) {
         for (var keyType : ContainerItemStrategies.getSupportedKeyTypes()) {
             if (tryInsertFromPlayerOwnedItem(player, cellStack, otherStack, keyType)) {
-                return true;
+                return;
             }
         }
 
-        // Fall back to inserting as item
         var key = AEItemKey.of(otherStack);
-        var inserted = (int) insert(player,
-                cellStack,
-                key,
-                AEKeyType.items(),
-                otherStack.getCount(),
-                Actionable.MODULATE);
+        if (key == null) {
+            return;
+        }
+        var inserted = (int) insert(player, cellStack, key, AEKeyType.items(), otherStack.getCount(),
+            Actionable.MODULATE);
         if (inserted > 0) {
             otherStack.shrink(inserted);
-            return true;
         }
-        return false;
     }
 
-    protected boolean tryInsertFromPlayerOwnedItem(Player player,
-            ItemStack cellStack,
-            ItemStack otherStack,
-            AEKeyType keyType) {
+    protected boolean tryInsertFromPlayerOwnedItem(EntityPlayer player, ItemStack cellStack, ItemStack otherStack,
+                                                   AEKeyType keyType) {
         var context = ContainerItemStrategies.findOwnedItemContext(keyType, player, otherStack);
         if (context != null) {
             var containedStack = context.getExtractableContent();
             if (containedStack != null) {
                 if (insert(player, cellStack, containedStack.what(), keyType, containedStack.amount(),
-                        Actionable.SIMULATE) == containedStack.amount()) {
+                    Actionable.SIMULATE) == containedStack.amount()) {
                     var extracted = context.extract(containedStack.what(), containedStack.amount(),
-                            Actionable.MODULATE);
+                        Actionable.MODULATE);
                     if (extracted > 0) {
                         insert(player, cellStack, containedStack.what(), keyType, extracted, Actionable.MODULATE);
                         context.playEmptySound(player, containedStack.what());
@@ -122,5 +101,4 @@ public abstract class PoweredContainerItem extends AEBasePoweredItem implements 
 
         return false;
     }
-
 }
