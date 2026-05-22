@@ -1,6 +1,5 @@
 package appeng.items.materials;
 
-import appeng.api.ids.AEComponents;
 import appeng.core.localization.Tooltips;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
@@ -13,13 +12,15 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.util.List;
 
 public final class QuantumEntangledSingularityItem extends MaterialItem {
+    private static final String ENTANGLED_SINGULARITY_ID = "entangled_singularity_id";
+
     @SideOnly(Side.CLIENT)
     @Override
     protected void addCheckedInformation(ItemStack stack, World world, List<String> lines,
                                          ITooltipFlag advancedTooltips) {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
-        NBTBase singularityId = AEComponents.ENTANGLED_SINGULARITY_ID_COMPONENT.readFrom(stack.getTagCompound());
+        NBTBase singularityId = stack.hasTagCompound() ? stack.getTagCompound().getTag(ENTANGLED_SINGULARITY_ID) : null;
         if (singularityId instanceof NBTTagLong id) {
             lines.add(Tooltips.QuantumKey.getLocal(id.getLong()));
         }

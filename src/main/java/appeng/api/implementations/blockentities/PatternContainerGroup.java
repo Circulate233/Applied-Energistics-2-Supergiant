@@ -2,8 +2,9 @@ package appeng.api.implementations.blockentities;
 
 import appeng.api.parts.IPartHost;
 import appeng.api.stacks.AEItemKey;
-import appeng.client.component.TextComponents;
 import appeng.core.localization.GuiText;
+import appeng.text.TextComponentItemStack;
+import appeng.text.TextComponents;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.network.PacketBuffer;
@@ -96,7 +97,7 @@ public record PatternContainerGroup(
                 if (targetItem.isEmpty()) {
                     return null;
                 }
-                name = TextComponents.of(targetItem);
+                name = TextComponentItemStack.of(targetItem);
             }
         }
 

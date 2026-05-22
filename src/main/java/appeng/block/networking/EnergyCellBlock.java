@@ -18,7 +18,6 @@
 
 package appeng.block.networking;
 
-import appeng.api.ids.AEComponents;
 import appeng.block.AEBaseTileBlock;
 import appeng.tile.networking.TileEnergyCell;
 import appeng.util.Platform;
@@ -30,13 +29,13 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagDouble;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 
 public class EnergyCellBlock extends AEBaseTileBlock<TileEnergyCell> {
+    private static final String STORED_ENERGY = "stored_energy";
 
     public static final int MAX_FULLNESS = 4;
 
@@ -143,7 +142,7 @@ public class EnergyCellBlock extends AEBaseTileBlock<TileEnergyCell> {
 
     private void setStoredEnergyTag(ItemStack stack, double currentPower, double maxPower) {
         NBTTagCompound tag = new NBTTagCompound();
-        AEComponents.STORED_ENERGY_COMPONENT.writeTo(tag, new NBTTagDouble(currentPower));
+        tag.setDouble(STORED_ENERGY, currentPower);
         NBTTagCompound blockEntityTag = new NBTTagCompound();
         blockEntityTag.setDouble("internalCurrentPower", currentPower);
         blockEntityTag.setDouble("internalMaxPower", maxPower);

@@ -18,7 +18,6 @@
 
 package appeng.items.tools;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IMemoryCard;
 import appeng.api.implementations.items.MemoryCardColors;
 import appeng.api.implementations.items.MemoryCardMessages;
@@ -33,6 +32,7 @@ import appeng.helpers.IConfigInvHost;
 import appeng.helpers.IPriorityHost;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.NetworkToolGuiHost;
+import appeng.text.TextComponentItemStack;
 import appeng.util.InteractionUtil;
 import appeng.util.Platform;
 import appeng.util.inv.PlayerInternalInventory;
@@ -41,6 +41,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import net.minecraft.block.Block;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
@@ -72,25 +73,37 @@ import java.util.Set;
 
 public class MemoryCardItem extends AEBaseItem implements IMemoryCard {
     private static final int DEFAULT_BASE_COLOR = 0x9cd3ff;
+    private static final String EXPORTED_SETTINGS_SOURCE = "exported_settings_source";
+    private static final String EXPORTED_CUSTOM_NAME = "exported_custom_name";
+    private static final String EXPORTED_UPGRADES = "exported_upgrades";
+    private static final String EXPORTED_SETTINGS = "exported_settings";
+    private static final String EXPORTED_PRIORITY = "exported_priority";
+    private static final String EXPORTED_P2P_TYPE = "exported_p2p_type";
+    private static final String EXPORTED_P2P_FREQUENCY = "exported_p2p_frequency";
+    private static final String MEMORY_CARD_COLORS = "memory_card_colors";
+    private static final String EXPORTED_CONFIG_INV = "exported_config_inv";
+    private static final String EXPORTED_LEVEL_EMITTER_VALUE = "exported_level_emitter_value";
+    private static final String EXPORTED_PATTERNS = "exported_patterns";
+    private static final String EXPORTED_PUSH_DIRECTION = "pushDirection";
     private static final String[] EXPORTED_TAGS = {
-        AEComponents.EXPORTED_SETTINGS_SOURCE,
-        AEComponents.EXPORTED_CUSTOM_NAME,
-        AEComponents.EXPORTED_UPGRADES,
-        AEComponents.EXPORTED_SETTINGS,
-        AEComponents.EXPORTED_PRIORITY,
-        AEComponents.EXPORTED_P2P_TYPE,
-        AEComponents.EXPORTED_P2P_FREQUENCY,
-        AEComponents.MEMORY_CARD_COLORS,
-        AEComponents.EXPORTED_CONFIG_INV,
-        AEComponents.EXPORTED_LEVEL_EMITTER_VALUE,
-        AEComponents.EXPORTED_PATTERNS,
-        AEComponents.EXPORTED_PUSH_DIRECTION
+        EXPORTED_SETTINGS_SOURCE,
+        EXPORTED_CUSTOM_NAME,
+        EXPORTED_UPGRADES,
+        EXPORTED_SETTINGS,
+        EXPORTED_PRIORITY,
+        EXPORTED_P2P_TYPE,
+        EXPORTED_P2P_FREQUENCY,
+        MEMORY_CARD_COLORS,
+        EXPORTED_CONFIG_INV,
+        EXPORTED_LEVEL_EMITTER_VALUE,
+        EXPORTED_PATTERNS,
+        EXPORTED_PUSH_DIRECTION
     };
     private static final String[] IMPORTABLE_EXPORTED_TAGS = {
-        AEComponents.EXPORTED_UPGRADES,
-        AEComponents.EXPORTED_SETTINGS,
-        AEComponents.EXPORTED_PRIORITY,
-        AEComponents.EXPORTED_CONFIG_INV
+        EXPORTED_UPGRADES,
+        EXPORTED_SETTINGS,
+        EXPORTED_PRIORITY,
+        EXPORTED_CONFIG_INV
     };
 
     public MemoryCardItem() {
@@ -109,19 +122,18 @@ public class MemoryCardItem extends AEBaseItem implements IMemoryCard {
                 settings.setString(entry.getKey(), entry.getValue());
             }
             if (!Platform.isNbtEmpty(settings)) {
-                AEComponents.EXPORTED_SETTINGS_COMPONENT.writeTo(output, settings);
+                output.setTag(EXPORTED_SETTINGS, settings.copy());
             }
         }
 
         if (exportFrom instanceof IPriorityHost) {
-            AEComponents.EXPORTED_PRIORITY_COMPONENT.writeTo(output,
-                new NBTTagInt(((IPriorityHost) exportFrom).getPriority()));
+            output.setInteger(EXPORTED_PRIORITY, ((IPriorityHost) exportFrom).getPriority());
         }
 
         if (exportFrom instanceof IConfigInvHost) {
             NBTTagList config = ((IConfigInvHost) exportFrom).getConfig().writeToTag();
             if (config.tagCount() > 0) {
-                AEComponents.EXPORTED_CONFIG_INV_COMPONENT.writeTo(output, config);
+                output.setTag(EXPORTED_CONFIG_INV, config.copy());
             }
         }
     }
@@ -130,41 +142,40 @@ public class MemoryCardItem extends AEBaseItem implements IMemoryCard {
         Set<String> imported = new ObjectOpenHashSet<>();
 
         if (player != null && importTo instanceof IUpgradeableObject) {
-            NBTTagList upgrades = AEComponents.EXPORTED_UPGRADES_COMPONENT.readFrom(input);
-            if (upgrades != null) {
+            if (input.hasKey(EXPORTED_UPGRADES, Constants.NBT.TAG_LIST)) {
+                NBTTagList upgrades = input.getTagList(EXPORTED_UPGRADES, Constants.NBT.TAG_COMPOUND);
                 restoreUpgrades(player, upgrades, (IUpgradeableObject) importTo);
-                imported.add(AEComponents.EXPORTED_UPGRADES);
+                imported.add(EXPORTED_UPGRADES);
             }
         }
 
-        if (importTo instanceof IConfigurableObject && AEComponents.EXPORTED_SETTINGS_COMPONENT.isPresentIn(input)) {
+        if (importTo instanceof IConfigurableObject && input.hasKey(EXPORTED_SETTINGS, Constants.NBT.TAG_COMPOUND)) {
             Map<String, String> settings = new Object2ObjectOpenHashMap<>();
-            NBTTagCompound settingsTag = AEComponents.EXPORTED_SETTINGS_COMPONENT.readFrom(input);
-            if (settingsTag == null) {
-                settingsTag = new NBTTagCompound();
-            }
+            NBTTagCompound settingsTag = input.getCompoundTag(EXPORTED_SETTINGS);
             for (String key : settingsTag.getKeySet()) {
                 settings.put(key, settingsTag.getString(key));
             }
             if (((IConfigurableObject) importTo).getConfigManager().importSettings(settings)) {
-                imported.add(AEComponents.EXPORTED_SETTINGS);
+                imported.add(EXPORTED_SETTINGS);
             }
         }
 
-        if (importTo instanceof IPriorityHost) {
-            NBTBase priorityBase = AEComponents.EXPORTED_PRIORITY_COMPONENT.copy(input.getTag(AEComponents.EXPORTED_PRIORITY));
-            NBTTagInt priorityTag = priorityBase instanceof NBTTagInt ? (NBTTagInt) priorityBase : null;
-            if (priorityTag != null) {
+        if (importTo instanceof IPriorityHost && input.hasKey(EXPORTED_PRIORITY, Constants.NBT.TAG_INT)) {
+            ((IPriorityHost) importTo).setPriority(input.getInteger(EXPORTED_PRIORITY));
+            imported.add(EXPORTED_PRIORITY);
+        } else if (importTo instanceof IPriorityHost && input.hasKey(EXPORTED_PRIORITY, Constants.NBT.TAG_ANY_NUMERIC)) {
+            NBTBase priorityBase = input.getTag(EXPORTED_PRIORITY);
+            if (priorityBase instanceof NBTTagInt priorityTag) {
                 ((IPriorityHost) importTo).setPriority(priorityTag.getInt());
-                imported.add(AEComponents.EXPORTED_PRIORITY);
+                imported.add(EXPORTED_PRIORITY);
             }
         }
 
-        if (importTo instanceof IConfigInvHost) {
-            NBTTagList configTag = AEComponents.EXPORTED_CONFIG_INV_COMPONENT.readFrom(input);
-            if (configTag != null) {
+        if (importTo instanceof IConfigInvHost && input.hasKey(EXPORTED_CONFIG_INV, Constants.NBT.TAG_LIST)) {
+            NBTTagList configTag = input.getTagList(EXPORTED_CONFIG_INV, Constants.NBT.TAG_COMPOUND);
+            if (configTag.tagCount() > 0) {
                 ((IConfigInvHost) importTo).getConfig().readFromTag(configTag);
-                imported.add(AEComponents.EXPORTED_CONFIG_INV);
+                imported.add(EXPORTED_CONFIG_INV);
             }
         }
 
@@ -240,7 +251,7 @@ public class MemoryCardItem extends AEBaseItem implements IMemoryCard {
         }
 
         if (list.tagCount() > 0) {
-            AEComponents.EXPORTED_UPGRADES_COMPONENT.writeTo(output, list);
+            output.setTag(EXPORTED_UPGRADES, list.copy());
         }
     }
 
@@ -321,7 +332,7 @@ public class MemoryCardItem extends AEBaseItem implements IMemoryCard {
             }
 
             if (missing > 0 && !player.world.isRemote) {
-                player.sendStatusMessage(PlayerMessages.MissingUpgrades.text(new ItemStack(entry.getKey()).getDisplayName(), missing),
+                player.sendStatusMessage(PlayerMessages.MissingUpgrades.text(TextComponentItemStack.of(new ItemStack(entry.getKey())), missing),
                     true);
             }
         }
@@ -343,12 +354,12 @@ public class MemoryCardItem extends AEBaseItem implements IMemoryCard {
     }
 
     public static void setMemoryCardColors(NBTTagCompound tag, MemoryCardColors colors) {
-        tag.setIntArray(AEComponents.MEMORY_CARD_COLORS, colors.toArray());
+        tag.setIntArray(MEMORY_CARD_COLORS, colors.toArray());
     }
 
     public static MemoryCardColors getMemoryCardColors(ItemStack stack) {
         NBTTagCompound tag = stack.getTagCompound();
-        return tag == null ? MemoryCardColors.DEFAULT : MemoryCardColors.fromTag(tag, AEComponents.MEMORY_CARD_COLORS);
+        return tag == null ? MemoryCardColors.DEFAULT : MemoryCardColors.fromTag(tag, MEMORY_CARD_COLORS);
     }
 
     public static int getTintColor(ItemStack stack, int tintIndex) {
@@ -368,14 +379,12 @@ public class MemoryCardItem extends AEBaseItem implements IMemoryCard {
             return;
         }
 
-        if (AEComponents.EXPORTED_SETTINGS_SOURCE_COMPONENT.isPresentIn(tag)) {
-            var source = AEComponents.EXPORTED_SETTINGS_SOURCE_COMPONENT.readFrom(tag);
-            if (source != null) {
-                lines.add(source.getString());
-            }
+        if (tag.hasKey(EXPORTED_SETTINGS_SOURCE, Constants.NBT.TAG_STRING)) {
+            String source = tag.getString(EXPORTED_SETTINGS_SOURCE);
+            lines.add(source.endsWith(".name") ? I18n.format(source) : source);
         }
 
-        NBTBase frequencyBase = AEComponents.EXPORTED_P2P_FREQUENCY_COMPONENT.copy(tag.getTag(AEComponents.EXPORTED_P2P_FREQUENCY));
+        NBTBase frequencyBase = tag.getTag(EXPORTED_P2P_FREQUENCY);
         NBTTagShort frequencyTag = frequencyBase instanceof NBTTagShort ? (NBTTagShort) frequencyBase : null;
         if (frequencyTag != null) {
             ITextComponent freq = Platform.p2p().toColoredHexString(frequencyTag.getShort());

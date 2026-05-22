@@ -2,6 +2,7 @@ package appeng.api.upgrades;
 
 import appeng.items.materials.EnergyCardItem;
 import appeng.items.materials.UpgradeCardItem;
+import appeng.text.TextComponentItemStack;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
@@ -103,8 +104,12 @@ public final class Upgrades {
         for (var cardAssociations : ASSOCIATIONS.values()) {
             for (var association : cardAssociations) {
                 if (association.upgradableItem() == upgradableItem) {
-                    String upgradeName = new ItemStack(association.upgradeCard()).getDisplayName();
-                    result.add(new TextComponentString(upgradeName + " (" + association.maxCount() + ")"));
+                    ITextComponent upgradeName = TextComponentItemStack.of(new ItemStack(association.upgradeCard()));
+                    if (association.maxCount() > 1) {
+                        upgradeName = upgradeName.createCopy()
+                            .appendSibling(new TextComponentString(" (" + association.maxCount() + ")"));
+                    }
+                    result.add(upgradeName);
                     break;
                 }
             }
@@ -121,7 +126,7 @@ public final class Upgrades {
 
         for (int i = 0; i < associations.size(); i++) {
             Association association = associations.get(i);
-            ITextComponent name = new TextComponentString(new ItemStack(association.upgradableItem()).getDisplayName());
+            ITextComponent name = TextComponentItemStack.of(new ItemStack(association.upgradableItem()));
             String dedupeKey = name.getUnformattedText();
 
             if (association.tooltipGroup() != null && namesAdded.contains(association.tooltipGroup())) {

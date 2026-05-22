@@ -33,6 +33,7 @@ import appeng.core.settings.TickRates;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.DelegatingMEInventory;
 import appeng.me.storage.NullInventory;
+import appeng.text.TextComponentItemStack;
 import appeng.util.ConfigInventory;
 import appeng.util.Platform;
 import com.google.common.collect.ImmutableSet;
@@ -514,7 +515,7 @@ public class InterfaceLogic implements ICraftingRequester, IUpgradeableObject, I
 
         @Override
         public ITextComponent getDescription() {
-            return host.getMainContainerIcon().getTextComponent();
+            return TextComponentItemStack.of(host.getMainContainerIcon());
         }
     }
 }

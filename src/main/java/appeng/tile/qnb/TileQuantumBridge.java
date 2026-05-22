@@ -18,7 +18,6 @@
 
 package appeng.tile.qnb;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridNodeListener;
@@ -49,6 +48,7 @@ public class TileQuantumBridge extends AENetworkedInvTile
     implements IAEMultiBlock<QuantumCluster>, ServerTickingTile {
 
     private static int singularitySeed = 0;
+    private static final String ENTANGLED_SINGULARITY_ID = "entangled_singularity_id";
 
     private final byte corner = 16;
     private final byte hasSingularity = 32;
@@ -76,7 +76,7 @@ public class TileQuantumBridge extends AENetworkedInvTile
         return !stack.isEmpty()
             && stack.getItem() == AEItems.QUANTUM_ENTANGLED_SINGULARITY.item()
             && stack.hasTagCompound()
-            && AEComponents.ENTANGLED_SINGULARITY_ID_COMPONENT.isPresentIn(stack.getTagCompound());
+            && stack.getTagCompound().hasKey(ENTANGLED_SINGULARITY_ID, 99);
     }
 
     public static void assignFrequency(ItemStack stack) {
@@ -86,7 +86,7 @@ public class TileQuantumBridge extends AENetworkedInvTile
             tag = new NBTTagCompound();
             stack.setTagCompound(tag);
         }
-        AEComponents.ENTANGLED_SINGULARITY_ID_COMPONENT.writeTo(tag, new NBTTagLong(frequency));
+        tag.setLong(ENTANGLED_SINGULARITY_ID, frequency);
     }
 
     @Override
@@ -251,7 +251,7 @@ public class TileQuantumBridge extends AENetworkedInvTile
     public long getQEFrequency() {
         final ItemStack stack = this.internalInventory.getStackInSlot(0);
         if (isValidEntangledSingularity(stack)) {
-            NBTBase frequencyTag = AEComponents.ENTANGLED_SINGULARITY_ID_COMPONENT.readFrom(stack.getTagCompound());
+            NBTBase frequencyTag = stack.getTagCompound().getTag(ENTANGLED_SINGULARITY_ID);
             if (frequencyTag instanceof NBTTagLong) {
                 return ((NBTTagLong) frequencyTag).getLong();
             }
@@ -317,5 +317,3 @@ public class TileQuantumBridge extends AENetworkedInvTile
         }
     }
 }
-
-

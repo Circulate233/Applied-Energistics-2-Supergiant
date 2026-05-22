@@ -1,20 +1,18 @@
 package appeng.client.gui.me.common;
 
 import appeng.api.client.AEKeyRendering;
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.api.stacks.AEKey;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.network.clientbound.CraftingJobStatusPacket;
 import appeng.util.SearchInventoryEvent;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 
 import java.util.Map;
 import java.util.UUID;
@@ -24,6 +22,7 @@ import java.util.UUID;
  */
 @SideOnly(Side.CLIENT)
 public final class PendingCraftingJobs {
+    private static final String WIRELESS_LINK_TARGET_TAG = "wireless_link_target";
     private static final Map<UUID, PendingJob> jobs = new Object2ObjectOpenHashMap<>();
 
     private PendingCraftingJobs() {
@@ -76,7 +75,8 @@ public final class PendingCraftingJobs {
             if (!stack.isEmpty()
                 && stack.getItem() instanceof IAEItemPowerStorage
                 && ((IAEItemPowerStorage) stack.getItem()).getAECurrentPower(stack) > 0
-                && AEComponents.WIRELESS_LINK_TARGET_COMPONENT.isPresentIn(tag)) {
+                && tag != null
+                && tag.hasKey(WIRELESS_LINK_TARGET_TAG, 10)) {
                 return true;
             }
         }
@@ -86,4 +86,3 @@ public final class PendingCraftingJobs {
     private record PendingJob(UUID jobId, AEKey what, long requestedAmount, long remainingAmount) {
     }
 }
-

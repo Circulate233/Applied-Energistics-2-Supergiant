@@ -1,9 +1,9 @@
 package appeng.container;
 
-import appeng.client.component.TextComponents;
 import appeng.container.slot.RestrictedInputSlot;
 import appeng.items.contents.NetworkToolGuiHost;
 import appeng.items.tools.NetworkToolItem;
+import appeng.text.TextComponentItemStack;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 
@@ -47,6 +47,6 @@ public class ToolboxInventory {
     }
 
     public ITextComponent getName() {
-        return this.inv != null ? TextComponents.of(this.inv.getItemStack()) : new TextComponentString("");
+        return this.inv != null ? TextComponentItemStack.of(this.inv.getItemStack()) : new TextComponentString("");
     }
 }

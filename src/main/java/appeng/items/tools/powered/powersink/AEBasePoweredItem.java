@@ -20,15 +20,12 @@ package appeng.items.tools.powered.powersink;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.items.AEBaseItem;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagDouble;
 import net.minecraft.util.NonNullList;
 import net.minecraft.world.World;
 import net.minecraftforge.common.capabilities.ICapabilityProvider;
@@ -40,6 +37,8 @@ import java.util.List;
 public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPowerStorage {
     private static final String CURRENT_POWER_NBT_KEY = "internalCurrentPower";
     private static final String MAX_POWER_NBT_KEY = "internalMaxPower";
+    private static final String STORED_ENERGY = "stored_energy";
+    private static final String ENERGY_CAPACITY = "energy_capacity";
     private static final double MIN_POWER = 0.0001;
 
     private final double powerCapacity;
@@ -123,21 +122,21 @@ public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPow
 
     @Override
     public double getAEMaxPower(final ItemStack is) {
-        return readLegacyCompatibleDouble(is, AEComponents.ENERGY_CAPACITY_COMPONENT, MAX_POWER_NBT_KEY, this.powerCapacity);
+        return readLegacyCompatibleDouble(is, ENERGY_CAPACITY, MAX_POWER_NBT_KEY, this.powerCapacity);
     }
 
     @Override
     public double getAECurrentPower(final ItemStack is) {
-        return readLegacyCompatibleDouble(is, AEComponents.STORED_ENERGY_COMPONENT, CURRENT_POWER_NBT_KEY, 0);
+        return readLegacyCompatibleDouble(is, STORED_ENERGY, CURRENT_POWER_NBT_KEY, 0);
     }
 
     protected final void setAECurrentPower(ItemStack stack, double power) {
         final NBTTagCompound data = openNbtData(stack);
         if (power < MIN_POWER) {
-            data.removeTag(AEComponents.STORED_ENERGY_COMPONENT.name());
+            data.removeTag(STORED_ENERGY);
             data.removeTag(CURRENT_POWER_NBT_KEY);
         } else {
-            AEComponents.STORED_ENERGY_COMPONENT.writeTo(data, new NBTTagDouble(power));
+            data.setDouble(STORED_ENERGY, power);
             data.removeTag(CURRENT_POWER_NBT_KEY);
         }
     }
@@ -145,10 +144,10 @@ public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPow
     protected final void setAEMaxPower(ItemStack stack, double maxPower) {
         final NBTTagCompound data = openNbtData(stack);
         if (Math.abs(maxPower - this.powerCapacity) < MIN_POWER) {
-            data.removeTag(AEComponents.ENERGY_CAPACITY_COMPONENT.name());
+            data.removeTag(ENERGY_CAPACITY);
             data.removeTag(MAX_POWER_NBT_KEY);
         } else {
-            AEComponents.ENERGY_CAPACITY_COMPONENT.writeTo(data, new NBTTagDouble(maxPower));
+            data.setDouble(ENERGY_CAPACITY, maxPower);
             data.removeTag(MAX_POWER_NBT_KEY);
         }
 
@@ -179,14 +178,13 @@ public abstract class AEBasePoweredItem extends AEBaseItem implements IAEItemPow
         return stack.getTagCompound();
     }
 
-    private double readLegacyCompatibleDouble(ItemStack stack, AEComponents.ComponentKey<NBTBase> component,
-                                              String legacyKey, double defaultValue) {
+    private double readLegacyCompatibleDouble(ItemStack stack, String key, String legacyKey, double defaultValue) {
         NBTTagCompound tag = stack.getTagCompound();
         if (tag == null) {
             return defaultValue;
         }
-        if (component.isPresentIn(tag)) {
-            return tag.getDouble(component.name());
+        if (tag.hasKey(key, 99)) {
+            return tag.getDouble(key);
         }
         if (tag.hasKey(legacyKey)) {
             return tag.getDouble(legacyKey);

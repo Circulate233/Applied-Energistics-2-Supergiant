@@ -18,7 +18,6 @@
 
 package appeng.block;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IMemoryCard;
 import appeng.api.implementations.items.MemoryCardMessages;
 import appeng.items.tools.MemoryCardItem;
@@ -59,7 +58,7 @@ public abstract class AEBaseTileBlock<T extends AEBaseTile> extends AEBaseBlock 
     public static final UnlistedDirection FORWARD = new UnlistedDirection("forward");
     public static final UnlistedDirection UP = new UnlistedDirection("up");
     private static final String MEMORY_CARD_SETTINGS_TAG = "settings";
-    private static final String MEMORY_CARD_SOURCE_TAG = AEComponents.EXPORTED_SETTINGS_SOURCE;
+    private static final String MEMORY_CARD_SOURCE_TAG = "exported_settings_source";
     @Nullable
     private Class<T> tileEntityClass;
 
@@ -144,7 +143,10 @@ public abstract class AEBaseTileBlock<T extends AEBaseTile> extends AEBaseBlock 
         }
 
         if (stack.hasDisplayName()) {
-            tile.setCustomName(stack.getDisplayName());
+            NBTTagCompound display = stack.getSubCompound("display");
+            if (display != null && display.hasKey("Name", 8)) {
+                tile.setCustomName(display.getString("Name"));
+            }
         }
 
         EntityPlayer player = placer instanceof EntityPlayer ? (EntityPlayer) placer : null;
@@ -292,7 +294,7 @@ public abstract class AEBaseTileBlock<T extends AEBaseTile> extends AEBaseBlock 
         if (item.getItem() instanceof ItemBlock) {
             Block block = ((ItemBlock) item.getItem()).getBlock();
             if (block == this) {
-                return item.getDisplayName();
+                return item.getTranslationKey() + ".name";
             }
         }
         return this.getLocalizedName();

@@ -6,10 +6,8 @@
   "compatibilityLevel": "JAVA_25",
   "target": "@env(MOD)",
   "refmap": "ae2.refmap.json",
-  "mixins": [],
   "client": [
     "hei.MixinGuiContainerWrapper",
     "hei.MixinGuiScreenHelper"
-  ],
-  "server": []
+  ]
 }

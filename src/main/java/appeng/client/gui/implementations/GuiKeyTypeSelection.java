@@ -21,7 +21,6 @@ package appeng.client.gui.implementations;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.storage.ISubGuiHost;
-import appeng.client.component.TextComponents;
 import appeng.client.Point;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.ICompositeWidget;
@@ -33,6 +32,7 @@ import appeng.client.gui.widgets.AECheckbox;
 import appeng.client.gui.widgets.TabButton;
 import appeng.container.AEBaseContainer;
 import appeng.container.interfaces.IKeyTypeSelectionContainer;
+import appeng.text.TextComponentItemStack;
 import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
@@ -51,7 +51,7 @@ public class GuiKeyTypeSelection<C extends AEBaseContainer & IKeyTypeSelectionCo
             GuiStyleManager.loadStyleDoc("/screens/key_type_selection.json"));
         this.parent = parent;
 
-        widgets.add("back", new TabButton(Icon.BACK, TextComponents.of(subGuiHost.getMainContainerIcon()), this::returnToParent));
+        widgets.add("back", new TabButton(Icon.BACK, TextComponentItemStack.of(subGuiHost.getMainContainerIcon()), this::returnToParent));
         widgets.add("keytypes", keyTypesWidget);
         setTextContent("dialog_title", dialogTitle);
     }

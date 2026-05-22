@@ -2,7 +2,6 @@ package appeng.crafting.pattern;
 
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsTooltip;
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
@@ -20,6 +19,7 @@ import java.util.Objects;
 public class AEProcessingPattern implements IPatternDetails {
     public static final int MAX_INPUT_SLOTS = 9 * 9;
     public static final int MAX_OUTPUT_SLOTS = 3 * 9;
+    private static final String ENCODED_PROCESSING_PATTERN = "encoded_processing_pattern";
 
     private final AEItemKey definition;
     private final List<GenericStack> sparseInputs;
@@ -55,18 +55,15 @@ public class AEProcessingPattern implements IPatternDetails {
         var encoded = new NBTTagCompound();
         encoded.setTag("inputs", writeGenericStackList(sparseInputs));
         encoded.setTag("outputs", writeGenericStackList(sparseOutputs));
-        stack.setTagInfo(AEComponents.ENCODED_PROCESSING_PATTERN_COMPONENT.name(), encoded);
+        stack.setTagInfo(ENCODED_PROCESSING_PATTERN, encoded);
     }
 
     public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World level,
                                                                  @Nullable Exception cause, ITooltipFlag flags) {
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_PRODUCES);
         var encoded = stack.getTagCompound();
-        if (encoded != null) {
-            var tag = AEComponents.ENCODED_PROCESSING_PATTERN_COMPONENT.readFrom(encoded);
-            if (tag == null) {
-                return tooltip;
-            }
+        if (encoded != null && encoded.hasKey(ENCODED_PROCESSING_PATTERN, 10)) {
+            var tag = encoded.getCompoundTag(ENCODED_PROCESSING_PATTERN);
             readGenericStackList(tag.getTagList("inputs", 10)).stream().filter(Objects::nonNull).forEach(tooltip::addInput);
             readGenericStackList(tag.getTagList("outputs", 10)).stream().filter(Objects::nonNull).forEach(tooltip::addOutput);
         }
@@ -80,7 +77,7 @@ public class AEProcessingPattern implements IPatternDetails {
         if (tag == null) {
             return null;
         }
-        return AEComponents.ENCODED_PROCESSING_PATTERN_COMPONENT.readFrom(tag);
+        return tag.hasKey(ENCODED_PROCESSING_PATTERN, 10) ? tag.getCompoundTag(ENCODED_PROCESSING_PATTERN) : null;
     }
 
     private static NBTTagList writeGenericStackList(List<GenericStack> stacks) {

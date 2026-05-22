@@ -1,7 +1,6 @@
 package appeng.client.gui.me.items;
 
 import appeng.api.stacks.GenericStack;
-import appeng.client.component.TextComponents;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Icon;
 import appeng.client.gui.NumberEntryType;
@@ -13,6 +12,7 @@ import appeng.client.gui.widgets.TabButton;
 import appeng.container.SlotSemantics;
 import appeng.container.me.items.ContainerPatternEncodingTerm;
 import appeng.core.localization.GuiText;
+import appeng.text.TextComponentItemStack;
 import com.google.common.primitives.Longs;
 import net.minecraft.inventory.Slot;
 
@@ -35,7 +35,7 @@ public class GuiSetProcessingPatternAmount extends AEBaseGui<ContainerPatternEnc
 
         widgets.addButton("save", GuiText.Set.text(), this::confirm);
         widgets.add("back", new TabButton(Icon.BACK,
-            TextComponents.of(parent.getContainer().getHost().getMainContainerIcon()), this::returnToParent));
+            TextComponentItemStack.of(parent.getContainer().getHost().getMainContainerIcon()), this::returnToParent));
 
         this.amount = widgets.addNumberEntryWidget("amountToStock", NumberEntryType.of(currentStack.what()));
         this.amount.setLongValue(currentStack.amount());

@@ -1,0 +1,84 @@
+{
+  "$schema": "../schema.json",
+  "includes": ["../common/common.json"],
+  "generatedBackground": {
+    "width": 200,
+    "height": 202
+  },
+  "text": {
+    "dialog_title": {
+      "position": {
+        "left": 8,
+        "top": 7
+      },
+      "text": {
+        "translate": "gui.ae2.PatternImportPrioritiesTitle"
+      }
+    },
+    "page_info": {
+      "position": {
+        "left": 86,
+        "top": 180
+      },
+      "text": {
+        "text": "1 / 1"
+      }
+    }
+  },
+  "widgets": {
+    "back": {
+      "left": 176,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "priorityButton0": {
+      "left": 10,
+      "top": 28,
+      "width": 26,
+      "height": 20
+    },
+    "priorityButton1": {
+      "left": 10,
+      "top": 52,
+      "width": 26,
+      "height": 20
+    },
+    "priorityButton2": {
+      "left": 10,
+      "top": 76,
+      "width": 26,
+      "height": 20
+    },
+    "priorityButton3": {
+      "left": 10,
+      "top": 100,
+      "width": 26,
+      "height": 20
+    },
+    "priorityButton4": {
+      "left": 10,
+      "top": 124,
+      "width": 26,
+      "height": 20
+    },
+    "priorityButton5": {
+      "left": 10,
+      "top": 148,
+      "width": 26,
+      "height": 20
+    },
+    "previousPage": {
+      "left": 10,
+      "top": 176,
+      "width": 22,
+      "height": 20
+    },
+    "nextPage": {
+      "left": 168,
+      "top": 176,
+      "width": 22,
+      "height": 20
+    }
+  }
+}

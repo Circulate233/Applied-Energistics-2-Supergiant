@@ -18,12 +18,12 @@
 
 package appeng.items.parts;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IFacadeItem;
 import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPartHost;
 import appeng.facade.FacadePart;
 import appeng.items.AEBaseItem;
+import appeng.text.TextComponentItemStack;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.block.Block;
 import net.minecraft.block.SoundType;
@@ -56,6 +56,7 @@ import java.util.Set;
 
 public class FacadeItem extends AEBaseItem implements IFacadeItem {
 
+    private static final String FACADE_ITEM = "facade_item";
     private static final String TAG_ITEM_ID = "item";
     private static final String TAG_DAMAGE = "damage";
     private static final Set<ResourceLocation> FACADE_BLOCK_WHITELIST = createFacadeBlockWhitelist();
@@ -152,7 +153,7 @@ public class FacadeItem extends AEBaseItem implements IFacadeItem {
         try {
             ItemStack textureItem = this.getTextureItem(stack);
             if (!textureItem.isEmpty()) {
-                return super.getItemStackDisplayName(stack) + " - " + textureItem.getDisplayName();
+                return super.getItemStackDisplayName(stack) + " - " + TextComponentItemStack.of(textureItem).getFormattedText();
             }
         } catch (Throwable ignored) {
         }
@@ -239,8 +240,7 @@ public class FacadeItem extends AEBaseItem implements IFacadeItem {
     public ItemStack createFacadeForItemUnchecked(ItemStack itemStack) {
         ItemStack facade = new ItemStack(this);
         NBTTagCompound data = new NBTTagCompound();
-        AEComponents.FACADE_ITEM_COMPONENT.writeTo(data,
-            new net.minecraft.nbt.NBTTagString(Objects.requireNonNull(itemStack.getItem().getRegistryName()).toString()));
+        data.setString(FACADE_ITEM, Objects.requireNonNull(itemStack.getItem().getRegistryName()).toString());
         data.setInteger(TAG_DAMAGE, itemStack.getItemDamage());
         facade.setTagCompound(data);
         return facade;
@@ -266,8 +266,8 @@ public class FacadeItem extends AEBaseItem implements IFacadeItem {
         ResourceLocation itemId;
         int itemDamage;
 
-        if (AEComponents.FACADE_ITEM_COMPONENT.isPresentIn(nbt)) {
-            itemId = new ResourceLocation(Objects.requireNonNull(AEComponents.FACADE_ITEM_COMPONENT.readFrom(nbt)).getString());
+        if (nbt.hasKey(FACADE_ITEM, 8)) {
+            itemId = new ResourceLocation(nbt.getString(FACADE_ITEM));
             itemDamage = nbt.getInteger(TAG_DAMAGE);
         } else if (nbt.hasKey("x")) {
             int[] data = nbt.getIntArray("x");

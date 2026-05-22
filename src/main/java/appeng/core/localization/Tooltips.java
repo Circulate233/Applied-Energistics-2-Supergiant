@@ -5,7 +5,7 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
-import appeng.client.component.TextComponents;
+import appeng.text.TextComponentItemStack;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.Style;
@@ -37,7 +37,7 @@ public enum Tooltips implements LocalizationEnum {
         return List.of(
             muted(baseAction.text(
                 getMouseButtonText(0),
-                normalTooltipText(TextComponents.of(carried)))),
+                normalTooltipText(TextComponentItemStack.of(carried)))),
             muted(baseAction.text(
                 getMouseButtonText(1),
                 normalTooltipText(emptyingAction.description()))));

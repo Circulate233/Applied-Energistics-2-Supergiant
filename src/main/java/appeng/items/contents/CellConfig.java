@@ -18,7 +18,6 @@
 
 package appeng.items.contents;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
@@ -32,6 +31,7 @@ import java.util.Set;
 
 public final class CellConfig {
     private static final String STORAGE_CELL_CONFIG_INV_TAG = "storageCellConfigInv";
+    private static final String STORAGE_CELL_CONFIG_INV = "storage_cell_config_inv";
 
     private CellConfig() {
     }
@@ -80,8 +80,8 @@ public final class CellConfig {
                 return;
             }
 
-            var componentData = AEComponents.STORAGE_CELL_CONFIG_INV_COMPONENT.readFrom(tag);
-            if (componentData != null) {
+            if (tag.hasKey(STORAGE_CELL_CONFIG_INV, 9)) {
+                var componentData = tag.getTagList(STORAGE_CELL_CONFIG_INV, 10);
                 inv.readFromList(GenericStack.readList(componentData));
                 return;
             }
@@ -97,9 +97,9 @@ public final class CellConfig {
 
             List<GenericStack> list = inv.toList();
             if (list.stream().allMatch(java.util.Objects::isNull)) {
-                tag.removeTag(AEComponents.STORAGE_CELL_CONFIG_INV_COMPONENT.name());
+                tag.removeTag(STORAGE_CELL_CONFIG_INV);
             } else {
-                AEComponents.STORAGE_CELL_CONFIG_INV_COMPONENT.writeTo(tag, GenericStack.writeList(list));
+                tag.setTag(STORAGE_CELL_CONFIG_INV, GenericStack.writeList(list));
             }
 
             inv.writeToChildTag(tag, STORAGE_CELL_CONFIG_INV_TAG);

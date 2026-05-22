@@ -329,6 +329,6 @@ public abstract class IOBusPart extends UpgradeablePart implements IGridTickable
 
     @Override
     public ItemStack getMainContainerIcon() {
-        return getPartItem().asItem().getDefaultInstance();
+        return getPartItem().asItemStack();
     }
 }

@@ -1,6 +1,5 @@
 package appeng.items.misc;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypesInternal;
@@ -9,7 +8,6 @@ import appeng.items.AEBaseItem;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
@@ -23,6 +21,10 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public class MissingContentItem extends AEBaseItem {
+    private static final String MISSING_CONTENT_ITEMSTACK_DATA = "missing_content_itemstack_data";
+    private static final String MISSING_CONTENT_AEKEY_DATA = "missing_content_aekey_data";
+    private static final String MISSING_CONTENT_ERROR = "missing_content_error";
+
     public MissingContentItem() {
         super();
     }
@@ -38,8 +40,12 @@ public class MissingContentItem extends AEBaseItem {
             return null;
         }
 
-        NBTTagCompound itemStackData = AEComponents.MISSING_CONTENT_ITEMSTACK_DATA_COMPONENT.readFrom(tag);
-        NBTTagCompound genericStackData = AEComponents.MISSING_CONTENT_AEKEY_DATA_COMPONENT.readFrom(tag);
+        NBTTagCompound itemStackData = tag.hasKey(MISSING_CONTENT_ITEMSTACK_DATA, Constants.NBT.TAG_COMPOUND)
+            ? tag.getCompoundTag(MISSING_CONTENT_ITEMSTACK_DATA)
+            : null;
+        NBTTagCompound genericStackData = tag.hasKey(MISSING_CONTENT_AEKEY_DATA, Constants.NBT.TAG_COMPOUND)
+            ? tag.getCompoundTag(MISSING_CONTENT_AEKEY_DATA)
+            : null;
 
         if (itemStackData != null
             && itemStackData.hasKey("id", Constants.NBT.TAG_STRING)) {
@@ -86,9 +92,8 @@ public class MissingContentItem extends AEBaseItem {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
         NBTTagCompound tag = stack.getTagCompound();
-        NBTTagString error = AEComponents.MISSING_CONTENT_ERROR_COMPONENT.readFrom(tag);
-        if (error != null) {
-            lines.add(TextFormatting.GRAY + error.getString());
+        if (tag != null && tag.hasKey(MISSING_CONTENT_ERROR, Constants.NBT.TAG_STRING)) {
+            lines.add(TextFormatting.GRAY + tag.getString(MISSING_CONTENT_ERROR));
         }
     }
 

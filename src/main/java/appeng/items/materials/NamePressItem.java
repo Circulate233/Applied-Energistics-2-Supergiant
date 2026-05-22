@@ -18,7 +18,6 @@
 
 package appeng.items.materials;
 
-import appeng.api.ids.AEComponents;
 import appeng.items.AEBaseItem;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
@@ -33,6 +32,8 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.util.List;
 
 public class NamePressItem extends AEBaseItem {
+    private static final String NAME_PRESS_NAME_TAG = "name_press_name";
+
     public NamePressItem() {
         super();
     }
@@ -44,8 +45,7 @@ public class NamePressItem extends AEBaseItem {
 
         ITextComponent inscribedName = null;
         if (stack.hasTagCompound()) {
-            var nameTag = AEComponents.NAME_PRESS_NAME_COMPONENT.readFrom(stack.getTagCompound());
-            String rawName = nameTag != null ? nameTag.getString() : "";
+            String rawName = stack.getTagCompound().getString(NAME_PRESS_NAME_TAG);
             if (!rawName.isEmpty()) {
                 try {
                     inscribedName = Serializer.jsonToComponent(rawName);

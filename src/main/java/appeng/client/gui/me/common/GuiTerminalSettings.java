@@ -18,7 +18,6 @@
 
 package appeng.client.gui.me.common;
 
-import appeng.client.component.TextComponents;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Icon;
 import appeng.client.gui.style.GuiStyleManager;
@@ -28,6 +27,7 @@ import appeng.container.me.common.ContainerMEStorage;
 import appeng.core.AEConfig;
 import appeng.core.localization.GuiText;
 import appeng.integration.abstraction.ItemListMod;
+import appeng.text.TextComponentItemStack;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 
@@ -51,7 +51,7 @@ public class GuiTerminalSettings<C extends ContainerMEStorage> extends AEBaseGui
         ITextComponent externalSearchName = new TextComponentString(
             ItemListMod.isEnabled() ? ItemListMod.getShortName() : "HEI");
 
-        widgets.add("back", new TabButton(Icon.BACK, TextComponents.of(parent.getContainer().getHost().getMainContainerIcon()),
+        widgets.add("back", new TabButton(Icon.BACK, TextComponentItemStack.of(parent.getContainer().getHost().getMainContainerIcon()),
             this::returnToParent));
 
         this.pinAutoCraftedItemsCheckbox = widgets.addCheckbox("pinAutoCraftedItemsCheckbox",

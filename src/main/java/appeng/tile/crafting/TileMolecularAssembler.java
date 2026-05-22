@@ -40,7 +40,6 @@ import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.UpgradeInventories;
 import appeng.api.util.AECableType;
-import appeng.client.component.TextComponents;
 import appeng.client.render.crafting.AssemblerAnimationStatus;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEBlocks;
@@ -49,6 +48,7 @@ import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.clientbound.AssemblerAnimationPacket;
+import appeng.text.TextComponentItemStack;
 import appeng.tile.grid.AENetworkedInvTile;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.CombinedInternalInventory;
@@ -63,7 +63,6 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.common.capabilities.Capability;
 
 import javax.annotation.Nullable;
@@ -119,8 +118,8 @@ public class TileMolecularAssembler extends AENetworkedInvTile
 
     @Override
     public PatternContainerGroup getCraftingMachineInfo() {
-        ITextComponent name = hasCustomName() ? getCustomName()
-            : new TextComponentString(AEBlocks.MOLECULAR_ASSEMBLER.stack().getDisplayName());
+        ITextComponent name;
+        name = hasCustomName() ? getCustomName() : TextComponentItemStack.of(AEBlocks.MOLECULAR_ASSEMBLER.stack());
         List<ITextComponent> tooltip;
         int accelerationCards = this.upgrades.getInstalledUpgrades(AEItems.SPEED_CARD.item());
         if (accelerationCards == 0) {
@@ -128,7 +127,7 @@ public class TileMolecularAssembler extends AENetworkedInvTile
         } else {
             tooltip = new ObjectArrayList<>(1);
             tooltip.add(Tooltips.of(GuiText.CompatibleUpgrade.text(
-                Tooltips.of(TextComponents.of(AEItems.SPEED_CARD.stack())),
+                Tooltips.of(TextComponentItemStack.of(AEItems.SPEED_CARD.stack())),
                 Tooltips.ofUnformattedNumber(accelerationCards))));
         }
         return new PatternContainerGroup(AEItemKey.of(AEBlocks.MOLECULAR_ASSEMBLER.item()), name, tooltip);

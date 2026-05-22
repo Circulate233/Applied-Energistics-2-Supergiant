@@ -25,21 +25,19 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
 import appeng.core.localization.GuiText;
 import com.google.common.base.Preconditions;
-import it.unimi.dsi.fastutil.objects.Object2ObjectRBTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectRBTreeMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectSortedMap;
+import it.unimi.dsi.fastutil.ints.IntComparator;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Comparator;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.SortedMap;
 
 public class NetworkStorage implements MEStorage {
-    private static final Comparator<Integer> PRIORITY_SORTER = (first, second) -> Integer.compare(second, first);
-    private final SortedMap<Integer, List<MEStorage>> priorityInventory = new Object2ObjectRBTreeMap<>(PRIORITY_SORTER);
+    private static final IntComparator PRIORITY_SORTER = (first, second) -> Integer.compare(second, first);
+    private final Int2ObjectSortedMap<List<MEStorage>> priorityInventory = new Int2ObjectRBTreeMap<>(PRIORITY_SORTER);
     private final ObjectList<MEStorage> secondPassInventories = new ObjectArrayList<>();
     private boolean mountsInUse;
     @Nullable
@@ -66,9 +64,9 @@ public class NetworkStorage implements MEStorage {
             return;
         }
 
-        Iterator<Map.Entry<Integer, List<MEStorage>>> iterator = this.priorityInventory.entrySet().iterator();
+        var iterator = this.priorityInventory.int2ObjectEntrySet().iterator();
         while (iterator.hasNext()) {
-            Map.Entry<Integer, List<MEStorage>> entry = iterator.next();
+            var entry = iterator.next();
             List<MEStorage> inventories = entry.getValue();
             if (inventories.remove(inventory) && inventories.isEmpty()) {
                 iterator.remove();

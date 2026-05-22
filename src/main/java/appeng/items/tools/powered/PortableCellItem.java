@@ -5,7 +5,6 @@
 package appeng.items.tools.powered;
 
 import appeng.api.config.FuzzyMode;
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.upgrades.IUpgradeInventory;
@@ -18,7 +17,6 @@ import appeng.util.ConfigInventory;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 
@@ -26,6 +24,8 @@ import java.util.List;
 import java.util.Set;
 
 public class PortableCellItem extends AbstractPortableCell implements IBasicCellItem {
+    private static final String STORAGE_CELL_FUZZY_MODE = "storage_cell_fuzzy_mode";
+
     private final StorageTier tier;
     private final AEKeyType keyType;
     private final int totalTypes;
@@ -89,12 +89,9 @@ public class PortableCellItem extends AbstractPortableCell implements IBasicCell
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
         var tag = is.getTagCompound();
-        if (tag != null) {
+        if (tag != null && tag.hasKey(STORAGE_CELL_FUZZY_MODE, 8)) {
             try {
-                var value = AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.readFrom(tag);
-                if (value != null) {
-                    return FuzzyMode.valueOf(value.getString());
-                }
+                return FuzzyMode.valueOf(tag.getString(STORAGE_CELL_FUZZY_MODE));
             } catch (IllegalArgumentException ignored) {
             }
         }
@@ -108,7 +105,7 @@ public class PortableCellItem extends AbstractPortableCell implements IBasicCell
             tag = new NBTTagCompound();
             is.setTagCompound(tag);
         }
-        AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.writeTo(tag, new NBTTagString(fzMode.name()));
+        tag.setString(STORAGE_CELL_FUZZY_MODE, fzMode.name());
     }
 
     @Override

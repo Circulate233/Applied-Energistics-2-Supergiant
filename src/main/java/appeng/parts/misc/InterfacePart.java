@@ -140,6 +140,6 @@ public class InterfacePart extends AEBasePart implements InterfaceLogicHost {
 
     @Override
     public ItemStack getMainContainerIcon() {
-        return new ItemStack(this.getPartItem().asItem());
+        return this.getPartItem().asItemStack();
     }
 }

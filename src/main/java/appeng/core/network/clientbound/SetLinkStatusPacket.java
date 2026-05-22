@@ -2,9 +2,9 @@ package appeng.core.network.clientbound;
 
 import appeng.api.storage.ILinkStatus;
 import appeng.api.storage.LinkStatus;
-import appeng.client.component.TextComponents;
 import appeng.container.guisync.ILinkStatusAwareContainer;
 import appeng.core.network.ClientboundPacket;
+import appeng.text.TextComponents;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.PacketBuffer;

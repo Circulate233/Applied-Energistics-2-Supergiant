@@ -22,7 +22,6 @@ import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.config.PowerUnit;
 import appeng.api.features.P2PTunnelAttunement;
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IMemoryCard;
 import appeng.api.implementations.items.MemoryCardColors;
 import appeng.api.implementations.items.MemoryCardMessages;
@@ -47,7 +46,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagShort;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
@@ -60,6 +58,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePart {
+    private static final String EXPORTED_SETTINGS_SOURCE_TAG = "exported_settings_source";
+    private static final String EXPORTED_P2P_TYPE_TAG = "exported_p2p_type";
+    private static final String EXPORTED_P2P_FREQUENCY_TAG = "exported_p2p_frequency";
+
     private boolean output;
     private short freq;
 
@@ -195,8 +197,7 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
 
                 MemoryCardItem.clearCard(heldItem);
                 NBTTagCompound cardTag = Platform.openNbtData(heldItem);
-                AEComponents.EXPORTED_SETTINGS_SOURCE_COMPONENT.writeTo(cardTag,
-                    new NBTTagString(new ItemStack(getPartItem().asItem()).getDisplayName()));
+                cardTag.setString(EXPORTED_SETTINGS_SOURCE_TAG, getPartItem().asItemStack().getTranslationKey() + ".name");
                 cardTag.merge(exportSettings(SettingsFrom.MEMORY_CARD));
 
                 memoryCard.notifyUser(player,
@@ -206,12 +207,11 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
 
             NBTTagCompound cardTag = heldItem.getTagCompound();
             if (cardTag != null) {
-                var typeIdTag = AEComponents.EXPORTED_P2P_TYPE_COMPONENT.readFrom(cardTag);
-                if (typeIdTag == null) {
+                if (!cardTag.hasKey(EXPORTED_P2P_TYPE_TAG, 8)) {
                     memoryCard.notifyUser(player, MemoryCardMessages.INVALID_MACHINE);
                     return false;
                 }
-                String typeId = typeIdTag.getString();
+                String typeId = cardTag.getString(EXPORTED_P2P_TYPE_TAG);
                 Item item = Item.REGISTRY.getObject(new ResourceLocation(typeId));
                 if (item instanceof IPartItem<?> partItem && P2PTunnelPart.class.isAssignableFrom(partItem.getPartClass())) {
                     IPart newPart = this;
@@ -239,7 +239,7 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
     public void importSettings(SettingsFrom mode, NBTTagCompound input, @Nullable EntityPlayer player) {
         super.importSettings(mode, input, player);
 
-        NBTBase frequencyBase = AEComponents.EXPORTED_P2P_FREQUENCY_COMPONENT.copy(input.getTag(AEComponents.EXPORTED_P2P_FREQUENCY));
+        NBTBase frequencyBase = input.getTag(EXPORTED_P2P_FREQUENCY_TAG);
         NBTTagShort frequencyTag = frequencyBase instanceof NBTTagShort ? (NBTTagShort) frequencyBase : null;
         if (frequencyTag != null) {
             short frequency = frequencyTag.getShort();
@@ -262,11 +262,11 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
         if (mode == SettingsFrom.MEMORY_CARD) {
             ResourceLocation id = getPartItem().asItem().getRegistryName();
             if (id != null) {
-                AEComponents.EXPORTED_P2P_TYPE_COMPONENT.writeTo(output, new NBTTagString(id.toString()));
+                output.setString(EXPORTED_P2P_TYPE_TAG, id.toString());
             }
 
             if (freq != 0) {
-                AEComponents.EXPORTED_P2P_FREQUENCY_COMPONENT.writeTo(output, new NBTTagShort(freq));
+                output.setShort(EXPORTED_P2P_FREQUENCY_TAG, freq);
                 AEColor[] colors = Platform.p2p().toColors(freq);
                 MemoryCardItem.setMemoryCardColors(output,
                     new MemoryCardColors(colors[0], colors[0], colors[1], colors[1],
@@ -344,5 +344,3 @@ public abstract class P2PTunnelPart<T extends P2PTunnelPart<T>> extends AEBasePa
         return P2PTunnelFrequencyModelData.of(this.getFrequency(), this.isActive() && this.isPowered());
     }
 }
-
-

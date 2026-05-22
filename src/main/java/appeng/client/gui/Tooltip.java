@@ -18,11 +18,11 @@
 
 package appeng.client.gui;
 
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.util.Arrays;
 import java.util.List;
@@ -48,7 +48,7 @@ public record Tooltip(List<ITextComponent> content) {
     }
 
     private static void visitComponent(ITextComponent component, LineSplittingVisitor visitor) {
-        visitor.accept(component.getStyle(), component.getUnformattedComponentText());
+        visitor.accept(component.getStyle(), component.getFormattedText());
         for (ITextComponent sibling : component.getSiblings()) {
             visitComponent(sibling, visitor);
         }

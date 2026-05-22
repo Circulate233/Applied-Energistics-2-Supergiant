@@ -3,7 +3,6 @@ package appeng.crafting.pattern;
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.crafting.PatternDetailsTooltip;
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
@@ -39,6 +38,7 @@ import java.util.Objects;
 public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSupportedPattern {
     public static final int CRAFTING_GRID_DIMENSION = 3;
     public static final int CRAFTING_GRID_SLOTS = CRAFTING_GRID_DIMENSION * CRAFTING_GRID_DIMENSION;
+    private static final String ENCODED_CRAFTING_PATTERN = "encoded_crafting_pattern";
 
     private final AEItemKey definition;
     private final boolean canSubstitute;
@@ -107,7 +107,7 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         encoded.setString("recipeId", recipe.getRegistryName().toString());
         encoded.setBoolean("canSubstitute", allowSubstitutes);
         encoded.setBoolean("canSubstituteFluids", allowFluidSubstitutes);
-        result.setTagInfo(AEComponents.ENCODED_CRAFTING_PATTERN_COMPONENT.name(), encoded);
+        result.setTagInfo(ENCODED_CRAFTING_PATTERN, encoded);
     }
 
     public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World level,
@@ -115,7 +115,7 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_CRAFTS);
 
         var tag = stack.getTagCompound();
-        var encoded = tag == null ? null : AEComponents.ENCODED_CRAFTING_PATTERN_COMPONENT.readFrom(tag);
+        var encoded = tag != null && tag.hasKey(ENCODED_CRAFTING_PATTERN, 10) ? tag.getCompoundTag(ENCODED_CRAFTING_PATTERN) : null;
         if (encoded != null) {
             for (var input : readItemStackList(encoded.getTagList("in", 10))) {
                 if (!input.isEmpty()) {
@@ -171,7 +171,7 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         if (tag == null) {
             return null;
         }
-        return AEComponents.ENCODED_CRAFTING_PATTERN_COMPONENT.readFrom(tag);
+        return tag.hasKey(ENCODED_CRAFTING_PATTERN, 10) ? tag.getCompoundTag(ENCODED_CRAFTING_PATTERN) : null;
     }
 
     private static NBTTagList writeItemStackList(List<ItemStack> stacks) {

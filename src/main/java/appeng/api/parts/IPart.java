@@ -159,7 +159,7 @@ public interface IPart extends ICustomCableConnection {
     }
 
     default void addPartDrop(List<ItemStack> drops, boolean ignoredWrenched) {
-        var stack = new ItemStack(getPartItem().asItem());
+        var stack = getPartItem().asItemStack();
         var tag = new NBTTagCompound();
         exportSettings(SettingsFrom.DISMANTLE_ITEM, tag);
         if (!Platform.isNbtEmpty(tag)) {

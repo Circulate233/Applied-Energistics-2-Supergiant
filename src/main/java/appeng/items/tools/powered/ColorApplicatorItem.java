@@ -20,7 +20,6 @@ package appeng.items.tools.powered;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.blockentities.IColorableBlockEntity;
 import appeng.api.implementations.tiles.IColorableTile;
 import appeng.api.stacks.AEItemKey;
@@ -56,7 +55,6 @@ import net.minecraft.init.Items;
 import net.minecraft.item.ItemSnowball;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
@@ -75,6 +73,8 @@ public class ColorApplicatorItem extends AEBasePoweredItem implements IBasicCell
 
     private static final double POWER_PER_USE = 100;
     private static final String FUZZY_MODE_TAG = "fuzzyMode";
+    private static final String STORAGE_CELL_FUZZY_MODE = "storage_cell_fuzzy_mode";
+    private static final String SELECTED_COLOR = "selected_color";
     private static final Int2ObjectOpenHashMap<AEColor> ORE_TO_COLOR = new Int2ObjectOpenHashMap<>();
 
     static {
@@ -419,12 +419,9 @@ public class ColorApplicatorItem extends AEBasePoweredItem implements IBasicCell
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
         NBTTagCompound tag = is.getTagCompound();
-        if (tag != null) {
+        if (tag != null && tag.hasKey(STORAGE_CELL_FUZZY_MODE, 8)) {
             try {
-                var value = AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.readFrom(tag);
-                if (value != null) {
-                    return FuzzyMode.valueOf(value.getString());
-                }
+                return FuzzyMode.valueOf(tag.getString(STORAGE_CELL_FUZZY_MODE));
             } catch (IllegalArgumentException ignored) {
             }
         }
@@ -440,7 +437,7 @@ public class ColorApplicatorItem extends AEBasePoweredItem implements IBasicCell
     @Override
     public void setFuzzyMode(ItemStack is, FuzzyMode fzMode) {
         final NBTTagCompound tag = openNbtData(is);
-        AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.writeTo(tag, new NBTTagString(fzMode.name()));
+        tag.setString(STORAGE_CELL_FUZZY_MODE, fzMode.name());
         tag.removeTag(FUZZY_MODE_TAG);
     }
 
@@ -492,10 +489,9 @@ public class ColorApplicatorItem extends AEBasePoweredItem implements IBasicCell
             return null;
         }
 
-        var selectedColor = AEComponents.SELECTED_COLOR_COMPONENT.readFrom(tag);
-        if (selectedColor != null) {
+        if (tag.hasKey(SELECTED_COLOR, 8)) {
             try {
-                return AEColor.valueOf(selectedColor.getString());
+                return AEColor.valueOf(tag.getString(SELECTED_COLOR));
             } catch (IllegalArgumentException ignored) {
             }
         }
@@ -511,12 +507,12 @@ public class ColorApplicatorItem extends AEBasePoweredItem implements IBasicCell
     private void setSelectedColor(ItemStack stack, @Nullable AEColor color) {
         final NBTTagCompound tag = openNbtData(stack);
         if (color == null) {
-            tag.removeTag(AEComponents.SELECTED_COLOR_COMPONENT.name());
+            tag.removeTag(SELECTED_COLOR);
             tag.removeTag("color");
             return;
         }
 
-        AEComponents.SELECTED_COLOR_COMPONENT.writeTo(tag, new NBTTagString(color.name()));
+        tag.setString(SELECTED_COLOR, color.name());
         tag.removeTag("color");
     }
 

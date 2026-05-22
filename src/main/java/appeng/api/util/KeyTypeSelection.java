@@ -1,6 +1,5 @@
 package appeng.api.util;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.AEKeyTypes;
 import it.unimi.dsi.fastutil.objects.Object2BooleanLinkedOpenHashMap;
@@ -20,6 +19,7 @@ import java.util.function.Predicate;
  * Helper class to store the selection of key types.
  */
 public class KeyTypeSelection {
+    private static final String ENABLED_KEY_TYPES_TAG = "enabled_key_types";
     private final Listener listener;
     private final Object2BooleanLinkedOpenHashMap<AEKeyType> keyTypes = new Object2BooleanLinkedOpenHashMap<>();
 
@@ -107,17 +107,16 @@ public class KeyTypeSelection {
                 enabledKeyTypesTag.appendTag(new NBTTagString(entry.getKey().getId().toString()));
             }
         }
-        AEComponents.ENABLED_KEY_TYPES_COMPONENT.writeTo(tag, enabledKeyTypesTag);
+        tag.setTag(ENABLED_KEY_TYPES_TAG, enabledKeyTypesTag.copy());
     }
 
     public void readFromNBT(NBTTagCompound tag) {
         for (Object2BooleanMap.Entry<AEKeyType> entry : keyTypes.object2BooleanEntrySet()) {
             entry.setValue(false);
         }
-        NBTTagList enabledKeyTypesTag = AEComponents.ENABLED_KEY_TYPES_COMPONENT.readFrom(tag);
-        if (enabledKeyTypesTag == null) {
-            enabledKeyTypesTag = new NBTTagList();
-        }
+        NBTTagList enabledKeyTypesTag = tag.hasKey(ENABLED_KEY_TYPES_TAG, 9)
+            ? tag.getTagList(ENABLED_KEY_TYPES_TAG, 8)
+            : new NBTTagList();
         if (enabledKeyTypesTag.tagCount() == 0 && tag.hasKey("enabledKeyTypes", 9)) {
             enabledKeyTypesTag = tag.getTagList("enabledKeyTypes", 8);
         }

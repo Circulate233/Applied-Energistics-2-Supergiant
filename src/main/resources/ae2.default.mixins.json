@@ -8,7 +8,8 @@
   "mixins": [
     "ContainerStackInteractionMixin",
     "EnchantmentHelperMixin",
-    "ItemEntityTransformMixin"
+    "ItemEntityTransformMixin",
+    "TextComponentSerializerMixin"
   ],
   "client": [
     "PickColorMixin"

@@ -20,7 +20,6 @@ package appeng.items.tools.powered;
 
 import appeng.api.config.Actionable;
 import appeng.api.config.FuzzyMode;
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -57,7 +56,6 @@ import net.minecraft.entity.passive.EntitySheep;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.EnumActionResult;
@@ -76,7 +74,7 @@ import java.util.List;
 import java.util.Set;
 
 public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellItem {
-
+    private static final String STORAGE_CELL_FUZZY_MODE = "storage_cell_fuzzy_mode";
     private static final int ENERGY_PER_SHOT = 1600;
 
     public MatterCannonItem() {
@@ -366,12 +364,9 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
         var tag = is.getTagCompound();
-        if (tag != null) {
+        if (tag != null && tag.hasKey(STORAGE_CELL_FUZZY_MODE, 8)) {
             try {
-                var value = AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.readFrom(tag);
-                if (value != null) {
-                    return FuzzyMode.valueOf(value.getString());
-                }
+                return FuzzyMode.valueOf(tag.getString(STORAGE_CELL_FUZZY_MODE));
             } catch (IllegalArgumentException ignored) {
             }
         }
@@ -385,7 +380,7 @@ public class MatterCannonItem extends AEBasePoweredItem implements IBasicCellIte
             tag = new NBTTagCompound();
             is.setTagCompound(tag);
         }
-        AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.writeTo(tag, new NBTTagString(fzMode.name()));
+        tag.setString(STORAGE_CELL_FUZZY_MODE, fzMode.name());
     }
 
     @Override

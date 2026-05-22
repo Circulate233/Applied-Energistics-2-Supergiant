@@ -1,6 +1,5 @@
 package appeng.helpers;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.inventories.ISegmentedInventory;
 import appeng.api.inventories.InternalInventory;
 import appeng.container.ISubGui;
@@ -21,6 +20,7 @@ import java.util.function.BiConsumer;
 
 public class WirelessCraftingTerminalGuiHost<T extends WirelessCraftingTerminalItem>
     extends WirelessTerminalGuiHost<T> implements ISegmentedInventory {
+    private static final String CRAFTING_INV = "crafting_inv";
     private final SupplierInternalInventory<InternalInventory> craftingGrid;
 
     public WirelessCraftingTerminalGuiHost(T item, EntityPlayer player, ItemGuiHostLocator locator,
@@ -41,7 +41,7 @@ public class WirelessCraftingTerminalGuiHost<T extends WirelessCraftingTerminalI
                 }
                 NBTTagCompound invTag = new NBTTagCompound();
                 inv.writeToNBT(invTag, "items");
-                AEComponents.CRAFTING_INV_COMPONENT.writeTo(tag, invTag);
+                tag.setTag(CRAFTING_INV, invTag.copy());
             }
 
             @Override
@@ -50,11 +50,8 @@ public class WirelessCraftingTerminalGuiHost<T extends WirelessCraftingTerminalI
             }
         }, 9);
         NBTTagCompound tag = stack.getTagCompound();
-        if (tag != null) {
-            NBTTagCompound invTag = AEComponents.CRAFTING_INV_COMPONENT.readFrom(tag);
-            if (invTag != null) {
-                craftingGrid.readFromNBT(invTag, "items");
-            }
+        if (tag != null && tag.hasKey(CRAFTING_INV, 10)) {
+            craftingGrid.readFromNBT(tag.getCompoundTag(CRAFTING_INV), "items");
         }
         return craftingGrid;
     }

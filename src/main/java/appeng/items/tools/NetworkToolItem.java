@@ -35,16 +35,19 @@ import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.items.AEBaseItem;
 import appeng.items.contents.NetworkToolGuiHost;
 import appeng.items.storage.StorageCellTooltipComponent;
+import appeng.text.TextComponentItemStack;
 import appeng.util.Platform;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
 import appeng.util.inv.filter.IAEItemFilter;
 import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -60,7 +63,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
 public class NetworkToolItem extends AEBaseItem implements IGuiItem, IStackTooltipDataProvider {
     private static final String INVENTORY_TAG = "inv";
@@ -107,8 +110,8 @@ public class NetworkToolItem extends AEBaseItem implements IGuiItem, IStackToolt
         return inventory;
     }
 
-    private static Object2IntLinkedOpenHashMap<net.minecraft.item.Item> getUpgradeCounts(ItemStack stack) {
-        var result = new Object2IntLinkedOpenHashMap<net.minecraft.item.Item>();
+    private static Object2IntLinkedOpenHashMap<Item> getUpgradeCounts(ItemStack stack) {
+        var result = new Object2IntLinkedOpenHashMap<Item>();
         for (var upgrade : getInventory(stack)) {
             if (!upgrade.isEmpty()) {
                 result.addTo(upgrade.getItem(), upgrade.getCount());
@@ -117,12 +120,12 @@ public class NetworkToolItem extends AEBaseItem implements IGuiItem, IStackToolt
         return result;
     }
 
-    private static List<Map.Entry<net.minecraft.item.Item, Integer>> getSortedUpgradeEntries(ItemStack stack) {
-        var result = new ObjectArrayList<Map.Entry<net.minecraft.item.Item, Integer>>();
+    private static List<Object2IntMap.Entry<Item>> getSortedUpgradeEntries(ItemStack stack) {
+        List<Object2IntMap.Entry<Item>> result = new ObjectArrayList<>();
         result.addAll(getUpgradeCounts(stack).object2IntEntrySet());
-        result.sort(Comparator.<Map.Entry<net.minecraft.item.Item, Integer>>comparingInt(Map.Entry::getValue)
+        result.sort(Comparator.<Object2IntMap.Entry<Item>>comparingInt(Object2IntMap.Entry::getIntValue)
                               .reversed()
-                              .thenComparing(entry -> new ItemStack(entry.getKey()).getDisplayName()));
+                              .thenComparing(entry -> TextComponentItemStack.of(new ItemStack(entry.getKey())).getUnformattedText()));
         return result;
     }
 
@@ -236,14 +239,14 @@ public class NetworkToolItem extends AEBaseItem implements IGuiItem, IStackToolt
     }
 
     @Override
-    public java.util.Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack stack) {
+    public Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack stack) {
         var upgrades = new ObjectArrayList<appeng.api.stacks.GenericStack>();
-        for (Map.Entry<net.minecraft.item.Item, Integer> entry : getSortedUpgradeEntries(stack)) {
+        for (Object2IntMap.Entry<Item> entry : getSortedUpgradeEntries(stack)) {
             upgrades.add(new appeng.api.stacks.GenericStack(appeng.api.stacks.AEItemKey.of(new ItemStack(entry.getKey())),
-                entry.getValue()));
+                entry.getIntValue()));
         }
-        return upgrades.isEmpty() ? java.util.Optional.empty()
-            : java.util.Optional.of(new StorageCellTooltipComponent(java.util.Collections.emptyList(), upgrades,
+        return upgrades.isEmpty() ? Optional.empty()
+            : Optional.of(new StorageCellTooltipComponent(java.util.Collections.emptyList(), upgrades,
             false, true));
     }
 

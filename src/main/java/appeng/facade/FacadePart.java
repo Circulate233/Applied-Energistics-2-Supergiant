@@ -18,7 +18,6 @@
 
 package appeng.facade;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.parts.IFacadePart;
 import appeng.api.parts.IPartCollisionHelper;
 import appeng.core.localization.PlayerMessages;
@@ -30,7 +29,6 @@ import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.Vec3d;
@@ -41,6 +39,7 @@ import java.util.Collection;
 import java.util.Objects;
 
 public class FacadePart implements IFacadePart {
+    private static final String FACADE_CYCLE_PROPERTY = "facade_cycle_property";
 
     private final EnumFacing side;
     private IBlockState facade;
@@ -56,8 +55,7 @@ public class FacadePart implements IFacadePart {
             return defaultValue;
         }
 
-        NBTTagString value = AEComponents.FACADE_CYCLE_PROPERTY_COMPONENT.readFrom(tag);
-        return value != null ? value.getString() : defaultValue;
+        return tag.hasKey(FACADE_CYCLE_PROPERTY, 8) ? tag.getString(FACADE_CYCLE_PROPERTY) : defaultValue;
     }
 
     private static void setCyclePropertyName(ItemStack heldItem, String propertyName) {
@@ -67,7 +65,7 @@ public class FacadePart implements IFacadePart {
             heldItem.setTagCompound(tag);
         }
 
-        AEComponents.FACADE_CYCLE_PROPERTY_COMPONENT.writeTo(tag, new NBTTagString(propertyName));
+        tag.setString(FACADE_CYCLE_PROPERTY, propertyName);
     }
 
     private static void clearCyclePropertyName(ItemStack heldItem) {
@@ -76,7 +74,7 @@ public class FacadePart implements IFacadePart {
             return;
         }
 
-        tag.removeTag(AEComponents.FACADE_CYCLE_PROPERTY_COMPONENT.name());
+        tag.removeTag(FACADE_CYCLE_PROPERTY);
         if (tag.getKeySet().isEmpty()) {
             heldItem.setTagCompound(null);
         }

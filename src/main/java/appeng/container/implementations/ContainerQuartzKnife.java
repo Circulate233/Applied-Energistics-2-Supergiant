@@ -18,7 +18,6 @@
 
 package appeng.container.implementations;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.guiobjects.ItemGuiHost;
 import appeng.api.inventories.InternalInventory;
 import appeng.container.AEBaseContainer;
@@ -26,11 +25,11 @@ import appeng.container.SlotSemantics;
 import appeng.container.slot.OutputSlot;
 import appeng.container.slot.RestrictedInputSlot;
 import appeng.core.definitions.AEItems;
+import appeng.util.Platform;
 import appeng.util.inv.AppEngInternalInventory;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.ITextComponent.Serializer;
 import net.minecraft.util.text.TextComponentString;
@@ -38,6 +37,7 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.player.PlayerDestroyItemEvent;
 
 public class ContainerQuartzKnife extends AEBaseContainer {
+    private static final String NAME_PRESS_NAME_TAG = "name_press_name";
     private final InternalInventory input = new AppEngInternalInventory(null, 1, 1);
     private String currentName = "";
 
@@ -81,8 +81,7 @@ public class ContainerQuartzKnife extends AEBaseContainer {
 
             ItemStack namePressStack = AEItems.NAME_PRESS.stack();
             ITextComponent name = new TextComponentString(currentName);
-            namePressStack.setTagInfo(AEComponents.NAME_PRESS_NAME_COMPONENT.name(),
-                new NBTTagString(Serializer.componentToJson(name)));
+            Platform.openNbtData(namePressStack).setString(NAME_PRESS_NAME_TAG, Serializer.componentToJson(name));
             return namePressStack;
         }
 

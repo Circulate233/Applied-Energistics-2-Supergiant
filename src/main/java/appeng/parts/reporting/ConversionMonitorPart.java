@@ -232,6 +232,6 @@ public class ConversionMonitorPart extends AbstractMonitorPart implements ISubGu
 
     @Override
     public ItemStack getMainContainerIcon() {
-        return new ItemStack(getPartItem().asItem());
+        return getPartItem().asItemStack();
     }
 }

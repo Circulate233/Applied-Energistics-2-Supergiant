@@ -24,6 +24,7 @@
 package appeng.api.parts;
 
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
@@ -92,6 +93,10 @@ public interface IPartItem<P extends IPart> {
      * @return part from item
      */
     P createPart();
+
+    default ItemStack asItemStack() {
+        return new ItemStack(asItem());
+    }
 
     default Item asItem() {
         return (Item) this;

@@ -1,34 +1,45 @@
-package appeng.client.component;
+package appeng.text;
 
-import io.netty.buffer.ByteBuf;
+import com.google.gson.JsonObject;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.JsonToNBT;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.util.JsonUtils;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
-import net.minecraft.util.text.event.HoverEvent;
-import net.minecraftforge.fml.common.network.ByteBufUtils;
-import org.jspecify.annotations.NonNull;
 import org.jetbrains.annotations.Nullable;
+import org.jspecify.annotations.NonNull;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
 public class TextComponentItemStack implements ICustomTextComponent {
+    public static final String TYPE_ID = "item_stack";
+
     private final ItemStack itemStack;
-    private Style style = new Style();
+    private Style style;
     private final ObjectList<ITextComponent> siblings = new ObjectArrayList<>();
+    private ITextComponent cache;
+
+    static {
+        CustomTextComponents.register(TYPE_ID, TextComponentItemStack::fromJson, TextComponentItemStack::fromPacket);
+    }
+
+    public static void bootstrap() {
+    }
 
     public TextComponentItemStack() {
         this(ItemStack.EMPTY);
     }
 
-    public TextComponentItemStack(ItemStack itemStack) {
+    private TextComponentItemStack(ItemStack itemStack) {
         this.itemStack = itemStack.copy();
+        this.style = resolve().getStyle().createDeepCopy();
     }
 
     private TextComponentItemStack(ItemStack itemStack, @Nullable ITextComponent decorations) {
@@ -41,26 +52,44 @@ public class TextComponentItemStack implements ICustomTextComponent {
         }
     }
 
-    public static ITextComponent of(ItemStack itemStack) {
+    public static TextComponentItemStack of(ItemStack itemStack) {
         return new TextComponentItemStack(itemStack);
     }
 
-    @Override
-    public void writeToByteBuf(ByteBuf buf) {
-        ByteBufUtils.writeUTF8String(buf, getClass().getName());
-        PacketBuffer buffer = new PacketBuffer(buf);
-        buffer.writeItemStack(this.itemStack);
-        TextComponents.writeToPacket(buffer, createDecorations());
+    public static TextComponentItemStack fromJson(JsonObject data) {
+        try {
+            String serializedStack = JsonUtils.getString(data, "stack");
+            NBTTagCompound stackTag = JsonToNBT.getTagFromJson(serializedStack);
+            return new TextComponentItemStack(new ItemStack(stackTag));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Could not read item stack text component json", e);
+        }
     }
 
-    @Override
-    public ICustomTextComponent readFromByteBuf(ByteBuf buf) {
-        PacketBuffer buffer = new PacketBuffer(buf);
+    public static TextComponentItemStack fromPacket(PacketBuffer buffer) {
         try {
             return new TextComponentItemStack(buffer.readItemStack(), TextComponents.readFromPacket(buffer));
         } catch (Exception e) {
-            throw new IllegalArgumentException("Could not read item stack text component", e);
+            throw new IllegalArgumentException("Could not read item stack text component packet", e);
         }
+    }
+
+    @Override
+    public String getTypeId() {
+        return TYPE_ID;
+    }
+
+    @Override
+    public JsonObject writeJson() {
+        JsonObject data = new JsonObject();
+        data.addProperty("stack", this.itemStack.writeToNBT(new NBTTagCompound()).toString());
+        return data;
+    }
+
+    @Override
+    public void writeToPacket(PacketBuffer buffer) {
+        buffer.writeItemStack(this.itemStack);
+        TextComponents.writeToPacket(buffer, createDecorations());
     }
 
     @Override
@@ -135,10 +164,7 @@ public class TextComponentItemStack implements ICustomTextComponent {
     @Override
     public int hashCode() {
         return Objects.hash(
-            this.itemStack.isEmpty() ? null : this.itemStack.getItem(),
-            this.itemStack.getMetadata(),
-            this.itemStack.getCount(),
-            this.itemStack.getTagCompound(),
+            this.itemStack.writeToNBT(new NBTTagCompound()).toString(),
             this.style,
             this.siblings);
     }
@@ -153,32 +179,9 @@ public class TextComponentItemStack implements ICustomTextComponent {
     }
 
     private ITextComponent resolve() {
-        ITextComponent displayName = new TextComponentString(this.itemStack.getDisplayName());
-        if (this.itemStack.hasDisplayName()) {
-            displayName.getStyle().setItalic(Boolean.TRUE);
+        if (cache == null) {
+            cache = itemStack.getTextComponent();
         }
-
-        TextComponentString root = new TextComponentString("");
-        root.appendText("[");
-        root.appendSibling(displayName);
-        root.appendText("]");
-
-        if (!this.itemStack.isEmpty()) {
-            NBTTagCompound stackTag = new NBTTagCompound();
-            this.itemStack.writeToNBT(stackTag);
-            root.getStyle().setHoverEvent(
-                new HoverEvent(HoverEvent.Action.SHOW_ITEM, new TextComponentString(stackTag.toString())));
-            root.getStyle().setColor(this.itemStack.getItem().getForgeRarity(this.itemStack).getColor());
-        }
-
-        Style mergedStyle = this.style.createDeepCopy();
-        mergedStyle.setParentStyle(root.getStyle());
-        root.setStyle(mergedStyle);
-
-        for (ITextComponent sibling : this.siblings) {
-            root.appendSibling(sibling.createCopy());
-        }
-
-        return root;
+        return cache;
     }
 }

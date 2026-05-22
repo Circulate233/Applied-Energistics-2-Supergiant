@@ -18,7 +18,6 @@
 
 package appeng.tile;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.GridHelper;
 import appeng.api.orientation.BlockOrientation;
 import appeng.api.orientation.IOrientableBlock;
@@ -51,7 +50,7 @@ import java.util.List;
 public class AEBaseTile extends TileEntity implements ITickable {
 
     private static final String CUSTOM_NAME_TAG = "customName";
-    private static final String MEMORY_CARD_CUSTOM_NAME_TAG = AEComponents.EXPORTED_CUSTOM_NAME;
+    private static final String MEMORY_CARD_CUSTOM_NAME_TAG = "exported_custom_name";
     private static final String FORWARD_TAG = "forward";
     private static final String UP_TAG = "up";
 

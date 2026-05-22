@@ -1,12 +1,11 @@
 package appeng.api.stacks;
 
-import appeng.api.ids.AEComponents;
 import appeng.core.definitions.AEItems;
 import appeng.items.misc.WrappedGenericStack;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.network.PacketBuffer;
 import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.ApiStatus;
@@ -23,6 +22,9 @@ public record GenericStack(AEKey what, long amount) {
 
     @ApiStatus.Internal
     public static final String AMOUNT_FIELD = "#";
+    private static final String MISSING_CONTENT_ITEMSTACK_DATA = "missing_content_itemstack_data";
+    private static final String MISSING_CONTENT_AEKEY_DATA = "missing_content_aekey_data";
+    private static final String MISSING_CONTENT_ERROR = "missing_content_error";
     public static final List<@Nullable GenericStack> EMPTY_LIST = Collections.emptyList();
 
     public GenericStack {
@@ -75,8 +77,8 @@ public record GenericStack(AEKey what, long amount) {
         if (tag == null) {
             throw new IllegalStateException("Missing content item stack lost its tag compound");
         }
-        AEComponents.MISSING_CONTENT_ITEMSTACK_DATA_COMPONENT.writeTo(tag, originalData);
-        AEComponents.MISSING_CONTENT_ERROR_COMPONENT.writeTo(tag, new NBTTagString(error));
+        tag.setTag(MISSING_CONTENT_ITEMSTACK_DATA, originalData.copy());
+        tag.setString(MISSING_CONTENT_ERROR, error);
         return new GenericStack(AEItemKey.of(missingContent), 1);
     }
 
@@ -86,14 +88,14 @@ public record GenericStack(AEKey what, long amount) {
         }
 
         if (stack.what() instanceof AEItemKey itemKey && AEItems.MISSING_CONTENT.is(itemKey)) {
-            NBTTagCompound originalKeyTag = itemKey.get(AEComponents.MISSING_CONTENT_AEKEY_DATA_COMPONENT);
-            if (originalKeyTag != null) {
-                return originalKeyTag.copy();
+            NBTBase originalKeyTag = itemKey.get(MISSING_CONTENT_AEKEY_DATA);
+            if (originalKeyTag instanceof NBTTagCompound compound) {
+                return compound.copy();
             }
 
-            NBTTagCompound originalItemTag = itemKey.get(AEComponents.MISSING_CONTENT_ITEMSTACK_DATA_COMPONENT);
-            if (originalItemTag != null) {
-                return originalItemTag.copy();
+            NBTBase originalItemTag = itemKey.get(MISSING_CONTENT_ITEMSTACK_DATA);
+            if (originalItemTag instanceof NBTTagCompound compound) {
+                return compound.copy();
             }
         }
 

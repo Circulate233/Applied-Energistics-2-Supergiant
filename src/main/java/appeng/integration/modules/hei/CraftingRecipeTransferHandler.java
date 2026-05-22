@@ -20,7 +20,6 @@ import org.jetbrains.annotations.Nullable;
 import javax.annotation.Nonnull;
 
 import java.util.List;
-import java.util.Map;
 
 @SuppressWarnings("deprecation")
 public class CraftingRecipeTransferHandler implements IRecipeTransferHandler<ContainerCraftingTerm> {
@@ -74,13 +73,13 @@ public class CraftingRecipeTransferHandler implements IRecipeTransferHandler<Con
     }
 
     private @Nullable ExtractedRecipe extractRecipe(IRecipeLayout recipeLayout) {
-        Map<Integer, ? extends IGuiIngredient<ItemStack>> guiIngredients = recipeLayout.getIngredientsGroup(
+        var guiIngredients = recipeLayout.getIngredientsGroup(
             ItemStack.class).getGuiIngredients();
         Int2ObjectMap<Ingredient> ingredients = new Int2ObjectOpenHashMap<>();
         List<List<ItemStack>> templates = createEmptyTemplates();
         boolean tooLarge = false;
 
-        for (Map.Entry<Integer, ? extends IGuiIngredient<ItemStack>> entry : guiIngredients.entrySet()) {
+        for (var entry : guiIngredients.entrySet()) {
             IGuiIngredient<ItemStack> guiIngredient = entry.getValue();
             if (guiIngredient == null || !guiIngredient.isInput()) {
                 continue;

@@ -23,6 +23,7 @@ import appeng.recipes.handlers.InscriberProcessType;
 import appeng.recipes.handlers.InscriberRecipe;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.crafting.Ingredient;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 
 import javax.annotation.Nullable;
@@ -122,10 +123,14 @@ public final class InscriberRecipes {
 
     private static void appendCustomName(StringBuilder name, ItemStack stack) {
         if (!stack.isEmpty() && stack.hasDisplayName()) {
+            NBTTagCompound display = stack.getSubCompound("display");
+            if (display == null || !display.hasKey("Name", 8)) {
+                return;
+            }
             if (!name.isEmpty()) {
                 name.append(' ');
             }
-            name.append(stack.getDisplayName());
+            name.append(display.getString("Name"));
         }
     }
 }

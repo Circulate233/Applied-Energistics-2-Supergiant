@@ -5,6 +5,7 @@ import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.parts.IPart;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.SelectedPart;
+import appeng.text.TextComponentItemStack;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
@@ -30,7 +31,7 @@ public final class PartHostTooltips {
         var selected = getPart(object, context.hitLocation());
 
         if (selected.facade != null) {
-            return selected.facade.getItemStack().getTextComponent();
+            return TextComponentItemStack.of(selected.facade.getItemStack());
         } else if (selected.part != null) {
             for (var provider : PartTooltipProviders.getProviders(selected.part).nameProviders()) {
                 var name = provider.getName(selected.part, context);
@@ -39,7 +40,7 @@ public final class PartHostTooltips {
                 }
             }
 
-            return new ItemStack(selected.part.getPartItem().asItem()).getTextComponent();
+            return TextComponentItemStack.of(selected.part.getPartItem().asItemStack());
         } else {
             return null;
         }
@@ -84,7 +85,7 @@ public final class PartHostTooltips {
                 }
             }
 
-            return new ItemStack(selected.part.getPartItem().asItem());
+            return selected.part.getPartItem().asItemStack();
         } else {
             return null;
         }

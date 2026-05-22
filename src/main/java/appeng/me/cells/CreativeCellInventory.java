@@ -25,6 +25,7 @@ import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.StorageCell;
 import appeng.items.contents.CellConfig;
+import appeng.text.TextComponentItemStack;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
 import net.minecraft.item.ItemStack;
@@ -78,7 +79,7 @@ public class CreativeCellInventory implements StorageCell {
 
     @Override
     public ITextComponent getDescription() {
-        return stack.getTextComponent();
+        return TextComponentItemStack.of(stack);
     }
 
     @Override

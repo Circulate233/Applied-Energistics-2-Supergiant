@@ -19,7 +19,7 @@
 package appeng.container.guisync;
 
 import appeng.api.stacks.GenericStack;
-import appeng.client.component.TextComponents;
+import appeng.text.TextComponents;
 import com.google.common.base.Preconditions;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;

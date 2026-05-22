@@ -32,7 +32,6 @@ import appeng.api.stacks.AmountFormat;
 import appeng.api.storage.AEKeyFilter;
 import appeng.api.storage.ILinkStatus;
 import appeng.api.util.IConfigManager;
-import appeng.client.component.TextComponents;
 import appeng.client.Point;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Icon;
@@ -65,6 +64,7 @@ import appeng.core.network.serverbound.SwitchGuisPacket;
 import appeng.helpers.InventoryAction;
 import appeng.integration.abstraction.ItemListMod;
 import appeng.items.storage.ViewCellItem;
+import appeng.text.TextComponentItemStack;
 import appeng.util.Platform;
 import appeng.util.prioritylist.IPartitionList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -708,7 +708,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
                 GridInventoryEntry entry = repoSlot.getEntry();
                 if (entry != null && canFillCarriedItem(entry.what(), carried)) {
                     drawTooltipWithHeader(mouseX, mouseY, List.of(muted(ButtonToolTips.FillAction.text(
-                        Tooltips.getMouseButtonText(0), Tooltips.of(TextComponents.of(carried))))));
+                        Tooltips.getMouseButtonText(0), Tooltips.of(TextComponentItemStack.of(carried))))));
                     return;
                 }
             }

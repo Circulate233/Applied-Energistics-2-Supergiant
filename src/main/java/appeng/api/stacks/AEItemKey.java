@@ -2,6 +2,7 @@ package appeng.api.stacks;
 
 import appeng.api.storage.AEKeyFilter;
 import appeng.core.AELog;
+import appeng.text.TextComponentItemStack;
 import com.google.common.base.Preconditions;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -195,7 +196,7 @@ public final class AEItemKey extends AEKey {
 
     @Override
     protected ITextComponent computeDisplayName() {
-        return getReadOnlyStack().getTextComponent();
+        return TextComponentItemStack.of(getReadOnlyStack());
     }
 
     @Override

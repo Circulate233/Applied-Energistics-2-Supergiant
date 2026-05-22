@@ -18,7 +18,6 @@
 
 package appeng.parts;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.IPowerChannelState;
 import appeng.api.implementations.items.IMemoryCard;
 import appeng.api.implementations.items.MemoryCardMessages;
@@ -67,9 +66,9 @@ public abstract class AEBasePart implements IPart, IActionHost, ISegmentedInvent
     private static final String VISUAL_STATE_TAG = "visual";
     private static final String POWERED_TAG = "powered";
     private static final String MISSING_CHANNEL_TAG = "missingChannel";
-    private static final String MEMORY_CARD_SETTINGS_TAG = AEComponents.EXPORTED_SETTINGS;
-    private static final String MEMORY_CARD_SOURCE_TAG = AEComponents.EXPORTED_SETTINGS_SOURCE;
-    private static final String MEMORY_CARD_CUSTOM_NAME_TAG = AEComponents.EXPORTED_CUSTOM_NAME;
+    private static final String MEMORY_CARD_SETTINGS_TAG = "exported_settings";
+    private static final String MEMORY_CARD_SOURCE_TAG = "exported_settings_source";
+    private static final String MEMORY_CARD_CUSTOM_NAME_TAG = "exported_custom_name";
 
     private final IManagedGridNode mainNode;
     private IPartItem<?> partItem;
@@ -337,7 +336,7 @@ public abstract class AEBasePart implements IPart, IActionHost, ISegmentedInvent
     }
 
     public String getName() {
-        ItemStack stack = new ItemStack(this.partItem.asItem());
+        ItemStack stack = this.partItem.asItemStack();
         return this.customName != null ? this.customName.getUnformattedText() : stack.getTranslationKey();
     }
 
@@ -346,7 +345,7 @@ public abstract class AEBasePart implements IPart, IActionHost, ISegmentedInvent
             return this.customName;
         }
 
-        ItemStack stack = new ItemStack(this.partItem.asItem());
+        ItemStack stack = this.partItem.asItemStack();
         return new TextComponentTranslation(stack.getTranslationKey() + ".name");
     }
 
@@ -422,7 +421,7 @@ public abstract class AEBasePart implements IPart, IActionHost, ISegmentedInvent
     }
 
     private String getSettingsSourceName(Item item) {
-        return new ItemStack(item).getDisplayName();
+        return new ItemStack(item).getTranslationKey() + ".name";
     }
 
     private void markForUpdateIfClientFlagsChanged() {
@@ -455,6 +454,4 @@ public abstract class AEBasePart implements IPart, IActionHost, ISegmentedInvent
         }
     }
 }
-
-
 

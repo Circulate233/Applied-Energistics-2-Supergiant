@@ -27,6 +27,8 @@ import appeng.core.settings.TickRates;
 import net.minecraftforge.common.config.Configuration;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 
 public final class AEConfig {
 
@@ -53,6 +55,7 @@ public final class AEConfig {
     private boolean syncWithExternalSearch = true;
     private boolean rememberLastSearch = true;
     private boolean autoFocusSearch;
+    private String[] patternImportPriorityOrder = new String[0];
     private boolean spawnPressesInMeteoritesEnabled = true;
     private boolean spawnFlawlessOnly;
     private int[] meteoriteDimensionWhitelist = new int[]{0};
@@ -260,6 +263,9 @@ public final class AEConfig {
             "Remembers the last search term and restores it when the terminal opens");
         this.autoFocusSearch = this.configuration.getBoolean("autoFocusSearch", "search", this.autoFocusSearch,
             "Automatically focuses the search field when the terminal opens");
+        this.patternImportPriorityOrder = this.configuration.getStringList("patternImportPriorityOrder", "client",
+            this.patternImportPriorityOrder,
+            "Client-side order used when selecting HEI/JEI ingredient variants for the pattern encoding terminal.");
         this.spawnPressesInMeteoritesEnabled = this.configuration.getBoolean("spawnPressesInMeteoritesEnabled",
             "worldGen", this.spawnPressesInMeteoritesEnabled,
             "Spawn mysterious cubes inside meteorites.");
@@ -602,6 +608,23 @@ public final class AEConfig {
         if (enabled != this.autoFocusSearch) {
             this.autoFocusSearch = enabled;
             this.configuration.get("search", "autoFocusSearch", false).set(enabled);
+            this.configuration.save();
+        }
+    }
+
+    public String[] getPatternImportPriorityOrder() {
+        return this.patternImportPriorityOrder.clone();
+    }
+
+    public void setPatternImportPriorityOrder(List<String> order) {
+        setPatternImportPriorityOrder(order.toArray(String[]::new));
+    }
+
+    public void setPatternImportPriorityOrder(String[] order) {
+        String[] nextOrder = order == null ? new String[0] : order.clone();
+        if (!Arrays.equals(nextOrder, this.patternImportPriorityOrder)) {
+            this.patternImportPriorityOrder = nextOrder;
+            this.configuration.get("client", "patternImportPriorityOrder", new String[0]).set(nextOrder);
             this.configuration.save();
         }
     }

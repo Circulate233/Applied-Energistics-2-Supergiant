@@ -19,7 +19,6 @@
 package appeng.items.storage;
 
 import appeng.api.config.FuzzyMode;
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.CellState;
@@ -36,7 +35,6 @@ import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
@@ -47,6 +45,8 @@ import java.util.List;
 import java.util.Set;
 
 public class BasicStorageCell extends AEBaseItem implements IBasicCellItem {
+    private static final String STORAGE_CELL_FUZZY_MODE = "storage_cell_fuzzy_mode";
+
     protected final double idleDrain;
     protected final int totalBytes;
     protected final int bytesPerType;
@@ -116,12 +116,9 @@ public class BasicStorageCell extends AEBaseItem implements IBasicCellItem {
     @Override
     public FuzzyMode getFuzzyMode(ItemStack is) {
         NBTTagCompound tag = is.getTagCompound();
-        if (tag != null) {
+        if (tag != null && tag.hasKey(STORAGE_CELL_FUZZY_MODE, 8)) {
             try {
-                var value = AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.readFrom(tag);
-                if (value != null) {
-                    return FuzzyMode.valueOf(value.getString());
-                }
+                return FuzzyMode.valueOf(tag.getString(STORAGE_CELL_FUZZY_MODE));
             } catch (IllegalArgumentException ignored) {
             }
         }
@@ -135,7 +132,7 @@ public class BasicStorageCell extends AEBaseItem implements IBasicCellItem {
             tag = new NBTTagCompound();
             is.setTagCompound(tag);
         }
-        AEComponents.STORAGE_CELL_FUZZY_MODE_COMPONENT.writeTo(tag, new NBTTagString(fzMode.name()));
+        tag.setString(STORAGE_CELL_FUZZY_MODE, fzMode.name());
     }
 
     @Override
@@ -184,8 +181,6 @@ public class BasicStorageCell extends AEBaseItem implements IBasicCellItem {
             : EnumActionResult.PASS;
     }
 }
-
-
 
 
 

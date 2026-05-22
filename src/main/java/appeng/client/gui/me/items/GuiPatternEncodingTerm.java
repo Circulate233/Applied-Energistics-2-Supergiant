@@ -4,9 +4,11 @@ import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.behaviors.EmptyingAction;
 import appeng.api.config.ActionItems;
 import appeng.api.stacks.GenericStack;
+import appeng.client.gui.Icon;
 import appeng.client.gui.me.common.GuiMEStorage;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.widgets.ActionButton;
+import appeng.client.gui.widgets.IconButton;
 import appeng.client.gui.widgets.TabButton;
 import appeng.container.me.items.ContainerPatternEncodingTerm;
 import appeng.core.AEConfig;
@@ -15,15 +17,17 @@ import appeng.core.localization.Tooltips;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.helpers.InventoryAction;
+import appeng.integration.Integrations;
 import appeng.parts.encoding.EncodingMode;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextComponentTranslation;
 import org.jetbrains.annotations.Nullable;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import java.io.IOException;
 import java.util.EnumMap;
@@ -39,6 +43,18 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
         addMode(EncodingMode.CRAFTING, new CraftingEncodingPanel(this, widgets), 0);
         addMode(EncodingMode.PROCESSING, new ProcessingEncodingPanel(this, widgets), 1);
         widgets.add("encodePattern", new ActionButton(ActionItems.ENCODE, container::encode));
+        if (Integrations.hei().isEnabled()) {
+            addToLeftToolbar(new IconButton(this::openImportPrioritySettings) {
+                {
+                    setMessage(new TextComponentTranslation("gui.ae2.PatternImportPrioritiesTitle"));
+                }
+
+                @Override
+                protected Icon getIcon() {
+                    return Icon.PRIORITY;
+                }
+            });
+        }
     }
 
     private static ITextComponent resolveTitle(ContainerPatternEncodingTerm container, @Nullable ITextComponent title) {
@@ -49,6 +65,10 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
             return container.getGuiTitle();
         }
         return new TextComponentString("");
+    }
+
+    private void openImportPrioritySettings() {
+        switchToScreen(new GuiPatternImportPrioritySettings(this));
     }
 
     private void addMode(EncodingMode mode, EncodingModePanel panel, int index) {

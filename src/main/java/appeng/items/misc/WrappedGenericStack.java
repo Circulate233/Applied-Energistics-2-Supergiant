@@ -19,7 +19,6 @@ package appeng.items.misc;
 
 import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.config.Actionable;
-import appeng.api.ids.AEComponents;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.core.definitions.AEItems;
@@ -39,6 +38,8 @@ import java.util.Objects;
  * item.
  */
 public class WrappedGenericStack extends AEBaseItem {
+    private static final String WRAPPED_STACK = "wrapped_stack";
+
     public WrappedGenericStack() {
         super();
         setMaxStackSize(1);
@@ -48,7 +49,7 @@ public class WrappedGenericStack extends AEBaseItem {
         Objects.requireNonNull(stack, "stack");
         var item = AEItems.WRAPPED_GENERIC_STACK.asItem();
         var result = new ItemStack(item);
-        result.setTagInfo(AEComponents.WRAPPED_STACK_COMPONENT.name(), GenericStack.writeTag(stack));
+        result.setTagInfo(WRAPPED_STACK, GenericStack.writeTag(stack));
         return result;
     }
 
@@ -103,14 +104,11 @@ public class WrappedGenericStack extends AEBaseItem {
         }
 
         var tag = stack.getTagCompound();
-        if (!AEComponents.WRAPPED_STACK_COMPONENT.isPresentIn(tag)) {
+        if (tag == null || !tag.hasKey(WRAPPED_STACK, 10)) {
             return null;
         }
 
-        NBTTagCompound wrapped = AEComponents.WRAPPED_STACK_COMPONENT.readFrom(tag);
-        if (wrapped == null) {
-            return null;
-        }
+        NBTTagCompound wrapped = tag.getCompoundTag(WRAPPED_STACK);
         return GenericStack.readTag(wrapped);
     }
 }

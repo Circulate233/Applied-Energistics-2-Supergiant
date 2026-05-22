@@ -129,7 +129,7 @@ public abstract class AbstractTerminalPart extends AbstractDisplayPart
 
     @Override
     public ItemStack getMainContainerIcon() {
-        return new ItemStack(getPartItem().asItem());
+        return getPartItem().asItemStack();
     }
 
     public GuiIds.GuiKey getGuiKey(EntityPlayer player) {

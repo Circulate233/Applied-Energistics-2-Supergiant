@@ -1,20 +1,13 @@
-package appeng.client.component;
+package appeng.text;
 
-import io.netty.buffer.Unpooled;
-import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
-import java.util.Base64;
 
 public final class TextComponents {
     private TextComponents() {
-    }
-
-    public static ITextComponent of(ItemStack itemStack) {
-        return TextComponentItemStack.of(itemStack);
     }
 
     public static void writeToPacket(PacketBuffer buffer, @Nullable ITextComponent value) {
@@ -25,10 +18,12 @@ public final class TextComponents {
 
         buffer.writeBoolean(value instanceof ICustomTextComponent);
         if (value instanceof ICustomTextComponent customTextComponent) {
-            customTextComponent.writeToByteBuf(buffer);
-        } else {
-            buffer.writeTextComponent(value);
+            buffer.writeString(customTextComponent.getTypeId());
+            customTextComponent.writeToPacket(buffer);
+            return;
         }
+
+        buffer.writeTextComponent(value);
     }
 
     @Nullable
@@ -38,11 +33,7 @@ public final class TextComponents {
         }
 
         if (buffer.readBoolean()) {
-            ITextComponent component = ICustomTextComponent.read(buffer);
-            if (component == null) {
-                throw new IllegalArgumentException("Could not read custom text component");
-            }
-            return component;
+            return CustomTextComponents.decodePacket(buffer.readString(256), buffer);
         }
 
         try {
@@ -55,14 +46,6 @@ public final class TextComponents {
     public static String componentKey(@Nullable ITextComponent component) {
         if (component == null) {
             return "null";
-        }
-
-        if (component instanceof ICustomTextComponent customTextComponent) {
-            PacketBuffer buffer = new PacketBuffer(Unpooled.buffer());
-            customTextComponent.writeToByteBuf(buffer);
-            byte[] data = new byte[buffer.readableBytes()];
-            buffer.getBytes(0, data);
-            return "custom:" + Base64.getEncoder().encodeToString(data);
         }
 
         return ITextComponent.Serializer.componentToJson(component);

@@ -45,6 +45,7 @@ import appeng.core.gui.GuiOpener;
 import appeng.helpers.IConfigInvHost;
 import appeng.helpers.IPriorityHost;
 import appeng.items.parts.PartModels;
+import appeng.text.TextComponentItemStack;
 import appeng.util.ConfigInventory;
 import appeng.util.prioritylist.DefaultPriorityList;
 import appeng.util.prioritylist.FuzzyPriorityList;
@@ -247,7 +248,7 @@ public class FormationPlanePart extends UpgradeablePart implements IStorageProvi
 
     @Override
     public ItemStack getMainContainerIcon() {
-        return new ItemStack(getPartItem().asItem());
+        return getPartItem().asItemStack();
     }
 
     private void openConfigGui(EntityPlayer player) {
@@ -321,7 +322,7 @@ public class FormationPlanePart extends UpgradeablePart implements IStorageProvi
 
         @Override
         public ITextComponent getDescription() {
-            return new ItemStack(getPartItem().asItem()).getTextComponent();
+            return TextComponentItemStack.of(getPartItem().asItemStack());
         }
     }
 

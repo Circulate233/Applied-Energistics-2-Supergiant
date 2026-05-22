@@ -18,7 +18,6 @@
 
 package appeng.client.gui.implementations;
 
-import appeng.client.component.TextComponents;
 import appeng.client.gui.Icon;
 import appeng.client.gui.WidgetContainer;
 import appeng.client.gui.widgets.TabButton;
@@ -26,6 +25,7 @@ import appeng.container.ISubGui;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
+import appeng.text.TextComponentItemStack;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
@@ -40,7 +40,7 @@ public final class AESubGui {
     public static void addBackButton(ISubGui subGui, String id, WidgetContainer widgets,
                                      @Nullable ITextComponent label) {
         if (label == null) {
-            label = TextComponents.of(subGui.getHost().getMainContainerIcon());
+            label = TextComponentItemStack.of(subGui.getHost().getMainContainerIcon());
         }
         TabButton button = new TabButton(Icon.BACK, label, AESubGui::goBack);
         widgets.add(id, button);

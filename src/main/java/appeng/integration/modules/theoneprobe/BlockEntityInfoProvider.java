@@ -29,6 +29,7 @@ import appeng.api.integrations.igtooltip.providers.NameProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.core.AppEng;
 import appeng.integration.modules.igtooltip.TooltipProviders;
+import appeng.text.TextComponentItemStack;
 import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
@@ -171,8 +172,7 @@ public final class BlockEntityInfoProvider implements IProbeInfoProvider, IBlock
         if (name != null || modName != null || (icon != null && !icon.isEmpty())) {
             ItemStack pickBlock = probeHitData.getPickBlock();
             if (name == null) {
-                name = pickBlock != null ? new TextComponentString(pickBlock.getDisplayName())
-                    : new TextComponentString("");
+                name = pickBlock != null ? TextComponentItemStack.of(pickBlock) : new TextComponentString("");
             }
             if (icon == null || icon.isEmpty()) {
                 icon = pickBlock;

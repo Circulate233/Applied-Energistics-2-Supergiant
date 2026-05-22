@@ -19,7 +19,6 @@
 package appeng.me.cells;
 
 import appeng.api.config.Actionable;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyTypes;
@@ -29,6 +28,7 @@ import appeng.api.storage.cells.CellState;
 import appeng.api.storage.cells.IBasicCellItem;
 import appeng.api.storage.cells.ISaveProvider;
 import appeng.api.storage.cells.StorageCell;
+import appeng.text.TextComponentItemStack;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -42,6 +42,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Objects;
 
 public class BasicCellInventory implements StorageCell {
+    private static final String STORAGE_CELL_INV_TAG = "storage_cell_inv";
     private static final String ITEM_COUNT_TAG = "ic";
     private static final String ITEM_SLOT_TAG = "it";
     private static final String ITEM_SLOT_KEY_TAG = "k";
@@ -85,9 +86,8 @@ public class BasicCellInventory implements StorageCell {
         storedItems = 0;
 
         NBTTagCompound tag = getOrCreateTag();
-        if (AEComponents.STORAGE_CELL_INV_COMPONENT.isPresentIn(tag)) {
-            for (GenericStack stack : GenericStack.readList(
-                Objects.requireNonNull(AEComponents.STORAGE_CELL_INV_COMPONENT.readFrom(tag)))) {
+        if (tag.hasKey(STORAGE_CELL_INV_TAG, 9)) {
+            for (GenericStack stack : GenericStack.readList(tag.getTagList(STORAGE_CELL_INV_TAG, 10))) {
                 if (stack != null && stack.amount() > 0) {
                     cellItems.put(stack.what(), stack.amount());
                     storedItemCount += stack.amount();
@@ -132,9 +132,9 @@ public class BasicCellInventory implements StorageCell {
             legacyList.appendTag(itemTag);
         }
         if (stacks.isEmpty()) {
-            tag.removeTag(AEComponents.STORAGE_CELL_INV_COMPONENT.name());
+            tag.removeTag(STORAGE_CELL_INV_TAG);
         } else {
-            AEComponents.STORAGE_CELL_INV_COMPONENT.writeTo(tag, GenericStack.writeList(stacks));
+            tag.setTag(STORAGE_CELL_INV_TAG, GenericStack.writeList(stacks));
         }
         tag.setTag(ITEM_SLOT_TAG, legacyList);
     }
@@ -216,7 +216,7 @@ public class BasicCellInventory implements StorageCell {
 
     @Override
     public ITextComponent getDescription() {
-        return itemStack.getTextComponent();
+        return TextComponentItemStack.of(itemStack);
     }
 
     @Override

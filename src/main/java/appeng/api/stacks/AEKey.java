@@ -1,13 +1,11 @@
 package appeng.api.stacks;
 
 import appeng.api.config.FuzzyMode;
-import appeng.api.ids.AEComponents;
 import appeng.core.AELog;
 import appeng.core.definitions.AEItems;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagString;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -33,6 +31,8 @@ import java.util.Objects;
  */
 public abstract class AEKey {
     public static final String TYPE_FIELD = "#t";
+    private static final String MISSING_CONTENT_AEKEY_DATA = "missing_content_aekey_data";
+    private static final String MISSING_CONTENT_ERROR = "missing_content_error";
 
     private ITextComponent cachedDisplayName;
 
@@ -105,9 +105,9 @@ public abstract class AEKey {
             missingContent.setTagCompound(new NBTTagCompound());
         }
         var missingContentTag = missingContent.getTagCompound();
-        AEComponents.MISSING_CONTENT_AEKEY_DATA_COMPONENT.writeTo(missingContentTag, tag);
+        missingContentTag.setTag(MISSING_CONTENT_AEKEY_DATA, tag.copy());
         if (error != null) {
-            AEComponents.MISSING_CONTENT_ERROR_COMPONENT.writeTo(missingContentTag, new NBTTagString(error));
+            missingContentTag.setString(MISSING_CONTENT_ERROR, error);
         }
         return Objects.requireNonNull(AEItemKey.of(missingContent));
     }
@@ -118,9 +118,9 @@ public abstract class AEKey {
      */
     public final NBTTagCompound toTagGeneric() {
         if (AEItems.MISSING_CONTENT.is(this)) {
-            var originalTag = get(AEComponents.MISSING_CONTENT_AEKEY_DATA_COMPONENT);
-            if (originalTag != null) {
-                return originalTag.copy();
+            var originalTag = get(MISSING_CONTENT_AEKEY_DATA);
+            if (originalTag instanceof NBTTagCompound compound) {
+                return compound.copy();
             }
         }
 
@@ -289,11 +289,6 @@ public abstract class AEKey {
 
     @Nullable
     public abstract NBTBase get(String componentId);
-
-    @Nullable
-    public final <T extends NBTBase> T get(AEComponents.ComponentKey<T> component) {
-        return component.copy(get(component.name()));
-    }
 
     /**
      * @return true if this key has *any* components attached.

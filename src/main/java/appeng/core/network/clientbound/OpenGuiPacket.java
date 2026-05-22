@@ -20,7 +20,6 @@ package appeng.core.network.clientbound;
 
 import appeng.api.storage.ISubGuiHost;
 import appeng.api.storage.ITerminalHost;
-import appeng.client.component.TextComponents;
 import appeng.client.gui.implementations.GuiPriority;
 import appeng.client.gui.me.crafting.GuiCraftAmount;
 import appeng.client.gui.me.crafting.GuiCraftConfirm;
@@ -40,6 +39,7 @@ import appeng.core.gui.locator.GuiHostLocators;
 import appeng.core.network.ClientboundPacket;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.InterfaceLogicHost;
+import appeng.text.TextComponents;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;

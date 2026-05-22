@@ -1,14 +1,16 @@
 package appeng.integration.modules.hei;
 
+import appeng.api.client.PatternImportPriorityContext;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
+import appeng.client.patternimport.PatternImportPriorityContextImpl;
+import appeng.client.patternimport.PatternImportPrioritySelector;
 import appeng.container.me.items.ContainerPatternEncodingTerm;
 import appeng.container.slot.FakeSlot;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.helpers.InventoryAction;
 import appeng.parts.encoding.EncodingMode;
-import appeng.util.GenericContainerHelper;
 import com.google.common.math.LongMath;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import mezz.jei.api.gui.IRecipeLayout;
@@ -16,12 +18,9 @@ import mezz.jei.api.recipe.VanillaRecipeCategoryUid;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.item.ItemBucket;
 import net.minecraft.item.ItemStack;
-import net.minecraft.init.Items;
 import javax.annotation.Nonnull;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
@@ -58,14 +57,15 @@ public class PatternEncodingRecipeTransferHandler implements IRecipeTransferHand
 
     private static void encodeCraftingRecipe(ContainerPatternEncodingTerm container, IRecipeLayout recipeLayout) {
         container.setMode(EncodingMode.CRAFTING);
-        List<GenericStack> bookmarkedIngredients = HeiBookmarkHelper.getBookmarkedStacks();
+        PatternImportPriorityContext context = PatternImportPriorityContextImpl.create(container,
+            HeiBookmarkHelper.getBookmarkedStacks());
         List<List<GenericStack>> inputs = getCraftingInputs(recipeLayout);
 
         FakeSlot[] slots = container.getCraftingGridSlots();
         for (int i = 0; i < slots.length; i++) {
             ItemStack stack = ItemStack.EMPTY;
             if (i < inputs.size() && !inputs.get(i).isEmpty()) {
-                GenericStack genericStack = selectIngredient(inputs.get(i), bookmarkedIngredients, true);
+                GenericStack genericStack = PatternImportPrioritySelector.selectIngredient(inputs.get(i), context, true);
                 if (genericStack.what() instanceof AEItemKey itemKey) {
                     stack = itemKey.toStack();
                 } else {
@@ -82,11 +82,12 @@ public class PatternEncodingRecipeTransferHandler implements IRecipeTransferHand
 
     private static void encodeProcessingRecipe(ContainerPatternEncodingTerm container, IRecipeLayout recipeLayout) {
         container.setMode(EncodingMode.PROCESSING);
-        List<GenericStack> bookmarkedIngredients = HeiBookmarkHelper.getBookmarkedStacks();
+        PatternImportPriorityContext context = PatternImportPriorityContextImpl.create(container,
+            HeiBookmarkHelper.getBookmarkedStacks());
 
-        encodeSelectedStacksIntoSlots(container, getGenericInputs(recipeLayout), bookmarkedIngredients,
+        encodeSelectedStacksIntoSlots(container, getGenericInputs(recipeLayout), context,
             container.getProcessingInputSlots());
-        encodeSelectedStacksIntoSlots(container, getGenericOutputs(recipeLayout), Collections.emptyList(),
+        encodeSelectedStacksIntoSlots(container, getGenericOutputs(recipeLayout), context,
             container.getProcessingOutputSlots());
     }
 
@@ -104,12 +105,13 @@ public class PatternEncodingRecipeTransferHandler implements IRecipeTransferHand
 
     private static void encodeSelectedStacksIntoSlots(ContainerPatternEncodingTerm container,
                                                       List<List<GenericStack>> possibleInputsBySlot,
-                                                      List<GenericStack> bookmarkedIngredients,
+                                                      PatternImportPriorityContext context,
                                                       FakeSlot[] slots) {
         List<GenericStack> encodedInputs = new ObjectArrayList<>();
         for (List<GenericStack> genericIngredient : possibleInputsBySlot) {
             if (!genericIngredient.isEmpty()) {
-                addOrMerge(encodedInputs, selectIngredient(genericIngredient, bookmarkedIngredients, false));
+                addOrMerge(encodedInputs, PatternImportPrioritySelector.selectIngredient(genericIngredient, context,
+                    false));
             }
         }
 
@@ -118,28 +120,6 @@ public class PatternEncodingRecipeTransferHandler implements IRecipeTransferHand
                 : ItemStack.EMPTY;
             setFilter(container, slots[i], stack);
         }
-    }
-
-    private static GenericStack selectIngredient(List<GenericStack> possibleIngredients,
-                                                 List<GenericStack> bookmarkedIngredients,
-                                                 boolean preferFilledBucket) {
-        if (preferFilledBucket) {
-            for (GenericStack possibleIngredient : possibleIngredients) {
-                if (isFilledBucketIngredient(possibleIngredient)) {
-                    return possibleIngredient;
-                }
-            }
-        }
-
-        for (GenericStack bookmarkedIngredient : bookmarkedIngredients) {
-            for (GenericStack possibleIngredient : possibleIngredients) {
-                if (Objects.equals(possibleIngredient.what(), bookmarkedIngredient.what())) {
-                    return possibleIngredient;
-                }
-            }
-        }
-
-        return possibleIngredients.stream().findFirst().orElseThrow(IllegalStateException::new);
     }
 
     private static void addOrMerge(List<GenericStack> stacks, GenericStack newStack) {
@@ -158,16 +138,6 @@ public class PatternEncodingRecipeTransferHandler implements IRecipeTransferHand
         }
 
         stacks.add(newStack);
-    }
-
-    private static boolean isFilledBucketIngredient(GenericStack stack) {
-        if (!(stack.what() instanceof AEItemKey itemKey)) {
-            return false;
-        }
-
-        ItemStack itemStack = itemKey.toStack();
-        return GenericContainerHelper.getContainedFluidStack(itemStack) != null
-            && (itemStack.getItem() instanceof ItemBucket || itemStack.getItem() == Items.MILK_BUCKET);
     }
 
     private static void setFilter(ContainerPatternEncodingTerm container, FakeSlot slot, ItemStack stack) {

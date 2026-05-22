@@ -21,7 +21,6 @@ package appeng.tile.networking;
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
-import appeng.api.ids.AEComponents;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IAEPowerStorage;
 import appeng.api.networking.events.GridPowerStorageStateChanged;
@@ -40,9 +39,8 @@ import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
-import net.minecraft.nbt.NBTTagCompound;
-import net.minecraft.nbt.NBTTagDouble;
 import net.minecraft.nbt.NBTPrimitive;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.MathHelper;
 import org.jetbrains.annotations.Nullable;
@@ -51,6 +49,7 @@ public class TileEnergyCell extends AENetworkedTile implements IAEPowerStorage, 
 
     private static final String INTERNAL_CURRENT_POWER_TAG = "internalCurrentPower";
     private static final String INTERNAL_MAX_POWER_TAG = "internalMaxPower";
+    private static final String STORED_ENERGY = "stored_energy";
 
     private final StoredEnergyAmount stored;
     private byte currentDisplayLevel;
@@ -170,7 +169,7 @@ public class TileEnergyCell extends AENetworkedTile implements IAEPowerStorage, 
         super.exportSettings(mode, output);
 
         if (mode == SettingsFrom.DISMANTLE_ITEM && this.stored.getAmount() > 0) {
-            AEComponents.STORED_ENERGY_COMPONENT.writeTo(output, new NBTTagDouble(this.stored.getAmount()));
+            output.setDouble(STORED_ENERGY, this.stored.getAmount());
             output.setDouble(INTERNAL_CURRENT_POWER_TAG, this.stored.getAmount());
             output.setDouble(INTERNAL_MAX_POWER_TAG, this.stored.getMaximum());
         }
@@ -203,7 +202,7 @@ public class TileEnergyCell extends AENetworkedTile implements IAEPowerStorage, 
     }
 
     private static double readStoredEnergy(NBTTagCompound input) {
-        NBTBase storedEnergy = AEComponents.STORED_ENERGY_COMPONENT.readFrom(input);
+        NBTBase storedEnergy = input.hasKey(STORED_ENERGY, 99) ? input.getTag(STORED_ENERGY) : null;
         if (storedEnergy instanceof NBTPrimitive storedEnergyNumber) {
             return storedEnergyNumber.getDouble();
         }

@@ -24,7 +24,6 @@
 package appeng.api.util;
 
 import appeng.api.config.Setting;
-import appeng.api.ids.AEComponents;
 import appeng.util.ConfigManager;
 import appeng.util.Platform;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
@@ -42,6 +41,8 @@ import java.util.function.Supplier;
  * Obtained via {@link IConfigurableObject}
  */
 public interface IConfigManager {
+    String EXPORTED_SETTINGS = "exported_settings";
+
     /**
      * Get a builder for a configuration manager that stores its settings in an item stack.
      */
@@ -60,9 +61,9 @@ public interface IConfigManager {
             }
             NBTTagCompound tag = Platform.openNbtData(stack.get());
             if (Platform.isNbtEmpty(settings)) {
-                tag.removeTag(AEComponents.EXPORTED_SETTINGS_COMPONENT.name());
+                tag.removeTag(EXPORTED_SETTINGS);
             } else {
-                AEComponents.EXPORTED_SETTINGS_COMPONENT.writeTo(tag, settings);
+                tag.setTag(EXPORTED_SETTINGS, settings.copy());
             }
         });
 
@@ -76,11 +77,8 @@ public interface IConfigManager {
             @Override
             public IConfigManager build() {
                 NBTTagCompound tag = stack.get().getTagCompound();
-                if (tag != null) {
-                    NBTTagCompound settingsTag = AEComponents.EXPORTED_SETTINGS_COMPONENT.readFrom(tag);
-                    if (settingsTag == null) {
-                        return manager;
-                    }
+                if (tag != null && tag.hasKey(EXPORTED_SETTINGS, 10)) {
+                    NBTTagCompound settingsTag = tag.getCompoundTag(EXPORTED_SETTINGS);
                     Object2ObjectMap<String, String> settings = new Object2ObjectOpenHashMap<>();
                     for (String key : settingsTag.getKeySet()) {
                         settings.put(key, settingsTag.getString(key));

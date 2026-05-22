@@ -20,7 +20,6 @@ package appeng.block.networking;
 
 import appeng.api.config.AccessRestriction;
 import appeng.api.config.Actionable;
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.block.AEBaseBlockItem;
 import appeng.core.localization.ItemModText;
@@ -38,6 +37,7 @@ import net.minecraft.world.World;
 import java.util.List;
 
 public class EnergyCellBlockItem extends AEBaseBlockItem implements IAEItemPowerStorage {
+    private static final String STORED_ENERGY = "stored_energy";
 
     public EnergyCellBlockItem(EnergyCellBlock block) {
         super(block);
@@ -94,8 +94,8 @@ public class EnergyCellBlockItem extends AEBaseBlockItem implements IAEItemPower
     @Override
     public double getAECurrentPower(ItemStack is) {
         NBTTagCompound tag = is.getTagCompound();
-        if (AEComponents.STORED_ENERGY_COMPONENT.isPresentIn(tag)) {
-            NBTBase storedEnergy = AEComponents.STORED_ENERGY_COMPONENT.readFrom(tag);
+        if (tag != null && tag.hasKey(STORED_ENERGY, 99)) {
+            NBTBase storedEnergy = tag.getTag(STORED_ENERGY);
             if (storedEnergy instanceof NBTTagDouble) {
                 return ((NBTTagDouble) storedEnergy).getDouble();
             }
@@ -120,9 +120,9 @@ public class EnergyCellBlockItem extends AEBaseBlockItem implements IAEItemPower
     private void setStoredEnergy(ItemStack stack, double amount) {
         NBTTagCompound tag = Platform.openNbtData(stack);
         if (amount < 0.00001) {
-            tag.removeTag(AEComponents.STORED_ENERGY_COMPONENT.name());
+            tag.removeTag(STORED_ENERGY);
         } else {
-            AEComponents.STORED_ENERGY_COMPONENT.writeTo(tag, new NBTTagDouble(amount));
+            tag.setDouble(STORED_ENERGY, amount);
         }
 
         NBTTagCompound blockEntityTag = getBlockEntityTag(stack);

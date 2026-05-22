@@ -18,7 +18,6 @@
 
 package appeng.items.storage;
 
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.items.ISpatialStorageCell;
 import appeng.core.AELog;
 import appeng.core.localization.GuiText;
@@ -42,6 +41,7 @@ import java.util.List;
 import java.util.Locale;
 
 public class SpatialStorageCellItem extends AEBaseItem implements ISpatialStorageCell {
+    private static final String SPATIAL_PLOT_INFO = "spatial_plot_info";
     private final int maxRegion;
 
     public SpatialStorageCellItem(int spatialScale) {
@@ -152,13 +152,13 @@ public class SpatialStorageCellItem extends AEBaseItem implements ISpatialStorag
             tag = new NBTTagCompound();
             stack.setTagCompound(tag);
         }
-        AEComponents.SPATIAL_PLOT_INFO_COMPONENT.writeTo(tag, new SpatialPlotInfo(plotId, size).writeToNBT());
+        tag.setTag(SPATIAL_PLOT_INFO, new SpatialPlotInfo(plotId, size).writeToNBT());
     }
 
     private void clearStoredDimension(ItemStack stack) {
         NBTTagCompound tag = stack.getTagCompound();
         if (tag != null) {
-            tag.removeTag(AEComponents.SPATIAL_PLOT_INFO_COMPONENT.name());
+            tag.removeTag(SPATIAL_PLOT_INFO);
             if (Platform.isNbtEmpty(tag)) {
                 stack.setTagCompound(null);
             }
@@ -167,11 +167,8 @@ public class SpatialStorageCellItem extends AEBaseItem implements ISpatialStorag
 
     private @Nullable SpatialPlotInfo getPlotInfo(ItemStack stack) {
         NBTTagCompound tag = stack.getTagCompound();
-        if (tag != null) {
-            NBTTagCompound plotInfo = AEComponents.SPATIAL_PLOT_INFO_COMPONENT.readFrom(tag);
-            if (plotInfo != null) {
-                return SpatialPlotInfo.fromNBT(plotInfo);
-            }
+        if (tag != null && tag.hasKey(SPATIAL_PLOT_INFO, 10)) {
+            return SpatialPlotInfo.fromNBT(tag.getCompoundTag(SPATIAL_PLOT_INFO));
         }
         return null;
     }

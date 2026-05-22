@@ -11,7 +11,6 @@ import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
 import appeng.api.features.GridLinkables;
 import appeng.api.features.IGridLinkableHandler;
-import appeng.api.ids.AEComponents;
 import appeng.api.implementations.blockentities.IWirelessAccessPoint;
 import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.networking.IGrid;
@@ -54,6 +53,7 @@ import java.util.function.Supplier;
 @Optional.Interface(iface = "baubles.api.IBauble", modid = "baubles")
 public class WirelessTerminalItem extends PoweredContainerItem implements IGuiItem, IUpgradeableItem, IBauble {
     public static final IGridLinkableHandler LINKABLE_HANDLER = new LinkableHandler();
+    private static final String WIRELESS_LINK_TARGET = "wireless_link_target";
     private static final String LINK_TAG_DIM = "dim";
     private static final String LINK_TAG_X = "x";
     private static final String LINK_TAG_Y = "y";
@@ -117,10 +117,10 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
             return null;
         }
 
-        NBTTagCompound link = AEComponents.WIRELESS_LINK_TARGET_COMPONENT.readFrom(tag);
-        if (link == null) {
+        if (!tag.hasKey(WIRELESS_LINK_TARGET, 10)) {
             return null;
         }
+        NBTTagCompound link = tag.getCompoundTag(WIRELESS_LINK_TARGET);
         int dim = link.getInteger(LINK_TAG_DIM);
         WorldServer world = DimensionManager.getWorld(dim);
         if (world == null) {
@@ -227,14 +227,14 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
             link.setInteger(LINK_TAG_X, pos.getX());
             link.setInteger(LINK_TAG_Y, pos.getY());
             link.setInteger(LINK_TAG_Z, pos.getZ());
-            AEComponents.WIRELESS_LINK_TARGET_COMPONENT.writeTo(tag, link);
+            tag.setTag(WIRELESS_LINK_TARGET, link.copy());
         }
 
         @Override
         public void unlink(ItemStack itemStack) {
             NBTTagCompound tag = itemStack.getTagCompound();
             if (tag != null) {
-                tag.removeTag(AEComponents.WIRELESS_LINK_TARGET_COMPONENT.name());
+                tag.removeTag(WIRELESS_LINK_TARGET);
                 if (Platform.isNbtEmpty(tag)) {
                     itemStack.setTagCompound(null);
                 }
