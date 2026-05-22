@@ -55,6 +55,7 @@ import appeng.init.client.InitItemColors;
 import appeng.init.client.InitItemModelsProperties;
 import appeng.init.client.InitParticleTypes;
 import appeng.init.client.InitStackRenderHandlers;
+import appeng.integration.Integrations;
 import appeng.tile.crafting.TileCraftingMonitor;
 import appeng.tile.crafting.TileMolecularAssembler;
 import appeng.tile.misc.TileCharger;
@@ -136,6 +137,7 @@ public final class AppEngClient extends AppEngServer {
         MinecraftForge.EVENT_BUS.register(new MeteoriteCompassBeaconRenderer());
         MinecraftForge.EVENT_BUS.register(OverlayManager.getInstance());
         MinecraftForge.EVENT_BUS.register(StackTooltipRenderer.INSTANCE);
+        Integrations.hei().registerClientFeatures();
     }
 
     @Override

@@ -3,6 +3,7 @@ package appeng.integration.modules.hei;
 import appeng.api.stacks.GenericStack;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import mezz.jei.api.IJeiRuntime;
+import mezz.jei.bookmarks.BookmarkList;
 import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Field;
@@ -11,7 +12,44 @@ import java.util.Collections;
 import java.util.List;
 
 public final class HeiBookmarkHelper {
+    private static int fallbackNextGroupId = 1_000_000_000;
+
     private HeiBookmarkHelper() {
+    }
+
+    public static void addBookmarkGroup(List<GenericStack> stacks) {
+        if (stacks == null || stacks.isEmpty()) {
+            return;
+        }
+
+        IJeiRuntime runtime = HeiPlugin.getRuntime();
+        if (runtime == null) {
+            return;
+        }
+
+        Object overlay = runtime.getBookmarkOverlay();
+        if (overlay == null) {
+            return;
+        }
+
+        Object bookmarkListObject = readBookmarkListField(overlay);
+        if (!(bookmarkListObject instanceof BookmarkList bookmarkList)) {
+            return;
+        }
+
+        List<GenericStack> convertibleStacks = new ObjectArrayList<>();
+        for (GenericStack stack : stacks) {
+            if (GenericIngredientHelper.stackToIngredient(stack) != null) {
+                convertibleStacks.add(stack);
+            }
+        }
+
+        if (convertibleStacks.isEmpty()) {
+            return;
+        }
+
+        var group = new AEMissingBookmarkGroup(nextBookmarkGroupId(bookmarkList), convertibleStacks);
+        bookmarkList.add(group);
     }
 
     public static List<GenericStack> getBookmarkedStacks() {
@@ -48,16 +86,47 @@ public final class HeiBookmarkHelper {
 
     @Nullable
     private static Object readBookmarkListField(Object instance) {
-        Class<?> current = instance.getClass();
+        Field field = findField(instance.getClass(), "bookmarkList");
+        if (field == null) {
+            return null;
+        }
+        try {
+            field.setAccessible(true);
+            return field.get(instance);
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
+    }
+
+    private static int nextBookmarkGroupId(BookmarkList bookmarkList) {
+        Object nextId = invokeNoArg(bookmarkList, "nextId");
+        if (nextId instanceof Integer id) {
+            return id;
+        }
+
+        Field field = findField(bookmarkList.getClass(), "nextId");
+        if (field == null) {
+            return fallbackNextGroupId++;
+        }
+
+        try {
+            field.setAccessible(true);
+            int id = field.getInt(bookmarkList);
+            field.setInt(bookmarkList, id + 1);
+            return id;
+        } catch (ReflectiveOperationException ignored) {
+            return fallbackNextGroupId++;
+        }
+    }
+
+    @Nullable
+    private static Field findField(Class<?> type, String name) {
+        Class<?> current = type;
         while (current != null) {
             try {
-                Field field = current.getDeclaredField("bookmarkList");
-                field.setAccessible(true);
-                return field.get(instance);
+                return current.getDeclaredField(name);
             } catch (NoSuchFieldException ignored) {
                 current = current.getSuperclass();
-            } catch (ReflectiveOperationException ignored) {
-                return null;
             }
         }
         return null;

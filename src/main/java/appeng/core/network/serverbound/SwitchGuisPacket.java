@@ -14,6 +14,7 @@ import appeng.core.gui.locator.GuiHostLocator;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.clientbound.OpenGuiPacket;
+import appeng.core.network.clientbound.RestorePreviousGuiPacket;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.InterfaceLogicHost;
 import appeng.parts.AEBasePart;
@@ -23,6 +24,8 @@ import io.netty.buffer.Unpooled;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.ContainerPlayer;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.IWorldNameable;
@@ -50,6 +53,11 @@ public class SwitchGuisPacket extends ServerboundPacket {
     }
 
     public static boolean openSubGui(EntityPlayer player, GuiHostLocator locator, GuiIds.GuiKey guiKey) {
+        return openSubGui(player, locator, guiKey, null);
+    }
+
+    public static boolean openSubGui(EntityPlayer player, GuiHostLocator locator, GuiIds.GuiKey guiKey,
+                                     @Nullable Container returnToContainerOverride) {
         if (player.getClass() != EntityPlayerMP.class) {
             return false;
         }
@@ -78,16 +86,45 @@ public class SwitchGuisPacket extends ServerboundPacket {
 
         container.setLocator(locator);
         container.setReturnedFromSubScreen(false);
+        container.setExternalGuiReturn(returnToContainerOverride != null);
+        container.setReturnToContainerOverride(returnToContainerOverride);
         container.setGuiTitle(title);
         container.windowId = windowId;
 
         InitNetwork.CHANNEL.sendTo(new OpenGuiPacket(guiKey, locator, false, title,
-            getInitialData(guiKey, host)), serverPlayer);
+            getInitialData(guiKey, host), windowId, returnToContainerOverride != null), serverPlayer);
 
         serverPlayer.openContainer = container;
         serverPlayer.openContainer.windowId = windowId;
         serverPlayer.openContainer.addListener(serverPlayer);
 
+        return true;
+    }
+
+    public static boolean restorePreviousGui(EntityPlayerMP player) {
+        if (!(player.openContainer instanceof AEBaseContainer currentContainer)) {
+            return false;
+        }
+
+        Container previousContainer = currentContainer.getReturnToContainerOverride();
+        if (previousContainer == null) {
+            return false;
+        }
+
+        if (previousContainer instanceof ContainerPlayer) {
+            player.closeContainer();
+            InitNetwork.CHANNEL.sendTo(new RestorePreviousGuiPacket(player.inventoryContainer.windowId), player);
+            return true;
+        }
+
+        player.getNextWindowId();
+        player.closeContainer();
+        int windowId = player.currentWindowId;
+
+        player.openContainer = previousContainer;
+        player.openContainer.windowId = windowId;
+        InitNetwork.CHANNEL.sendTo(new RestorePreviousGuiPacket(windowId), player);
+        player.openContainer.addListener(player);
         return true;
     }
 
@@ -200,6 +237,10 @@ public class SwitchGuisPacket extends ServerboundPacket {
     }
 
     private void doReturnToParentGui(EntityPlayerMP player) {
+        if (restorePreviousGui(player)) {
+            return;
+        }
+
         Class<?> containerClass = player.openContainer.getClass();
         if (!ISubGui.class.isAssignableFrom(containerClass)) {
             return;

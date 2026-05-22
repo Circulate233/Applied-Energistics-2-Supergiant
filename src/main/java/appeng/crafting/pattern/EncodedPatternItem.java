@@ -28,6 +28,8 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -41,7 +43,6 @@ public class EncodedPatternItem<T extends IPatternDetails> extends AEBaseItem {
     public EncodedPatternItem(EncodedPatternDecoder<T> decoder,
                               @Nullable InvalidPatternTooltipStrategy invalidPatternTooltip,
                               int maxStackSize) {
-        super();
         this.decoder = decoder;
         this.invalidPatternTooltip = invalidPatternTooltip;
         this.setMaxStackSize(maxStackSize);
@@ -126,23 +127,19 @@ public class EncodedPatternItem<T extends IPatternDetails> extends AEBaseItem {
     }
 
     @Override
+    @SideOnly(Side.CLIENT)
     protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag flags) {
         super.addCheckedInformation(stack, world, lines, flags);
-
-        var level = world != null ? world : net.minecraft.client.Minecraft.getMinecraft().world;
-        if (level == null) {
-            return;
-        }
 
         PatternDetailsTooltip tooltip;
         try {
             var what = AEItemKey.of(stack);
-            var details = Objects.requireNonNull(what == null ? null : decoder.decode(what, level),
+            var details = Objects.requireNonNull(what == null ? null : decoder.decode(what, world),
                 "decoder returned null");
-            tooltip = details.getTooltip(level, flags);
+            tooltip = details.getTooltip(world, flags);
         } catch (Exception e) {
             lines.add(GuiText.InvalidPattern.getLocal());
-            tooltip = invalidPatternTooltip == null ? null : invalidPatternTooltip.getTooltip(stack, level, e, flags);
+            tooltip = invalidPatternTooltip == null ? null : invalidPatternTooltip.getTooltip(stack, world, e, flags.isAdvanced());
         }
 
         if (tooltip == null) {

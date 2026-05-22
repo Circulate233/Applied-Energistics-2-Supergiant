@@ -52,6 +52,7 @@ import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.Container;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.World;
@@ -112,6 +113,12 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
 
     public static void openWithCraftingList(@Nullable IActionHost terminal, EntityPlayerMP player,
                                             @Nullable GuiHostLocator locator, List<ICraftingGridContainer.AutoCraftEntry> stacksToCraft) {
+        openWithCraftingList(terminal, player, locator, stacksToCraft, null);
+    }
+
+    public static void openWithCraftingList(@Nullable IActionHost terminal, EntityPlayerMP player,
+                                            @Nullable GuiHostLocator locator, List<ICraftingGridContainer.AutoCraftEntry> stacksToCraft,
+                                            @Nullable Container returnToContainerOverride) {
         if (terminal == null || locator == null || stacksToCraft.isEmpty()) {
             return;
         }
@@ -120,7 +127,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         List<ICraftingGridContainer.AutoCraftEntry> subsequentCrafts = stacksToCraft.subList(1, stacksToCraft.size());
 
         try {
-            SwitchGuisPacket.openSubGui(player, locator, GuiIds.GuiKey.CRAFT_CONFIRM);
+            SwitchGuisPacket.openSubGui(player, locator, GuiIds.GuiKey.CRAFT_CONFIRM, returnToContainerOverride);
 
             if (player.openContainer instanceof ContainerCraftConfirm container) {
                 if (!container.planJob(firstToCraft.what(), firstToCraft.slots().size(), CalculationStrategy.CRAFT_LESS)) {
@@ -237,10 +244,14 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                     EntityPlayer player = getPlayer();
                     if (player instanceof EntityPlayerMP serverPlayer) {
                         ContainerCraftConfirm.openWithCraftingList(getActionHost(), serverPlayer, getLocator(),
-                            this.autoCraftingQueue);
+                            this.autoCraftingQueue, getReturnToContainerOverride());
                     }
                 } else {
-                    this.host.returnToMainContainer(getPlayer(), this);
+                    EntityPlayer player = getPlayer();
+                    if (!(player instanceof EntityPlayerMP serverPlayer)
+                        || !SwitchGuisPacket.restorePreviousGui(serverPlayer)) {
+                        this.host.returnToMainContainer(player, this);
+                    }
                 }
             } else {
                 AELog.info("Couldn't submit crafting job for %dx%s: %s [Detail: %s]",
@@ -330,9 +341,11 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         EntityPlayer player = getPlayerInventory().player;
         if (player instanceof EntityPlayerMP serverPlayer) {
             if (this.autoCraftingQueue != null && !this.autoCraftingQueue.isEmpty()) {
-                ContainerCraftConfirm.openWithCraftingList(getActionHost(), serverPlayer, getLocator(), this.autoCraftingQueue);
+                ContainerCraftConfirm.openWithCraftingList(getActionHost(), serverPlayer, getLocator(),
+                    this.autoCraftingQueue, getReturnToContainerOverride());
             } else if (this.whatToCraft != null) {
-                ContainerCraftAmount.open(serverPlayer, getLocator(), this.whatToCraft, this.amount);
+                ContainerCraftAmount.open(serverPlayer, getLocator(), this.whatToCraft, this.amount,
+                    getReturnToContainerOverride());
             } else {
                 this.host.returnToMainContainer(getPlayer(), this);
             }

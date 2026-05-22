@@ -110,8 +110,8 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         result.setTagInfo(ENCODED_CRAFTING_PATTERN, encoded);
     }
 
-    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World level,
-                                                                 @Nullable Exception cause, ITooltipFlag flags) {
+    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World world,
+                                                                 @Nullable Exception cause, boolean flags) {
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_CRAFTS);
 
         var tag = stack.getTagCompound();
@@ -136,7 +136,7 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
                 tooltip.addProperty(GuiText.PatternTooltipFluidSubstitutions.text());
             }
 
-            if (flags.isAdvanced() && encoded.hasKey("recipeId", 8)) {
+            if (flags && encoded.hasKey("recipeId", 8)) {
                 tooltip.addProperty(GuiText.Recipe.text(),
                     new TextComponentString(encoded.getString("recipeId")));
             }

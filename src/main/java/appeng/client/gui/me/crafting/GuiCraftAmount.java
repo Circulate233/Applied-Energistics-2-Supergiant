@@ -45,7 +45,8 @@ public class GuiCraftAmount extends AEBaseGui<ContainerCraftAmount> {
 
         this.next = widgets.addButton("next", GuiText.Next.text(), this::confirm);
 
-        AESubGui.addBackButton(container, "back", widgets);
+        AESubGui.addBackButton(container, "back", widgets,
+            container.hasExternalGuiReturn() ? GuiText.ReturnToPreviousGui.text() : null);
 
         this.amountToCraft = widgets.addNumberEntryWidget("amountToCraft", NumberEntryType.UNITLESS);
         this.amountToCraft.setMinValue(1);
@@ -82,4 +83,3 @@ public class GuiCraftAmount extends AEBaseGui<ContainerCraftAmount> {
         container.confirm(amount, craftMissingAmount, GuiScreen.isShiftKeyDown());
     }
 }
-

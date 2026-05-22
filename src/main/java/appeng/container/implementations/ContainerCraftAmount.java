@@ -39,6 +39,7 @@ import appeng.util.inv.AppEngInternalInventory;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.Container;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,7 +61,12 @@ public class ContainerCraftAmount extends AEBaseContainer implements ISubGui {
     }
 
     public static void open(EntityPlayerMP player, GuiHostLocator locator, AEKey whatToCraft, int initialAmount) {
-        SwitchGuisPacket.openSubGui(player, locator, GuiIds.GuiKey.CRAFT_AMOUNT);
+        open(player, locator, whatToCraft, initialAmount, null);
+    }
+
+    public static void open(EntityPlayerMP player, GuiHostLocator locator, AEKey whatToCraft, int initialAmount,
+                            @Nullable Container returnToContainerOverride) {
+        SwitchGuisPacket.openSubGui(player, locator, GuiIds.GuiKey.CRAFT_AMOUNT, returnToContainerOverride);
 
         if (player.openContainer instanceof ContainerCraftAmount container) {
             container.setWhatToCraft(whatToCraft, initialAmount);
@@ -114,7 +120,8 @@ public class ContainerCraftAmount extends AEBaseContainer implements ISubGui {
             EntityPlayer player = getPlayer();
             if (player instanceof EntityPlayerMP serverPlayer) {
                 if (amount > 0) {
-                    SwitchGuisPacket.openSubGui(serverPlayer, locator, GuiIds.GuiKey.CRAFT_CONFIRM);
+                    SwitchGuisPacket.openSubGui(serverPlayer, locator, GuiIds.GuiKey.CRAFT_CONFIRM,
+                        getReturnToContainerOverride());
 
                     if (serverPlayer.openContainer instanceof ContainerCraftConfirm container) {
                         container.setAutoStart(autoStart);

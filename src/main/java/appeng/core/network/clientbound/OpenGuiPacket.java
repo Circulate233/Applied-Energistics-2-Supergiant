@@ -59,6 +59,8 @@ public class OpenGuiPacket extends ClientboundPacket {
     private GuiIds.GuiKey guiKey;
     private GuiHostLocator locator;
     private boolean returnedFromSubScreen;
+    private boolean externalGuiReturn;
+    private int windowId;
     @Nullable
     private ITextComponent guiTitle;
     private byte[] initialData = new byte[0];
@@ -67,12 +69,15 @@ public class OpenGuiPacket extends ClientboundPacket {
     }
 
     public OpenGuiPacket(GuiIds.GuiKey guiKey, GuiHostLocator locator,
-                         boolean returnedFromSubScreen, @Nullable ITextComponent guiTitle, byte[] initialData) {
+                         boolean returnedFromSubScreen, @Nullable ITextComponent guiTitle, byte[] initialData,
+                         int windowId, boolean externalGuiReturn) {
         this.guiKey = guiKey;
         this.locator = locator;
         this.returnedFromSubScreen = returnedFromSubScreen;
         this.guiTitle = guiTitle;
         this.initialData = Arrays.copyOf(initialData, initialData.length);
+        this.windowId = windowId;
+        this.externalGuiReturn = externalGuiReturn;
     }
 
     @SideOnly(Side.CLIENT)
@@ -99,6 +104,8 @@ public class OpenGuiPacket extends ClientboundPacket {
         this.guiKey = GuiIds.GuiKey.fromId(packetBuffer.readVarInt());
         this.locator = GuiHostLocators.readFromPacket(packetBuffer);
         this.returnedFromSubScreen = packetBuffer.readBoolean();
+        this.externalGuiReturn = packetBuffer.readBoolean();
+        this.windowId = packetBuffer.readVarInt();
         this.guiTitle = TextComponents.readFromPacket(packetBuffer);
         this.initialData = new byte[packetBuffer.readVarInt()];
         packetBuffer.readBytes(this.initialData);
@@ -110,6 +117,8 @@ public class OpenGuiPacket extends ClientboundPacket {
         packetBuffer.writeVarInt(this.guiKey.getGuiId());
         GuiHostLocators.writeToPacket(packetBuffer, this.locator);
         packetBuffer.writeBoolean(this.returnedFromSubScreen);
+        packetBuffer.writeBoolean(this.externalGuiReturn);
+        packetBuffer.writeVarInt(this.windowId);
         TextComponents.writeToPacket(packetBuffer, this.guiTitle);
         packetBuffer.writeVarInt(this.initialData.length);
         packetBuffer.writeBytes(this.initialData);
@@ -142,6 +151,7 @@ public class OpenGuiPacket extends ClientboundPacket {
         }
 
         minecraft.player.openContainer = container;
+        container.windowId = this.windowId;
         minecraft.displayGuiScreen(screen);
     }
 
@@ -166,7 +176,9 @@ public class OpenGuiPacket extends ClientboundPacket {
         if (container != null) {
             container.setLocator(this.locator);
             container.setReturnedFromSubScreen(this.returnedFromSubScreen);
+            container.setExternalGuiReturn(this.externalGuiReturn);
             container.setGuiTitle(this.guiTitle);
+            container.windowId = this.windowId;
         }
         return container;
     }

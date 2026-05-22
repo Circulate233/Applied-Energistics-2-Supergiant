@@ -11,6 +11,9 @@ public enum ItemModText implements LocalizationEnum {
     P2P_TAG_ATTUNEMENT,
     CRANK_DESCRIPTION,
     RecipeTooLarge,
+    RecipeTransferImportsAvailable,
+    RecipeTransferRequestsCraftableMissing,
+    RecipeTransferLeavesMissing,
     StoredEnergy,
     StoredItems;
 

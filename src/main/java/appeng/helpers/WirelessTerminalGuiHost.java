@@ -270,5 +270,3 @@ public class WirelessTerminalGuiHost<T extends WirelessTerminalItem> extends Ite
 
 
 
-
-

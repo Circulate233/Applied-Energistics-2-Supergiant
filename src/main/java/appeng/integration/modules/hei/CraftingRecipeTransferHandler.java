@@ -22,13 +22,15 @@ import javax.annotation.Nonnull;
 import java.util.List;
 
 @SuppressWarnings("deprecation")
-public class CraftingRecipeTransferHandler implements IRecipeTransferHandler<ContainerCraftingTerm> {
+public class CraftingRecipeTransferHandler<T extends ContainerCraftingTerm> implements IRecipeTransferHandler<T> {
     private static final int RECIPE_OUTPUT_SLOT = 0;
     private static final int CRAFTING_GRID_SIZE = 9;
 
+    private final Class<T> containerClass;
     private final IRecipeTransferHandlerHelper handlerHelper;
 
-    public CraftingRecipeTransferHandler(IRecipeTransferHandlerHelper handlerHelper) {
+    public CraftingRecipeTransferHandler(Class<T> containerClass, IRecipeTransferHandlerHelper handlerHelper) {
+        this.containerClass = containerClass;
         this.handlerHelper = handlerHelper;
     }
 
@@ -41,12 +43,12 @@ public class CraftingRecipeTransferHandler implements IRecipeTransferHandler<Con
     }
 
     @Override
-    public Class<ContainerCraftingTerm> getContainerClass() {
-        return ContainerCraftingTerm.class;
+    public Class<T> getContainerClass() {
+        return containerClass;
     }
 
     @Override
-    public IRecipeTransferError transferRecipe(@Nonnull ContainerCraftingTerm container,
+    public IRecipeTransferError transferRecipe(@Nonnull T container,
                                                @Nonnull IRecipeLayout recipeLayout,
                                                @Nonnull EntityPlayer player, boolean maxTransfer, boolean doTransfer) {
         ExtractedRecipe extractedRecipe = extractRecipe(recipeLayout);
@@ -59,10 +61,10 @@ public class CraftingRecipeTransferHandler implements IRecipeTransferHandler<Con
         }
 
         Int2ObjectMap<Ingredient> slotToIngredientMap = extractedRecipe.ingredients;
-        ContainerCraftingTerm.MissingIngredientSlots missingSlots = container.findMissingIngredients(slotToIngredientMap);
-        if (missingSlots.missingSlots().size() == slotToIngredientMap.size()) {
-            return this.handlerHelper.createUserErrorForSlots(ItemModText.NoItems.getLocal(),
-                missingSlots.missingSlots());
+        CraftingRecipeTransferAnalysis analysis = CraftingRecipeTransferAnalysis.analyze(
+            container.findMissingIngredients(slotToIngredientMap), slotToIngredientMap.size());
+        if (!doTransfer && analysis.outcome() != CraftingRecipeTransferAnalysis.Outcome.READY) {
+            return CraftingRecipeTransferUserError.create(analysis);
         }
 
         if (doTransfer) {

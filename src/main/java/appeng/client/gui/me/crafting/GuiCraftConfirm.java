@@ -18,6 +18,7 @@
 
 package appeng.client.gui.me.crafting;
 
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.GuiStyle;
@@ -25,7 +26,10 @@ import appeng.client.gui.widgets.AE2Button;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.container.me.crafting.CraftingPlanSummary;
+import appeng.container.me.crafting.CraftingPlanSummaryEntry;
 import appeng.core.localization.GuiText;
+import appeng.integration.Integrations;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
@@ -44,7 +48,9 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> {
 
     private final CraftConfirmTableRenderer table;
     private final AE2Button start;
+    private final AE2Button bookmarkMissing;
     private final AE2Button selectCPU;
+    private final AE2Button cancel;
     private final Scrollbar scrollbar;
 
     public GuiCraftConfirm(ContainerCraftConfirm container, InventoryPlayer playerInventory, ITextComponent title,
@@ -57,55 +63,31 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> {
         this.start = widgets.addButton("start", GuiText.Start.text(), this::start);
         this.start.enabled = false;
 
+        this.bookmarkMissing = widgets.addButton("bookmarkMissing", GuiText.BookmarkMissing.text(), this::bookmarkMissing);
+        this.bookmarkMissing.enabled = false;
+        this.bookmarkMissing.visible = false;
+
         this.selectCPU = widgets.addButton("selectCpu", getNextCpuButtonLabel(), this::selectNextCpu);
         this.selectCPU.enabled = false;
 
-        widgets.addButton("cancel", GuiText.Cancel.text(), container::goBack);
+        this.cancel = widgets.addButton("cancel", GuiText.Cancel.text(), container::goBack);
 
         if (title != null) {
             setTextContent(TEXT_ID_DIALOG_TITLE, title);
         }
     }
 
-    @Override
-    protected void updateBeforeRender() {
-        super.updateBeforeRender();
-
-        var errorResult = container.submitError.result();
-        if (errorResult != null && errorResult.errorCode() != null) {
-            switchToScreen(new GuiCraftError(this, errorResult.errorCode(), errorResult.errorDetail()));
-            return;
+    private static boolean hasMissingEntries(@Nullable CraftingPlanSummary plan) {
+        if (plan == null) {
+            return false;
         }
 
-        this.selectCPU.setMessage(getNextCpuButtonLabel());
-
-        CraftingPlanSummary plan = container.getPlan();
-        boolean planIsStartable = plan != null && !plan.simulation();
-        this.start.enabled = !this.container.hasNoCPU() && planIsStartable;
-        this.selectCPU.enabled = planIsStartable;
-
-        ITextComponent planDetails = GuiText.CalculatingWait.text();
-        ITextComponent cpuDetails = new TextComponentString("");
-        if (plan != null) {
-            String byteUsed = NumberFormat.getInstance().format(plan.usedBytes());
-            planDetails = GuiText.BytesUsed.text(byteUsed);
-
-            if (plan.simulation()) {
-                cpuDetails = GuiText.PartialPlan.text();
-            } else if (this.container.getCpuAvailableBytes() > 0) {
-                cpuDetails = GuiText.ConfirmCraftCpuStatus.text(
-                    this.container.getCpuAvailableBytes(),
-                    this.container.getCpuCoProcessors());
-            } else {
-                cpuDetails = GuiText.ConfirmCraftNoCpu.text();
+        for (CraftingPlanSummaryEntry entry : plan.entries()) {
+            if (entry.missingAmount() > 0) {
+                return true;
             }
         }
-
-        setTextContent(TEXT_ID_DIALOG_TITLE, GuiText.CraftingPlan.text(planDetails));
-        setTextContent("cpu_status", cpuDetails);
-
-        final int size = plan != null ? plan.entries().size() : 0;
-        scrollbar.setRange(0, this.table.getScrollableRows(size), 1);
+        return false;
     }
 
     private ITextComponent getNextCpuButtonLabel() {
@@ -132,13 +114,47 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> {
     }
 
     @Override
-    protected void renderHoveredToolTip(int mouseX, int mouseY) {
-        super.renderHoveredToolTip(mouseX, mouseY);
+    protected void updateBeforeRender() {
+        super.updateBeforeRender();
 
-        List<ITextComponent> hoveredTooltip = this.table.getHoveredTooltip();
-        if (hoveredTooltip != null) {
-            drawTooltipWithHeader(mouseX, mouseY, hoveredTooltip);
+        var errorResult = container.submitError.result();
+        if (errorResult != null && errorResult.errorCode() != null) {
+            switchToScreen(new GuiCraftError(this, errorResult.errorCode(), errorResult.errorDetail()));
+            return;
         }
+
+        this.selectCPU.setMessage(getNextCpuButtonLabel());
+
+        CraftingPlanSummary plan = container.getPlan();
+        boolean planIsStartable = plan != null && !plan.simulation();
+        this.start.enabled = !this.container.hasNoCPU() && planIsStartable;
+        this.selectCPU.enabled = planIsStartable;
+        boolean canBookmarkMissing = Integrations.hei().isEnabled() && hasMissingEntries(plan);
+        this.bookmarkMissing.visible = canBookmarkMissing;
+        this.bookmarkMissing.enabled = canBookmarkMissing;
+
+        ITextComponent planDetails = GuiText.CalculatingWait.text();
+        ITextComponent cpuDetails = new TextComponentString("");
+        if (plan != null) {
+            String byteUsed = NumberFormat.getInstance().format(plan.usedBytes());
+            planDetails = GuiText.BytesUsed.text(byteUsed);
+
+            if (plan.simulation()) {
+                cpuDetails = GuiText.PartialPlan.text();
+            } else if (this.container.getCpuAvailableBytes() > 0) {
+                cpuDetails = GuiText.ConfirmCraftCpuStatus.text(
+                    this.container.getCpuAvailableBytes(),
+                    this.container.getCpuCoProcessors());
+            } else {
+                cpuDetails = GuiText.ConfirmCraftNoCpu.text();
+            }
+        }
+
+        setTextContent(TEXT_ID_DIALOG_TITLE, GuiText.CraftingPlan.text(planDetails));
+        setTextContent("cpu_status", cpuDetails);
+
+        final int size = plan != null ? plan.entries().size() : 0;
+        scrollbar.setRange(0, this.table.getScrollableRows(size), 1);
     }
 
     @Nullable
@@ -166,5 +182,32 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> {
 
     private void start() {
         getContainer().startJob();
+    }
+
+    @Override
+    protected void renderHoveredToolTip(int mouseX, int mouseY) {
+        super.renderHoveredToolTip(mouseX, mouseY);
+
+        List<ITextComponent> hoveredTooltip = this.table.getHoveredTooltip();
+        if (hoveredTooltip != null) {
+            drawTooltipWithHeader(mouseX, mouseY, hoveredTooltip);
+        }
+
+    }
+
+    private void bookmarkMissing() {
+        CraftingPlanSummary plan = container.getPlan();
+        if (plan == null) {
+            return;
+        }
+
+        List<GenericStack> missingStacks = new ObjectArrayList<>();
+        for (CraftingPlanSummaryEntry entry : plan.entries()) {
+            if (entry.missingAmount() > 0) {
+                missingStacks.add(new GenericStack(entry.what(), entry.missingAmount()));
+            }
+        }
+
+        Integrations.hei().addBookmarkGroup(missingStacks);
     }
 }

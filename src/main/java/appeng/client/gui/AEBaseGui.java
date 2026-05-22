@@ -18,45 +18,11 @@
 
 package appeng.client.gui;
 
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import com.google.common.base.Stopwatch;
-
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
-import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
-import org.jetbrains.annotations.Nullable;
-import org.lwjgl.input.Keyboard;
-import org.lwjgl.input.Mouse;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.client.gui.inventory.GuiContainer;
-import net.minecraft.client.settings.KeyBinding;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.RenderHelper;
-import net.minecraft.entity.player.InventoryPlayer;
-import net.minecraft.inventory.ClickType;
-import net.minecraft.inventory.Container;
-import net.minecraft.inventory.Slot;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
-import net.minecraft.util.text.ITextComponent;
-
-import appeng.api.client.AEKeyRendering;
 import appeng.api.behaviors.EmptyingAction;
-import appeng.api.storage.cells.IStackTooltipDataProvider;
+import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
+import appeng.api.storage.cells.IStackTooltipDataProvider;
 import appeng.client.Point;
 import appeng.client.gui.layout.SlotGridLayout;
 import appeng.client.gui.me.common.StackSizeRenderer;
@@ -87,6 +53,37 @@ import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.core.network.serverbound.SwapSlotsPacket;
 import appeng.helpers.InventoryAction;
 import appeng.integration.Integrations;
+import com.google.common.base.Stopwatch;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiTextField;
+import net.minecraft.client.gui.inventory.GuiContainer;
+import net.minecraft.client.renderer.GlStateManager;
+import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.settings.KeyBinding;
+import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.ClickType;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.util.ResourceLocation;
+import net.minecraft.util.text.ITextComponent;
+import org.jetbrains.annotations.Nullable;
+import org.lwjgl.input.Keyboard;
+import org.lwjgl.input.Mouse;
+
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer {
     private static final Point HIDDEN_SLOT_POS = new Point(-9999, -9999);
@@ -301,14 +298,12 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
             return;
         }
 
-        if (this.hoveredSlot != null && this.hoveredSlot.getHasStack()) {
-            return;
-        }
-
         Tooltip tooltip = widgets.getTooltip(mouseX - guiLeft, mouseY - guiTop);
         if (tooltip != null && !tooltip.content().isEmpty()) {
             drawTooltip(mouseX, mouseY, tooltip.content());
+            return;
         }
+
     }
 
     private boolean renderEmptyingTooltip(int mouseX, int mouseY) {

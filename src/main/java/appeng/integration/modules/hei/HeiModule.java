@@ -3,7 +3,10 @@ package appeng.integration.modules.hei;
 import appeng.api.stacks.GenericStack;
 import appeng.integration.abstraction.HeiAdapter;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 @SuppressWarnings("unused")
 public class HeiModule implements HeiAdapter {
@@ -25,5 +28,20 @@ public class HeiModule implements HeiAdapter {
     @Override
     public ItemStack getDisplayStack(Object ingredient) {
         return AEGuiHandler.toGhostDisplayStack(ingredient);
+    }
+
+    @Override
+    public void registerClientFeatures() {
+        HeiClientFeatures.register();
+    }
+
+    @Override
+    public void appendIngredientActionTooltip(ItemTooltipEvent event) {
+        HeiClientFeatures.appendIngredientActionTooltip(event);
+    }
+
+    @Override
+    public void addBookmarkGroup(List<GenericStack> stacks) {
+        HeiBookmarkHelper.addBookmarkGroup(stacks);
     }
 }

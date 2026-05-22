@@ -1,12 +1,14 @@
 package appeng.integration.modules.hei;
 
-import appeng.api.integrations.hei.IngredientConverters;
 import appeng.api.config.Actionable;
 import appeng.api.config.CondenserOutput;
-import appeng.client.gui.Icon;
 import appeng.api.features.P2PTunnelAttunementInternal;
+import appeng.api.integrations.hei.IngredientConverters;
 import appeng.api.upgrades.IUpgradeableItem;
 import appeng.api.upgrades.Upgrades;
+import appeng.client.gui.Icon;
+import appeng.container.me.items.ContainerCraftingTerm;
+import appeng.container.me.items.ContainerWirelessCraftingTerm;
 import appeng.core.AEConfig;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
@@ -20,6 +22,7 @@ import appeng.items.tools.powered.powersink.AEBasePoweredItem;
 import appeng.recipes.AERecipeTypes;
 import appeng.recipes.game.StorageCellUpgradeRecipe;
 import appeng.recipes.quartzcutting.QuartzCuttingRecipe;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import mezz.jei.api.IJeiRuntime;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.IModRegistry;
@@ -36,8 +39,6 @@ import net.minecraftforge.oredict.OreDictionary;
 import javax.annotation.ParametersAreNonnullByDefault;
 import java.util.Arrays;
 import java.util.List;
-
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 @JEIPlugin
 @ParametersAreNonnullByDefault
@@ -255,9 +256,13 @@ public class HeiPlugin implements IModPlugin {
         registerDescriptions(registry);
         blacklistTechnicalItems(registry);
 
-        registry.getRecipeTransferRegistry()
-                .addRecipeTransferHandler(new CraftingRecipeTransferHandler(
-                    registry.getJeiHelpers().recipeTransferHandlerHelper()), VanillaRecipeCategoryUid.CRAFTING);
+        var transferHelper = registry.getJeiHelpers().recipeTransferHandlerHelper();
+        registry.getRecipeTransferRegistry().addRecipeTransferHandler(
+            new CraftingRecipeTransferHandler<>(ContainerCraftingTerm.class, transferHelper),
+            VanillaRecipeCategoryUid.CRAFTING);
+        registry.getRecipeTransferRegistry().addRecipeTransferHandler(
+            new CraftingRecipeTransferHandler<>(ContainerWirelessCraftingTerm.class, transferHelper),
+            VanillaRecipeCategoryUid.CRAFTING);
         PatternEncodingRecipeTransferHandler patternTransferHandler = new PatternEncodingRecipeTransferHandler();
         registry.getRecipeTransferRegistry().addUniversalRecipeTransferHandler(patternTransferHandler);
         registry.addAdvancedGuiHandlers(GUI_HANDLER);

@@ -49,6 +49,8 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 import org.jspecify.annotations.Nullable;
 
 @SuppressWarnings("deprecation")
@@ -166,6 +168,7 @@ public abstract class AEBaseBlock extends Block implements IOrientableBlock {
     }
 
     @Override
+    @SideOnly(Side.CLIENT)
     public AxisAlignedBB getSelectedBoundingBox(IBlockState state, World world, BlockPos pos) {
         ICustomCollision collisionHandler = getCustomCollision(world, pos);
         if (collisionHandler == null) {

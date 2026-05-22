@@ -6,10 +6,11 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.IStackTooltipDataProvider;
 import appeng.client.gui.me.common.StackSizeRenderer;
 import appeng.core.localization.GuiText;
+import appeng.integration.Integrations;
 import appeng.items.storage.StorageCellTooltipComponent;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.FontRenderer;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.client.renderer.RenderItem;
@@ -155,11 +156,13 @@ public class StackTooltipRenderer {
         }
 
         if (stack.isEmpty() || !(stack.getItem() instanceof IStackTooltipDataProvider provider)) {
+            Integrations.hei().appendIngredientActionTooltip(event);
             return;
         }
 
         var data = provider.getTooltipImage(stack).orElse(null);
         if (data == null || data.getRowCount() == 0) {
+            Integrations.hei().appendIngredientActionTooltip(event);
             return;
         }
 
@@ -170,6 +173,7 @@ public class StackTooltipRenderer {
         for (int i = 0; i < lineCount; i++) {
             event.getToolTip().add(spacer);
         }
+        Integrations.hei().appendIngredientActionTooltip(event);
     }
 
     @SubscribeEvent

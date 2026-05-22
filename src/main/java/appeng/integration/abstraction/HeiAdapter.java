@@ -2,7 +2,10 @@ package appeng.integration.abstraction;
 
 import appeng.api.stacks.GenericStack;
 import net.minecraft.item.ItemStack;
+import net.minecraftforge.event.entity.player.ItemTooltipEvent;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.List;
 
 public interface HeiAdapter {
 
@@ -24,5 +27,14 @@ public interface HeiAdapter {
 
     default ItemStack getDisplayStack(Object ingredient) {
         return ItemStack.EMPTY;
+    }
+
+    default void registerClientFeatures() {
+    }
+
+    default void appendIngredientActionTooltip(ItemTooltipEvent event) {
+    }
+
+    default void addBookmarkGroup(List<GenericStack> stacks) {
     }
 }

@@ -62,8 +62,8 @@ import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import it.unimi.dsi.fastutil.shorts.ShortSet;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -110,6 +110,9 @@ public abstract class AEBaseContainer extends Container {
     @Nullable
     private GuiHostLocator locator;
     private boolean returnedFromSubScreen;
+    @Nullable
+    private Container returnToContainerOverride;
+    private boolean externalGuiReturn;
     @Nullable
     private ITextComponent guiTitle;
 
@@ -958,6 +961,23 @@ public abstract class AEBaseContainer extends Container {
 
     public void setReturnedFromSubScreen(boolean returnedFromSubScreen) {
         this.returnedFromSubScreen = returnedFromSubScreen;
+    }
+
+    @Nullable
+    public Container getReturnToContainerOverride() {
+        return this.returnToContainerOverride;
+    }
+
+    public void setReturnToContainerOverride(@Nullable Container returnToContainerOverride) {
+        this.returnToContainerOverride = returnToContainerOverride;
+    }
+
+    public boolean hasExternalGuiReturn() {
+        return this.externalGuiReturn;
+    }
+
+    public void setExternalGuiReturn(boolean externalGuiReturn) {
+        this.externalGuiReturn = externalGuiReturn;
     }
 
     protected ItemStack getCarried() {

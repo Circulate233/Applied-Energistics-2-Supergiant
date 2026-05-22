@@ -6,7 +6,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
-import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
@@ -58,8 +57,8 @@ public class AEProcessingPattern implements IPatternDetails {
         stack.setTagInfo(ENCODED_PROCESSING_PATTERN, encoded);
     }
 
-    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World level,
-                                                                 @Nullable Exception cause, ITooltipFlag flags) {
+    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World world,
+                                                                 @Nullable Exception cause, boolean flags) {
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_PRODUCES);
         var encoded = stack.getTagCompound();
         if (encoded != null && encoded.hasKey(ENCODED_PROCESSING_PATTERN, 10)) {

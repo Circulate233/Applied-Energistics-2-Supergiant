@@ -509,6 +509,32 @@ public class ContainerMEStorage extends AEBaseContainer
         }
     }
 
+    public boolean retrieveItemToPlayer(AEItemKey what) {
+        if (isClientSide() || !canInteractWithGrid()) {
+            return false;
+        }
+        return moveOneStackToPlayer(what);
+    }
+
+    public boolean openCraftAmount(EntityPlayerMP player, AEKey what) {
+        if (isClientSide() || !canInteractWithGrid()) {
+            return false;
+        }
+
+        IGridNode node = getGridNode();
+        if (node == null || !node.isActive() || !node.getGrid().getCraftingService().isCraftable(what)) {
+            return false;
+        }
+
+        GuiHostLocator locator = getLocator();
+        if (locator == null) {
+            return false;
+        }
+
+        ContainerCraftAmount.open(player, locator, what, what.getAmountPerUnit());
+        return true;
+    }
+
     private void tryFillContainerItem(@Nullable AEKey clickedKey, boolean moveToPlayer, boolean fillAll) {
         boolean grabbedEmptyBucket = false;
         AEFluidKey fluidKey = clickedKey instanceof AEFluidKey ? (AEFluidKey) clickedKey : null;

@@ -38,6 +38,12 @@
       "width": 50,
       "height": 20
     },
+    "bookmarkMissing": {
+      "left": 72,
+      "bottom": 25,
+      "width": 74,
+      "height": 20
+    },
     "cancel": {
       "left": 6,
       "bottom": 25,
