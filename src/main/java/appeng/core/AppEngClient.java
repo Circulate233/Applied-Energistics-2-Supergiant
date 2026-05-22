@@ -160,16 +160,11 @@ public final class AppEngClient extends AppEngServer {
         }
 
         switch (effect) {
-            case Energy:
-                this.spawnEnergy(world, posX, posY, posZ, data);
-                return;
-            case Lightning:
-                this.spawnLightning(world, posX, posY, posZ, data);
-                return;
-            case Vibrant:
-                this.spawnVibrant(world, posX, posY, posZ);
-                return;
-            default:
+            case Energy -> this.spawnEnergy(world, posX, posY, posZ, data);
+            case Lightning -> this.spawnLightning(world, posX, posY, posZ, data);
+            case Vibrant -> this.spawnVibrant(world, posX, posY, posZ);
+            default -> {
+            }
         }
     }
 

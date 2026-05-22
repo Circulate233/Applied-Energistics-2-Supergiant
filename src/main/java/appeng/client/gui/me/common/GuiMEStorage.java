@@ -625,7 +625,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
 
         InventoryAction action = null;
         switch (clickType) {
-            case PICKUP:
+            case PICKUP -> {
                 action = mouseButton == 1 ? InventoryAction.SPLIT_OR_PLACE_SINGLE : InventoryAction.PICKUP_OR_SET_DOWN;
                 if (action == InventoryAction.PICKUP_OR_SET_DOWN
                     && shouldCraftOnClick(entry)
@@ -633,19 +633,19 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
                     this.container.handleInteraction(entry.serial(), InventoryAction.AUTO_CRAFT);
                     return;
                 }
-                break;
-            case QUICK_MOVE:
-                action = mouseButton == 1 ? InventoryAction.PICKUP_SINGLE : InventoryAction.SHIFT_CLICK;
-                break;
-            case CLONE:
+            }
+            case QUICK_MOVE -> action = mouseButton == 1 ? InventoryAction.PICKUP_SINGLE : InventoryAction.SHIFT_CLICK;
+            case CLONE -> {
                 if (entry.craftable()) {
                     this.container.handleInteraction(entry.serial(), InventoryAction.AUTO_CRAFT);
                     return;
-                } else if (this.mc.player.capabilities.isCreativeMode) {
+                }
+                if (this.mc.player.capabilities.isCreativeMode) {
                     action = InventoryAction.CREATIVE_DUPLICATE;
                 }
-                break;
-            default:
+            }
+            default -> {
+            }
         }
 
         if (action != null) {

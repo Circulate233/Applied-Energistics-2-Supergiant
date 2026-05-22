@@ -76,181 +76,128 @@ class CableBuilder {
 
     private static void setStraightCableUVs(CubeBuilder cubeBuilder, EnumFacing facing, float x, float y) {
         switch (facing) {
-            case DOWN:
-            case UP:
+            case DOWN, UP -> {
                 cubeBuilder.setCustomUv(EnumFacing.NORTH, x, 0, y, x);
                 cubeBuilder.setCustomUv(EnumFacing.EAST, x, 0, y, x);
                 cubeBuilder.setCustomUv(EnumFacing.SOUTH, x, 0, y, x);
                 cubeBuilder.setCustomUv(EnumFacing.WEST, x, 0, y, x);
-                break;
-            case EAST:
-            case WEST:
+            }
+            case EAST, WEST -> {
                 cubeBuilder.setCustomUv(EnumFacing.UP, 0, x, x, y);
                 cubeBuilder.setCustomUv(EnumFacing.DOWN, 0, x, x, y);
                 cubeBuilder.setCustomUv(EnumFacing.NORTH, 0, x, x, y);
                 cubeBuilder.setCustomUv(EnumFacing.SOUTH, 0, x, x, y);
-                break;
-            case NORTH:
-            case SOUTH:
+            }
+            case NORTH, SOUTH -> {
                 cubeBuilder.setCustomUv(EnumFacing.UP, x, 0, y, x);
                 cubeBuilder.setCustomUv(EnumFacing.DOWN, x, 0, y, x);
                 cubeBuilder.setCustomUv(EnumFacing.EAST, 0, x, x, y);
                 cubeBuilder.setCustomUv(EnumFacing.WEST, 0, x, x, y);
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
     }
 
     private static void addDenseCableSizedCube(EnumFacing facing, CubeBuilder cubeBuilder) {
         switch (facing) {
-            case DOWN:
-                cubeBuilder.addCube(4, 0, 4, 12, 5, 12);
-                break;
-            case EAST:
-                cubeBuilder.addCube(11, 4, 4, 16, 12, 12);
-                break;
-            case NORTH:
-                cubeBuilder.addCube(4, 4, 0, 12, 12, 5);
-                break;
-            case SOUTH:
-                cubeBuilder.addCube(4, 4, 11, 12, 12, 16);
-                break;
-            case UP:
-                cubeBuilder.addCube(4, 11, 4, 12, 16, 12);
-                break;
-            case WEST:
-                cubeBuilder.addCube(0, 4, 4, 5, 12, 12);
-                break;
-            default:
-                break;
+            case DOWN -> cubeBuilder.addCube(4, 0, 4, 12, 5, 12);
+            case EAST -> cubeBuilder.addCube(11, 4, 4, 16, 12, 12);
+            case NORTH -> cubeBuilder.addCube(4, 4, 0, 12, 12, 5);
+            case SOUTH -> cubeBuilder.addCube(4, 4, 11, 12, 12, 16);
+            case UP -> cubeBuilder.addCube(4, 11, 4, 12, 16, 12);
+            case WEST -> cubeBuilder.addCube(0, 4, 4, 5, 12, 12);
+            default -> {
+            }
         }
     }
 
     private static void addStraightDenseCableSizedCube(EnumFacing facing, CubeBuilder cubeBuilder) {
         switch (facing) {
-            case DOWN:
-            case UP:
+            case DOWN, UP -> {
                 cubeBuilder.setUvRotation(EnumFacing.EAST, 3);
                 cubeBuilder.addCube(3, -0.01f, 3, 13, 16.01f, 13);
                 cubeBuilder.setUvRotation(EnumFacing.EAST, 0);
-                break;
-            case EAST:
-            case WEST:
+            }
+            case EAST, WEST -> {
                 cubeBuilder.setUvRotation(EnumFacing.SOUTH, 3);
                 cubeBuilder.setUvRotation(EnumFacing.NORTH, 3);
                 cubeBuilder.addCube(-0.01f, 3, 3, 16.01f, 13, 13);
                 cubeBuilder.setUvRotation(EnumFacing.SOUTH, 0);
                 cubeBuilder.setUvRotation(EnumFacing.NORTH, 0);
-                break;
-            case NORTH:
-            case SOUTH:
+            }
+            case NORTH, SOUTH -> {
                 cubeBuilder.setUvRotation(EnumFacing.EAST, 3);
                 cubeBuilder.setUvRotation(EnumFacing.WEST, 3);
                 cubeBuilder.addCube(3, 3, -0.01f, 13, 13, 16.01f);
                 cubeBuilder.setUvRotation(EnumFacing.EAST, 0);
                 cubeBuilder.setUvRotation(EnumFacing.WEST, 0);
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
     }
 
     private static void addCoveredCableSizedCube(EnumFacing facing, CubeBuilder cubeBuilder) {
         switch (facing) {
-            case DOWN:
-                cubeBuilder.addCube(6, 0, 6, 10, 5, 10);
-                break;
-            case EAST:
-                cubeBuilder.addCube(11, 6, 6, 16, 10, 10);
-                break;
-            case NORTH:
-                cubeBuilder.addCube(6, 6, 0, 10, 10, 5);
-                break;
-            case SOUTH:
-                cubeBuilder.addCube(6, 6, 11, 10, 10, 16);
-                break;
-            case UP:
-                cubeBuilder.addCube(6, 11, 6, 10, 16, 10);
-                break;
-            case WEST:
-                cubeBuilder.addCube(0, 6, 6, 5, 10, 10);
-                break;
-            default:
-                break;
+            case DOWN -> cubeBuilder.addCube(6, 0, 6, 10, 5, 10);
+            case EAST -> cubeBuilder.addCube(11, 6, 6, 16, 10, 10);
+            case NORTH -> cubeBuilder.addCube(6, 6, 0, 10, 10, 5);
+            case SOUTH -> cubeBuilder.addCube(6, 6, 11, 10, 10, 16);
+            case UP -> cubeBuilder.addCube(6, 11, 6, 10, 16, 10);
+            case WEST -> cubeBuilder.addCube(0, 6, 6, 5, 10, 10);
+            default -> {
+            }
         }
     }
 
     private static void addStraightCoveredCableSizedCube(EnumFacing facing, CubeBuilder cubeBuilder) {
         switch (facing) {
-            case DOWN:
-            case UP:
+            case DOWN, UP -> {
                 cubeBuilder.setUvRotation(EnumFacing.EAST, 3);
                 cubeBuilder.addCube(5, -0.01f, 5, 11, 16.01f, 11);
                 cubeBuilder.setUvRotation(EnumFacing.EAST, 0);
-                break;
-            case EAST:
-            case WEST:
+            }
+            case EAST, WEST -> {
                 cubeBuilder.setUvRotation(EnumFacing.SOUTH, 3);
                 cubeBuilder.setUvRotation(EnumFacing.NORTH, 3);
                 cubeBuilder.addCube(-0.01f, 5, 5, 16.01f, 11, 11);
                 cubeBuilder.setUvRotation(EnumFacing.SOUTH, 0);
                 cubeBuilder.setUvRotation(EnumFacing.NORTH, 0);
-                break;
-            case NORTH:
-            case SOUTH:
+            }
+            case NORTH, SOUTH -> {
                 cubeBuilder.setUvRotation(EnumFacing.EAST, 3);
                 cubeBuilder.setUvRotation(EnumFacing.WEST, 3);
                 cubeBuilder.addCube(5, 5, -0.01f, 11, 11, 16.01f);
                 cubeBuilder.setUvRotation(EnumFacing.EAST, 0);
                 cubeBuilder.setUvRotation(EnumFacing.WEST, 0);
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
     }
 
     private static void addCoveredCableSizedCube(EnumFacing facing, int distanceFromEdge, CubeBuilder cubeBuilder) {
         switch (facing) {
-            case DOWN:
-                cubeBuilder.addCube(6, distanceFromEdge, 6, 10, 5, 10);
-                break;
-            case EAST:
-                cubeBuilder.addCube(11, 6, 6, 16 - distanceFromEdge, 10, 10);
-                break;
-            case NORTH:
-                cubeBuilder.addCube(6, 6, distanceFromEdge, 10, 10, 5);
-                break;
-            case SOUTH:
-                cubeBuilder.addCube(6, 6, 11, 10, 10, 16 - distanceFromEdge);
-                break;
-            case UP:
-                cubeBuilder.addCube(6, 11, 6, 10, 16 - distanceFromEdge, 10);
-                break;
-            case WEST:
-                cubeBuilder.addCube(distanceFromEdge, 6, 6, 5, 10, 10);
-                break;
-            default:
-                break;
+            case DOWN -> cubeBuilder.addCube(6, distanceFromEdge, 6, 10, 5, 10);
+            case EAST -> cubeBuilder.addCube(11, 6, 6, 16 - distanceFromEdge, 10, 10);
+            case NORTH -> cubeBuilder.addCube(6, 6, distanceFromEdge, 10, 10, 5);
+            case SOUTH -> cubeBuilder.addCube(6, 6, 11, 10, 10, 16 - distanceFromEdge);
+            case UP -> cubeBuilder.addCube(6, 11, 6, 10, 16 - distanceFromEdge, 10);
+            case WEST -> cubeBuilder.addCube(distanceFromEdge, 6, 6, 5, 10, 10);
+            default -> {
+            }
         }
     }
 
     @SuppressWarnings("unused")
     public void addCableCore(AECableType cableType, AEColor color, List<BakedQuad> quadsOut) {
         switch (cableType) {
-            case GLASS:
-                this.addCableCore(CableCoreType.GLASS, color, quadsOut);
-                break;
-            case COVERED:
-            case SMART:
-                this.addCableCore(CableCoreType.COVERED, color, quadsOut);
-                break;
-            case DENSE_COVERED:
-            case DENSE_SMART:
-                this.addCableCore(CableCoreType.DENSE, color, quadsOut);
-                break;
-            default:
-                break;
+            case GLASS -> this.addCableCore(CableCoreType.GLASS, color, quadsOut);
+            case COVERED, SMART -> this.addCableCore(CableCoreType.COVERED, color, quadsOut);
+            case DENSE_COVERED, DENSE_SMART -> this.addCableCore(CableCoreType.DENSE, color, quadsOut);
+            default -> {
+            }
         }
     }
 
@@ -258,17 +205,11 @@ class CableBuilder {
         CubeBuilder cubeBuilder = createCubeBuilder(quadsOut);
         cubeBuilder.setTexture(this.coreTextures.get(coreType).get(color));
         switch (coreType) {
-            case GLASS:
-                cubeBuilder.addCube(6, 6, 6, 10, 10, 10);
-                break;
-            case COVERED:
-                cubeBuilder.addCube(5, 5, 5, 11, 11, 11);
-                break;
-            case DENSE:
-                cubeBuilder.addCube(3, 3, 3, 13, 13, 13);
-                break;
-            default:
-                break;
+            case GLASS -> cubeBuilder.addCube(6, 6, 6, 10, 10, 10);
+            case COVERED -> cubeBuilder.addCube(5, 5, 5, 11, 11, 11);
+            case DENSE -> cubeBuilder.addCube(3, 3, 3, 13, 13, 13);
+            default -> {
+            }
         }
     }
 
@@ -284,26 +225,14 @@ class CableBuilder {
 
         cubeBuilder.setTexture(this.connectionTextures.get(AECableType.GLASS).get(cableColor));
         switch (facing) {
-            case DOWN:
-                cubeBuilder.addCube(6, 0, 6, 10, 6, 10);
-                break;
-            case EAST:
-                cubeBuilder.addCube(10, 6, 6, 16, 10, 10);
-                break;
-            case NORTH:
-                cubeBuilder.addCube(6, 6, 0, 10, 10, 6);
-                break;
-            case SOUTH:
-                cubeBuilder.addCube(6, 6, 10, 10, 10, 16);
-                break;
-            case UP:
-                cubeBuilder.addCube(6, 10, 6, 10, 16, 10);
-                break;
-            case WEST:
-                cubeBuilder.addCube(0, 6, 6, 6, 10, 10);
-                break;
-            default:
-                break;
+            case DOWN -> cubeBuilder.addCube(6, 0, 6, 10, 6, 10);
+            case EAST -> cubeBuilder.addCube(10, 6, 6, 16, 10, 10);
+            case NORTH -> cubeBuilder.addCube(6, 6, 0, 10, 10, 6);
+            case SOUTH -> cubeBuilder.addCube(6, 6, 10, 10, 10, 16);
+            case UP -> cubeBuilder.addCube(6, 10, 6, 10, 16, 10);
+            case WEST -> cubeBuilder.addCube(0, 6, 6, 6, 10, 10);
+            default -> {
+            }
         }
     }
 
@@ -312,20 +241,11 @@ class CableBuilder {
         cubeBuilder.setDrawFaces(EnumSet.complementOf(EnumSet.of(facing, facing.getOpposite())));
         cubeBuilder.setTexture(this.connectionTextures.get(AECableType.GLASS).get(cableColor));
         switch (facing) {
-            case DOWN:
-            case UP:
-                cubeBuilder.addCube(6, 0, 6, 10, 16, 10);
-                break;
-            case NORTH:
-            case SOUTH:
-                cubeBuilder.addCube(6, 6, 0, 10, 10, 16);
-                break;
-            case EAST:
-            case WEST:
-                cubeBuilder.addCube(0, 6, 6, 16, 10, 10);
-                break;
-            default:
-                break;
+            case DOWN, UP -> cubeBuilder.addCube(6, 0, 6, 10, 16, 10);
+            case NORTH, SOUTH -> cubeBuilder.addCube(6, 6, 0, 10, 10, 16);
+            case EAST, WEST -> cubeBuilder.addCube(0, 6, 6, 16, 10, 10);
+            default -> {
+            }
         }
     }
 
@@ -338,26 +258,14 @@ class CableBuilder {
         CubeBuilder cubeBuilder = createCubeBuilder(quadsOut);
         cubeBuilder.setTexture(this.connectionTextures.get(AECableType.GLASS).get(cableColor));
         switch (facing) {
-            case DOWN:
-                cubeBuilder.addCube(6, distanceFromEdge, 6, 10, 6, 10);
-                break;
-            case EAST:
-                cubeBuilder.addCube(10, 6, 6, 16 - distanceFromEdge, 10, 10);
-                break;
-            case NORTH:
-                cubeBuilder.addCube(6, 6, distanceFromEdge, 10, 10, 6);
-                break;
-            case SOUTH:
-                cubeBuilder.addCube(6, 6, 10, 10, 10, 16 - distanceFromEdge);
-                break;
-            case UP:
-                cubeBuilder.addCube(6, 10, 6, 10, 16 - distanceFromEdge, 10);
-                break;
-            case WEST:
-                cubeBuilder.addCube(distanceFromEdge, 6, 6, 6, 10, 10);
-                break;
-            default:
-                break;
+            case DOWN -> cubeBuilder.addCube(6, distanceFromEdge, 6, 10, 6, 10);
+            case EAST -> cubeBuilder.addCube(10, 6, 6, 16 - distanceFromEdge, 10, 10);
+            case NORTH -> cubeBuilder.addCube(6, 6, distanceFromEdge, 10, 10, 6);
+            case SOUTH -> cubeBuilder.addCube(6, 6, 10, 10, 10, 16 - distanceFromEdge);
+            case UP -> cubeBuilder.addCube(6, 10, 6, 10, 16 - distanceFromEdge, 10);
+            case WEST -> cubeBuilder.addCube(distanceFromEdge, 6, 6, 6, 10, 10);
+            default -> {
+            }
         }
     }
 
@@ -402,27 +310,23 @@ class CableBuilder {
         CubeBuilder cubeBuilder = createCubeBuilder(quadsOut);
         cubeBuilder.setDrawFaces(EnumSet.complementOf(EnumSet.of(facing)));
         switch (facing) {
-            case DOWN:
+            case DOWN -> {
                 cubeBuilder.setFlipU(EnumFacing.EAST, true);
                 cubeBuilder.setFlipU(EnumFacing.NORTH, true);
-                break;
-            case UP:
+            }
+            case UP -> {
                 cubeBuilder.setFlipU(EnumFacing.EAST, true);
                 cubeBuilder.setFlipU(EnumFacing.NORTH, true);
                 cubeBuilder.setFlipV(EnumFacing.DOWN, true);
-                break;
-            case SOUTH:
-                cubeBuilder.setFlipU(EnumFacing.NORTH, true);
-                break;
-            case WEST:
+            }
+            case SOUTH -> cubeBuilder.setFlipU(EnumFacing.NORTH, true);
+            case WEST -> {
                 cubeBuilder.setFlipV(EnumFacing.DOWN, true);
                 cubeBuilder.setFlipU(EnumFacing.EAST, true);
-                break;
-            case EAST:
-                cubeBuilder.setFlipV(EnumFacing.DOWN, true);
-                break;
-            default:
-                break;
+            }
+            case EAST -> cubeBuilder.setFlipV(EnumFacing.DOWN, true);
+            default -> {
+            }
         }
 
         TextureAtlasSprite texture = this.connectionTextures.get(AECableType.SMART).get(cableColor);
@@ -459,16 +363,10 @@ class CableBuilder {
                                            List<BakedQuad> quadsOut) {
         CubeBuilder cubeBuilder = createCubeBuilder(quadsOut);
         switch (facing) {
-            case EAST:
-            case WEST:
-                cubeBuilder.setFlipV(EnumFacing.DOWN, true);
-                break;
-            case UP:
-            case DOWN:
-                cubeBuilder.setFlipU(EnumFacing.NORTH, true);
-                break;
-            default:
-                break;
+            case EAST, WEST -> cubeBuilder.setFlipV(EnumFacing.DOWN, true);
+            case UP, DOWN -> cubeBuilder.setFlipU(EnumFacing.NORTH, true);
+            default -> {
+            }
         }
 
         cubeBuilder.setTexture(this.connectionTextures.get(AECableType.SMART).get(cableColor));
@@ -495,17 +393,13 @@ class CableBuilder {
 
         CubeBuilder cubeBuilder = createCubeBuilder(quadsOut);
         switch (facing) {
-            case UP:
-            case DOWN:
+            case UP, DOWN -> {
                 cubeBuilder.setFlipU(EnumFacing.EAST, true);
                 cubeBuilder.setFlipU(EnumFacing.NORTH, true);
-                break;
-            case EAST:
-            case WEST:
-                cubeBuilder.setFlipV(EnumFacing.DOWN, true);
-                break;
-            default:
-                break;
+            }
+            case EAST, WEST -> cubeBuilder.setFlipV(EnumFacing.DOWN, true);
+            default -> {
+            }
         }
 
         cubeBuilder.setTexture(this.connectionTextures.get(AECableType.SMART).get(cableColor));
@@ -555,17 +449,13 @@ class CableBuilder {
         CubeBuilder cubeBuilder = createCubeBuilder(quadsOut);
         cubeBuilder.setDrawFaces(EnumSet.complementOf(EnumSet.of(facing)));
         switch (facing) {
-            case WEST:
-            case EAST:
-                cubeBuilder.setFlipV(EnumFacing.DOWN, true);
-                break;
-            case UP:
-            case DOWN:
+            case WEST, EAST -> cubeBuilder.setFlipV(EnumFacing.DOWN, true);
+            case UP, DOWN -> {
                 cubeBuilder.setFlipU(EnumFacing.NORTH, true);
                 cubeBuilder.setFlipU(EnumFacing.EAST, true);
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
 
         cubeBuilder.setTexture(this.connectionTextures.get(AECableType.DENSE_SMART).get(cableColor));
@@ -596,19 +486,17 @@ class CableBuilder {
                                                 List<BakedQuad> quadsOut) {
         CubeBuilder cubeBuilder = createCubeBuilder(quadsOut);
         switch (facing) {
-            case NORTH:
-                cubeBuilder.setFlipU(EnumFacing.NORTH, true);
-                break;
-            case WEST:
+            case NORTH -> cubeBuilder.setFlipU(EnumFacing.NORTH, true);
+            case WEST -> {
                 cubeBuilder.setFlipV(EnumFacing.DOWN, true);
                 cubeBuilder.setFlipU(EnumFacing.EAST, true);
-                break;
-            case DOWN:
+            }
+            case DOWN -> {
                 cubeBuilder.setFlipU(EnumFacing.NORTH, true);
                 cubeBuilder.setFlipV(EnumFacing.DOWN, true);
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
 
         cubeBuilder.setTexture(this.connectionTextures.get(AECableType.DENSE_SMART).get(cableColor));
@@ -635,26 +523,14 @@ class CableBuilder {
 
     private void addBigCoveredCableSizedCube(EnumFacing facing, CubeBuilder cubeBuilder) {
         switch (facing) {
-            case DOWN:
-                cubeBuilder.addCube(5, 0, 5, 11, 4, 11);
-                break;
-            case EAST:
-                cubeBuilder.addCube(12, 5, 5, 16, 11, 11);
-                break;
-            case NORTH:
-                cubeBuilder.addCube(5, 5, 0, 11, 11, 4);
-                break;
-            case SOUTH:
-                cubeBuilder.addCube(5, 5, 12, 11, 11, 16);
-                break;
-            case UP:
-                cubeBuilder.addCube(5, 12, 5, 11, 16, 11);
-                break;
-            case WEST:
-                cubeBuilder.addCube(0, 5, 5, 4, 11, 11);
-                break;
-            default:
-                break;
+            case DOWN -> cubeBuilder.addCube(5, 0, 5, 11, 4, 11);
+            case EAST -> cubeBuilder.addCube(12, 5, 5, 16, 11, 11);
+            case NORTH -> cubeBuilder.addCube(5, 5, 0, 11, 11, 4);
+            case SOUTH -> cubeBuilder.addCube(5, 5, 12, 11, 11, 16);
+            case UP -> cubeBuilder.addCube(5, 12, 5, 11, 16, 11);
+            case WEST -> cubeBuilder.addCube(0, 5, 5, 4, 11, 11);
+            default -> {
+            }
         }
     }
 }

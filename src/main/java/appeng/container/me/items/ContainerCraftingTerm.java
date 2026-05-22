@@ -87,13 +87,13 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
     @Nullable
     private IRecipe currentRecipe;
 
-    public ContainerCraftingTerm(int id, InventoryPlayer ip, ITerminalHost host) {
+    public ContainerCraftingTerm( InventoryPlayer ip, ITerminalHost host) {
         this(GuiIds.GuiKey.CRAFTING_TERMINAL, id, ip, host, true);
     }
 
-    protected ContainerCraftingTerm(GuiIds.GuiKey guiKey, int id, InventoryPlayer ip, ITerminalHost host,
+    protected ContainerCraftingTerm(GuiIds.GuiKey guiKey,  InventoryPlayer ip, ITerminalHost host,
                                     boolean bindInventory) {
-        super(guiKey, id, ip, host, bindInventory);
+        super(guiKey, ip, host, bindInventory);
         Preconditions.checkArgument(host instanceof ISegmentedInventory,
             "Crafting terminal host must implement ISegmentedInventory");
 

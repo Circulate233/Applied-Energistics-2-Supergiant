@@ -170,23 +170,17 @@ public class GlassBakedModel implements IBakedModel {
                            TextureAtlasSprite sprite, float u, float v) {
         for (int e = 0; e < this.vertexFormat.getElementCount(); e++) {
             switch (this.vertexFormat.getElement(e).getUsage()) {
-                case POSITION:
-                    builder.put(e, (float) x, (float) y, (float) z, 1.0f);
-                    break;
-                case COLOR:
-                    builder.put(e, 1.0f, 1.0f, 1.0f, 1.0f);
-                    break;
-                case UV:
+                case POSITION -> builder.put(e, (float) x, (float) y, (float) z, 1.0f);
+                case COLOR -> builder.put(e, 1.0f, 1.0f, 1.0f, 1.0f);
+                case UV -> {
                     if (this.vertexFormat.getElement(e).getIndex() == 0) {
                         builder.put(e, sprite.getInterpolatedU(u), sprite.getInterpolatedV(v), 0f, 1f);
-                        break;
+                    } else {
+                        builder.put(e, (float) normal.x, (float) normal.y, (float) normal.z, 0f);
                     }
-                case NORMAL:
-                    builder.put(e, (float) normal.x, (float) normal.y, (float) normal.z, 0f);
-                    break;
-                default:
-                    builder.put(e);
-                    break;
+                }
+                case NORMAL -> builder.put(e, (float) normal.x, (float) normal.y, (float) normal.z, 0f);
+                default -> builder.put(e);
             }
         }
     }

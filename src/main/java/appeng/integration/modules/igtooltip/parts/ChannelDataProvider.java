@@ -54,12 +54,10 @@ public final class ChannelDataProvider
                 var adHocError = pathingService.getAdHocNetworkError();
                 if (adHocError != null) {
                     switch (adHocError) {
-                        case NESTED_P2P_TUNNEL:
+                        case NESTED_P2P_TUNNEL ->
                             serverData.setString(TAG_ERROR, ChannelError.AD_HOC_NESTED_P2P_TUNNEL.name());
-                            break;
-                        case TOO_MANY_CHANNELS:
+                        case TOO_MANY_CHANNELS ->
                             serverData.setString(TAG_ERROR, ChannelError.AD_HOC_TOO_MANY_CHANNELS.name());
-                            break;
                     }
                     return;
                 }

@@ -162,14 +162,10 @@ public class CPUSelectionList implements ICompositeWidget {
         }
 
         switch (cpu.mode()) {
-            case PLAYER_ONLY:
-                tooltipLines.add(gray(ButtonToolTips.CpuSelectionModePlayersOnly.text()));
-                break;
-            case MACHINE_ONLY:
-                tooltipLines.add(gray(ButtonToolTips.CpuSelectionModeAutomationOnly.text()));
-                break;
-            default:
-                break;
+            case PLAYER_ONLY -> tooltipLines.add(gray(ButtonToolTips.CpuSelectionModePlayersOnly.text()));
+            case MACHINE_ONLY -> tooltipLines.add(gray(ButtonToolTips.CpuSelectionModeAutomationOnly.text()));
+            default -> {
+            }
         }
 
         var currentJob = cpu.currentJob();
@@ -299,17 +295,11 @@ public class CPUSelectionList implements ICompositeWidget {
         drawScaledToolbarBackground(x, y, hovered);
 
         switch (mode) {
-            case ANY:
-                drawScaledModeIcon(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET);
-                break;
-            case PLAYER_ONLY:
-                drawScaledModeItemStack(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET,
-                    AEParts.TERMINAL.stack());
-                break;
-            case MACHINE_ONLY:
-                drawScaledModeItemStack(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET,
-                    AEParts.EXPORT_BUS.stack());
-                break;
+            case ANY -> drawScaledModeIcon(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET);
+            case PLAYER_ONLY -> drawScaledModeItemStack(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET,
+                AEParts.TERMINAL.stack());
+            case MACHINE_ONLY -> drawScaledModeItemStack(x + MODE_BUTTON_CONTENT_OFFSET, y + MODE_BUTTON_CONTENT_OFFSET,
+                AEParts.EXPORT_BUS.stack());
         }
     }
 

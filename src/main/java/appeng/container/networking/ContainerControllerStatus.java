@@ -20,8 +20,8 @@ public class ContainerControllerStatus extends AEBaseContainer implements INetwo
     private NetworkStatus status = new NetworkStatus();
     private boolean canExportGrid;
 
-    public ContainerControllerStatus(int windowId, InventoryPlayer playerInventory, TileController host) {
-        super(windowId, playerInventory, host);
+    public ContainerControllerStatus( InventoryPlayer playerInventory, TileController host) {
+        super(playerInventory, host);
         buildForGridHost(host);
     }
 

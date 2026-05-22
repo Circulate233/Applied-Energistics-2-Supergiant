@@ -32,8 +32,8 @@ public class ContainerWirelessAccessPoint extends AEBaseContainer implements Int
     @GuiSync(2)
     public long drain = 0;
 
-    public ContainerWirelessAccessPoint(int id, InventoryPlayer ip, TileWirelessAccessPoint accessPoint) {
-        super(id, ip, accessPoint);
+    public ContainerWirelessAccessPoint( InventoryPlayer ip, TileWirelessAccessPoint accessPoint) {
+        super(ip, accessPoint);
         this.accessPoint = accessPoint;
 
         this.addSlot(this.boosterSlot = new RestrictedInputSlot(

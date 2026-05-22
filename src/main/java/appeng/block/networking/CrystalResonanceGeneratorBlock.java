@@ -58,38 +58,38 @@ public class CrystalResonanceGeneratorBlock extends AEBaseTileBlock<TileCrystalR
         double maxZ = 1.0D;
 
         switch (facing) {
-            case DOWN:
+            case DOWN -> {
                 minX = minZ = 2.0D / 16.0D;
                 maxX = maxZ = 14.0D / 16.0D;
                 minY = 1.0D / 16.0D;
-                break;
-            case EAST:
+            }
+            case EAST -> {
                 minY = minZ = 2.0D / 16.0D;
                 maxY = maxZ = 14.0D / 16.0D;
                 maxX = 15.0D / 16.0D;
-                break;
-            case NORTH:
+            }
+            case NORTH -> {
                 minX = minY = 2.0D / 16.0D;
                 maxX = maxY = 14.0D / 16.0D;
                 minZ = 1.0D / 16.0D;
-                break;
-            case SOUTH:
+            }
+            case SOUTH -> {
                 minX = minY = 2.0D / 16.0D;
                 maxX = maxY = 14.0D / 16.0D;
                 maxZ = 15.0D / 16.0D;
-                break;
-            case UP:
+            }
+            case UP -> {
                 minX = minZ = 2.0D / 16.0D;
                 maxX = maxZ = 14.0D / 16.0D;
                 maxY = 15.0D / 16.0D;
-                break;
-            case WEST:
+            }
+            case WEST -> {
                 minY = minZ = 2.0D / 16.0D;
                 maxY = maxZ = 14.0D / 16.0D;
                 minX = 1.0D / 16.0D;
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
 
         return new AxisAlignedBB(minX, minY, minZ, maxX, maxY, maxZ);
@@ -126,5 +126,4 @@ public class CrystalResonanceGeneratorBlock extends AEBaseTileBlock<TileCrystalR
         };
     }
 }
-
 

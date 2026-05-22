@@ -73,8 +73,8 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
     public ShowPatternProviders showPatternProviders = ShowPatternProviders.VISIBLE;
     private ILinkStatus linkStatus = ILinkStatus.ofDisconnected();
 
-    public ContainerPatternAccessTerm(int id, InventoryPlayer playerInventory, IPatternAccessTermContainerHost host) {
-        super(id, playerInventory, host);
+    public ContainerPatternAccessTerm( InventoryPlayer playerInventory, IPatternAccessTermContainerHost host) {
+        super(playerInventory, host);
         this.host = host;
         this.addPlayerInventorySlots(0, 0);
     }
@@ -220,7 +220,7 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
         ItemStack carried = getCarried();
 
         switch (action) {
-            case PICKUP_OR_SET_DOWN:
+            case PICKUP_OR_SET_DOWN -> {
                 if (!carried.isEmpty()) {
                     ItemStack inSlot = patternSlot.getStackInSlot(0);
                     if (inSlot.isEmpty()) {
@@ -245,8 +245,8 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
                     setCarried(patternSlot.getStackInSlot(0));
                     patternSlot.setItemDirect(0, ItemStack.EMPTY);
                 }
-                break;
-            case SPLIT_OR_PLACE_SINGLE:
+            }
+            case SPLIT_OR_PLACE_SINGLE -> {
                 if (!carried.isEmpty()) {
                     ItemStack extra = carried.splitStack(1);
                     if (!extra.isEmpty()) {
@@ -258,16 +258,16 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
                 } else if (!stackInSlot.isEmpty()) {
                     setCarried(patternSlot.extractItem(0, (stackInSlot.getCount() + 1) / 2, false));
                 }
-                break;
-            case SHIFT_CLICK:
+            }
+            case SHIFT_CLICK -> {
                 ItemStack stack = patternSlot.getStackInSlot(0).copy();
                 if (!player.inventory.addItemStackToInventory(stack)) {
                     patternSlot.setItemDirect(0, stack);
                 } else {
                     patternSlot.setItemDirect(0, ItemStack.EMPTY);
                 }
-                break;
-            case MOVE_REGION:
+            }
+            case MOVE_REGION -> {
                 for (int x = 0; x < inv.server.size(); x++) {
                     FilteredInternalInventory slotInventory = new FilteredInternalInventory(inv.server.getSlotInv(x), new PatternSlotFilter());
                     ItemStack slotStack = slotInventory.getStackInSlot(0);
@@ -277,14 +277,14 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
                         slotInventory.setItemDirect(0, ItemStack.EMPTY);
                     }
                 }
-                break;
-            case CREATIVE_DUPLICATE:
+            }
+            case CREATIVE_DUPLICATE -> {
                 if (player.capabilities.isCreativeMode && carried.isEmpty()) {
                     setCarried(stackInSlot.isEmpty() ? ItemStack.EMPTY : stackInSlot.copy());
                 }
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
     }
 

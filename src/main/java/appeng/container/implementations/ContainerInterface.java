@@ -13,7 +13,7 @@ public class ContainerInterface extends UpgradeableContainer<InterfaceLogicHost>
 
     public static final String ACTION_OPEN_SET_AMOUNT = "setAmount";
 
-    public ContainerInterface(int id, InventoryPlayer ip, InterfaceLogicHost host) {
+    public ContainerInterface( InventoryPlayer ip, InterfaceLogicHost host) {
         super(id, ip, host);
 
         registerClientAction(ACTION_OPEN_SET_AMOUNT, Integer.class, this::openSetAmountGui);

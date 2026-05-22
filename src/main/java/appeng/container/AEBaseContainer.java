@@ -113,8 +113,7 @@ public abstract class AEBaseContainer extends Container {
     @Nullable
     private ITextComponent guiTitle;
 
-    protected AEBaseContainer(int windowId, InventoryPlayer playerInventory, @Nullable Object host) {
-        this.windowId = windowId;
+    protected AEBaseContainer(InventoryPlayer playerInventory, @Nullable Object host) {
         this.playerInventory = playerInventory;
         this.tileEntityHost = host instanceof TileEntity tileEntity ? tileEntity : null;
         this.partHost = host instanceof IPart part ? part : null;
@@ -578,13 +577,12 @@ public abstract class AEBaseContainer extends Container {
 
         if (targetSlot instanceof CraftingTermSlot craftingTermSlot) {
             switch (action) {
-                case CRAFT_SHIFT:
-                case CRAFT_ALL:
-                case CRAFT_ITEM:
-                case CRAFT_STACK:
+                case CRAFT_SHIFT, CRAFT_ALL, CRAFT_ITEM, CRAFT_STACK -> {
                     craftingTermSlot.doClick(action, player);
                     return;
-                default:
+                }
+                default -> {
+                }
             }
         }
 
@@ -643,17 +641,15 @@ public abstract class AEBaseContainer extends Container {
         ItemStack hand = getCarried();
 
         switch (action) {
-            case PICKUP_OR_SET_DOWN:
-                fakeSlot.increase(hand);
-                break;
-            case PLACE_SINGLE:
+            case PICKUP_OR_SET_DOWN -> fakeSlot.increase(hand);
+            case PLACE_SINGLE -> {
                 if (!hand.isEmpty()) {
                     ItemStack stack = hand.copy();
                     stack.setCount(1);
                     fakeSlot.increase(stack);
                 }
-                break;
-            case SPLIT_OR_PLACE_SINGLE:
+            }
+            case SPLIT_OR_PLACE_SINGLE -> {
                 ItemStack stack = fakeSlot.getStack();
                 if (!stack.isEmpty()) {
                     fakeSlot.decrease(hand);
@@ -662,15 +658,15 @@ public abstract class AEBaseContainer extends Container {
                     stack.setCount(1);
                     fakeSlot.putStack(stack);
                 }
-                break;
-            case EMPTY_ITEM:
+            }
+            case EMPTY_ITEM -> {
                 EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(hand);
                 if (emptyingAction != null) {
                     fakeSlot.setGenericFilter(new GenericStack(emptyingAction.what(), emptyingAction.maxAmount()));
                 }
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
     }
 

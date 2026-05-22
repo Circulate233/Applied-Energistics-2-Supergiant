@@ -29,13 +29,13 @@ public class ContainerEnergyLevelEmitter extends UpgradeableContainer<EnergyLeve
 
     private long reportingValue;
 
-    public ContainerEnergyLevelEmitter(int id, InventoryPlayer ip, EnergyLevelEmitterPart host) {
+    public ContainerEnergyLevelEmitter( InventoryPlayer ip, EnergyLevelEmitterPart host) {
         super(id, ip, host);
 
         registerClientAction(ACTION_SET_REPORTING_VALUE, Long.class, this::setReportingValue);
     }
 
-    public ContainerEnergyLevelEmitter(int id, InventoryPlayer ip, EnergyLevelEmitterPart host,
+    public ContainerEnergyLevelEmitter( InventoryPlayer ip, EnergyLevelEmitterPart host,
                                        long initialReportingValue) {
         this(id, ip, host);
         setInitialReportingValue(initialReportingValue);

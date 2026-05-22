@@ -238,34 +238,19 @@ public final class JsonRecipeUtils {
             return null;
         }
 
-        String prefix;
-        switch (pathSegments[0]) {
-            case "items":
-                prefix = "item";
-                break;
-            case "dyes":
-                prefix = "dye";
-                break;
-            case "ingots":
-                prefix = "ingot";
-                break;
-            case "dusts":
-                prefix = "dust";
-                break;
-            case "gems":
-                prefix = "gem";
-                break;
-            case "nuggets":
-                prefix = "nugget";
-                break;
-            case "plates":
-                prefix = "plate";
-                break;
-            case "rods":
-                prefix = "rod";
-                break;
-            default:
-                return null;
+        String prefix = switch (pathSegments[0]) {
+            case "items" -> "item";
+            case "dyes" -> "dye";
+            case "ingots" -> "ingot";
+            case "dusts" -> "dust";
+            case "gems" -> "gem";
+            case "nuggets" -> "nugget";
+            case "plates" -> "plate";
+            case "rods" -> "rod";
+            default -> null;
+        };
+        if (prefix == null) {
+            return null;
         }
 
         StringBuilder result = new StringBuilder(prefix);

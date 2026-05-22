@@ -26,8 +26,8 @@ import appeng.tile.storage.TileMEChest;
 import net.minecraft.entity.player.InventoryPlayer;
 
 public class ContainerMEChest extends AEBaseContainer {
-    public ContainerMEChest(int windowId, InventoryPlayer playerInventory, TileMEChest host) {
-        super(windowId, playerInventory, host);
+    public ContainerMEChest( InventoryPlayer playerInventory, TileMEChest host) {
+        super(playerInventory, host);
         setLocator(GuiHostLocators.forTile(host));
 
         addSlotToContainer(new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.STORAGE_CELLS,

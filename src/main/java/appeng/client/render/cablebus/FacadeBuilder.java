@@ -116,7 +116,7 @@ public class FacadeBuilder {
 
         List<AxisAlignedBB> boxes = new ObjectArrayList<>();
         switch (axis) {
-            case Y:
+            case Y -> {
                 boxes.add(new AxisAlignedBB(facadeBox.minX, facadeBox.minY, facadeBox.minZ, hole.minX, facadeBox.maxY,
                     facadeBox.maxZ));
                 boxes.add(new AxisAlignedBB(hole.maxX, facadeBox.minY, facadeBox.minZ, facadeBox.maxX, facadeBox.maxY,
@@ -125,8 +125,8 @@ public class FacadeBuilder {
                     hole.minZ));
                 boxes.add(new AxisAlignedBB(hole.minX, facadeBox.minY, hole.maxZ, hole.maxX, facadeBox.maxY,
                     facadeBox.maxZ));
-                break;
-            case Z:
+            }
+            case Z -> {
                 boxes.add(new AxisAlignedBB(facadeBox.minX, facadeBox.minY, facadeBox.minZ, facadeBox.maxX, hole.minY,
                     facadeBox.maxZ));
                 boxes.add(new AxisAlignedBB(facadeBox.minX, hole.maxY, facadeBox.minZ, facadeBox.maxX, facadeBox.maxY,
@@ -135,8 +135,8 @@ public class FacadeBuilder {
                     facadeBox.maxZ));
                 boxes.add(new AxisAlignedBB(hole.maxX, hole.minY, facadeBox.minZ, facadeBox.maxX, hole.maxY,
                     facadeBox.maxZ));
-                break;
-            case X:
+            }
+            case X -> {
                 boxes.add(new AxisAlignedBB(facadeBox.minX, facadeBox.minY, facadeBox.minZ, facadeBox.maxX, hole.minY,
                     facadeBox.maxZ));
                 boxes.add(new AxisAlignedBB(facadeBox.minX, hole.maxY, facadeBox.minZ, facadeBox.maxX, facadeBox.maxY,
@@ -145,9 +145,9 @@ public class FacadeBuilder {
                     hole.minZ));
                 boxes.add(new AxisAlignedBB(facadeBox.minX, hole.minY, hole.maxZ, facadeBox.maxX, hole.maxY,
                     facadeBox.maxZ));
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
 
         return boxes;
@@ -260,26 +260,14 @@ public class FacadeBuilder {
                 }
 
                 switch (face) {
-                    case DOWN:
-                        shrunkBox.minY += offset;
-                        break;
-                    case UP:
-                        shrunkBox.maxY -= offset;
-                        break;
-                    case NORTH:
-                        shrunkBox.minZ += offset;
-                        break;
-                    case SOUTH:
-                        shrunkBox.maxZ -= offset;
-                        break;
-                    case WEST:
-                        shrunkBox.minX += offset;
-                        break;
-                    case EAST:
-                        shrunkBox.maxX -= offset;
-                        break;
-                    default:
-                        break;
+                    case DOWN -> shrunkBox.minY += offset;
+                    case UP -> shrunkBox.maxY -= offset;
+                    case NORTH -> shrunkBox.minZ += offset;
+                    case SOUTH -> shrunkBox.maxZ -= offset;
+                    case WEST -> shrunkBox.minX += offset;
+                    case EAST -> shrunkBox.maxX -= offset;
+                    default -> {
+                    }
                 }
             }
 

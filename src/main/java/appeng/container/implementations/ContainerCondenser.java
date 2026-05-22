@@ -41,8 +41,8 @@ public class ContainerCondenser extends AEBaseContainer implements IProgressProv
     @GuiSync(2)
     public CondenserOutput output = CondenserOutput.TRASH;
 
-    public ContainerCondenser(int id, InventoryPlayer ip, TileCondenser condenser) {
-        super(id, ip, condenser);
+    public ContainerCondenser( InventoryPlayer ip, TileCondenser condenser) {
+        super(ip, condenser);
         this.condenser = condenser;
 
         var inv = condenser.getInternalInventory();

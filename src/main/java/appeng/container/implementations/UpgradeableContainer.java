@@ -52,8 +52,8 @@ public abstract class UpgradeableContainer<T extends IUpgradeableObject> extends
     @GuiSync(6)
     public SchedulingMode schedulingMode = SchedulingMode.DEFAULT;
 
-    protected UpgradeableContainer(int id, InventoryPlayer ip, T host) {
-        super(id, ip, host);
+    protected UpgradeableContainer( InventoryPlayer ip, T host) {
+        super(ip, host);
         this.host = host;
         this.toolbox = new ToolboxInventory(this);
         this.layoutToolboxSlots();

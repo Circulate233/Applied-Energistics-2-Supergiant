@@ -109,19 +109,20 @@ final class MatrixVertexTransformer extends QuadGatheringTransformer {
     private float[] transformNormal(float[] fs) {
         Vector4f normal;
 
-        switch (fs.length) {
-            case 3:
+        return switch (fs.length) {
+            case 3 -> {
                 normal = new Vector4f(fs[0], fs[1], fs[2], 0);
                 this.transform.transform(normal);
                 normal.normalize();
-                return new float[]{normal.x, normal.y, normal.z};
-            case 4:
+                yield new float[]{normal.x, normal.y, normal.z};
+            }
+            case 4 -> {
                 normal = new Vector4f(fs[0], fs[1], fs[2], fs[3]);
                 this.transform.transform(normal);
                 normal.normalize();
-                return new float[]{normal.x, normal.y, normal.z, normal.w};
-            default:
-                return fs;
-        }
+                yield new float[]{normal.x, normal.y, normal.z, normal.w};
+            }
+            default -> fs;
+        };
     }
 }

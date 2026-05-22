@@ -103,28 +103,28 @@ public class GrowthAcceleratorBlock extends AEBaseTileBlock<TileGrowthAccelerato
         BlockPos particlePos = null;
 
         switch (random.nextInt(4)) {
-            case 0:
+            case 0 -> {
                 dx = 0.6;
                 dz = d1;
                 particlePos = pos.add(west.getX(), west.getY(), west.getZ());
-                break;
-            case 1:
+            }
+            case 1 -> {
                 dx = d1;
                 dz = 0.6;
                 particlePos = pos.offset(forward);
-                break;
-            case 2:
+            }
+            case 2 -> {
                 dx = d1;
                 dz = -0.6;
                 particlePos = pos.offset(forward.getOpposite());
-                break;
-            case 3:
+            }
+            case 3 -> {
                 dx = -0.6;
                 dz = d1;
                 particlePos = pos.add(-west.getX(), -west.getY(), -west.getZ());
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
 
         if (particlePos == null || !world.isAirBlock(particlePos)) {

@@ -72,13 +72,13 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
     @Nullable
     private IRecipe currentRecipe;
 
-    public ContainerPatternEncodingTerm(int id, InventoryPlayer ip, IPatternTerminalGuiHost host) {
-        this(GuiIds.GuiKey.PATTERN_ENCODING_TERMINAL, id, ip, host, true);
+    public ContainerPatternEncodingTerm(InventoryPlayer ip, IPatternTerminalGuiHost host) {
+        this(GuiIds.GuiKey.PATTERN_ENCODING_TERMINAL, ip, host, true);
     }
 
-    public ContainerPatternEncodingTerm(GuiIds.GuiKey guiKey, int id, InventoryPlayer ip, IPatternTerminalGuiHost host,
+    public ContainerPatternEncodingTerm(GuiIds.GuiKey guiKey, InventoryPlayer ip, IPatternTerminalGuiHost host,
                                         boolean bindInventory) {
-        super(guiKey, id, ip, host, bindInventory);
+        super(guiKey, ip, host, bindInventory);
         this.encodingLogic = host.getLogic();
         this.encodedInputsInv = this.encodingLogic.getEncodedInputInv();
         this.encodedOutputsInv = this.encodingLogic.getEncodedOutputInv();

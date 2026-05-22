@@ -36,8 +36,8 @@ public class ContainerSetStockAmount extends AEBaseContainer implements ISubGui 
     @GuiSync(3)
     private int slot = -1;
 
-    public ContainerSetStockAmount(int id, InventoryPlayer ip, InterfaceLogicHost host) {
-        super(id, ip, host);
+    public ContainerSetStockAmount( InventoryPlayer ip, InterfaceLogicHost host) {
+        super(ip, host);
         registerClientAction(ACTION_SET_STOCK_AMOUNT, Integer.class, this::confirm);
         this.host = host;
         this.stockedItem = new InaccessibleSlot(new AppEngInternalInventory(1), 0);

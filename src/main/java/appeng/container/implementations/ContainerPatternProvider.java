@@ -37,8 +37,8 @@ public class ContainerPatternProvider extends AEBaseContainer implements IConfig
     @GuiSync(8)
     public PatternProviderBlockingType blockingType = PatternProviderBlockingType.NORMAL;
 
-    public ContainerPatternProvider(int id, InventoryPlayer playerInventory, PatternProviderLogicHost host) {
-        super(id, playerInventory, host);
+    public ContainerPatternProvider( InventoryPlayer playerInventory, PatternProviderLogicHost host) {
+        super(playerInventory, host);
         this.logic = host.getLogic();
 
         AppEngInternalInventory patternInventory = this.logic.getPatternInv();

@@ -32,7 +32,7 @@ public class ContainerFormationPlane extends UpgradeableContainer<FormationPlane
     @GuiSync(7)
     public YesNo placeMode;
 
-    public ContainerFormationPlane(int id, InventoryPlayer ip, FormationPlanePart host) {
+    public ContainerFormationPlane( InventoryPlayer ip, FormationPlanePart host) {
         super(id, ip, host);
     }
 

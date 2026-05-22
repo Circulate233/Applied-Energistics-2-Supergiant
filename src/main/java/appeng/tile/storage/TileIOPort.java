@@ -227,17 +227,11 @@ public class TileIOPort extends AENetworkedInvTile implements IUpgradeableObject
         long itemsToMove = 256;
 
         switch (this.upgrades.getInstalledUpgrades(AEItems.SPEED_CARD.item())) {
-            case 1:
-                itemsToMove *= 2;
-                break;
-            case 2:
-                itemsToMove *= 4;
-                break;
-            case 3:
-                itemsToMove *= 8;
-                break;
-            default:
-                break;
+            case 1 -> itemsToMove *= 2;
+            case 2 -> itemsToMove *= 4;
+            case 3 -> itemsToMove *= 8;
+            default -> {
+            }
         }
 
         IGrid grid = this.getMainNode().getGrid();

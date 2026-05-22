@@ -111,42 +111,34 @@ public class SpatialPylonService implements ISpatialService, IGridServiceProvide
 
             for (SpatialPylonCluster cl : clusters.values()) {
                 switch (cl.getCurrentAxis()) {
-                    case X:
-                        this.isValid = this.isValid
-                            && (this.captureMax.getY() == cl.getBoundsMin().getY()
-                            || this.captureMin.getY() == cl.getBoundsMax().getY()
-                            || this.captureMax.getZ() == cl.getBoundsMin().getZ()
-                            || this.captureMin.getZ() == cl.getBoundsMax().getZ())
-                            && (this.captureMax.getY() == cl.getBoundsMax().getY()
-                            || this.captureMin.getY() == cl.getBoundsMin().getY()
-                            || this.captureMax.getZ() == cl.getBoundsMax().getZ()
-                            || this.captureMin.getZ() == cl.getBoundsMin().getZ());
-                        break;
-                    case Y:
-                        this.isValid = this.isValid
-                            && (this.captureMax.getX() == cl.getBoundsMin().getX()
-                            || this.captureMin.getX() == cl.getBoundsMax().getX()
-                            || this.captureMax.getZ() == cl.getBoundsMin().getZ()
-                            || this.captureMin.getZ() == cl.getBoundsMax().getZ())
-                            && (this.captureMax.getX() == cl.getBoundsMax().getX()
-                            || this.captureMin.getX() == cl.getBoundsMin().getX()
-                            || this.captureMax.getZ() == cl.getBoundsMax().getZ()
-                            || this.captureMin.getZ() == cl.getBoundsMin().getZ());
-                        break;
-                    case Z:
-                        this.isValid = this.isValid
-                            && (this.captureMax.getY() == cl.getBoundsMin().getY()
-                            || this.captureMin.getY() == cl.getBoundsMax().getY()
-                            || this.captureMax.getX() == cl.getBoundsMin().getX()
-                            || this.captureMin.getX() == cl.getBoundsMax().getX())
-                            && (this.captureMax.getY() == cl.getBoundsMax().getY()
-                            || this.captureMin.getY() == cl.getBoundsMin().getY()
-                            || this.captureMax.getX() == cl.getBoundsMax().getX()
-                            || this.captureMin.getX() == cl.getBoundsMin().getX());
-                        break;
-                    case UNFORMED:
-                        this.isValid = false;
-                        break;
+                    case X -> this.isValid = this.isValid
+                        && (this.captureMax.getY() == cl.getBoundsMin().getY()
+                        || this.captureMin.getY() == cl.getBoundsMax().getY()
+                        || this.captureMax.getZ() == cl.getBoundsMin().getZ()
+                        || this.captureMin.getZ() == cl.getBoundsMax().getZ())
+                        && (this.captureMax.getY() == cl.getBoundsMax().getY()
+                        || this.captureMin.getY() == cl.getBoundsMin().getY()
+                        || this.captureMax.getZ() == cl.getBoundsMax().getZ()
+                        || this.captureMin.getZ() == cl.getBoundsMin().getZ());
+                    case Y -> this.isValid = this.isValid
+                        && (this.captureMax.getX() == cl.getBoundsMin().getX()
+                        || this.captureMin.getX() == cl.getBoundsMax().getX()
+                        || this.captureMax.getZ() == cl.getBoundsMin().getZ()
+                        || this.captureMin.getZ() == cl.getBoundsMax().getZ())
+                        && (this.captureMax.getX() == cl.getBoundsMax().getX()
+                        || this.captureMin.getX() == cl.getBoundsMin().getX()
+                        || this.captureMax.getZ() == cl.getBoundsMax().getZ()
+                        || this.captureMin.getZ() == cl.getBoundsMin().getZ());
+                    case Z -> this.isValid = this.isValid
+                        && (this.captureMax.getY() == cl.getBoundsMin().getY()
+                        || this.captureMin.getY() == cl.getBoundsMax().getY()
+                        || this.captureMax.getX() == cl.getBoundsMin().getX()
+                        || this.captureMin.getX() == cl.getBoundsMax().getX())
+                        && (this.captureMax.getY() == cl.getBoundsMax().getY()
+                        || this.captureMin.getY() == cl.getBoundsMin().getY()
+                        || this.captureMax.getX() == cl.getBoundsMax().getX()
+                        || this.captureMin.getX() == cl.getBoundsMin().getX());
+                    case UNFORMED -> this.isValid = false;
                 }
             }
 

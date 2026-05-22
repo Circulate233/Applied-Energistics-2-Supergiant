@@ -263,18 +263,18 @@ public final class Blitter {
         }
 
         switch (transform) {
-            case MIRROR_H:
+            case MIRROR_H -> {
                 float tmpU = minU;
                 minU = maxU;
                 maxU = tmpU;
-                break;
-            case MIRROR_V:
+            }
+            case MIRROR_V -> {
                 float tmpV = minV;
                 minV = maxV;
                 maxV = tmpV;
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
 
         float x1 = destRect.x();

@@ -195,157 +195,176 @@ public class AEGuiHandler implements IGuiHandler {
     @Override
     public Object getServerGuiElement(int ID, EntityPlayer player, World world, int x, int y, int z) {
         GuiIds.GuiKey bridge = GuiIds.GuiKey.fromId(ID);
-        if (bridge == null) {
-            return null;
-        }
         TileEntity te = isItemGui(bridge) || isPartGui(bridge) ? null : world.getTileEntity(new BlockPos(x, y, z));
 
         switch (bridge) {
-            case CONTROLLER_STATUS:
+            case CONTROLLER_STATUS -> {
                 if (te instanceof TileController) {
-                    return initTileContainer(new ContainerControllerStatus(0, player.inventory, (TileController) te),
+                    return initTileContainer(new ContainerControllerStatus(player.inventory, (TileController) te),
                         te, ID);
                 }
-                break;
-            case ME_CHEST:
+            }
+            case ME_CHEST -> {
                 if (te instanceof TileMEChest) {
-                    return initTileContainer(new ContainerMEChest(0, player.inventory, (TileMEChest) te),
+                    return initTileContainer(new ContainerMEChest(player.inventory, (TileMEChest) te),
                         te, ID);
                 }
-                break;
-            case BASIC_CELL_CHEST:
+            }
+            case BASIC_CELL_CHEST -> {
                 if (te instanceof TileMEChest) {
-                    return initTileContainer(new ContainerBasicCellChest(0, player.inventory, (TileMEChest) te),
+                    return initTileContainer(new ContainerBasicCellChest(player.inventory, (TileMEChest) te),
                         te, ID);
                 }
-                break;
-            case DRIVE:
+            }
+            case DRIVE -> {
                 if (te instanceof TileDrive) {
-                    return initTileContainer(new ContainerDrive(0, player.inventory, (TileDrive) te), te, ID);
+                    return initTileContainer(new ContainerDrive(player.inventory, (TileDrive) te), te, ID);
                 }
-                break;
-            case CELL_WORKBENCH:
+            }
+            case CELL_WORKBENCH -> {
                 if (te instanceof TileCellWorkbench) {
-                    return initTileContainer(new ContainerCellWorkbench(0, player.inventory, (TileCellWorkbench) te), te, ID);
+                    return initTileContainer(new ContainerCellWorkbench(player.inventory, (TileCellWorkbench) te), te,
+                        ID);
                 }
-                break;
-            case CONDENSER:
+            }
+            case CONDENSER -> {
                 if (te instanceof TileCondenser) {
-                    return initTileContainer(new ContainerCondenser(0, player.inventory, (TileCondenser) te), te, ID);
+                    return initTileContainer(new ContainerCondenser(player.inventory, (TileCondenser) te), te, ID);
                 }
-                break;
-            case SKY_CHEST:
+            }
+            case SKY_CHEST -> {
                 if (te instanceof TileSkyChest) {
-                    return initTileContainer(new ContainerSkyChest(0, player.inventory, (TileSkyChest) te), te, ID);
+                    return initTileContainer(new ContainerSkyChest(player.inventory, (TileSkyChest) te), te, ID);
                 }
-                break;
-            case INSCRIBER:
+            }
+            case INSCRIBER -> {
                 if (te instanceof TileInscriber) {
-                    return initTileContainer(new ContainerInscriber(0, player.inventory, (TileInscriber) te), te, ID);
+                    return initTileContainer(new ContainerInscriber(player.inventory, (TileInscriber) te), te, ID);
                 }
-                break;
-            case IO_PORT:
+            }
+            case IO_PORT -> {
                 if (te instanceof TileIOPort) {
-                    return initTileContainer(new ContainerIOPort(0, player.inventory, (TileIOPort) te), te, ID);
+                    return initTileContainer(new ContainerIOPort(player.inventory, (TileIOPort) te), te, ID);
                 }
-                break;
-            case MOLECULAR_ASSEMBLER:
+            }
+            case MOLECULAR_ASSEMBLER -> {
                 if (te instanceof TileMolecularAssembler) {
-                    return initTileContainer(new ContainerMolecularAssembler(0, player.inventory, (TileMolecularAssembler) te),
-                        te, ID);
+                    return initTileContainer(
+                        new ContainerMolecularAssembler(player.inventory, (TileMolecularAssembler) te), te, ID);
                 }
-                break;
-            case VIBRATION_CHAMBER:
+            }
+            case VIBRATION_CHAMBER -> {
                 if (te instanceof TileVibrationChamber) {
-                    return initTileContainer(new ContainerVibrationChamber(0, player.inventory, (TileVibrationChamber) te),
-                        te, ID);
+                    return initTileContainer(
+                        new ContainerVibrationChamber(player.inventory, (TileVibrationChamber) te), te, ID);
                 }
-                break;
-            case QNB:
+            }
+            case QNB -> {
                 if (te instanceof TileQuantumBridge) {
-                    return initTileContainer(new ContainerQNB(0, player.inventory, (TileQuantumBridge) te), te, ID);
+                    return initTileContainer(new ContainerQNB(player.inventory, (TileQuantumBridge) te), te, ID);
                 }
-                break;
-            case WIRELESS_ACCESS_POINT:
+            }
+            case WIRELESS_ACCESS_POINT -> {
                 if (te instanceof TileWirelessAccessPoint) {
-                    return initTileContainer(new ContainerWirelessAccessPoint(0, player.inventory,
+                    return initTileContainer(new ContainerWirelessAccessPoint(player.inventory,
                         (TileWirelessAccessPoint) te), te, ID);
                 }
-                break;
-            case SPATIAL_IO_PORT:
+            }
+            case SPATIAL_IO_PORT -> {
                 if (te instanceof TileSpatialIOPort) {
-                    return initTileContainer(new ContainerSpatialIOPort(0, player.inventory, (TileSpatialIOPort) te), te, ID);
+                    return initTileContainer(new ContainerSpatialIOPort(player.inventory, (TileSpatialIOPort) te), te,
+                        ID);
                 }
-                break;
-            case SPATIAL_ANCHOR:
+            }
+            case SPATIAL_ANCHOR -> {
                 if (te instanceof TileSpatialAnchor) {
-                    return initTileContainer(new ContainerSpatialAnchor(0, player.inventory, (TileSpatialAnchor) te), te, ID);
+                    return initTileContainer(new ContainerSpatialAnchor(player.inventory, (TileSpatialAnchor) te), te,
+                        ID);
                 }
-                break;
-            case INTERFACE:
+            }
+            case INTERFACE -> {
                 if (te instanceof TileInterface) {
-                    return initTileContainer(new ContainerInterface(0, player.inventory, (TileInterface) te),
+                    return initTileContainer(new ContainerInterface(player.inventory, (TileInterface) te),
                         te, ID);
                 }
                 return createPartContainer(player, partLocator(x, y, z), ID, InterfacePart.class,
-                    host -> new ContainerInterface(0, player.inventory, host));
-            case PATTERN_PROVIDER:
+                    host -> new ContainerInterface(player.inventory, host));
+            }
+            case PATTERN_PROVIDER -> {
                 if (te instanceof TilePatternProvider) {
-                    return initTileContainer(new ContainerPatternProvider(0, player.inventory, (TilePatternProvider) te),
+                    return initTileContainer(new ContainerPatternProvider(player.inventory, (TilePatternProvider) te),
                         te, ID);
                 }
                 return createPartContainer(player, partLocator(x, y, z), ID, PatternProviderPart.class,
-                    host -> new ContainerPatternProvider(0, player.inventory, host));
-            case CRAFTING_CPU:
+                    host -> new ContainerPatternProvider(player.inventory, host));
+            }
+            case CRAFTING_CPU -> {
                 if (te instanceof TileCraftingUnit) {
-                    return initTileContainer(new ContainerCraftingCPU(0, player.inventory, (TileCraftingUnit) te),
+                    return initTileContainer(new ContainerCraftingCPU(player.inventory, (TileCraftingUnit) te),
                         te, ID);
                 }
-                break;
-            case IMPORT_BUS:
+            }
+            case IMPORT_BUS -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, ImportBusPart.class,
-                    host -> new ContainerIOBus(0, player.inventory, host));
-            case EXPORT_BUS:
+                    host -> new ContainerIOBus(player.inventory, host));
+            }
+            case EXPORT_BUS -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, ExportBusPart.class,
-                    host -> new ContainerIOBus(0, player.inventory, host));
-            case STORAGE_BUS:
+                    host -> new ContainerIOBus(player.inventory, host));
+            }
+            case STORAGE_BUS -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, StorageBusPart.class,
-                    host -> new ContainerStorageBus(0, player.inventory, host));
-            case FORMATION_PLANE:
+                    host -> new ContainerStorageBus(player.inventory, host));
+            }
+            case FORMATION_PLANE -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, FormationPlanePart.class,
-                    host -> new ContainerFormationPlane(0, player.inventory, host));
-            case ENERGY_LEVEL_EMITTER:
+                    host -> new ContainerFormationPlane(player.inventory, host));
+            }
+            case ENERGY_LEVEL_EMITTER -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, EnergyLevelEmitterPart.class,
-                    host -> new ContainerEnergyLevelEmitter(0, player.inventory, host));
-            case STORAGE_LEVEL_EMITTER:
+                    host -> new ContainerEnergyLevelEmitter(player.inventory, host));
+            }
+            case STORAGE_LEVEL_EMITTER -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, StorageLevelEmitterPart.class,
-                    host -> new ContainerStorageLevelEmitter(0, player.inventory, host));
-            case ME_STORAGE_TERMINAL:
+                    host -> new ContainerStorageLevelEmitter(player.inventory, host));
+            }
+            case ME_STORAGE_TERMINAL -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, ItemTerminalPart.class,
-                    host -> new ContainerMEStorage(GuiIds.GuiKey.ME_STORAGE_TERMINAL, 0, player.inventory, host));
-            case CRAFTING_TERMINAL:
+                    host -> new ContainerMEStorage(GuiIds.GuiKey.ME_STORAGE_TERMINAL, player.inventory, host));
+            }
+            case CRAFTING_TERMINAL -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, CraftingTerminalPart.class,
-                    host -> new ContainerCraftingTerm(0, player.inventory, host));
-            case PATTERN_ENCODING_TERMINAL:
+                    host -> new ContainerCraftingTerm(player.inventory, host));
+            }
+            case PATTERN_ENCODING_TERMINAL -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, PatternEncodingTerminalPart.class,
-                    host -> new ContainerPatternEncodingTerm(0, player.inventory, host));
-            case PATTERN_ACCESS_TERMINAL:
+                    host -> new ContainerPatternEncodingTerm(player.inventory, host));
+            }
+            case PATTERN_ACCESS_TERMINAL -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, PatternAccessTerminalPart.class,
-                    host -> new ContainerPatternAccessTerm(0, player.inventory, host));
-            case QUARTZ_KNIFE:
+                    host -> new ContainerPatternAccessTerm(player.inventory, host));
+            }
+            case QUARTZ_KNIFE -> {
                 return createQuartzKnifeContainer(player, x, ID);
-            case NETWORK_TOOL:
+            }
+            case NETWORK_TOOL -> {
                 return createNetworkToolContainer(player, x, ID);
-            case NETWORK_STATUS:
+            }
+            case NETWORK_STATUS -> {
                 return createNetworkStatusContainer(player, y >> 8, new BlockPos(x, y & 255, z), ID);
-            case PORTABLE_ITEM_CELL:
+            }
+            case PORTABLE_ITEM_CELL -> {
                 return createPortableItemCellContainer(player, x, ID);
-            case PORTABLE_FLUID_CELL:
+            }
+            case PORTABLE_FLUID_CELL -> {
                 return createPortableFluidCellContainer(player, x, ID);
-            case WIRELESS_TERMINAL:
+            }
+            case WIRELESS_TERMINAL -> {
                 return createWirelessTerminalContainer(player, x, ID);
-            case WIRELESS_CRAFTING_TERMINAL:
+            }
+            case WIRELESS_CRAFTING_TERMINAL -> {
                 return createWirelessCraftingTerminalContainer(player, x, ID);
+            }
         }
         return null;
     }
@@ -359,282 +378,302 @@ public class AEGuiHandler implements IGuiHandler {
         TileEntity te = isItemGui(bridge) || isPartGui(bridge) ? null : world.getTileEntity(new BlockPos(x, y, z));
 
         switch (bridge) {
-            case CONTROLLER_STATUS:
+            case CONTROLLER_STATUS -> {
                 if (te instanceof TileController) {
-                    ContainerControllerStatus container = initTileContainer(new ContainerControllerStatus(0,
+                    ContainerControllerStatus container = initTileContainer(new ContainerControllerStatus(
                         player.inventory, (TileController) te), te, ID);
                     return new GuiControllerStatus(container, player.inventory);
                 }
-                break;
-            case ME_CHEST:
+            }
+            case ME_CHEST -> {
                 if (te instanceof TileMEChest) {
-                    ContainerMEChest container = initTileContainer(new ContainerMEChest(0, player.inventory,
+                    ContainerMEChest container = initTileContainer(new ContainerMEChest(player.inventory,
                         (TileMEChest) te), te, ID);
                     return new GuiMEChest(container, player.inventory);
                 }
-                break;
-            case BASIC_CELL_CHEST:
+            }
+            case BASIC_CELL_CHEST -> {
                 if (te instanceof TileMEChest) {
-                    ContainerBasicCellChest container = initTileContainer(new ContainerBasicCellChest(0, player.inventory,
+                    ContainerBasicCellChest container = initTileContainer(new ContainerBasicCellChest(player.inventory,
                         (TileMEChest) te), te, ID);
                     return new GuiMEStorage<>(container, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/terminal.json"));
                 }
-                break;
-            case DRIVE:
+            }
+            case DRIVE -> {
                 if (te instanceof TileDrive) {
-                    ContainerDrive container = initTileContainer(new ContainerDrive(0, player.inventory, (TileDrive) te), te, ID);
+                    ContainerDrive container = initTileContainer(new ContainerDrive(player.inventory, (TileDrive) te),
+                        te, ID);
                     return new GuiDrive(container, player.inventory, ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/drive.json"));
                 }
-                break;
-            case CELL_WORKBENCH:
+            }
+            case CELL_WORKBENCH -> {
                 if (te instanceof TileCellWorkbench) {
-                    ContainerCellWorkbench container = initTileContainer(new ContainerCellWorkbench(0, player.inventory,
+                    ContainerCellWorkbench container = initTileContainer(new ContainerCellWorkbench(player.inventory,
                         (TileCellWorkbench) te), te, ID);
                     return new GuiCellWorkbench(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/cell_workbench.json"));
                 }
-                break;
-            case CONDENSER:
+            }
+            case CONDENSER -> {
                 if (te instanceof TileCondenser) {
-                    ContainerCondenser container = initTileContainer(new ContainerCondenser(0, player.inventory, (TileCondenser) te), te, ID);
+                    ContainerCondenser container = initTileContainer(new ContainerCondenser(player.inventory,
+                        (TileCondenser) te), te, ID);
                     return new GuiCondenser(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/condenser.json"));
                 }
-                break;
-            case SKY_CHEST:
+            }
+            case SKY_CHEST -> {
                 if (te instanceof TileSkyChest) {
-                    ContainerSkyChest container = initTileContainer(new ContainerSkyChest(0, player.inventory, (TileSkyChest) te), te, ID);
+                    ContainerSkyChest container = initTileContainer(new ContainerSkyChest(player.inventory,
+                        (TileSkyChest) te), te, ID);
                     return new GuiSkyChest(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/sky_chest.json"));
                 }
-                break;
-            case INSCRIBER:
+            }
+            case INSCRIBER -> {
                 if (te instanceof TileInscriber) {
-                    ContainerInscriber container = initTileContainer(new ContainerInscriber(0, player.inventory, (TileInscriber) te), te, ID);
+                    ContainerInscriber container = initTileContainer(new ContainerInscriber(player.inventory,
+                        (TileInscriber) te), te, ID);
                     return new GuiInscriber(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/inscriber.json"));
                 }
-                break;
-            case IO_PORT:
+            }
+            case IO_PORT -> {
                 if (te instanceof TileIOPort) {
-                    ContainerIOPort container = initTileContainer(new ContainerIOPort(0, player.inventory, (TileIOPort) te), te, ID);
+                    ContainerIOPort container = initTileContainer(new ContainerIOPort(player.inventory,
+                        (TileIOPort) te), te, ID);
                     return new GuiIOPort(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/io_port.json"));
                 }
-                break;
-            case MOLECULAR_ASSEMBLER:
+            }
+            case MOLECULAR_ASSEMBLER -> {
                 if (te instanceof TileMolecularAssembler) {
-                    ContainerMolecularAssembler container = initTileContainer(new ContainerMolecularAssembler(0, player.inventory,
-                        (TileMolecularAssembler) te), te, ID);
+                    ContainerMolecularAssembler container = initTileContainer(
+                        new ContainerMolecularAssembler(player.inventory, (TileMolecularAssembler) te), te, ID);
                     return new GuiMolecularAssembler(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/molecular_assembler.json"));
                 }
-                break;
-            case VIBRATION_CHAMBER:
+            }
+            case VIBRATION_CHAMBER -> {
                 if (te instanceof TileVibrationChamber) {
-                    ContainerVibrationChamber container = initTileContainer(new ContainerVibrationChamber(0, player.inventory,
-                        (TileVibrationChamber) te), te, ID);
+                    ContainerVibrationChamber container = initTileContainer(new ContainerVibrationChamber(
+                        player.inventory, (TileVibrationChamber) te), te, ID);
                     return new GuiVibrationChamber(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/vibration_chamber.json"));
                 }
-                break;
-            case QNB:
+            }
+            case QNB -> {
                 if (te instanceof TileQuantumBridge) {
-                    ContainerQNB container = initTileContainer(new ContainerQNB(0, player.inventory, (TileQuantumBridge) te), te, ID);
+                    ContainerQNB container = initTileContainer(new ContainerQNB(player.inventory,
+                        (TileQuantumBridge) te), te, ID);
                     return new GuiQNB(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/qnb.json"));
                 }
-                break;
-            case WIRELESS_ACCESS_POINT:
+            }
+            case WIRELESS_ACCESS_POINT -> {
                 if (te instanceof TileWirelessAccessPoint) {
-                    ContainerWirelessAccessPoint container = initTileContainer(new ContainerWirelessAccessPoint(0, player.inventory,
-                        (TileWirelessAccessPoint) te), te, ID);
+                    ContainerWirelessAccessPoint container = initTileContainer(new ContainerWirelessAccessPoint(
+                        player.inventory, (TileWirelessAccessPoint) te), te, ID);
                     return new GuiWirelessAccessPoint(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/wireless_access_point.json"));
                 }
-                break;
-            case SPATIAL_IO_PORT:
+            }
+            case SPATIAL_IO_PORT -> {
                 if (te instanceof TileSpatialIOPort) {
-                    ContainerSpatialIOPort container = initTileContainer(new ContainerSpatialIOPort(0, player.inventory,
+                    ContainerSpatialIOPort container = initTileContainer(new ContainerSpatialIOPort(player.inventory,
                         (TileSpatialIOPort) te), te, ID);
                     return new GuiSpatialIOPort(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/spatial_io_port.json"));
                 }
-                break;
-            case SPATIAL_ANCHOR:
+            }
+            case SPATIAL_ANCHOR -> {
                 if (te instanceof TileSpatialAnchor) {
-                    ContainerSpatialAnchor container = initTileContainer(new ContainerSpatialAnchor(0, player.inventory,
+                    ContainerSpatialAnchor container = initTileContainer(new ContainerSpatialAnchor(player.inventory,
                         (TileSpatialAnchor) te), te, ID);
                     return new GuiSpatialAnchor(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/spatial_anchor.json"));
                 }
-                break;
-            case INTERFACE:
+            }
+            case INTERFACE -> {
                 if (te instanceof TileInterface) {
-                    ContainerInterface container = initTileContainer(new ContainerInterface(0, player.inventory, (TileInterface) te),
-                        te, ID);
+                    ContainerInterface container = initTileContainer(new ContainerInterface(player.inventory,
+                        (TileInterface) te), te, ID);
                     return new GuiInterface(container, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/interface.json"));
                 }
                 ContainerInterface interfacePartContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
-                    InterfacePart.class, host -> new ContainerInterface(0, player.inventory, host));
+                    InterfacePart.class, host -> new ContainerInterface(player.inventory, host));
                 if (interfacePartContainer != null) {
                     return new GuiInterface(interfacePartContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/interface.json"));
                 }
                 return null;
-            case PATTERN_PROVIDER:
+            }
+            case PATTERN_PROVIDER -> {
                 if (te instanceof TilePatternProvider) {
-                    ContainerPatternProvider container = initTileContainer(new ContainerPatternProvider(0, player.inventory,
-                        (TilePatternProvider) te), te, ID);
+                    ContainerPatternProvider container = initTileContainer(new ContainerPatternProvider(
+                        player.inventory, (TilePatternProvider) te), te, ID);
                     return new GuiPatternProvider(container, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/pattern_provider.json"));
                 }
                 ContainerPatternProvider patternProviderPartContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
-                    PatternProviderPart.class, host -> new ContainerPatternProvider(0, player.inventory, host));
+                    PatternProviderPart.class, host -> new ContainerPatternProvider(player.inventory, host));
                 if (patternProviderPartContainer != null) {
                     return new GuiPatternProvider(patternProviderPartContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/pattern_provider.json"));
                 }
                 return null;
-            case CRAFTING_CPU:
+            }
+            case CRAFTING_CPU -> {
                 if (te instanceof TileCraftingUnit craftingUnit) {
                     CraftingCPUCluster cluster = craftingUnit.getCluster();
                     ITextComponent title = cluster != null && cluster.getName() != null
                         ? cluster.getName()
                         : new TextComponentString("");
-                    ContainerCraftingCPU container = initTileContainer(new ContainerCraftingCPU(0, player.inventory,
+                    ContainerCraftingCPU container = initTileContainer(new ContainerCraftingCPU(player.inventory,
                         craftingUnit, title), te, ID);
                     return new GuiCraftingCPU<>(container, player.inventory, container.getInitialTitle(),
                         GuiStyleManager.loadStyleDoc("/screens/crafting_status.json"));
                 }
-                break;
-            case IMPORT_BUS:
+            }
+            case IMPORT_BUS -> {
                 ContainerIOBus importBusContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
-                    ImportBusPart.class, host -> new ContainerIOBus(0, player.inventory, host));
+                    ImportBusPart.class, host -> new ContainerIOBus(player.inventory, host));
                 if (importBusContainer != null) {
                     return new GuiIOBus(importBusContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/import_bus.json"));
                 }
                 return null;
-            case EXPORT_BUS:
+            }
+            case EXPORT_BUS -> {
                 ContainerIOBus exportBusContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
-                    ExportBusPart.class, host -> new ContainerIOBus(0, player.inventory, host));
+                    ExportBusPart.class, host -> new ContainerIOBus(player.inventory, host));
                 if (exportBusContainer != null) {
                     return new GuiIOBus(exportBusContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/export_bus.json"));
                 }
                 return null;
-            case STORAGE_BUS:
+            }
+            case STORAGE_BUS -> {
                 ContainerStorageBus storageBusContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
-                    StorageBusPart.class, host -> new ContainerStorageBus(0, player.inventory, host));
+                    StorageBusPart.class, host -> new ContainerStorageBus(player.inventory, host));
                 if (storageBusContainer != null) {
                     return new GuiStorageBus(storageBusContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/storage_bus.json"));
                 }
                 return null;
-            case FORMATION_PLANE:
+            }
+            case FORMATION_PLANE -> {
                 ContainerFormationPlane formationPlaneContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
-                    FormationPlanePart.class, host -> new ContainerFormationPlane(0, player.inventory, host));
+                    FormationPlanePart.class, host -> new ContainerFormationPlane(player.inventory, host));
                 if (formationPlaneContainer != null) {
                     return new GuiFormationPlane(formationPlaneContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/formation_plane.json"));
                 }
                 return null;
-            case ENERGY_LEVEL_EMITTER:
+            }
+            case ENERGY_LEVEL_EMITTER -> {
                 ContainerEnergyLevelEmitter energyLevelEmitterContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
                     EnergyLevelEmitterPart.class,
-                    host -> new ContainerEnergyLevelEmitter(0, player.inventory, host, host.getReportingValue()));
+                    host -> new ContainerEnergyLevelEmitter(player.inventory, host, host.getReportingValue()));
                 if (energyLevelEmitterContainer != null) {
                     return new GuiEnergyLevelEmitter(energyLevelEmitterContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/energy_level_emitter.json"));
                 }
                 return null;
-            case STORAGE_LEVEL_EMITTER:
+            }
+            case STORAGE_LEVEL_EMITTER -> {
                 ContainerStorageLevelEmitter storageLevelEmitterContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
                     StorageLevelEmitterPart.class,
-                    host -> new ContainerStorageLevelEmitter(0, player.inventory, host,
+                    host -> new ContainerStorageLevelEmitter(player.inventory, host,
                         host.getConfig().getStack(0), host.getReportingValue()));
                 if (storageLevelEmitterContainer != null) {
                     return new GuiStorageLevelEmitter(storageLevelEmitterContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/level_emitter.json"));
                 }
                 return null;
-            case ME_STORAGE_TERMINAL:
+            }
+            case ME_STORAGE_TERMINAL -> {
                 ContainerMEStorage storageTerminalContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
                     ItemTerminalPart.class,
-                    host -> new ContainerMEStorage(GuiIds.GuiKey.ME_STORAGE_TERMINAL, 0, player.inventory, host));
+                    host -> new ContainerMEStorage(GuiIds.GuiKey.ME_STORAGE_TERMINAL, player.inventory, host));
                 if (storageTerminalContainer != null) {
                     return new GuiMEStorage<>(storageTerminalContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/terminal.json"));
                 }
                 return null;
-            case CRAFTING_TERMINAL:
+            }
+            case CRAFTING_TERMINAL -> {
                 ContainerCraftingTerm craftingTerminalContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
-                    CraftingTerminalPart.class, host -> new ContainerCraftingTerm(0, player.inventory, host));
+                    CraftingTerminalPart.class, host -> new ContainerCraftingTerm(player.inventory, host));
                 if (craftingTerminalContainer != null) {
                     return new GuiCraftingTerm(craftingTerminalContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/crafting_terminal.json"));
                 }
                 return null;
-            case PATTERN_ENCODING_TERMINAL:
+            }
+            case PATTERN_ENCODING_TERMINAL -> {
                 ContainerPatternEncodingTerm patternEncodingTerminalContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
                     PatternEncodingTerminalPart.class,
-                    host -> new ContainerPatternEncodingTerm(0, player.inventory, host));
+                    host -> new ContainerPatternEncodingTerm(player.inventory, host));
                 if (patternEncodingTerminalContainer != null) {
                     return new GuiPatternEncodingTerm(patternEncodingTerminalContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/pattern_encoding_terminal.json"));
                 }
                 return null;
-            case PATTERN_ACCESS_TERMINAL:
+            }
+            case PATTERN_ACCESS_TERMINAL -> {
                 ContainerPatternAccessTerm patternAccessTerminalContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
                     PatternAccessTerminalPart.class,
-                    host -> new ContainerPatternAccessTerm(0, player.inventory, host));
+                    host -> new ContainerPatternAccessTerm(player.inventory, host));
                 if (patternAccessTerminalContainer != null) {
                     return new GuiPatternAccessTerm<>(patternAccessTerminalContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/pattern_access_terminal.json"));
                 }
                 return null;
-            case QUARTZ_KNIFE:
+            }
+            case QUARTZ_KNIFE -> {
                 ContainerQuartzKnife container = createQuartzKnifeContainer(player, x, ID);
                 if (container != null) {
                     return new GuiQuartzKnife(container, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/quartz_knife.json"));
                 }
                 return null;
-            case NETWORK_TOOL:
+            }
+            case NETWORK_TOOL -> {
                 ContainerNetworkTool networkToolContainer = createNetworkToolContainer(player, x, ID);
                 if (networkToolContainer != null) {
                     return new GuiNetworkTool(networkToolContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/network_tool.json"));
                 }
                 return null;
-            case NETWORK_STATUS:
+            }
+            case NETWORK_STATUS -> {
                 ContainerNetworkStatus networkStatusContainer = createNetworkStatusContainer(player, y >> 8,
                     new BlockPos(x, y & 255, z), ID);
                 if (networkStatusContainer != null) {
@@ -642,28 +681,32 @@ public class AEGuiHandler implements IGuiHandler {
                         GuiStyleManager.loadStyleDoc("/screens/network_status.json"));
                 }
                 return null;
-            case PORTABLE_ITEM_CELL:
+            }
+            case PORTABLE_ITEM_CELL -> {
                 ContainerMEStorage portableItemCellContainer = createPortableItemCellContainer(player, x, ID);
                 if (portableItemCellContainer != null) {
                     return new GuiMEStorage<>(portableItemCellContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/portable_item_cell.json"));
                 }
                 return null;
-            case PORTABLE_FLUID_CELL:
+            }
+            case PORTABLE_FLUID_CELL -> {
                 ContainerMEStorage portableFluidCellContainer = createPortableFluidCellContainer(player, x, ID);
                 if (portableFluidCellContainer != null) {
                     return new GuiMEStorage<>(portableFluidCellContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/portable_fluid_cell.json"));
                 }
                 return null;
-            case WIRELESS_TERMINAL:
+            }
+            case WIRELESS_TERMINAL -> {
                 ContainerMEStorage wirelessTerminalContainer = createWirelessTerminalContainer(player, x, ID);
                 if (wirelessTerminalContainer != null) {
                     return new GuiMEStorage<>(wirelessTerminalContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/wireless_terminal.json"));
                 }
                 return null;
-            case WIRELESS_CRAFTING_TERMINAL:
+            }
+            case WIRELESS_CRAFTING_TERMINAL -> {
                 ContainerWirelessCraftingTerm wirelessCraftingTerminalContainer =
                     createWirelessCraftingTerminalContainer(player, x, ID);
                 if (wirelessCraftingTerminalContainer != null) {
@@ -671,6 +714,7 @@ public class AEGuiHandler implements IGuiHandler {
                         GuiStyleManager.loadStyleDoc("/screens/terminals/crafting_terminal.json"));
                 }
                 return null;
+            }
         }
         return null;
     }
@@ -682,7 +726,7 @@ public class AEGuiHandler implements IGuiHandler {
             return null;
         }
 
-        return initContainer(new ContainerQuartzKnife(0, player.inventory, host), locator, guiId);
+        return initContainer(new ContainerQuartzKnife(player.inventory, host), locator, guiId);
     }
 
     private @Nullable ContainerNetworkTool createNetworkToolContainer(EntityPlayer player, int slot, int guiId) {
@@ -692,7 +736,7 @@ public class AEGuiHandler implements IGuiHandler {
             return null;
         }
 
-        return initContainer(new ContainerNetworkTool(0, player.inventory, host), locator, guiId);
+        return initContainer(new ContainerNetworkTool(player.inventory, host), locator, guiId);
     }
 
     private @Nullable ContainerNetworkStatus createNetworkStatusContainer(EntityPlayer player, int slot, BlockPos pos, int guiId) {
@@ -703,7 +747,7 @@ public class AEGuiHandler implements IGuiHandler {
             return null;
         }
 
-        return initContainer(new ContainerNetworkStatus(0, player.inventory, host), locator, guiId);
+        return initContainer(new ContainerNetworkStatus(player.inventory, host), locator, guiId);
     }
 
     private @Nullable ContainerMEStorage createPortableItemCellContainer(EntityPlayer player, int slot, int guiId) {
@@ -713,7 +757,7 @@ public class AEGuiHandler implements IGuiHandler {
             return null;
         }
 
-        return initContainer(new ContainerMEStorage(GuiIds.GuiKey.PORTABLE_ITEM_CELL, 0, player.inventory, host),
+        return initContainer(new ContainerMEStorage(GuiIds.GuiKey.PORTABLE_ITEM_CELL, player.inventory, host),
             locator, guiId);
     }
 
@@ -724,7 +768,7 @@ public class AEGuiHandler implements IGuiHandler {
             return null;
         }
 
-        return initContainer(new ContainerMEStorage(GuiIds.GuiKey.PORTABLE_FLUID_CELL, 0, player.inventory, host),
+        return initContainer(new ContainerMEStorage(GuiIds.GuiKey.PORTABLE_FLUID_CELL, player.inventory, host),
             locator, guiId);
     }
 
@@ -735,7 +779,7 @@ public class AEGuiHandler implements IGuiHandler {
             return null;
         }
 
-        return initContainer(new ContainerMEStorage(GuiIds.GuiKey.WIRELESS_TERMINAL, 0, player.inventory, host),
+        return initContainer(new ContainerMEStorage(GuiIds.GuiKey.WIRELESS_TERMINAL, player.inventory, host),
             locator, guiId);
     }
 
@@ -747,7 +791,7 @@ public class AEGuiHandler implements IGuiHandler {
             return null;
         }
 
-        return initContainer(new ContainerWirelessCraftingTerm(0, player.inventory, wirelessHost), locator, guiId);
+        return initContainer(new ContainerWirelessCraftingTerm(player.inventory, wirelessHost), locator, guiId);
     }
 
     private @Nullable IPortableTerminal createPortableTerminalHost(EntityPlayer player, ItemGuiHostLocator locator) {

@@ -110,35 +110,29 @@ class PaintBakedModel implements IBakedModel {
             builder.setCustomUv(s.getSide().getOpposite(), 0, 0, 16, 16);
 
             switch (s.getSide()) {
-                case UP:
+                case UP -> {
                     offset = 1.0f - offset;
                     builder.addQuad(EnumFacing.DOWN, posX - buffer, offset, posY - buffer, posX + buffer, offset,
                         posY + buffer);
-                    break;
-                case DOWN:
-                    builder.addQuad(EnumFacing.UP, posX - buffer, offset, posY - buffer, posX + buffer, offset,
-                        posY + buffer);
-                    break;
-                case EAST:
+                }
+                case DOWN -> builder.addQuad(EnumFacing.UP, posX - buffer, offset, posY - buffer, posX + buffer,
+                    offset, posY + buffer);
+                case EAST -> {
                     offset = 1.0f - offset;
                     builder.addQuad(EnumFacing.WEST, offset, posX - buffer, posY - buffer, offset, posX + buffer,
                         posY + buffer);
-                    break;
-                case WEST:
-                    builder.addQuad(EnumFacing.EAST, offset, posX - buffer, posY - buffer, offset, posX + buffer,
-                        posY + buffer);
-                    break;
-                case SOUTH:
+                }
+                case WEST -> builder.addQuad(EnumFacing.EAST, offset, posX - buffer, posY - buffer, offset,
+                    posX + buffer, posY + buffer);
+                case SOUTH -> {
                     offset = 1.0f - offset;
                     builder.addQuad(EnumFacing.NORTH, posX - buffer, posY - buffer, offset, posX + buffer,
                         posY + buffer, offset);
-                    break;
-                case NORTH:
-                    builder.addQuad(EnumFacing.SOUTH, posX - buffer, posY - buffer, offset, posX + buffer,
-                        posY + buffer, offset);
-                    break;
-                default:
-                    break;
+                }
+                case NORTH -> builder.addQuad(EnumFacing.SOUTH, posX - buffer, posY - buffer, offset, posX + buffer,
+                    posY + buffer, offset);
+                default -> {
+                }
             }
         }
 
@@ -176,4 +170,3 @@ class PaintBakedModel implements IBakedModel {
         return ItemOverrideList.NONE;
     }
 }
-

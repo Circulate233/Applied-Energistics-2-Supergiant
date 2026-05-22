@@ -77,14 +77,11 @@ public class PatternProviderLockReason implements ICompositeWidget {
     public Tooltip getTooltip(int mouseX, int mouseY) {
         ContainerPatternProvider container = this.screen.getContainer();
         LockCraftingMode reason = container.getCraftingLockedReason();
-        switch (reason) {
-            case LOCK_UNTIL_PULSE:
-                return new Tooltip(InGameTooltip.CraftingLockedUntilPulse.text());
-            case LOCK_WHILE_HIGH:
-                return new Tooltip(InGameTooltip.CraftingLockedByRedstoneSignal.text());
-            case LOCK_WHILE_LOW:
-                return new Tooltip(InGameTooltip.CraftingLockedByLackOfRedstoneSignal.text());
-            case LOCK_UNTIL_RESULT:
+        return switch (reason) {
+            case LOCK_UNTIL_PULSE -> new Tooltip(InGameTooltip.CraftingLockedUntilPulse.text());
+            case LOCK_WHILE_HIGH -> new Tooltip(InGameTooltip.CraftingLockedByRedstoneSignal.text());
+            case LOCK_WHILE_LOW -> new Tooltip(InGameTooltip.CraftingLockedByLackOfRedstoneSignal.text());
+            case LOCK_UNTIL_RESULT -> {
                 GenericStack unlockStack = container.getUnlockStack();
                 ITextComponent stackName = unlockStack != null
                     ? AEKeyRendering.getDisplayName(unlockStack.what())
@@ -92,11 +89,10 @@ public class PatternProviderLockReason implements ICompositeWidget {
                 ITextComponent stackAmount = unlockStack != null
                     ? new TextComponentString(unlockStack.what().formatAmount(unlockStack.amount(), AmountFormat.FULL))
                     : GuiText.Error.text();
-                return new Tooltip(InGameTooltip.CraftingLockedUntilResult.text(stackName, stackAmount));
-            case NONE:
-            default:
-                return null;
-        }
+                yield new Tooltip(InGameTooltip.CraftingLockedUntilResult.text(stackName, stackAmount));
+            }
+            case NONE -> null;
+        };
     }
 }
 

@@ -69,7 +69,7 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISu
     @GuiSync(9)
     private int selectedCpuSerial = -1;
 
-    public ContainerCraftingStatus(int id, InventoryPlayer ip, ITerminalHost host) {
+    public ContainerCraftingStatus( InventoryPlayer ip, ITerminalHost host) {
         super(id, ip, host);
         this.host = host;
         registerClientAction(ACTION_SELECT_CPU, Integer.class, this::selectCpu);

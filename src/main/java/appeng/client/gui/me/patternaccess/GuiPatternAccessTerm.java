@@ -384,20 +384,16 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
         InventoryAction action = null;
 
         switch (clickType) {
-            case PICKUP:
-                action = mouseButton == 1 ? InventoryAction.SPLIT_OR_PLACE_SINGLE
-                    : InventoryAction.PICKUP_OR_SET_DOWN;
-                break;
-            case QUICK_MOVE:
-                action = mouseButton == 1 ? InventoryAction.PICKUP_SINGLE : InventoryAction.SHIFT_CLICK;
-                break;
-            case CLONE:
+            case PICKUP -> action = mouseButton == 1 ? InventoryAction.SPLIT_OR_PLACE_SINGLE
+                : InventoryAction.PICKUP_OR_SET_DOWN;
+            case QUICK_MOVE -> action = mouseButton == 1 ? InventoryAction.PICKUP_SINGLE : InventoryAction.SHIFT_CLICK;
+            case CLONE -> {
                 if (this.mc.player.capabilities.isCreativeMode) {
                     action = InventoryAction.CREATIVE_DUPLICATE;
                 }
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
 
         if (action != null) {

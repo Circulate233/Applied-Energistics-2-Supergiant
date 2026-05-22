@@ -44,39 +44,17 @@ public class BusCollisionHelper implements IPartCollisionHelper {
             return;
         }
 
-        switch (side) {
-            case DOWN:
-                this.x = EnumFacing.EAST;
-                this.y = EnumFacing.NORTH;
-                this.z = EnumFacing.DOWN;
-                break;
-            case UP:
-                this.x = EnumFacing.EAST;
-                this.y = EnumFacing.SOUTH;
-                this.z = EnumFacing.UP;
-                break;
-            case EAST:
-                this.x = EnumFacing.SOUTH;
-                this.y = EnumFacing.UP;
-                this.z = EnumFacing.EAST;
-                break;
-            case WEST:
-                this.x = EnumFacing.NORTH;
-                this.y = EnumFacing.UP;
-                this.z = EnumFacing.WEST;
-                break;
-            case NORTH:
-                this.x = EnumFacing.WEST;
-                this.y = EnumFacing.UP;
-                this.z = EnumFacing.NORTH;
-                break;
-            case SOUTH:
-            default:
-                this.x = EnumFacing.EAST;
-                this.y = EnumFacing.UP;
-                this.z = EnumFacing.SOUTH;
-                break;
-        }
+        var axes = switch (side) {
+            case DOWN -> new EnumFacing[]{EnumFacing.EAST, EnumFacing.NORTH, EnumFacing.DOWN};
+            case UP -> new EnumFacing[]{EnumFacing.EAST, EnumFacing.SOUTH, EnumFacing.UP};
+            case EAST -> new EnumFacing[]{EnumFacing.SOUTH, EnumFacing.UP, EnumFacing.EAST};
+            case WEST -> new EnumFacing[]{EnumFacing.NORTH, EnumFacing.UP, EnumFacing.WEST};
+            case NORTH -> new EnumFacing[]{EnumFacing.WEST, EnumFacing.UP, EnumFacing.NORTH};
+            case SOUTH -> new EnumFacing[]{EnumFacing.EAST, EnumFacing.UP, EnumFacing.SOUTH};
+        };
+        this.x = axes[0];
+        this.y = axes[1];
+        this.z = axes[2];
     }
 
     @Override

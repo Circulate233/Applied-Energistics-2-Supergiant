@@ -81,23 +81,20 @@ abstract class CraftingCubeBakedModel implements IBakedModel {
         float z1 = connections.contains(EnumFacing.NORTH) ? 0 : 2.99f;
 
         switch (side) {
-            case DOWN:
-            case UP:
+            case DOWN, UP -> {
                 y1 = 0;
                 y2 = 16;
-                break;
-            case NORTH:
-            case SOUTH:
+            }
+            case NORTH, SOUTH -> {
                 z1 = 0;
                 z2 = 16;
-                break;
-            case WEST:
-            case EAST:
+            }
+            case WEST, EAST -> {
                 x1 = 0;
                 x2 = 16;
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
 
         this.addInnerCube(side, state, builder, x1, y1, z1, x2, y2, z2);
@@ -140,55 +137,37 @@ abstract class CraftingCubeBakedModel implements IBakedModel {
                 float z2 = 16;
 
                 switch (direction) {
-                    case DOWN:
+                    case DOWN -> {
                         y1 = 0;
                         y2 = 3;
-                        break;
-                    case UP:
-                        y1 = 13;
-                        break;
-                    case WEST:
+                    }
+                    case UP -> y1 = 13;
+                    case WEST -> {
                         x1 = 0;
                         x2 = 3;
-                        break;
-                    case EAST:
-                        x1 = 13;
-                        break;
-                    case NORTH:
+                    }
+                    case EAST -> x1 = 13;
+                    case NORTH -> {
                         z1 = 0;
                         z2 = 3;
-                        break;
-                    case SOUTH:
-                        z1 = 13;
-                        break;
-                    default:
-                        break;
+                    }
+                    case SOUTH -> z1 = 13;
+                    default -> {
+                    }
                 }
 
                 EnumFacing perpendicular = direction.rotateAround(side.getAxis());
                 for (EnumFacing cornerCandidate : EnumSet.of(perpendicular, perpendicular.getOpposite())) {
                     if (!connections.contains(cornerCandidate)) {
                         switch (cornerCandidate) {
-                            case DOWN:
-                                y1 = 3;
-                                break;
-                            case UP:
-                                y2 = 13;
-                                break;
-                            case NORTH:
-                                z1 = 3;
-                                break;
-                            case SOUTH:
-                                z2 = 13;
-                                break;
-                            case WEST:
-                                x1 = 3;
-                                break;
-                            case EAST:
-                                x2 = 13;
-                                break;
-                            default:
-                                break;
+                            case DOWN -> y1 = 3;
+                            case UP -> y2 = 13;
+                            case NORTH -> z1 = 3;
+                            case SOUTH -> z2 = 13;
+                            case WEST -> x1 = 3;
+                            case EAST -> x2 = 13;
+                            default -> {
+                            }
                         }
                     }
                 }

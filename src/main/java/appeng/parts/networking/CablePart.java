@@ -90,26 +90,14 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
     protected static void addConnectionBox(IPartCollisionHelper bch, EnumFacing direction, double min, double max,
                                            double distanceFromEnd) {
         switch (direction) {
-            case DOWN:
-                bch.addBox(min, distanceFromEnd, min, max, min, max);
-                break;
-            case EAST:
-                bch.addBox(max, min, min, 16.0 - distanceFromEnd, max, max);
-                break;
-            case NORTH:
-                bch.addBox(min, min, distanceFromEnd, max, max, min);
-                break;
-            case SOUTH:
-                bch.addBox(min, min, max, max, max, 16.0 - distanceFromEnd);
-                break;
-            case UP:
-                bch.addBox(min, max, min, max, 16.0 - distanceFromEnd, max);
-                break;
-            case WEST:
-                bch.addBox(distanceFromEnd, min, min, min, max, max);
-                break;
-            default:
-                break;
+            case DOWN -> bch.addBox(min, distanceFromEnd, min, max, min, max);
+            case EAST -> bch.addBox(max, min, min, 16.0 - distanceFromEnd, max, max);
+            case NORTH -> bch.addBox(min, min, distanceFromEnd, max, max, min);
+            case SOUTH -> bch.addBox(min, min, max, max, max, 16.0 - distanceFromEnd);
+            case UP -> bch.addBox(min, max, min, max, 16.0 - distanceFromEnd, max);
+            case WEST -> bch.addBox(distanceFromEnd, min, min, min, max, max);
+            default -> {
+            }
         }
     }
 
@@ -422,4 +410,3 @@ public abstract class CablePart extends AEBasePart implements ICablePart {
         this.connections = connections;
     }
 }
-

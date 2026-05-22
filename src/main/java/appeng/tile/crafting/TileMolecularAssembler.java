@@ -423,30 +423,26 @@ public class TileMolecularAssembler extends AENetworkedInvTile
         this.reboot = false;
         int speed = 10;
         switch (this.upgrades.getInstalledUpgrades(AEItems.SPEED_CARD.item())) {
-            case 0:
-                this.progress += this.usePower(ticksSinceLastCall, speed, 1.0);
-                break;
-            case 1:
+            case 0 -> this.progress += this.usePower(ticksSinceLastCall, speed, 1.0);
+            case 1 -> {
                 speed = 13;
                 this.progress += this.usePower(ticksSinceLastCall, speed, 1.3);
-                break;
-            case 2:
+            }
+            case 2 -> {
                 speed = 17;
                 this.progress += this.usePower(ticksSinceLastCall, speed, 1.7);
-                break;
-            case 3:
+            }
+            case 3 -> {
                 speed = 20;
                 this.progress += this.usePower(ticksSinceLastCall, speed, 2.0);
-                break;
-            case 4:
+            }
+            case 4 -> {
                 speed = 25;
                 this.progress += this.usePower(ticksSinceLastCall, speed, 2.5);
-                break;
-            case 5:
-                this.progress += this.usePower(ticksSinceLastCall, speed = 50, 5.0);
-                break;
-            default:
-                break;
+            }
+            case 5 -> this.progress += this.usePower(ticksSinceLastCall, speed = 50, 5.0);
+            default -> {
+            }
         }
 
         if (this.progress >= 100 && this.world != null) {

@@ -127,24 +127,21 @@ public abstract class GeometryHelper {
         int a, b;
 
         switch (lightFace) {
-            case EAST:
-            case WEST:
+            case EAST, WEST -> {
                 a = 1;
                 b = 2;
-                break;
-            case UP:
-            case DOWN:
+            }
+            case UP, DOWN -> {
                 a = 0;
                 b = 2;
-                break;
-            case SOUTH:
-            case NORTH:
+            }
+            case SOUTH, NORTH -> {
                 a = 1;
                 b = 0;
-                break;
-            default:
-                // handle WTF case
+            }
+            default -> {
                 return false;
+            }
         }
 
         return confirmSquareCorners(a, b, quad);

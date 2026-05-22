@@ -89,26 +89,20 @@ public class TabButton extends GuiButton implements ITooltip {
 
         this.hovered = mouseX >= this.x && mouseY >= this.y && mouseX < this.x + this.width && mouseY < this.y + this.height;
 
-        Icon backdrop;
-        switch (this.style) {
-            case CORNER:
-                backdrop = this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_BORDERLESS_FOCUS
-                    : Icon.TAB_BUTTON_BACKGROUND_BORDERLESS;
-                break;
-            case HORIZONTAL:
+        Icon backdrop = switch (this.style) {
+            case CORNER -> this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_BORDERLESS_FOCUS
+                : Icon.TAB_BUTTON_BACKGROUND_BORDERLESS;
+            case HORIZONTAL -> {
                 if (this.isFocused()) {
-                    backdrop = Icon.HORIZONTAL_TAB_FOCUS;
-                } else if (this.selected) {
-                    backdrop = Icon.HORIZONTAL_TAB_SELECTED;
-                } else {
-                    backdrop = Icon.HORIZONTAL_TAB;
+                    yield Icon.HORIZONTAL_TAB_FOCUS;
                 }
-                break;
-            case BOX:
-            default:
-                backdrop = this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_FOCUS : Icon.TAB_BUTTON_BACKGROUND;
-                break;
-        }
+                if (this.selected) {
+                    yield Icon.HORIZONTAL_TAB_SELECTED;
+                }
+                yield Icon.HORIZONTAL_TAB;
+            }
+            case BOX -> this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_FOCUS : Icon.TAB_BUTTON_BACKGROUND;
+        };
 
         if (!this.disableBackground) {
             backdrop.getBlitter().dest(this.x, this.y).blit();
@@ -201,4 +195,3 @@ public class TabButton extends GuiButton implements ITooltip {
         HORIZONTAL
     }
 }
-

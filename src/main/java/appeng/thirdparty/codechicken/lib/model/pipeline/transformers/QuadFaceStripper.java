@@ -57,7 +57,7 @@ public class QuadFaceStripper implements RenderContext.QuadTransform {
         if ((this.mask & 1 << face.ordinal()) != 0) {
             EnumFacing.AxisDirection dir = face.getAxisDirection();
             switch (face.getAxis()) {
-                case X: {
+                case X -> {
                     float bound = (float) (dir == POSITIVE ? this.bounds.maxX : this.bounds.minX);
                     float x1 = quad.posByIndex(0, 0);
                     float x2 = quad.posByIndex(1, 0);
@@ -65,7 +65,7 @@ public class QuadFaceStripper implements RenderContext.QuadTransform {
                     float x4 = quad.posByIndex(3, 0);
                     return x1 != x2 || x2 != x3 || x3 != x4 || x4 != bound;
                 }
-                case Y: {
+                case Y -> {
                     float bound = (float) (dir == POSITIVE ? this.bounds.maxY : this.bounds.minY);
                     float y1 = quad.posByIndex(0, 1);
                     float y2 = quad.posByIndex(1, 1);
@@ -73,7 +73,7 @@ public class QuadFaceStripper implements RenderContext.QuadTransform {
                     float y4 = quad.posByIndex(3, 1);
                     return y1 != y2 || y2 != y3 || y3 != y4 || y4 != bound;
                 }
-                case Z: {
+                case Z -> {
                     float bound = (float) (dir == POSITIVE ? this.bounds.maxZ : this.bounds.minZ);
                     float z1 = quad.posByIndex(0, 2);
                     float z2 = quad.posByIndex(1, 2);
@@ -81,8 +81,8 @@ public class QuadFaceStripper implements RenderContext.QuadTransform {
                     float z4 = quad.posByIndex(3, 2);
                     return z1 != z2 || z2 != z3 || z3 != z4 || z4 != bound;
                 }
-                default:
-                    break;
+                default -> {
+                }
             }
         }
         return true;

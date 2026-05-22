@@ -47,15 +47,13 @@ public final class PendingCraftingJobs {
 
         PendingJob existing = jobs.get(id);
         switch (status) {
-            case STARTED:
+            case STARTED -> {
                 if (existing == null) {
                     jobs.put(id, new PendingJob(id, what, requestedAmount, remainingAmount));
                 }
-                break;
-            case CANCELLED:
-                jobs.remove(id);
-                break;
-            case FINISHED:
+            }
+            case CANCELLED -> jobs.remove(id);
+            case FINISHED -> {
                 jobs.remove(id);
                 Minecraft minecraft = Minecraft.getMinecraft();
                 if (AEConfig.instance().isNotifyForFinishedCraftingJobs()
@@ -63,9 +61,9 @@ public final class PendingCraftingJobs {
                     && minecraft.player != null && hasNotificationEnablingItem(minecraft.player)) {
                     minecraft.getToastGui().add(new FinishedJobToast(what, requestedAmount));
                 }
-                break;
-            default:
-                break;
+            }
+            default -> {
+            }
         }
     }
 

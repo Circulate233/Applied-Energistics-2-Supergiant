@@ -399,23 +399,13 @@ public class MemoryCardItem extends AEBaseItem implements IMemoryCard {
         }
 
         switch (msg) {
-            case SETTINGS_CLEARED:
-                player.sendStatusMessage(PlayerMessages.SettingCleared.text(), true);
-                break;
-            case INVALID_MACHINE:
-                player.sendStatusMessage(PlayerMessages.InvalidMachine.text(), true);
-                break;
-            case SETTINGS_LOADED:
-                player.sendStatusMessage(PlayerMessages.LoadedSettings.text(), true);
-                break;
-            case SETTINGS_SAVED:
-                player.sendStatusMessage(PlayerMessages.SavedSettings.text(), true);
-                break;
-            case SETTINGS_RESET:
-                player.sendStatusMessage(PlayerMessages.ResetSettings.text(), true);
-                break;
-            default:
-                break;
+            case SETTINGS_CLEARED -> player.sendStatusMessage(PlayerMessages.SettingCleared.text(), true);
+            case INVALID_MACHINE -> player.sendStatusMessage(PlayerMessages.InvalidMachine.text(), true);
+            case SETTINGS_LOADED -> player.sendStatusMessage(PlayerMessages.LoadedSettings.text(), true);
+            case SETTINGS_SAVED -> player.sendStatusMessage(PlayerMessages.SavedSettings.text(), true);
+            case SETTINGS_RESET -> player.sendStatusMessage(PlayerMessages.ResetSettings.text(), true);
+            default -> {
+            }
         }
     }
 

@@ -64,18 +64,18 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IConfigurab
     private ITextComponent initialTitle;
     private boolean cachedSuspend;
 
-    public ContainerCraftingCPU(int id, InventoryPlayer ip, TileCraftingUnit host) {
+    public ContainerCraftingCPU( InventoryPlayer ip, TileCraftingUnit host) {
         this(id, ip, (Object) host);
     }
 
-    public ContainerCraftingCPU(int id, InventoryPlayer ip, TileCraftingUnit host,
+    public ContainerCraftingCPU( InventoryPlayer ip, TileCraftingUnit host,
                                 @Nullable ITextComponent initialTitle) {
         this(id, ip, host);
         setInitialTitle(initialTitle);
     }
 
-    protected ContainerCraftingCPU(int id, InventoryPlayer ip, Object host) {
-        super(id, ip, host);
+    protected ContainerCraftingCPU( InventoryPlayer ip, Object host) {
+        super(ip, host);
 
         this.configHost = host instanceof IConfigurableObject ? (IConfigurableObject) host : null;
         this.grid = extractGrid(host);

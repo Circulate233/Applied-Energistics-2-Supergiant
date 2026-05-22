@@ -45,8 +45,8 @@ public class ContainerSpatialIOPort extends AEBaseContainer {
 
     private int delay = 40;
 
-    public ContainerSpatialIOPort(int id, InventoryPlayer ip, TileSpatialIOPort host) {
-        super(id, ip, host);
+    public ContainerSpatialIOPort( InventoryPlayer ip, TileSpatialIOPort host) {
+        super(ip, host);
         this.addSlot(new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.SPATIAL_STORAGE_CELLS,
             host.getInternalInventory(), 0, 0, 0), SlotSemantics.MACHINE_INPUT);
         this.addSlot(new OutputSlot(host.getInternalInventory(), 1, 0, 0,

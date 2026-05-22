@@ -121,13 +121,13 @@ public class ContainerMEStorage extends AEBaseContainer
     private Set<AEKey> previousCraftables = ObjectSets.emptySet();
     private KeyCounter previousAvailableStacks = new KeyCounter();
 
-    public ContainerMEStorage(GuiIds.GuiKey guiKey, int id, InventoryPlayer ip, ITerminalHost host) {
-        this(guiKey, id, ip, host, true);
+    public ContainerMEStorage(GuiIds.GuiKey guiKey, InventoryPlayer ip, ITerminalHost host) {
+        this(guiKey, ip, host, true);
     }
 
-    protected ContainerMEStorage(GuiIds.GuiKey guiKey, int id, InventoryPlayer ip, ITerminalHost host,
+    protected ContainerMEStorage(GuiIds.GuiKey guiKey, InventoryPlayer ip, ITerminalHost host,
                                  boolean bindInventory) {
-        super(id, ip, host);
+        super(ip, host);
 
         this.guiKey = Objects.requireNonNull(guiKey, "gui key is null");
         this.host = host;
@@ -385,32 +385,20 @@ public class ContainerMEStorage extends AEBaseContainer
         }
 
         switch (action) {
-            case FILL_ITEM:
-                tryFillContainerItem(clickedKey, false, false);
-                break;
-            case FILL_ITEM_MOVE_TO_PLAYER:
-                tryFillContainerItem(clickedKey, true, false);
-                break;
-            case FILL_ENTIRE_ITEM:
-                tryFillContainerItem(clickedKey, false, true);
-                break;
-            case FILL_ENTIRE_ITEM_MOVE_TO_PLAYER:
-                tryFillContainerItem(clickedKey, true, true);
-                break;
-            case EMPTY_ITEM:
-                handleEmptyHeldItem(
-                    (what, amount, mode) -> StorageHelper.poweredInsert(energySource, storage, what, amount,
-                        getActionSource(), mode),
-                    false);
-                break;
-            case EMPTY_ENTIRE_ITEM:
-                handleEmptyHeldItem(
-                    (what, amount, mode) -> StorageHelper.poweredInsert(energySource, storage, what, amount,
-                        getActionSource(), mode),
-                    true);
-                break;
-            default:
-                break;
+            case FILL_ITEM -> tryFillContainerItem(clickedKey, false, false);
+            case FILL_ITEM_MOVE_TO_PLAYER -> tryFillContainerItem(clickedKey, true, false);
+            case FILL_ENTIRE_ITEM -> tryFillContainerItem(clickedKey, false, true);
+            case FILL_ENTIRE_ITEM_MOVE_TO_PLAYER -> tryFillContainerItem(clickedKey, true, true);
+            case EMPTY_ITEM -> handleEmptyHeldItem(
+                (what, amount, mode) -> StorageHelper.poweredInsert(energySource, storage, what, amount,
+                    getActionSource(), mode),
+                false);
+            case EMPTY_ENTIRE_ITEM -> handleEmptyHeldItem(
+                (what, amount, mode) -> StorageHelper.poweredInsert(energySource, storage, what, amount,
+                    getActionSource(), mode),
+                true);
+            default -> {
+            }
         }
 
         if (clickedKey == null) {
@@ -427,10 +415,8 @@ public class ContainerMEStorage extends AEBaseContainer
         }
 
         switch (action) {
-            case SHIFT_CLICK:
-                moveOneStackToPlayer(clickedItem);
-                break;
-            case ROLL_DOWN: {
+            case SHIFT_CLICK -> moveOneStackToPlayer(clickedItem);
+            case ROLL_DOWN -> {
                 ItemStack carried = getCarried();
                 if (!carried.isEmpty()) {
                     AEItemKey what = AEItemKey.of(carried);
@@ -439,10 +425,8 @@ public class ContainerMEStorage extends AEBaseContainer
                         getCarried().shrink(1);
                     }
                 }
-                break;
             }
-            case ROLL_UP:
-            case PICKUP_SINGLE: {
+            case ROLL_UP, PICKUP_SINGLE -> {
                 ItemStack item = getCarried();
 
                 if (!item.isEmpty()) {
@@ -463,9 +447,8 @@ public class ContainerMEStorage extends AEBaseContainer
                         item.grow(1);
                     }
                 }
-                break;
             }
-            case PICKUP_OR_SET_DOWN:
+            case PICKUP_OR_SET_DOWN -> {
                 if (!getCarried().isEmpty()) {
                     putCarriedItemIntoNetwork(false);
                 } else {
@@ -481,8 +464,8 @@ public class ContainerMEStorage extends AEBaseContainer
                         setCarried(ItemStack.EMPTY);
                     }
                 }
-                break;
-            case SPLIT_OR_PLACE_SINGLE:
+            }
+            case SPLIT_OR_PLACE_SINGLE -> {
                 if (!getCarried().isEmpty()) {
                     putCarriedItemIntoNetwork(true);
                 } else {
@@ -504,25 +487,23 @@ public class ContainerMEStorage extends AEBaseContainer
                         setCarried(ItemStack.EMPTY);
                     }
                 }
-                break;
-            case CREATIVE_DUPLICATE:
+            }
+            case CREATIVE_DUPLICATE -> {
                 if (player.capabilities.isCreativeMode) {
                     ItemStack stack = clickedItem.toStack();
                     stack.setCount(stack.getMaxStackSize());
                     setCarried(stack);
                 }
-                break;
-            case MOVE_REGION:
+            }
+            case MOVE_REGION -> {
                 final int playerInv = player.inventory.mainInventory.size();
                 for (int slotNum = 0; slotNum < playerInv; slotNum++) {
                     if (!moveOneStackToPlayer(clickedItem)) {
                         break;
                     }
                 }
-                break;
-            default:
-                AELog.warn("Received unhandled inventory action %s from client in %s", action, getClass());
-                break;
+            }
+            default -> AELog.warn("Received unhandled inventory action %s from client in %s", action, getClass());
         }
     }
 

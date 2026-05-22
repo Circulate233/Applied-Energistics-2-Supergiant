@@ -41,17 +41,11 @@ public final class P2PStateDataProvider implements BodyProvider<P2PTunnelPart>, 
             int outputs = serverData.getInteger(TAG_P2P_OUTPUTS);
 
             switch (state) {
-                case STATE_UNLINKED:
-                    tooltip.addLine(InGameTooltip.P2PUnlinked.text());
-                    break;
-                case STATE_OUTPUT:
-                    tooltip.addLine(InGameTooltip.P2POutput.text());
-                    break;
-                case STATE_INPUT:
-                    tooltip.addLine(getOutputText(outputs));
-                    break;
-                default:
-                    break;
+                case STATE_UNLINKED -> tooltip.addLine(InGameTooltip.P2PUnlinked.text());
+                case STATE_OUTPUT -> tooltip.addLine(InGameTooltip.P2POutput.text());
+                case STATE_INPUT -> tooltip.addLine(getOutputText(outputs));
+                default -> {
+                }
             }
 
             short freq = serverData.getShort(TAG_P2P_FREQUENCY);

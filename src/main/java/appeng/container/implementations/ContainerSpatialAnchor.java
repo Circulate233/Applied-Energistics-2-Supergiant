@@ -51,8 +51,8 @@ public class ContainerSpatialAnchor extends AEBaseContainer {
     public int allChunks;
     private int delay = UPDATE_DELAY;
 
-    public ContainerSpatialAnchor(int id, InventoryPlayer ip, TileSpatialAnchor host) {
-        super(id, ip, host);
+    public ContainerSpatialAnchor( InventoryPlayer ip, TileSpatialAnchor host) {
+        super(ip, host);
     }
 
     @Override

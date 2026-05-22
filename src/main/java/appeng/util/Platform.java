@@ -179,26 +179,13 @@ public final class Platform {
         float yaw = 0.0f;
 
         switch (side) {
-            case DOWN:
-                pitch = 90.0f;
-                break;
-            case EAST:
-                yaw = -90.0f;
-                break;
-            case NORTH:
-                yaw = 180.0f;
-                break;
-            case SOUTH:
-                yaw = 0.0f;
-                break;
-            case INTERNAL:
-                break;
-            case UP:
-                pitch = -90.0f;
-                break;
-            case WEST:
-                yaw = 90.0f;
-                break;
+            case DOWN -> pitch = 90.0f;
+            case EAST -> yaw = -90.0f;
+            case NORTH -> yaw = 180.0f;
+            case SOUTH, INTERNAL -> {
+            }
+            case UP -> pitch = -90.0f;
+            case WEST -> yaw = 90.0f;
         }
 
         player.posX = tile.getPos().getX() + 0.5;

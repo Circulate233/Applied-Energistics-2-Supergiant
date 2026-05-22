@@ -54,16 +54,10 @@ public final class PatternProviderDataProvider
 
         ITextComponent reason = null;
         switch (logic.getCraftingLockedReason()) {
-            case LOCK_UNTIL_PULSE:
-                reason = InGameTooltip.CraftingLockedUntilPulse.text();
-                break;
-            case LOCK_WHILE_HIGH:
-                reason = InGameTooltip.CraftingLockedByRedstoneSignal.text();
-                break;
-            case LOCK_WHILE_LOW:
-                reason = InGameTooltip.CraftingLockedByLackOfRedstoneSignal.text();
-                break;
-            case LOCK_UNTIL_RESULT:
+            case LOCK_UNTIL_PULSE -> reason = InGameTooltip.CraftingLockedUntilPulse.text();
+            case LOCK_WHILE_HIGH -> reason = InGameTooltip.CraftingLockedByRedstoneSignal.text();
+            case LOCK_WHILE_LOW -> reason = InGameTooltip.CraftingLockedByLackOfRedstoneSignal.text();
+            case LOCK_UNTIL_RESULT -> {
                 var stack = logic.getUnlockStack();
                 if (stack != null) {
                     serverData.setTag(NBT_LOCK_UNTIL_RESULT_STACK, GenericStack.writeTag(stack));
@@ -73,9 +67,9 @@ public final class PatternProviderDataProvider
                     serverData.setTag(NBT_LOCK_UNTIL_RESULT_STACK, errorDummy);
                 }
                 return;
-            case NONE:
-            default:
-                break;
+            }
+            case NONE -> {
+            }
         }
 
         if (reason != null) {

@@ -79,42 +79,23 @@ public enum AECableType {
     }
 
     private static AECableType from(AECableVariant variant, AECableSize size) {
-        switch (variant) {
-            case GLASS:
-                switch (size) {
-                    case NORMAL:
-                        return GLASS;
-                    default:
-                        break;
-                }
-
-                break;
-            case COVERED:
-                switch (size) {
-                    case NORMAL:
-                        return COVERED;
-                    case DENSE:
-                        return DENSE_COVERED;
-                    default:
-                        break;
-                }
-
-                break;
-            case SMART:
-                switch (size) {
-                    case NORMAL:
-                        return SMART;
-                    case DENSE:
-                        return DENSE_SMART;
-                    default:
-                        break;
-                }
-                break;
-            default:
-                break;
-        }
-
-        return NONE;
+        return switch (variant) {
+            case GLASS -> switch (size) {
+                case NORMAL -> GLASS;
+                default -> NONE;
+            };
+            case COVERED -> switch (size) {
+                case NORMAL -> COVERED;
+                case DENSE -> DENSE_COVERED;
+                default -> NONE;
+            };
+            case SMART -> switch (size) {
+                case NORMAL -> SMART;
+                case DENSE -> DENSE_SMART;
+                default -> NONE;
+            };
+            default -> NONE;
+        };
     }
 
     public AECableSize size() {

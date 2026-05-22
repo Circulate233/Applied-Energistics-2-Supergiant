@@ -98,8 +98,8 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
     @Nullable
     private List<ICraftingGridContainer.AutoCraftEntry> autoCraftingQueue;
 
-    public ContainerCraftConfirm(int windowId, InventoryPlayer ip, ISubGuiHost host) {
-        super(windowId, ip, host);
+    public ContainerCraftConfirm( InventoryPlayer ip, ISubGuiHost host) {
+        super(ip, host);
         this.host = host;
         this.cpuCycler = new CraftingCPUCycler(this::cpuMatches, this::onCPUSelectionChanged);
         this.cpuCycler.setAllowNoSelection(true);
@@ -410,19 +410,19 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                 CraftingSubmitErrorCode errorCode = Objects.requireNonNull(this.result.errorCode());
                 buffer.writeEnumValue(errorCode);
                 switch (errorCode) {
-                    case NO_SUITABLE_CPU_FOUND:
+                    case NO_SUITABLE_CPU_FOUND -> {
                         UnsuitableCpus unsuitableCpus = Objects.requireNonNull((UnsuitableCpus) this.result.errorDetail());
                         buffer.writeInt(unsuitableCpus.offline());
                         buffer.writeInt(unsuitableCpus.busy());
                         buffer.writeInt(unsuitableCpus.tooSmall());
                         buffer.writeInt(unsuitableCpus.excluded());
-                        break;
-                    case MISSING_INGREDIENT:
+                    }
+                    case MISSING_INGREDIENT -> {
                         GenericStack missingIngredient = Objects.requireNonNull((GenericStack) this.result.errorDetail());
                         GenericStack.writeBuffer(missingIngredient, buffer);
-                        break;
-                    default:
-                        break;
+                    }
+                    default -> {
+                    }
                 }
             }
         }

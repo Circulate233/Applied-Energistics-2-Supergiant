@@ -25,8 +25,8 @@ import net.minecraft.entity.player.InventoryPlayer;
 
 public class ContainerDrive extends AEBaseContainer {
 
-    public ContainerDrive(int id, InventoryPlayer ip, TileDrive drive) {
-        super(id, ip, drive);
+    public ContainerDrive( InventoryPlayer ip, TileDrive drive) {
+        super(ip, drive);
 
         for (int i = 0; i < 10; i++) {
             this.addSlot(new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.STORAGE_CELLS,

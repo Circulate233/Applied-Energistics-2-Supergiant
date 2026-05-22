@@ -46,35 +46,40 @@ public final class PlaneConnectionHelper {
     public PlaneConnections getConnections() {
         TileEntity hostTileEntity = getHostTileEntity();
         EnumFacing side = part.getSide();
+        if (side == null) {
+            return PlaneConnections.of(false, false, false, false);
+        }
 
-        final EnumFacing facingRight, facingUp;
+        final EnumFacing facingRight;
+        final EnumFacing facingUp;
         switch (side) {
-            case UP:
+            case UP -> {
                 facingRight = EnumFacing.EAST;
                 facingUp = EnumFacing.NORTH;
-                break;
-            case DOWN:
+            }
+            case DOWN -> {
                 facingRight = EnumFacing.WEST;
                 facingUp = EnumFacing.NORTH;
-                break;
-            case NORTH:
+            }
+            case NORTH -> {
                 facingRight = EnumFacing.WEST;
                 facingUp = EnumFacing.UP;
-                break;
-            case SOUTH:
+            }
+            case SOUTH -> {
                 facingRight = EnumFacing.EAST;
                 facingUp = EnumFacing.UP;
-                break;
-            case WEST:
+            }
+            case WEST -> {
                 facingRight = EnumFacing.SOUTH;
                 facingUp = EnumFacing.UP;
-                break;
-            case EAST:
+            }
+            case EAST -> {
                 facingRight = EnumFacing.NORTH;
                 facingUp = EnumFacing.UP;
-                break;
-            default:
+            }
+            default -> {
                 return PlaneConnections.of(false, false, false, false);
+            }
         }
 
         boolean left = false, right = false, down = false, up = false;
@@ -169,4 +174,3 @@ public final class PlaneConnectionHelper {
     }
 
 }
-

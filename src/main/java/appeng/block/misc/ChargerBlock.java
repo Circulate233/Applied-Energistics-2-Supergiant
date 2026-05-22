@@ -191,26 +191,14 @@ public class ChargerBlock extends AEBaseTileBlock<TileCharger> implements ICusto
         }
 
         switch (forward) {
-            case DOWN:
-                bb.maxY = 1;
-                break;
-            case UP:
-                bb.minY = 0;
-                break;
-            case NORTH:
-                bb.maxZ = 1;
-                break;
-            case SOUTH:
-                bb.minZ = 0;
-                break;
-            case EAST:
-                bb.minX = 0;
-                break;
-            case WEST:
-                bb.maxX = 1;
-                break;
-            default:
-                break;
+            case DOWN -> bb.maxY = 1;
+            case UP -> bb.minY = 0;
+            case NORTH -> bb.maxZ = 1;
+            case SOUTH -> bb.minZ = 0;
+            case EAST -> bb.minX = 0;
+            case WEST -> bb.maxX = 1;
+            default -> {
+            }
         }
 
         return Collections.singletonList(bb.getBoundingBox());
