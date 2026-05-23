@@ -20,12 +20,12 @@ package appeng.client.gui.widgets;
 
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
 import appeng.core.AppEng;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 
+import java.awt.Rectangle;
 import java.time.Duration;
 
 /**
@@ -102,8 +102,8 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
     }
 
     @Override
-    public Rect2i getBounds() {
-        return new Rect2i(displayX, displayY, style.handleWidth(), height);
+    public Rectangle getBounds() {
+        return new Rectangle(displayX, displayY, style.handleWidth(), height);
     }
 
     /**
@@ -112,7 +112,7 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
      * The GUI is assumed to already contain a prebaked scrollbar track in its background.
      */
     @Override
-    public void drawForegroundLayer(Rect2i bounds, Point mouse) {
+    public void drawForegroundLayer(Rectangle bounds, Point mouse) {
         int yOffset;
         Blitter image;
         if (this.getRange() == 0) {

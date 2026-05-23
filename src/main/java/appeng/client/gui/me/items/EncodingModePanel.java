@@ -3,10 +3,11 @@ package appeng.client.gui.me.items;
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.WidgetContainer;
 import appeng.container.me.items.ContainerPatternEncodingTerm;
 import net.minecraft.util.text.ITextComponent;
+
+import java.awt.Rectangle;
 
 abstract class EncodingModePanel implements ICompositeWidget {
     protected final GuiPatternEncodingTerm screen;
@@ -44,8 +45,8 @@ abstract class EncodingModePanel implements ICompositeWidget {
     }
 
     @Override
-    public Rect2i getBounds() {
-        return new Rect2i(this.position.x(), this.position.y(), this.width, this.height);
+    public Rectangle getBounds() {
+        return new Rectangle(this.position.x(), this.position.y(), this.width, this.height);
     }
 
     abstract Icon getIcon();

@@ -22,7 +22,6 @@ import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.PaletteColor;
 import net.minecraft.client.Minecraft;
@@ -32,6 +31,7 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
 import java.util.List;
 import java.util.Objects;
 
@@ -132,7 +132,7 @@ public abstract class AbstractTableRenderer<T> {
                     tooltipLines = getEntryTooltip(entry);
                     hovered = new StackWithBounds(
                         new GenericStack(entryStack, 0),
-                        new Rect2i(screen.getGuiLeft() + cellX, screen.getGuiTop() + cellY, CELL_WIDTH,
+                        new Rectangle(screen.getGuiLeft() + cellX, screen.getGuiTop() + cellY, CELL_WIDTH,
                             CELL_HEIGHT));
                 }
             }

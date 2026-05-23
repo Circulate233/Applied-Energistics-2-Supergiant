@@ -7,7 +7,6 @@ import appeng.api.stacks.GenericStack;
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.Tooltip;
 import appeng.container.implementations.ContainerPatternProvider;
 import appeng.core.localization.GuiText;
@@ -16,6 +15,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import org.jetbrains.annotations.Nullable;
+
+import java.awt.Rectangle;
 
 public class PatternProviderLockReason implements ICompositeWidget {
     private final GuiPatternProvider screen;
@@ -38,8 +39,8 @@ public class PatternProviderLockReason implements ICompositeWidget {
     }
 
     @Override
-    public Rect2i getBounds() {
-        return new Rect2i(this.x, this.y, 126, 16);
+    public Rectangle getBounds() {
+        return new Rectangle(this.x, this.y, 126, 16);
     }
 
     @Override
@@ -52,7 +53,7 @@ public class PatternProviderLockReason implements ICompositeWidget {
     }
 
     @Override
-    public void drawForegroundLayer(Rect2i bounds, Point mouse) {
+    public void drawForegroundLayer(Rectangle bounds, Point mouse) {
         ContainerPatternProvider container = this.screen.getContainer();
         Icon icon;
         ITextComponent text;

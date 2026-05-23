@@ -18,7 +18,6 @@
 
 package appeng.client.gui.style;
 
-import appeng.client.gui.Rect2i;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
@@ -27,6 +26,7 @@ import com.google.gson.JsonParseException;
 import net.minecraft.util.JsonUtils;
 import net.minecraft.util.ResourceLocation;
 
+import java.awt.Rectangle;
 import java.lang.reflect.Type;
 
 enum BlitterDeserializer implements JsonDeserializer<Blitter> {
@@ -54,7 +54,7 @@ enum BlitterDeserializer implements JsonDeserializer<Blitter> {
         }
 
         if (root.has("srcRect")) {
-            Rect2i srcRect = context.deserialize(root.get("srcRect"), Rect2i.class);
+            Rectangle srcRect = context.deserialize(root.get("srcRect"), Rectangle.class);
             blitter = blitter.src(srcRect);
         }
 

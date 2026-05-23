@@ -18,30 +18,32 @@
 
 package appeng.client.gui;
 
+import java.awt.Rectangle;
+
 /**
- * Utility class for dealing with immutable {@link Rect2i}.
+ * Utility class for dealing with immutable {@link Rectangle}.
  */
 public final class Rects {
 
-    public static final Rect2i ZERO = new Rect2i(0, 0, 0, 0);
+    public static final Rectangle ZERO = new Rectangle();
 
     private Rects() {
     }
 
-    public static Rect2i expand(Rect2i rect, int amount) {
-        return new Rect2i(
-            rect.x() - amount,
-            rect.y() - amount,
-            rect.width() + 2 * amount,
-            rect.height() + 2 * amount);
+    public static Rectangle expand(Rectangle rect, int amount) {
+        return new Rectangle(
+            rect.x - amount,
+            rect.y - amount,
+            rect.width + 2 * amount,
+            rect.height + 2 * amount);
     }
 
-    public static Rect2i move(Rect2i rect, int x, int y) {
-        return new Rect2i(
-            rect.x() + x,
-            rect.y() + y,
-            rect.width(),
-            rect.height());
+    public static Rectangle move(Rectangle rect, int x, int y) {
+        return new Rectangle(
+            rect.x + x,
+            rect.y + y,
+            rect.width,
+            rect.height);
     }
 }
 

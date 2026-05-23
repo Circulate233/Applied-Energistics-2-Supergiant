@@ -19,7 +19,6 @@
 package appeng.client.gui.implementations;
 
 import appeng.client.Point;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.WidgetStyle;
@@ -28,6 +27,8 @@ import appeng.container.implementations.ContainerVibrationChamber;
 import appeng.util.Platform;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
+
+import java.awt.Rectangle;
 
 public class GuiVibrationChamber extends GuiUpgradeable<ContainerVibrationChamber> {
     private static final Blitter BURN_PROGRESS = Blitter.texture("guis/vibchamber.png").src(176, 0, 14, 13);
@@ -51,7 +52,7 @@ public class GuiVibrationChamber extends GuiUpgradeable<ContainerVibrationChambe
         if (progress > 0 && maxProgress > 0) {
             Blitter progressBar = style.getImage("generationRateBar");
             WidgetStyle widgetStyle = style.getWidget("generationRateBar");
-            Point widget = widgetStyle.resolve(new Rect2i(0, 0, this.xSize, this.ySize));
+            Point widget = widgetStyle.resolve(new Rectangle(0, 0, this.xSize, this.ySize));
             int height = Math.max(1, progressBar.getSrcHeight() * progress / maxProgress);
             int srcX = progressBar.getSrcX();
             int srcY = progressBar.getSrcY() + progressBar.getSrcHeight() - height;

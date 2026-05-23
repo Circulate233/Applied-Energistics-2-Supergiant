@@ -65,15 +65,15 @@ public abstract class AEBaseItem extends Item {
         super.addInformation(stack, world, lines, advancedTooltips);
     }
 
+    protected void getCheckedSubItems(final CreativeTabs creativeTab, final NonNullList<ItemStack> itemStacks) {
+        itemStacks.add(new ItemStack(this));
+    }
+
     public boolean onStackedOnOther(ItemStack stack, Slot slot, EntityPlayer player) {
         return false;
     }
 
     public boolean onOtherStackedOnMe(ItemStack stack, ItemStack otherStack, Slot slot, EntityPlayer player) {
         return false;
-    }
-
-    protected void getCheckedSubItems(final CreativeTabs creativeTab, final NonNullList<ItemStack> itemStacks) {
-        itemStacks.add(new ItemStack(this));
     }
 }

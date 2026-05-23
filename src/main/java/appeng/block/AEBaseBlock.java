@@ -34,6 +34,7 @@ import net.minecraft.block.properties.IProperty;
 import net.minecraft.block.state.BlockStateContainer;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityLivingBase;
@@ -53,6 +54,8 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.jspecify.annotations.Nullable;
 
+import java.util.List;
+
 @SuppressWarnings("deprecation")
 public abstract class AEBaseBlock extends Block implements IOrientableBlock {
 
@@ -63,6 +66,19 @@ public abstract class AEBaseBlock extends Block implements IOrientableBlock {
 
     protected AEBaseBlock(Material material) {
         super(material);
+    }
+
+    @SideOnly(Side.CLIENT)
+    @Override
+    public final void addInformation(final ItemStack stack, final World world, final List<String> lines,
+                                     final ITooltipFlag advancedTooltips) {
+        this.addCheckedInformation(stack, world, lines, advancedTooltips);
+    }
+
+    @SideOnly(Side.CLIENT)
+    protected void addCheckedInformation(final ItemStack stack, final World world, final List<String> lines,
+                                         final ITooltipFlag advancedTooltips) {
+        super.addInformation(stack, world, lines, advancedTooltips);
     }
 
     @Override

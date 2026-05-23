@@ -18,7 +18,6 @@
 
 package appeng.client.gui.style;
 
-import appeng.client.gui.Rect2i;
 import appeng.core.AppEng;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -32,6 +31,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import org.lwjgl.opengl.GL11;
 
+import java.awt.Rectangle;
 import java.util.Objects;
 
 public final class Blitter {
@@ -46,8 +46,8 @@ public final class Blitter {
     private int g = 255;
     private int b = 255;
     private int a = 255;
-    private Rect2i srcRect;
-    private Rect2i destRect = new Rect2i(0, 0, 0, 0);
+    private Rectangle srcRect;
+    private Rectangle destRect = new Rectangle(0, 0, 0, 0);
     private boolean blending = true;
     private TextureTransform transform = TextureTransform.NONE;
     private int zOffset;
@@ -119,42 +119,58 @@ public final class Blitter {
     }
 
     public int getSrcX() {
-        return srcRect == null ? 0 : srcRect.x();
+        if (srcRect == null) {
+            return 0;
+        } else {
+            return srcRect.x;
+        }
     }
 
     public int getSrcY() {
-        return srcRect == null ? 0 : srcRect.y();
+        if (srcRect == null) {
+            return 0;
+        } else {
+            return srcRect.y;
+        }
     }
 
     public int getSrcWidth() {
-        return srcRect == null ? destRect.width() : srcRect.width();
+        if (srcRect == null) {
+            return destRect.width;
+        } else {
+            return srcRect.width;
+        }
     }
 
     public int getSrcHeight() {
-        return srcRect == null ? destRect.height() : srcRect.height();
+        if (srcRect == null) {
+            return destRect.height;
+        } else {
+            return srcRect.height;
+        }
     }
 
     public Blitter src(int x, int y, int w, int h) {
-        this.srcRect = new Rect2i(x, y, w, h);
+        this.srcRect = new Rectangle(x, y, w, h);
         return this;
     }
 
     public Blitter srcWidth(int w) {
-        this.srcRect = new Rect2i(srcRect.x(), srcRect.y(), w, srcRect.height());
+        this.srcRect = new Rectangle(srcRect.x, srcRect.y, w, srcRect.height);
         return this;
     }
 
     public Blitter srcHeight(int h) {
-        this.srcRect = new Rect2i(srcRect.x(), srcRect.y(), srcRect.width(), h);
+        this.srcRect = new Rectangle(srcRect.x, srcRect.y, srcRect.width, h);
         return this;
     }
 
-    public Blitter src(Rect2i rect) {
-        return src(rect.x(), rect.y(), rect.width(), rect.height());
+    public Blitter src(Rectangle rect) {
+        return src(rect.x, rect.y, rect.width, rect.height);
     }
 
     public Blitter dest(int x, int y, int w, int h) {
-        this.destRect = new Rect2i(x, y, w, h);
+        this.destRect = new Rectangle(x, y, w, h);
         return this;
     }
 
@@ -162,23 +178,25 @@ public final class Blitter {
         return dest(x, y, 0, 0);
     }
 
-    public Blitter dest(Rect2i rect) {
-        return dest(rect.x(), rect.y(), rect.width(), rect.height());
+    public Blitter dest(Rectangle rect) {
+
+        return dest(rect.x, rect.y, rect.width, rect.height);
     }
 
-    public Rect2i getDestRect() {
-        int x = destRect.x();
-        int y = destRect.y();
+    public Rectangle getDestRect() {
+        int x = destRect.x;
+
+        int y = destRect.y;
         int w = 0;
         int h = 0;
-        if (destRect.width() != 0 && destRect.height() != 0) {
-            w = destRect.width();
-            h = destRect.height();
+        if (destRect.width != 0 && destRect.height != 0) {
+            w = destRect.width;
+            h = destRect.height;
         } else if (srcRect != null) {
-            w = srcRect.width();
-            h = srcRect.height();
+            w = srcRect.width;
+            h = srcRect.height;
         }
-        return new Rect2i(x, y, w, h);
+        return new Rectangle(x, y, w, h);
     }
 
     public Blitter color(float r, float g, float b) {
@@ -256,10 +274,12 @@ public final class Blitter {
             minU = minV = 0;
             maxU = maxV = 1;
         } else {
-            minU = srcRect.x() / (float) referenceWidth;
-            minV = srcRect.y() / (float) referenceHeight;
-            maxU = (srcRect.x() + srcRect.width()) / (float) referenceWidth;
-            maxV = (srcRect.y() + srcRect.height()) / (float) referenceHeight;
+            minU = srcRect.x / (float) referenceWidth;
+
+            minV = srcRect.y / (float) referenceHeight;
+            maxU = (srcRect.x + srcRect.width) / (float) referenceWidth;
+
+            maxV = (srcRect.y + srcRect.height) / (float) referenceHeight;
         }
 
         switch (transform) {
@@ -277,16 +297,17 @@ public final class Blitter {
             }
         }
 
-        float x1 = destRect.x();
-        float y1 = destRect.y();
+        float x1 = destRect.x;
+
+        float y1 = destRect.y;
         float x2 = x1;
         float y2 = y1;
-        if (destRect.width() != 0 && destRect.height() != 0) {
-            x2 += destRect.width();
-            y2 += destRect.height();
+        if (destRect.width != 0 && destRect.height != 0) {
+            x2 += destRect.width;
+            y2 += destRect.height;
         } else if (srcRect != null) {
-            x2 += srcRect.width();
-            y2 += srcRect.height();
+            x2 += srcRect.width;
+            y2 += srcRect.height;
         }
 
         if (blending) {

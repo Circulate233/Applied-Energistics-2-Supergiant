@@ -5,7 +5,9 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-public record StackWithBounds(GenericStack stack, Rect2i bounds) {
+import java.awt.Rectangle;
+
+public record StackWithBounds(GenericStack stack, Rectangle bounds) {
     @Nullable
     public static StackWithBounds fromSlot(AEBaseGui<?> screen, Slot slot) {
         ItemStack item = slot.getStack();
@@ -13,7 +15,7 @@ public record StackWithBounds(GenericStack stack, Rect2i bounds) {
         if (stack != null) {
             return new StackWithBounds(
                 stack,
-                new Rect2i(screen.getGuiLeft() + slot.xPos, screen.getGuiTop() + slot.yPos, 16, 16));
+                new Rectangle(screen.getGuiLeft() + slot.xPos, screen.getGuiTop() + slot.yPos, 16, 16));
         }
         return null;
     }

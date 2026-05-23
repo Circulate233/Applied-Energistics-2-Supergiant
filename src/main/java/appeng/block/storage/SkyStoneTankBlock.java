@@ -21,6 +21,7 @@ import appeng.block.AEBaseTileBlock;
 import appeng.core.localization.GuiText;
 import appeng.tile.storage.TileSkyStoneTank;
 import net.minecraft.block.material.Material;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.BlockRenderLayer;
@@ -65,10 +66,9 @@ public class SkyStoneTankBlock extends AEBaseTileBlock<TileSkyStoneTank> {
     }
 
     @Override
-    public void addInformation(ItemStack stack, World world, List<String> tooltip,
-                               net.minecraft.client.util.ITooltipFlag advanced) {
-        super.addInformation(stack, world, tooltip, advanced);
-        tooltip.add(GuiText.TankBucketCapacity.getLocal(TileSkyStoneTank.BUCKET_CAPACITY));
+    protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+        lines.add(GuiText.TankBucketCapacity.getLocal(TileSkyStoneTank.BUCKET_CAPACITY));
     }
 }
 

@@ -23,7 +23,6 @@ import appeng.api.upgrades.Upgrades;
 import appeng.client.Point;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.ICompositeWidget;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.Rects;
 import appeng.client.gui.Tooltip;
 import appeng.client.gui.style.Blitter;
@@ -33,6 +32,7 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -114,15 +114,15 @@ public class UpgradesPanel implements ICompositeWidget {
     }
 
     @Override
-    public Rect2i getBounds() {
+    public Rectangle getBounds() {
         int slotCount = getUpgradeSlotCount();
         int height = TOP_PADDING + BOTTOM_PADDING + Math.min(MAX_ROWS, slotCount) * SLOT_SIZE;
         int width = LEFT_PADDING + RIGHT_PADDING + (slotCount + MAX_ROWS - 1) / MAX_ROWS * SLOT_SIZE;
-        return new Rect2i(x, y, width, height);
+        return new Rectangle(x, y, width, height);
     }
 
     @Override
-    public void populateScreen(Consumer<net.minecraft.client.gui.GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
+    public void populateScreen(Consumer<net.minecraft.client.gui.GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
         this.screenOrigin = Point.fromTopLeft(bounds);
     }
 
@@ -143,7 +143,7 @@ public class UpgradesPanel implements ICompositeWidget {
     }
 
     @Override
-    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+    public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
         int slotCount = getUpgradeSlotCount();
         if (slotCount <= 0) {
             return;
@@ -184,9 +184,10 @@ public class UpgradesPanel implements ICompositeWidget {
     }
 
     @Override
-    public void addExclusionZones(List<Rect2i> exclusionZones, Rect2i screenBounds) {
-        int offsetX = screenBounds.x();
-        int offsetY = screenBounds.y();
+    public void addExclusionZones(List<Rectangle> exclusionZones, Rectangle screenBounds) {
+        int offsetX = screenBounds.x;
+
+        int offsetY = screenBounds.y;
         int slotCount = getUpgradeSlotCount();
         int margin = 2;
 
@@ -194,7 +195,7 @@ public class UpgradesPanel implements ICompositeWidget {
         int rightEdge = offsetX + x;
         if (fullCols > 0) {
             int fullColWidth = LEFT_PADDING + RIGHT_PADDING + fullCols * SLOT_SIZE;
-            exclusionZones.add(Rects.expand(new Rect2i(
+            exclusionZones.add(Rects.expand(new Rectangle(
                 rightEdge,
                 offsetY + y,
                 fullColWidth,
@@ -204,7 +205,7 @@ public class UpgradesPanel implements ICompositeWidget {
 
         int remaining = slotCount - fullCols * MAX_ROWS;
         if (remaining > 0) {
-            exclusionZones.add(Rects.expand(new Rect2i(
+            exclusionZones.add(Rects.expand(new Rectangle(
                 rightEdge,
                 offsetY + y,
                 SLOT_SIZE + (fullCols > 0 ? 0 : LEFT_PADDING + RIGHT_PADDING),

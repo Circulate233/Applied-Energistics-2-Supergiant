@@ -18,9 +18,9 @@
 
 package appeng.client.gui.widgets;
 
-import appeng.client.gui.Rect2i;
 import net.minecraft.util.text.ITextComponent;
 
+import java.awt.Rectangle;
 import java.util.Collections;
 import java.util.List;
 
@@ -38,7 +38,7 @@ public interface ITooltip {
         return Collections.emptyList();
     }
 
-    Rect2i getTooltipArea();
+    Rectangle getTooltipArea();
 
     /**
      * @return true if button being drawn

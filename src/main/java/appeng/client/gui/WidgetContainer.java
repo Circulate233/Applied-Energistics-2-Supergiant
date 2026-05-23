@@ -45,6 +45,7 @@ import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -64,7 +65,7 @@ public class WidgetContainer {
     private final Object2ObjectLinkedOpenHashMap<String, AETextField> textFields = new Object2ObjectLinkedOpenHashMap<>();
     private final Object2ObjectLinkedOpenHashMap<String, ICompositeWidget> compositeWidgets = new Object2ObjectLinkedOpenHashMap<>();
     private final Object2ObjectLinkedOpenHashMap<String, ResolvedTooltipArea> tooltips = new Object2ObjectLinkedOpenHashMap<>();
-    private Rect2i currentBounds = Rects.ZERO;
+    private Rectangle currentBounds = Rects.ZERO;
 
     @SuppressWarnings("unused")
     public WidgetContainer() {
@@ -75,9 +76,11 @@ public class WidgetContainer {
         this.style = style;
     }
 
-    private static boolean contains(Rect2i area, int mouseX, int mouseY) {
-        return mouseX >= area.x() && mouseX < area.x() + area.width()
-            && mouseY >= area.y() && mouseY < area.y() + area.height();
+    private static boolean contains(Rectangle area, int mouseX, int mouseY) {
+        if (mouseX < area.x) return false;
+        if (mouseX >= area.x + area.width
+            || mouseY < area.y) return false;
+        return mouseY < area.y + area.height;
     }
 
     public void add(String id, GuiButton widget) {
@@ -112,8 +115,18 @@ public class WidgetContainer {
         Preconditions.checkState(!compositeWidgets.containsKey(id), "%s already used for composite widget", id);
 
         WidgetStyle widgetStyle = requireStyle().getWidget(id);
-        int width = widgetStyle.getWidth() != 0 ? widgetStyle.getWidth() : widget.getTooltipArea().width();
-        int height = widgetStyle.getHeight() != 0 ? widgetStyle.getHeight() : widget.getTooltipArea().height();
+        int width;
+        if (widgetStyle.getWidth() != 0) {
+            width = widgetStyle.getWidth();
+        } else {
+            width = widget.getTooltipArea().width;
+        }
+        int height;
+        if (widgetStyle.getHeight() != 0) {
+            height = widgetStyle.getHeight();
+        } else {
+            height = widget.getTooltipArea().height;
+        }
         widget.resize(width, height);
 
         if (textFields.put(id, widget) != null) {
@@ -212,7 +225,7 @@ public class WidgetContainer {
         InitNetwork.sendToServer(message);
     }
 
-    public void populateScreen(Consumer<GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
+    public void populateScreen(Consumer<GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
         this.currentBounds = bounds;
 
         for (Map.Entry<String, GuiButton> entry : widgets.entrySet()) {
@@ -249,7 +262,7 @@ public class WidgetContainer {
             }
         }
 
-        Rect2i relativeBounds = new Rect2i(0, 0, bounds.width(), bounds.height());
+        Rectangle relativeBounds = new Rectangle(0, 0, bounds.width, bounds.height);
         for (Map.Entry<String, ICompositeWidget> entry : compositeWidgets.entrySet()) {
             ICompositeWidget widget = entry.getValue();
             if (this.style != null) {
@@ -264,7 +277,7 @@ public class WidgetContainer {
         if (this.style != null) {
             for (Map.Entry<String, appeng.client.gui.style.TooltipArea> entry : this.style.getTooltips().entrySet()) {
                 Point pos = entry.getValue().resolve(relativeBounds);
-                Rect2i area = new Rect2i(
+                Rectangle area = new Rectangle(
                     pos.x(), pos.y(),
                     entry.getValue().getWidth(),
                     entry.getValue().getHeight());
@@ -312,9 +325,9 @@ public class WidgetContainer {
     }
 
     /**
-     * @see ICompositeWidget#drawBackgroundLayer(Rect2i, Point)
+     * @see ICompositeWidget#drawBackgroundLayer(Rectangle, Point)
      */
-    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+    public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
         for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
                 widget.drawBackgroundLayer(bounds, mouse);
@@ -323,9 +336,9 @@ public class WidgetContainer {
     }
 
     /**
-     * @see ICompositeWidget#drawForegroundLayer(Rect2i, Point)
+     * @see ICompositeWidget#drawForegroundLayer(Rectangle, Point)
      */
-    public void drawForegroundLayer(Rect2i bounds, Point mouse) {
+    public void drawForegroundLayer(Rectangle bounds, Point mouse) {
         for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
                 widget.drawForegroundLayer(bounds, mouse);
@@ -342,9 +355,10 @@ public class WidgetContainer {
 
         for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
+
                 widget.drawAbsoluteLayer(currentBounds, new Point(
-                    currentBounds.x() + mouse.x(),
-                    currentBounds.y() + mouse.y()));
+                    currentBounds.x + mouse.x(),
+                    currentBounds.y + mouse.y()));
             }
         }
     }
@@ -362,7 +376,8 @@ public class WidgetContainer {
         }
 
         for (AETextField textField : textFields.values()) {
-            if (textField.mouseClicked(currentBounds.x() + mousePos.x(), currentBounds.y() + mousePos.y(),
+
+            if (textField.mouseClicked(currentBounds.x + mousePos.x(), currentBounds.y + mousePos.y(),
                 btn)) {
                 return true;
             }
@@ -423,9 +438,9 @@ public class WidgetContainer {
     }
 
     /**
-     * @see ICompositeWidget#addExclusionZones(List, Rect2i)
+     * @see ICompositeWidget#addExclusionZones(List, Rectangle)
      */
-    public void addExclusionZones(List<Rect2i> exclusionZones, Rect2i bounds) {
+    public void addExclusionZones(List<Rectangle> exclusionZones, Rectangle bounds) {
         for (ICompositeWidget widget : compositeWidgets.values()) {
             if (widget.isVisible()) {
                 widget.addExclusionZones(exclusionZones, bounds);
@@ -463,7 +478,7 @@ public class WidgetContainer {
         for (GuiButton widget : widgets.values()) {
             if (widget instanceof ITooltip tooltip) {
                 if (tooltip.isTooltipAreaVisible()) {
-                    Rect2i area = toRelative(tooltip.getTooltipArea());
+                    Rectangle area = toRelative(tooltip.getTooltipArea());
                     if (contains(area, mouseX, mouseY)) {
                         return new Tooltip(tooltip.getTooltipMessage());
                     }
@@ -473,7 +488,7 @@ public class WidgetContainer {
 
         for (AETextField widget : textFields.values()) {
             if (widget.isTooltipAreaVisible()) {
-                Rect2i area = toRelative(widget.getTooltipArea());
+                Rectangle area = toRelative(widget.getTooltipArea());
                 if (contains(area, mouseX, mouseY)) {
                     return new Tooltip(widget.getTooltipMessage());
                 }
@@ -485,7 +500,7 @@ public class WidgetContainer {
                 continue;
             }
 
-            Rect2i bounds = widget.getBounds();
+            Rectangle bounds = widget.getBounds();
             if (contains(bounds, mouseX, mouseY)) {
                 Tooltip tooltip = widget.getTooltip(mouseX, mouseY);
                 if (tooltip != null) {
@@ -527,12 +542,13 @@ public class WidgetContainer {
         return searchField;
     }
 
-    private Rect2i toRelative(Rect2i area) {
-        return new Rect2i(
-            area.x() - currentBounds.x(),
-            area.y() - currentBounds.y(),
-            area.width(),
-            area.height());
+    private Rectangle toRelative(Rectangle area) {
+
+        return new Rectangle(
+            area.x - currentBounds.x,
+            area.y - currentBounds.y,
+            area.width,
+            area.height);
     }
 
     private GuiStyle requireStyle() {
@@ -543,11 +559,11 @@ public class WidgetContainer {
     }
 
     private static class ResolvedTooltipArea {
-        private final Rect2i area;
+        private final Rectangle area;
         private final Tooltip tooltip;
         private boolean enabled = true;
 
-        public ResolvedTooltipArea(Rect2i area, Tooltip tooltip) {
+        public ResolvedTooltipArea(Rectangle area, Tooltip tooltip) {
             this.area = area;
             this.tooltip = tooltip;
         }

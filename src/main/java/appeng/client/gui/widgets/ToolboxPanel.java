@@ -20,7 +20,6 @@ package appeng.client.gui.widgets;
 
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.Tooltip;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.GuiStyle;
@@ -30,11 +29,13 @@ import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextFormatting;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
+
 public class ToolboxPanel implements ICompositeWidget {
 
     private final Blitter background;
     private final ITextComponent toolbeltName;
-    private Rect2i bounds = new Rect2i(0, 0, 0, 0);
+    private Rectangle bounds = new Rectangle(0, 0, 0, 0);
 
     public ToolboxPanel(GuiStyle style, ITextComponent toolbeltName) {
         this.background = style.getImage("toolbox");
@@ -43,26 +44,26 @@ public class ToolboxPanel implements ICompositeWidget {
 
     @Override
     public void setPosition(Point position) {
-        this.bounds = new Rect2i(position.x(), position.y(), bounds.width(), bounds.height());
+        this.bounds = new Rectangle(position.x(), position.y(), bounds.width, bounds.height);
     }
 
     @Override
     public void setSize(int width, int height) {
-        this.bounds = new Rect2i(bounds.x(), bounds.y(), width, height);
+        this.bounds = new Rectangle(bounds.x, bounds.y, width, height);
     }
 
     @Override
-    public Rect2i getBounds() {
+    public Rectangle getBounds() {
         return bounds;
     }
 
     @Override
-    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+    public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
         background.dest(
-            bounds.x() + this.bounds.x(),
-            bounds.y() + this.bounds.y(),
-            this.bounds.width(),
-            this.bounds.height()).blit();
+            bounds.x + this.bounds.x,
+            bounds.y + this.bounds.y,
+            this.bounds.width,
+            this.bounds.height).blit();
     }
 
     @Nullable

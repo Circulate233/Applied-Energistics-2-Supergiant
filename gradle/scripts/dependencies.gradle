@@ -28,8 +28,6 @@ dependencies {
         compileOnly "com.cleanroommc:lwjglx:1.0.0"
     }
 
-    //CrT
-
     // HEI
     modImplementation "curse.maven:had-enough-items-557549:7938914"
     // The One Probe

@@ -21,7 +21,6 @@ package appeng.client.gui.widgets;
 import appeng.client.Point;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.ICompositeWidget;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.Rects;
 import appeng.client.gui.Tooltip;
 import appeng.client.gui.style.Blitter;
@@ -31,6 +30,7 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
 import java.util.List;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -70,14 +70,14 @@ public final class ViewCellsPanel implements ICompositeWidget {
     }
 
     @Override
-    public Rect2i getBounds() {
+    public Rectangle getBounds() {
         int slotCount = getSlotCount();
-        return new Rect2i(this.x, this.y, PANEL_WIDTH,
+        return new Rectangle(this.x, this.y, PANEL_WIDTH,
             PANEL_TOP_HEIGHT + slotCount * PANEL_ROW_HEIGHT + PANEL_BOTTOM_HEIGHT);
     }
 
     @Override
-    public void populateScreen(Consumer<net.minecraft.client.gui.GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
+    public void populateScreen(Consumer<net.minecraft.client.gui.GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
         this.screenOrigin = Point.fromTopLeft(bounds);
     }
 
@@ -98,7 +98,7 @@ public final class ViewCellsPanel implements ICompositeWidget {
     }
 
     @Override
-    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+    public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
         int slotCount = getSlotCount();
         if (slotCount <= 0) {
             return;
@@ -129,10 +129,10 @@ public final class ViewCellsPanel implements ICompositeWidget {
     }
 
     @Override
-    public void addExclusionZones(List<Rect2i> exclusionZones, Rect2i screenBounds) {
-        exclusionZones.add(Rects.expand(new Rect2i(
-            screenBounds.x() + this.x,
-            screenBounds.y() + this.y,
+    public void addExclusionZones(List<Rectangle> exclusionZones, Rectangle screenBounds) {
+        exclusionZones.add(Rects.expand(new Rectangle(
+            screenBounds.x + this.x,
+            screenBounds.y + this.y,
             PANEL_WIDTH,
             PANEL_TOP_HEIGHT + getSlotCount() * PANEL_ROW_HEIGHT + PANEL_BOTTOM_HEIGHT), 2));
     }

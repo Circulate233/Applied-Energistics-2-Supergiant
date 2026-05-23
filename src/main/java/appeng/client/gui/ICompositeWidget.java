@@ -22,6 +22,7 @@ import appeng.client.Point;
 import net.minecraft.client.gui.GuiButton;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -35,27 +36,27 @@ public interface ICompositeWidget {
 
     void setSize(int width, int height);
 
-    Rect2i getBounds();
+    Rectangle getBounds();
 
-    default void addExclusionZones(List<Rect2i> exclusionZones, Rect2i screenBounds) {
-        Rect2i bounds = getBounds();
-        if (bounds.width() <= 0 || bounds.height() <= 0) {
+    default void addExclusionZones(List<Rectangle> exclusionZones, Rectangle screenBounds) {
+        Rectangle bounds = getBounds();
+        if (bounds.width <= 0 || bounds.height <= 0) {
             return;
         }
 
-        if (bounds.x() < 0
-            || bounds.y() < 0
-            || bounds.x() + bounds.width() > screenBounds.width()
-            || bounds.y() + bounds.height() > screenBounds.height()) {
-            exclusionZones.add(new Rect2i(
-                screenBounds.x() + bounds.x(),
-                screenBounds.y() + bounds.y(),
-                bounds.width(),
-                bounds.height()));
+        if (bounds.x < 0
+            || bounds.y < 0
+            || bounds.x + bounds.width > screenBounds.width
+            || bounds.y + bounds.height > screenBounds.height) {
+            exclusionZones.add(new Rectangle(
+                screenBounds.x + bounds.x,
+                screenBounds.y + bounds.y,
+                bounds.width,
+                bounds.height));
         }
     }
 
-    default void populateScreen(Consumer<GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
+    default void populateScreen(Consumer<GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
     }
 
     default void tick() {
@@ -64,13 +65,13 @@ public interface ICompositeWidget {
     default void updateBeforeRender() {
     }
 
-    default void drawBackgroundLayer(Rect2i bounds, Point mouse) {
+    default void drawBackgroundLayer(Rectangle bounds, Point mouse) {
     }
 
-    default void drawForegroundLayer(Rect2i bounds, Point mouse) {
+    default void drawForegroundLayer(Rectangle bounds, Point mouse) {
     }
 
-    default void drawAbsoluteLayer(Rect2i bounds, Point mouse) {
+    default void drawAbsoluteLayer(Rectangle bounds, Point mouse) {
     }
 
     default boolean onMouseDown(Point mousePos, int button) {

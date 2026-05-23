@@ -18,7 +18,6 @@
 
 package appeng.client.gui.style;
 
-import appeng.client.gui.Rect2i;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
@@ -27,13 +26,14 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import net.minecraft.util.JsonUtils;
 
+import java.awt.Rectangle;
 import java.lang.reflect.Type;
 
-public enum Rectangle2dDeserializer implements JsonDeserializer<Rect2i> {
+public enum Rectangle2dDeserializer implements JsonDeserializer<Rectangle> {
     INSTANCE;
 
     @Override
-    public Rect2i deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
+    public Rectangle deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
         throws JsonParseException {
         if (json.isJsonArray()) {
             JsonArray arr = json.getAsJsonArray();
@@ -45,14 +45,14 @@ public enum Rectangle2dDeserializer implements JsonDeserializer<Rect2i> {
             int y = arr.get(1).getAsInt();
             int width = arr.get(2).getAsInt();
             int height = arr.get(3).getAsInt();
-            return new Rect2i(x, y, width, height);
+            return new Rectangle(x, y, width, height);
         } else {
             JsonObject obj = json.getAsJsonObject();
             int x = JsonUtils.getInt(obj, "x", 0);
             int y = JsonUtils.getInt(obj, "y", 0);
             int width = JsonUtils.getInt(obj, "width");
             int height = JsonUtils.getInt(obj, "height");
-            return new Rect2i(x, y, width, height);
+            return new Rectangle(x, y, width, height);
         }
     }
 }

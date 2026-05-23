@@ -21,14 +21,14 @@ package appeng.client.gui.widgets;
 import appeng.client.Point;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.ICompositeWidget;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.Tooltip;
 import appeng.client.gui.style.Blitter;
 import appeng.core.AppEng;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.gui.GuiButton;
 import org.jetbrains.annotations.Nullable;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
+import java.awt.Rectangle;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -44,7 +44,7 @@ public class VerticalButtonBar implements ICompositeWidget {
 
     private final List<GuiButton> buttons = new ObjectArrayList<>();
     private Point screenOrigin = Point.ZERO;
-    private Rect2i bounds = new Rect2i(0, 0, 0, 0);
+    private Rectangle bounds = new Rectangle(0, 0, 0, 0);
     private Point position = Point.ZERO;
 
     public void add(GuiButton button) {
@@ -61,7 +61,7 @@ public class VerticalButtonBar implements ICompositeWidget {
     }
 
     @Override
-    public Rect2i getBounds() {
+    public Rectangle getBounds() {
         return bounds;
     }
 
@@ -83,16 +83,16 @@ public class VerticalButtonBar implements ICompositeWidget {
         }
 
         if (maxWidth == 0) {
-            bounds = new Rect2i(0, 0, 0, 0);
+            bounds = new Rectangle(0, 0, 0, 0);
         } else {
             int boundX = position.x() - maxWidth - 2 * MARGIN;
             int boundY = position.y();
-            bounds = new Rect2i(boundX, boundY, maxWidth + 2 * MARGIN, currentY - boundY);
+            bounds = new Rectangle(boundX, boundY, maxWidth + 2 * MARGIN, currentY - boundY);
         }
     }
 
     @Override
-    public void populateScreen(Consumer<GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
+    public void populateScreen(Consumer<GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
         this.screenOrigin = Point.fromTopLeft(bounds);
         for (var button : this.buttons) {
             if (button instanceof TabButton tabButton && tabButton.isFocused()) {
@@ -107,15 +107,15 @@ public class VerticalButtonBar implements ICompositeWidget {
     }
 
     @Override
-    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
-        if (this.bounds.width() <= 0 || this.bounds.height() <= 0) {
+    public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
+        if (this.bounds.width <= 0 || this.bounds.height <= 0) {
             return;
         }
 
-        int x = bounds.x() + this.bounds.x() - 2;
-        int y = bounds.y() + this.bounds.y() - 1;
-        int width = this.bounds.width() + 1;
-        int height = this.bounds.height() + 4;
+        int x = bounds.x + this.bounds.x - 2;
+        int y = bounds.y + this.bounds.y - 1;
+        int width = this.bounds.width + 1;
+        int height = this.bounds.height + 4;
         int middleHeight = Math.max(0, height - BACKGROUND_TOP_BORDER - BACKGROUND_BOTTOM_BORDER);
 
         BACKGROUND.copy()
@@ -143,14 +143,18 @@ public class VerticalButtonBar implements ICompositeWidget {
     public Tooltip getTooltip(int mouseX, int mouseY) {
         for (GuiButton button : buttons) {
             if (button instanceof ITooltip tooltip && tooltip.isTooltipAreaVisible()) {
-                Rect2i area = new Rect2i(
+                Rectangle area = new Rectangle(
                     button.x - screenOrigin.x(),
                     button.y - screenOrigin.y(),
-                    tooltip.getTooltipArea().width(),
-                    tooltip.getTooltipArea().height());
-                if (mouseX >= area.x() && mouseX < area.x() + area.width()
-                    && mouseY >= area.y() && mouseY < area.y() + area.height()) {
-                    return new Tooltip(tooltip.getTooltipMessage());
+                    tooltip.getTooltipArea().width,
+                    tooltip.getTooltipArea().height);
+                if (mouseX >= area.x) {
+                    if (mouseX < area.x + area.width && mouseY >= area.y) {
+
+                        if (mouseY < area.y + area.height) {
+                            return new Tooltip(tooltip.getTooltipMessage());
+                        }
+                    }
                 }
             }
         }

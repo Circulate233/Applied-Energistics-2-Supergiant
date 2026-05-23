@@ -26,7 +26,6 @@ import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.storage.ILinkStatus;
 import appeng.client.gui.AEBaseGui;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.widgets.AETextField;
 import appeng.client.gui.widgets.ITextFieldGui;
@@ -62,6 +61,7 @@ import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 
+import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -87,14 +87,14 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
     private static final int PATTERN_PROVIDER_NAME_MARGIN_X = 2;
     private static final int TEXT_MAX_WIDTH = 155;
 
-    private static final Rect2i HEADER_BBOX = new Rect2i(0, 0, GUI_WIDTH, GUI_HEADER_HEIGHT);
-    private static final Rect2i ROW_TEXT_TOP_BBOX = new Rect2i(0, 17, GUI_WIDTH, ROW_HEIGHT);
-    private static final Rect2i ROW_INVENTORY_TOP_BBOX = new Rect2i(0, 35, GUI_WIDTH, ROW_HEIGHT);
-    private static final Rect2i ROW_TEXT_MIDDLE_BBOX = new Rect2i(0, 53, GUI_WIDTH, ROW_HEIGHT);
-    private static final Rect2i ROW_INVENTORY_MIDDLE_BBOX = new Rect2i(0, 71, GUI_WIDTH, ROW_HEIGHT);
-    private static final Rect2i ROW_TEXT_BOTTOM_BBOX = new Rect2i(0, 89, GUI_WIDTH, ROW_HEIGHT);
-    private static final Rect2i ROW_INVENTORY_BOTTOM_BBOX = new Rect2i(0, 107, GUI_WIDTH, ROW_HEIGHT);
-    private static final Rect2i FOOTER_BBOX = new Rect2i(0, 125, GUI_WIDTH, GUI_FOOTER_HEIGHT);
+    private static final Rectangle HEADER_BBOX = new Rectangle(0, 0, GUI_WIDTH, GUI_HEADER_HEIGHT);
+    private static final Rectangle ROW_TEXT_TOP_BBOX = new Rectangle(0, 17, GUI_WIDTH, ROW_HEIGHT);
+    private static final Rectangle ROW_INVENTORY_TOP_BBOX = new Rectangle(0, 35, GUI_WIDTH, ROW_HEIGHT);
+    private static final Rectangle ROW_TEXT_MIDDLE_BBOX = new Rectangle(0, 53, GUI_WIDTH, ROW_HEIGHT);
+    private static final Rectangle ROW_INVENTORY_MIDDLE_BBOX = new Rectangle(0, 71, GUI_WIDTH, ROW_HEIGHT);
+    private static final Rectangle ROW_TEXT_BOTTOM_BBOX = new Rectangle(0, 89, GUI_WIDTH, ROW_HEIGHT);
+    private static final Rectangle ROW_INVENTORY_BOTTOM_BBOX = new Rectangle(0, 107, GUI_WIDTH, ROW_HEIGHT);
+    private static final Rectangle FOOTER_BBOX = new Rectangle(0, 125, GUI_WIDTH, GUI_FOOTER_HEIGHT);
 
     private static final Comparator<PatternContainerGroup> GROUP_COMPARATOR = Comparator
         .comparing(group -> group.name().getFormattedText().toLowerCase(Locale.ROOT));
@@ -194,15 +194,16 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
             boolean firstLine = i == 0;
             boolean lastLine = i == this.visibleRows - 1;
 
-            Rect2i textRow = selectRowBackgroundBox(false, firstLine, lastLine);
+            Rectangle textRow = selectRowBackgroundBox(false, firstLine, lastLine);
             blit(offsetX, currentY, textRow);
 
             if (scrollLevel + i < this.rows.size()) {
                 Row row = this.rows.get(scrollLevel + i);
                 if (row instanceof SlotsRow slotsRow) {
-                    Rect2i invRow = selectRowBackgroundBox(true, firstLine, lastLine);
+                    Rectangle invRow = selectRowBackgroundBox(true, firstLine, lastLine);
                     int width = GUI_PADDING_X + SLOT_SIZE * slotsRow.slots() - 1;
-                    blit(offsetX, currentY, invRow.x(), invRow.y(), width, invRow.height());
+
+                    blit(offsetX, currentY, invRow.x, invRow.y, width, invRow.height);
                 }
             }
 
@@ -587,7 +588,7 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
         this.setWorldAndResolution(this.mc, this.width, this.height);
     }
 
-    private Rect2i selectRowBackgroundBox(boolean inventoryRow, boolean firstLine, boolean lastLine) {
+    private Rectangle selectRowBackgroundBox(boolean inventoryRow, boolean firstLine, boolean lastLine) {
         if (inventoryRow) {
             if (firstLine) {
                 return ROW_INVENTORY_TOP_BBOX;
@@ -607,8 +608,9 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
         return ROW_TEXT_MIDDLE_BBOX;
     }
 
-    private void blit(int x, int y, Rect2i srcRect) {
-        blit(x, y, srcRect.x(), srcRect.y(), srcRect.width(), srcRect.height());
+    private void blit(int x, int y, Rectangle srcRect) {
+
+        blit(x, y, srcRect.x, srcRect.y, srcRect.width, srcRect.height);
     }
 
     private void blit(int x, int y, int u, int v, int width, int height) {

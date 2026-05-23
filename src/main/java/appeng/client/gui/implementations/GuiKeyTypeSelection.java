@@ -25,7 +25,6 @@ import appeng.client.Point;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.ICompositeWidget;
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.GeneratedBackground;
 import appeng.client.gui.style.GuiStyleManager;
 import appeng.client.gui.widgets.AECheckbox;
@@ -38,6 +37,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.util.text.ITextComponent;
 
+import java.awt.Rectangle;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -100,27 +100,27 @@ public class GuiKeyTypeSelection<C extends AEBaseContainer & IKeyTypeSelectionCo
         private static final int PADDING = 6;
         private static final int KEY_TYPE_SPACING = AECheckbox.SIZE + PADDING;
         private final Object2ObjectLinkedOpenHashMap<AEKeyType, AECheckbox> checkboxes = new Object2ObjectLinkedOpenHashMap<>();
-        private Rect2i bounds = new Rect2i(0, 0, 0, 0);
+        private Rectangle bounds = new Rectangle(0, 0, 0, 0);
 
         @Override
         public void setPosition(Point position) {
-            bounds = new Rect2i(position.x(), position.y(), bounds.width(), bounds.height());
+            bounds = new Rectangle(position.x(), position.y(), bounds.width, bounds.height);
         }
 
         @Override
         public void setSize(int width, int height) {
-            bounds = new Rect2i(bounds.x(), bounds.y(), width, height);
+            bounds = new Rectangle(bounds.x, bounds.y, width, height);
         }
 
         @Override
-        public Rect2i getBounds() {
+        public Rectangle getBounds() {
             return bounds;
         }
 
         @Override
-        public void populateScreen(Consumer<GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
-            int xPos = this.bounds.x() + bounds.x();
-            int yPos = this.bounds.y() + bounds.y();
+        public void populateScreen(Consumer<GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
+            int xPos = this.bounds.x + bounds.x;
+            int yPos = this.bounds.y + bounds.y;
 
             checkboxes.clear();
 
@@ -137,7 +137,7 @@ public class GuiKeyTypeSelection<C extends AEBaseContainer & IKeyTypeSelectionCo
                 yPos += KEY_TYPE_SPACING;
             }
 
-            int height = this.bounds.y() + AEKeyTypes.getAll().size() * KEY_TYPE_SPACING + PADDING;
+            int height = this.bounds.y + AEKeyTypes.getAll().size() * KEY_TYPE_SPACING + PADDING;
             GuiKeyTypeSelection.this.setHeight(height);
         }
     }

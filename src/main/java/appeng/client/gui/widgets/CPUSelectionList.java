@@ -24,7 +24,6 @@ import appeng.api.stacks.AmountFormat;
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.Tooltip;
 import appeng.client.gui.me.crafting.CraftingTimeDisplay;
 import appeng.client.gui.style.Blitter;
@@ -35,6 +34,7 @@ import appeng.container.implementations.ContainerCraftingStatus;
 import appeng.core.definitions.AEParts;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
@@ -45,7 +45,8 @@ import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.util.text.TextFormatting;
 import org.jetbrains.annotations.Nullable;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+
+import java.awt.Rectangle;
 
 public class CPUSelectionList implements ICompositeWidget {
     private static final int ROWS = 6;
@@ -63,7 +64,7 @@ public class CPUSelectionList implements ICompositeWidget {
     private final Color textColor;
     private final int selectedColor;
     private final Scrollbar scrollbar;
-    private Rect2i bounds = new Rect2i(0, 0, 0, 0);
+    private Rectangle bounds = new Rectangle(0, 0, 0, 0);
 
     public CPUSelectionList(ContainerCraftingStatus container, Scrollbar scrollbar, GuiStyle style) {
         this.container = container;
@@ -98,16 +99,16 @@ public class CPUSelectionList implements ICompositeWidget {
 
     @Override
     public void setPosition(Point position) {
-        this.bounds = new Rect2i(position.x(), position.y(), bounds.width(), bounds.height());
+        this.bounds = new Rectangle(position.x(), position.y(), bounds.width, bounds.height);
     }
 
     @Override
     public void setSize(int width, int height) {
-        this.bounds = new Rect2i(bounds.x(), bounds.y(), width, height);
+        this.bounds = new Rectangle(bounds.x, bounds.y, width, height);
     }
 
     @Override
-    public Rect2i getBounds() {
+    public Rectangle getBounds() {
         return bounds;
     }
 
@@ -190,10 +191,11 @@ public class CPUSelectionList implements ICompositeWidget {
     }
 
     @Override
-    public void drawBackgroundLayer(Rect2i screenBounds, Point mouse) {
-        int x = screenBounds.x() + this.bounds.x();
-        int y = screenBounds.y() + this.bounds.y();
-        background.dest(x, y, this.bounds.width(), this.bounds.height()).blit();
+    public void drawBackgroundLayer(Rectangle screenBounds, Point mouse) {
+        int x = screenBounds.x + this.bounds.x;
+
+        int y = screenBounds.y + this.bounds.y;
+        background.dest(x, y, this.bounds.width, this.bounds.height).blit();
 
         x += 8;
         y += 19;
@@ -249,12 +251,12 @@ public class CPUSelectionList implements ICompositeWidget {
 
     @Nullable
     private ContainerCraftingStatus.CraftingCpuListEntry hitTestCpu(Point mousePos) {
-        int relX = mousePos.x() - bounds.x() - 8;
+        int relX = mousePos.x() - bounds.x - 8;
         if (relX < 0 || relX >= buttonBg.getSrcWidth()) {
             return null;
         }
 
-        int relY = mousePos.y() - bounds.y() - 19;
+        int relY = mousePos.y() - bounds.y - 19;
         int buttonHeight = buttonBg.getSrcHeight() + 1;
         int buttonIdx = scrollbar.getCurrentScroll() + relY / buttonHeight;
         if (relY < 0 || relY % buttonHeight == buttonBg.getSrcHeight()) {
@@ -275,8 +277,9 @@ public class CPUSelectionList implements ICompositeWidget {
             return null;
         }
 
-        int relX = mousePos.x() - bounds.x() - 8;
-        int relY = mousePos.y() - bounds.y() - 19;
+        int relX = mousePos.x() - bounds.x - 8;
+
+        int relY = mousePos.y() - bounds.y - 19;
         int buttonHeight = buttonBg.getSrcHeight() + 1;
         int rowY = relY % buttonHeight;
 

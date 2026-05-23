@@ -1,24 +1,25 @@
 package appeng.client;
 
-import appeng.client.gui.Rect2i;
 import org.jspecify.annotations.NonNull;
+
+import java.awt.Rectangle;
 
 public record Point(int x, int y) {
     public static final Point ZERO = new Point(0, 0);
 
-    public static Point fromTopLeft(Rect2i bounds) {
-        return new Point(bounds.x(), bounds.y());
+    public static Point fromTopLeft(Rectangle bounds) {
+        return new Point(bounds.x, bounds.y);
     }
 
     public Point move(int x, int y) {
         return new Point(this.x + x, this.y + y);
     }
 
-    public boolean isIn(Rect2i rect) {
-        return this.x >= rect.x()
-            && this.y >= rect.y()
-            && this.x < rect.x() + rect.width()
-            && this.y < rect.y() + rect.height();
+    public boolean isIn(Rectangle rect) {
+        if (this.x < rect.x
+            || this.y < rect.y) return false;
+        if (this.x >= rect.x + rect.width) return false;
+        return this.y < rect.y + rect.height;
     }
 
     @Override

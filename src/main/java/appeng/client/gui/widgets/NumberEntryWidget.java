@@ -23,7 +23,6 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.ICompositeWidget;
 import appeng.client.gui.MathExpressionParser;
 import appeng.client.gui.NumberEntryType;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.Rects;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.PaletteColor;
@@ -39,6 +38,7 @@ import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 
+import java.awt.Rectangle;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -82,9 +82,9 @@ public class NumberEntryWidget implements ICompositeWidget {
 
     private boolean hideValidationIcon;
 
-    private Rect2i bounds = new Rect2i(0, 0, 0, 0);
+    private Rectangle bounds = new Rectangle(0, 0, 0, 0);
 
-    private Rect2i textFieldBounds = Rects.ZERO;
+    private Rectangle textFieldBounds = Rects.ZERO;
     private Point currentScreenOrigin = Point.ZERO;
 
     private List<AE2Button> amountButtons = ObjectLists.emptyList();
@@ -161,14 +161,15 @@ public class NumberEntryWidget implements ICompositeWidget {
      * Sets the bounds of the text field on the screen. This may seem insane, but the text-field background is actually
      * baked into the screens background image, which necessitates setting it precisely.
      */
-    public void setTextFieldBounds(Rect2i bounds) {
+    public void setTextFieldBounds(Rectangle bounds) {
         this.textFieldBounds = bounds;
-        this.textField.move(currentScreenOrigin.move(bounds.x(), bounds.y()));
+
+        this.textField.move(currentScreenOrigin.move(bounds.x, bounds.y));
         int unitWidth = 0;
         if (this.type.unit() != null) {
             unitWidth = Minecraft.getMinecraft().fontRenderer.getStringWidth(this.type.unit()) + UNIT_PADDING;
         }
-        this.textField.resize(bounds.width() - unitWidth, bounds.height());
+        this.textField.resize(bounds.width - unitWidth, bounds.height);
     }
 
     public void setTextFieldStyle(WidgetStyle style) {
@@ -180,7 +181,7 @@ public class NumberEntryWidget implements ICompositeWidget {
         if (style.getTop() != null) {
             top = style.getTop();
         }
-        setTextFieldBounds(new Rect2i(
+        setTextFieldBounds(new Rectangle(
             left,
             top,
             style.getWidth(),
@@ -199,23 +200,25 @@ public class NumberEntryWidget implements ICompositeWidget {
 
     @Override
     public void setPosition(Point position) {
-        bounds = new Rect2i(position.x(), position.y(), bounds.width(), bounds.height());
+        bounds = new Rectangle(position.x(), position.y(), bounds.width, bounds.height);
     }
 
     @Override
     public void setSize(int width, int height) {
-        bounds = new Rect2i(bounds.x(), bounds.y(), width, height);
+
+        bounds = new Rectangle(bounds.x, bounds.y, width, height);
     }
 
     @Override
-    public Rect2i getBounds() {
+    public Rectangle getBounds() {
         return bounds;
     }
 
     @Override
-    public void populateScreen(Consumer<GuiButton> addWidget, Rect2i bounds, AEBaseGui<?> screen) {
-        int left = bounds.x() + this.bounds.x();
-        int top = bounds.y() + this.bounds.y();
+    public void populateScreen(Consumer<GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
+        int left = bounds.x + this.bounds.x;
+
+        int top = bounds.y + this.bounds.y;
 
         List<GuiButton> buttons = new ObjectArrayList<>(9);
         List<AE2Button> amountButtons = new ObjectArrayList<>(8);
@@ -444,19 +447,20 @@ public class NumberEntryWidget implements ICompositeWidget {
     }
 
     @Override
-    public void drawForegroundLayer(Rect2i bounds, Point mouse) {
+    public void drawForegroundLayer(Rectangle bounds, Point mouse) {
         if (type.unit() != null) {
             var font = Minecraft.getMinecraft().fontRenderer;
-            var x = bounds.x() + textFieldBounds.x() + textFieldBounds.width()
+            var x = bounds.x + textFieldBounds.x + textFieldBounds.width
                 - font.getStringWidth(type.unit());
-            var y = (int) (bounds.y() + textFieldBounds.y() + (textFieldBounds.height() - font.FONT_HEIGHT) / 2f
+
+            var y = (int) (bounds.y + textFieldBounds.y + (textFieldBounds.height - font.FONT_HEIGHT) / 2f
                 + 1);
             font.drawString(type.unit(), x, y, UNIT_COLOR);
         }
     }
 
     @Override
-    public void drawAbsoluteLayer(Rect2i bounds, Point mouse) {
+    public void drawAbsoluteLayer(Rectangle bounds, Point mouse) {
         this.textField.drawTextBox();
     }
 

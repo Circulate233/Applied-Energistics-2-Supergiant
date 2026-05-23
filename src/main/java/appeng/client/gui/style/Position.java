@@ -19,8 +19,9 @@
 package appeng.client.gui.style;
 
 import appeng.client.Point;
-import appeng.client.gui.Rect2i;
 import org.jetbrains.annotations.Nullable;
+
+import java.awt.Rectangle;
 
 public class Position {
 
@@ -68,24 +69,24 @@ public class Position {
         this.bottom = bottom;
     }
 
-    public Point resolve(Rect2i bounds) {
+    public Point resolve(Rectangle bounds) {
         int x, y;
         if (left != null) {
             x = left;
         } else if (right != null) {
-            x = bounds.width() - right;
+            x = bounds.width - right;
         } else {
             x = 0;
         }
         if (top != null) {
             y = top;
         } else if (bottom != null) {
-            y = bounds.height() - bottom;
+            y = bounds.height - bottom;
         } else {
             y = 0;
         }
 
-        return new Point(x, y).move(bounds.x(), bounds.y());
+        return new Point(x, y).move(bounds.x, bounds.y);
     }
 
     @Override

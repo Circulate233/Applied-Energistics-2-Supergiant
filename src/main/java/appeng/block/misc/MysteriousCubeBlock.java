@@ -7,6 +7,7 @@ import appeng.server.services.compass.ServerCompassService;
 import appeng.tile.misc.TileMysteriousCube;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.BlockRenderLayer;
@@ -68,10 +69,9 @@ public class MysteriousCubeBlock extends AEBaseTileBlock<TileMysteriousCube> {
     }
 
     @Override
-    public void addInformation(ItemStack itemStack, World worldIn, List<String> toolTip,
-                               net.minecraft.client.util.ITooltipFlag advancedTooltips) {
-        super.addInformation(itemStack, worldIn, toolTip, advancedTooltips);
-        toolTip.add(GuiText.MysteriousQuote.getLocal());
+    protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+        lines.add(GuiText.MysteriousQuote.getLocal());
     }
 
     public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {

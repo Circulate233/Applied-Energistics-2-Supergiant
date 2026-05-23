@@ -3,7 +3,6 @@ package appeng.client.gui.me.items;
 import appeng.api.config.ActionItems;
 import appeng.client.Point;
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.WidgetContainer;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.ActionButton;
@@ -15,6 +14,7 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.inventory.Slot;
 import net.minecraft.util.text.ITextComponent;
 
+import java.awt.Rectangle;
 import java.util.List;
 
 public class CraftingEncodingPanel extends EncodingModePanel {
@@ -67,8 +67,8 @@ public class CraftingEncodingPanel extends EncodingModePanel {
     }
 
     @Override
-    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
-        BG.dest(bounds.x() + this.position.x() - 1, bounds.y() + this.position.y() + 1).blit();
+    public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
+        BG.dest(bounds.x + this.position.x() - 1, bounds.y + this.position.y() + 1).blit();
 
         if (this.container.substituteFluids && mouse.isIn(this.fluidSubstitutionsBtn.getTooltipArea())) {
             for (int slotIndex : this.container.slotsSupportingFluidSubstitution) {
@@ -77,9 +77,9 @@ public class CraftingEncodingPanel extends EncodingModePanel {
         }
     }
 
-    private void drawSlotGreenBG(Rect2i bounds, Slot slot) {
-        int x = bounds.x() + slot.xPos;
-        int y = bounds.y() + slot.yPos;
+    private void drawSlotGreenBG(Rectangle bounds, Slot slot) {
+        int x = bounds.x + slot.xPos;
+        int y = bounds.y + slot.yPos;
         Gui.drawRect(x, y, x + 16, y + 16, 0xFF7AC25F);
     }
 

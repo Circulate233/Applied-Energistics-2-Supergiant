@@ -19,7 +19,6 @@
 package appeng.client.gui.widgets;
 
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
 import net.minecraft.client.renderer.GlStateManager;
@@ -28,6 +27,7 @@ import net.minecraft.client.renderer.RenderItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.ITextComponent;
 
+import java.awt.Rectangle;
 import java.util.Collections;
 import java.util.List;
 
@@ -148,8 +148,8 @@ public class TabButton extends GuiButton implements ITooltip {
     }
 
     @Override
-    public Rect2i getTooltipArea() {
-        return new Rect2i(this.x, this.y, this.width, this.height);
+    public Rectangle getTooltipArea() {
+        return new Rectangle(this.x, this.y, this.width, this.height);
     }
 
     @Override

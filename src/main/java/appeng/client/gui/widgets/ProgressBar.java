@@ -18,7 +18,6 @@
 
 package appeng.client.gui.widgets;
 
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
 import appeng.container.interfaces.IProgressProvider;
 import appeng.core.localization.GuiText;
@@ -27,6 +26,7 @@ import net.minecraft.client.gui.GuiButton;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 
+import java.awt.Rectangle;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -35,7 +35,7 @@ public class ProgressBar extends GuiButton implements ITooltip {
     private final IProgressProvider source;
     private final Blitter blitter;
     private final Direction layout;
-    private final Rect2i sourceRect;
+    private final Rectangle sourceRect;
     private final ITextComponent titleName;
     private ITextComponent fullMsg;
 
@@ -49,7 +49,7 @@ public class ProgressBar extends GuiButton implements ITooltip {
         this.blitter = blitter.copy();
         this.layout = dir;
         this.titleName = title;
-        this.sourceRect = new Rect2i(
+        this.sourceRect = new Rectangle(
             blitter.getSrcX(),
             blitter.getSrcY(),
             blitter.getSrcWidth(),
@@ -65,10 +65,10 @@ public class ProgressBar extends GuiButton implements ITooltip {
         int max = this.source.getMaxProgress();
         int current = Math.min(this.source.getCurrentProgress(), max);
 
-        int srcX = this.sourceRect.x();
-        int srcY = this.sourceRect.y();
-        int srcW = this.sourceRect.width();
-        int srcH = this.sourceRect.height();
+        int srcX = this.sourceRect.x;
+        int srcY = this.sourceRect.y;
+        int srcW = this.sourceRect.width;
+        int srcH = this.sourceRect.height;
         int destX = this.x;
         int destY = this.y;
 
@@ -110,8 +110,8 @@ public class ProgressBar extends GuiButton implements ITooltip {
     }
 
     @Override
-    public Rect2i getTooltipArea() {
-        return new Rect2i(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
+    public Rectangle getTooltipArea() {
+        return new Rectangle(this.x - 2, this.y - 2, this.width + 4, this.height + 4);
     }
 
     @Override

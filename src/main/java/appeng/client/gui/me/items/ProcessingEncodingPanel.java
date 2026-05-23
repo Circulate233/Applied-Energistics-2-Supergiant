@@ -3,7 +3,6 @@ package appeng.client.gui.me.items;
 import appeng.api.config.ActionItems;
 import appeng.client.Point;
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.WidgetContainer;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.widgets.ActionButton;
@@ -11,6 +10,8 @@ import appeng.client.gui.widgets.Scrollbar;
 import appeng.container.SlotSemantics;
 import appeng.core.localization.GuiText;
 import net.minecraft.util.text.ITextComponent;
+
+import java.awt.Rectangle;
 
 public class ProcessingEncodingPanel extends EncodingModePanel {
     private static final Blitter BG = Blitter.texture("guis/pattern_modes.png").src(0, 70, 124, 66);
@@ -61,8 +62,8 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
     }
 
     @Override
-    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
-        BG.dest(bounds.x() + this.position.x() - 1, bounds.y() + this.position.y() + 1).blit();
+    public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
+        BG.dest(bounds.x + this.position.x() - 1, bounds.y + this.position.y() + 1).blit();
     }
 
     @Override

@@ -19,7 +19,6 @@
 package appeng.client.gui.widgets;
 
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.audio.SoundHandler;
@@ -33,6 +32,7 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
 import java.util.Collections;
 import java.util.List;
 
@@ -151,8 +151,8 @@ public abstract class IconButton extends GuiButton implements ITooltip {
     }
 
     @Override
-    public Rect2i getTooltipArea() {
-        return new Rect2i(
+    public Rectangle getTooltipArea() {
+        return new Rectangle(
             this.x,
             this.y,
             this.halfSize ? 8 : 16,

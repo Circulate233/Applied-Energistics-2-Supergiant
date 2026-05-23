@@ -4,7 +4,6 @@ import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.widgets.AETextField;
 import appeng.client.gui.widgets.ITextFieldGui;
@@ -60,8 +59,8 @@ public final class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui<?>>, IG
         return null;
     }
 
-    private static Rectangle toRectangle(Rect2i rect) {
-        return new Rectangle(rect.x(), rect.y(), rect.width(), rect.height());
+    private static Rectangle toRectangle(Rectangle rect) {
+        return new Rectangle(rect.x, rect.y, rect.width, rect.height);
     }
 
     @Nonnull
@@ -222,7 +221,11 @@ public final class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui<?>>, IG
 
         @Override
         public Rectangle getArea() {
-            return new Rectangle(this.gui.getGuiLeft() + this.field.x, this.gui.getGuiTop() + this.field.y, field.width, field.height);
+            if (this.field instanceof AETextField aeTextField) {
+                return aeTextField.getTooltipArea();
+            }
+
+            return new Rectangle(this.field.x, this.field.y, this.field.width, this.field.height);
         }
 
         @Override

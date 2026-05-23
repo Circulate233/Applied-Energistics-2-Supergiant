@@ -20,7 +20,6 @@ package appeng.client.gui.implementations;
 
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.NumberEntryType;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.GuiStyleManager;
 import appeng.client.gui.widgets.NumberEntryWidget;
@@ -28,6 +27,7 @@ import appeng.container.implementations.ContainerPriority;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
 
+import java.awt.Rectangle;
 import java.util.OptionalInt;
 
 public class GuiPriority extends AEBaseGui<ContainerPriority> {
@@ -44,9 +44,9 @@ public class GuiPriority extends AEBaseGui<ContainerPriority> {
         super(container, playerInventory, style);
         var background = style.getBackground();
         if (background != null) {
-            Rect2i bounds = background.getDestRect();
-            this.xSize = bounds.width();
-            this.ySize = bounds.height();
+            Rectangle bounds = background.getDestRect();
+            this.xSize = bounds.width;
+            this.ySize = bounds.height;
         } else {
             this.xSize = 176;
             this.ySize = 125;

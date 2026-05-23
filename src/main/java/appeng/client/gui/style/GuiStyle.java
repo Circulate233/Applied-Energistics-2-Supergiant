@@ -18,7 +18,6 @@
 
 package appeng.client.gui.style;
 
-import appeng.client.gui.Rect2i;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializationContext;
@@ -28,12 +27,12 @@ import com.google.gson.JsonParseException;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
 import java.lang.reflect.Type;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.Objects;
@@ -44,7 +43,7 @@ public class GuiStyle {
         .disableHtmlEscaping()
         .registerTypeHierarchyAdapter(ITextComponent.class, new TextComponentSerializer())
         .registerTypeAdapter(Blitter.class, BlitterDeserializer.INSTANCE)
-        .registerTypeAdapter(Rect2i.class, Rectangle2dDeserializer.INSTANCE)
+        .registerTypeAdapter(Rectangle.class, Rectangle2dDeserializer.INSTANCE)
         .registerTypeAdapter(Color.class, ColorDeserializer.INSTANCE)
         .create();
 

@@ -20,8 +20,9 @@ package appeng.client.gui.widgets;
 
 import appeng.client.Point;
 import appeng.client.gui.ICompositeWidget;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
+
+import java.awt.Rectangle;
 
 public class BackgroundPanel implements ICompositeWidget {
     private final Blitter background;
@@ -44,13 +45,13 @@ public class BackgroundPanel implements ICompositeWidget {
     }
 
     @Override
-    public Rect2i getBounds() {
-        return new Rect2i(x, y, background.getSrcWidth(), background.getSrcHeight());
+    public Rectangle getBounds() {
+        return new Rectangle(x, y, background.getSrcWidth(), background.getSrcHeight());
     }
 
     @Override
-    public void drawBackgroundLayer(Rect2i bounds, Point mouse) {
-        background.dest(bounds.x() + x, bounds.y() + y).blit();
+    public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
+        background.dest(bounds.x + x, bounds.y + y).blit();
     }
 }
 

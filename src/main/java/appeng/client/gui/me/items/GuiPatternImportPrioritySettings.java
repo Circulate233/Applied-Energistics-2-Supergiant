@@ -3,7 +3,6 @@ package appeng.client.gui.me.items;
 import appeng.api.client.PatternImportPriority;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Icon;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.GuiStyleManager;
 import appeng.client.gui.widgets.AE2Button;
 import appeng.client.gui.widgets.ITooltip;
@@ -15,6 +14,7 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.util.text.TextComponentTranslation;
 
+import java.awt.Rectangle;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.IntConsumer;
@@ -175,8 +175,8 @@ public class GuiPatternImportPrioritySettings extends AEBaseGui<ContainerPattern
         }
 
         @Override
-        public Rect2i getTooltipArea() {
-            return new Rect2i(this.x, this.y, this.width, this.height);
+        public Rectangle getTooltipArea() {
+            return new Rectangle(this.x, this.y, this.width, this.height);
         }
 
         @Override

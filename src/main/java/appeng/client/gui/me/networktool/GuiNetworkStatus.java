@@ -21,7 +21,6 @@ package appeng.client.gui.me.networktool;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.StackWithBounds;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.PaletteColor;
@@ -43,6 +42,7 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextFormatting;
 import org.jetbrains.annotations.Nullable;
 
+import java.awt.Rectangle;
 import java.util.List;
 
 public class GuiNetworkStatus<T extends AEBaseContainer & INetworkStatusContainer> extends AEBaseGui<T> {
@@ -143,7 +143,7 @@ public class GuiNetworkStatus<T extends AEBaseContainer & INetworkStatusContaine
                 }
                 hoveredMachine = new StackWithBounds(
                     new GenericStack(entry.getDisplay(), 0),
-                    new Rect2i(guiLeft + cellX, guiTop + cellY, CELL_WIDTH, CELL_HEIGHT));
+                    new Rectangle(guiLeft + cellX, guiTop + cellY, CELL_WIDTH, CELL_HEIGHT));
             }
 
             if (++x >= COLUMNS) {

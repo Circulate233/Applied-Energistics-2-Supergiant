@@ -19,7 +19,6 @@
 package appeng.client.gui.widgets;
 
 import appeng.client.Point;
-import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.PaletteColor;
@@ -34,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
+import java.awt.Rectangle;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Consumer;
@@ -188,17 +188,19 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
                 yOffset = 24;
             }
 
-            Rect2i bounds = getVisualBounds();
+            Rectangle bounds = getVisualBounds();
 
             BLITTER.copy().src(0, yOffset, 1, 12)
-                   .dest(bounds.x(), bounds.y())
+                   .dest(bounds.x, bounds.y)
                    .blit();
-            int backgroundWidth = Math.min(126, bounds.width() - 2);
+            int backgroundWidth = Math.min(126, bounds.width - 2);
+
             BLITTER.copy().src(1, yOffset, backgroundWidth, 12)
-                   .dest(bounds.x() + 1, bounds.y())
+                   .dest(bounds.x + 1, bounds.y)
                    .blit();
+
             BLITTER.copy().src(127, yOffset, 1, 12)
-                   .dest(bounds.x() + bounds.width() - 1, bounds.y())
+                   .dest(bounds.x + bounds.width - 1, bounds.y)
                    .blit();
 
             super.drawTextBox();
@@ -219,8 +221,8 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
     }
 
     @Override
-    public Rect2i getTooltipArea() {
-        return new Rect2i(
+    public Rectangle getTooltipArea() {
+        return new Rectangle(
             this.x - PADDING,
             this.y - PADDING,
             this.width + 2 * PADDING + this.fontPad,
@@ -247,10 +249,10 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
         this.enabled = enabled;
     }
 
-    private Rect2i getVisualBounds() {
+    private Rectangle getVisualBounds() {
         int left = this.x - PADDING;
         int top = this.y - PADDING;
-        return new Rect2i(
+        return new Rectangle(
             left,
             top,
             this.width + 2 * PADDING + this.fontPad,

@@ -75,10 +75,12 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.TextComponentString;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
 
+import java.awt.Rectangle;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
@@ -114,6 +116,7 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
     private final Map<String, TextOverride> textOverrides = new Object2ObjectOpenHashMap<>();
     private final Set<SlotSemantic> hiddenSlots = new ObjectOpenHashSet<>();
     private final List<SavedSlotInfo> savedSlotInfos = new ObjectArrayList<>();
+    private boolean suppressVanillaSlotHover;
     private GuiStyle requireStyle() {
         return Objects.requireNonNull(style, "GUI style has not been initialized");
     }
@@ -235,12 +238,10 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         }
     }
 
-    private Rect2i getBounds(boolean absolute) {
-        if (absolute) {
-            return new Rect2i(guiLeft, guiTop, xSize, ySize);
-        } else {
-            return new Rect2i(0, 0, xSize, ySize);
-        }
+    private static ITextComponent buildTextFieldInsertionAction(int mouseButton, String insertedText) {
+        return Tooltips.of(ButtonToolTips.SetAction.text(
+            Tooltips.getMouseButtonText(mouseButton),
+            Tooltips.of(new TextComponentString(insertedText))));
     }
 
     private List<Slot> getInventorySlots() {
@@ -264,36 +265,35 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         updateBeforeRender();
         widgets.updateBeforeRender();
-        this.hoveredSlot = findSlot(mouseX, mouseY);
+        Slot aeHoveredSlot = findSlot(mouseX, mouseY);
+        this.hoveredSlot = aeHoveredSlot;
 
         super.drawDefaultBackground();
         prepareDisplayStacksForVanillaRender();
-        super.drawScreen(mouseX, mouseY, partialTicks);
+        this.suppressVanillaSlotHover = true;
+        try {
+            super.drawScreen(mouseX, mouseY, partialTicks);
+        } finally {
+            this.suppressVanillaSlotHover = false;
+        }
+
+        this.hoveredSlot = aeHoveredSlot;
 
         if (this.hoveredSlot != null) {
             renderSlotHighlight(this.hoveredSlot, mouseX, mouseY);
         }
 
-        widgets.drawTextFields(getMousePoint(mouseX, mouseY));
         renderHoveredToolTip(mouseX, mouseY);
         renderWidgetTooltip(mouseX, mouseY);
         renderDebugGuiOverlays();
     }
 
-    private void renderDebugGuiOverlays() {
-        if (!AEConfig.instance().isShowDebugGuiOverlays()) {
-            return;
+    private Rectangle getBounds(boolean absolute) {
+        if (absolute) {
+            return new Rectangle(guiLeft, guiTop, xSize, ySize);
+        } else {
+            return new Rectangle(0, 0, xSize, ySize);
         }
-
-        for (Rect2i rect : getExclusionZones()) {
-            drawGradientRect(rect.x(), rect.y(), rect.x() + rect.width(), rect.y() + rect.height(),
-                    0x7f00ff00, 0x7f00ff00);
-        }
-
-        drawHorizontalLine(guiLeft, guiLeft + xSize - 1, guiTop, 0xffffffff);
-        drawHorizontalLine(guiLeft, guiLeft + xSize - 1, guiTop + ySize - 1, 0xffffffff);
-        drawVerticalLine(guiLeft, guiTop, guiTop + ySize - 1, 0xffffffff);
-        drawVerticalLine(guiLeft + xSize - 1, guiTop, guiTop + ySize - 1, 0xffffffff);
     }
 
     private static boolean isClickedTextField(GuiTextField textField, int mouseX, int mouseY) {
@@ -349,15 +349,21 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
 
     }
 
-    private boolean renderTextFieldInsertionTooltip(int mouseX, int mouseY) {
-        TextFieldInsertionTooltip tooltip = getTextFieldInsertionTooltip(mouseX, mouseY);
-        if (tooltip == null) {
-            return false;
+    private void renderDebugGuiOverlays() {
+        if (!AEConfig.instance().isShowDebugGuiOverlays()) {
+            return;
         }
 
-        drawTooltip(mouseX, mouseY,
-            Tooltips.getEmptyingTooltip(ButtonToolTips.SetAction, tooltip.displayStack(), tooltip.emptyingAction()));
-        return true;
+        for (Rectangle rect : getExclusionZones()) {
+
+            drawGradientRect(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height,
+                0x7f00ff00, 0x7f00ff00);
+        }
+
+        drawHorizontalLine(guiLeft, guiLeft + xSize - 1, guiTop, 0xffffffff);
+        drawHorizontalLine(guiLeft, guiLeft + xSize - 1, guiTop + ySize - 1, 0xffffffff);
+        drawVerticalLine(guiLeft, guiTop, guiTop + ySize - 1, 0xffffffff);
+        drawVerticalLine(guiLeft + xSize - 1, guiTop, guiTop + ySize - 1, 0xffffffff);
     }
 
     private boolean renderDisplayStackTooltip(int mouseX, int mouseY) {
@@ -546,17 +552,14 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         }
     }
 
-    @Override
-    protected final void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
-        widgets.drawForegroundLayer(getBounds(false), getMousePoint(mouseX, mouseY));
-        drawFG(guiLeft, guiTop, mouseX, mouseY);
-
-        if (style != null && shouldDrawStyleText()) {
-            for (Map.Entry<String, Text> entry : style.getText().entrySet()) {
-                TextOverride override = textOverrides.get(entry.getKey());
-                drawText(entry.getValue(), override);
-            }
+    private boolean renderTextFieldInsertionTooltip(int mouseX, int mouseY) {
+        List<ITextComponent> tooltip = getTextFieldInsertionTooltip(mouseX, mouseY);
+        if (tooltip == null) {
+            return false;
         }
+
+        drawTooltip(mouseX, mouseY, tooltip);
+        return true;
     }
 
     private void drawText(Text text, @Nullable TextOverride override) {
@@ -755,16 +758,36 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         return super.checkHotbarKeys(keyCode);
     }
 
+    @Override
+    protected final void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
+        widgets.drawForegroundLayer(getBounds(false), getMousePoint(mouseX, mouseY));
+        drawFG(guiLeft, guiTop, mouseX, mouseY);
+
+        if (style != null && shouldDrawStyleText()) {
+            for (Map.Entry<String, Text> entry : style.getText().entrySet()) {
+                TextOverride override = textOverrides.get(entry.getKey());
+                drawText(entry.getValue(), override);
+            }
+        }
+
+        GlStateManager.pushMatrix();
+        GlStateManager.translate(-guiLeft, -guiTop, 0.0F);
+        try {
+            widgets.drawTextFields(getMousePoint(mouseX, mouseY));
+        } finally {
+            GlStateManager.popMatrix();
+        }
+    }
+
     @Nullable
-    private TextFieldInsertionTooltip getTextFieldInsertionTooltip(int mouseX, int mouseY) {
+    private List<ITextComponent> getTextFieldInsertionTooltip(int mouseX, int mouseY) {
         if (findTextFieldAt(mouseX, mouseY) == null) {
             return null;
         }
 
         ItemStack carried = this.playerInventory.getItemStack();
         if (!carried.isEmpty()) {
-            EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(carried);
-            return emptyingAction != null ? new TextFieldInsertionTooltip(carried, emptyingAction) : null;
+            return buildTextFieldInsertionTooltip(carried);
         }
 
         var hei = Integrations.hei();
@@ -782,8 +805,20 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
             return null;
         }
 
-        EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(displayStack);
-        return emptyingAction != null ? new TextFieldInsertionTooltip(displayStack, emptyingAction) : null;
+        return buildTextFieldInsertionTooltip(displayStack);
+    }
+
+    private List<ITextComponent> buildTextFieldInsertionTooltip(ItemStack stack) {
+        var tooltip = new ObjectArrayList<ITextComponent>();
+        String leftClickText = getTextFieldInsertionText(stack, 0);
+        tooltip.add(buildTextFieldInsertionAction(0, leftClickText));
+
+        String rightClickText = getTextFieldInsertionText(stack, 1);
+        if (!Objects.equals(leftClickText, rightClickText)) {
+            tooltip.add(buildTextFieldInsertionAction(1, rightClickText));
+        }
+
+        return tooltip;
     }
 
     @Override
@@ -1072,8 +1107,30 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         return x >= slot.xPos && x < slot.xPos + width && y >= slot.yPos && y < slot.yPos + height;
     }
 
+    @Override
+    protected boolean isPointInRegion(int left, int top, int width, int height, int pointX, int pointY) {
+        if (this.suppressVanillaSlotHover) {
+            return false;
+        }
+
+        return super.isPointInRegion(left, top, width, height, pointX, pointY);
+    }
+
+    private boolean isHoveringForHighlight(Slot slot, int mouseX, int mouseY) {
+        int x = mouseX - guiLeft;
+        int y = mouseY - guiTop;
+        int width = 16;
+        int height = 16;
+        if (slot instanceof ResizableSlot resizableSlot) {
+            width = resizableSlot.getWidth();
+            height = resizableSlot.getHeight();
+        }
+        return x >= slot.xPos - 1 && x < slot.xPos + width + 1
+            && y >= slot.yPos - 1 && y < slot.yPos + height + 1;
+    }
+
     protected void renderSlotHighlight(Slot slot, int mouseX, int mouseY) {
-        if (!isHovering(slot, mouseX, mouseY)) {
+        if (!isHoveringForHighlight(slot, mouseX, mouseY)) {
             return;
         }
 
@@ -1089,7 +1146,7 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         GlStateManager.disableLighting();
         GlStateManager.disableDepth();
         GlStateManager.colorMask(true, true, true, false);
-        this.drawGradientRect(x, y, x + width, y + height, 0x669cd3ff, 0x669cd3ff);
+        this.drawGradientRect(x - 1, y - 1, x + width + 1, y + height + 1, 0x669cd3ff, 0x669cd3ff);
         GlStateManager.colorMask(true, true, true, true);
         GlStateManager.enableDepth();
         GlStateManager.enableLighting();
@@ -1103,8 +1160,8 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         return handlingRightClick;
     }
 
-    public List<Rect2i> getExclusionZones() {
-        List<Rect2i> result = new ObjectArrayList<>(2);
+    public List<Rectangle> getExclusionZones() {
+        List<Rectangle> result = new ObjectArrayList<>(2);
         widgets.addExclusionZones(result, getBounds(true));
         return result;
     }
@@ -1167,9 +1224,6 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
 
     public final T getContainer() {
         return container;
-    }
-
-    private record TextFieldInsertionTooltip(ItemStack displayStack, EmptyingAction emptyingAction) {
     }
 
     public final void switchToScreen(AEBaseGui<?> screen) {

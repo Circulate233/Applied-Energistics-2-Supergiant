@@ -1,14 +1,14 @@
 package appeng.block.misc;
 
+import appeng.core.localization.GuiText;
 import net.minecraft.block.material.Material;
 import net.minecraft.block.state.IBlockState;
+import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.BlockRenderLayer;
 import net.minecraft.world.World;
 
 import java.util.List;
-
-import appeng.core.localization.GuiText;
 
 public class NotSoMysteriousCubeBlock extends AEDecorativeBlock {
     public NotSoMysteriousCubeBlock() {
@@ -23,10 +23,9 @@ public class NotSoMysteriousCubeBlock extends AEDecorativeBlock {
     }
 
     @Override
-    public void addInformation(ItemStack stack, World world, List<String> tooltip,
-                               net.minecraft.client.util.ITooltipFlag advanced) {
-        super.addInformation(stack, world, tooltip, advanced);
-        tooltip.add(GuiText.NotSoMysteriousQuote.getLocal());
+    protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
+        super.addCheckedInformation(stack, world, lines, advancedTooltips);
+        lines.add(GuiText.NotSoMysteriousQuote.getLocal());
     }
 
     public boolean canRenderInLayer(IBlockState state, BlockRenderLayer layer) {
