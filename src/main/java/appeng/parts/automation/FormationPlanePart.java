@@ -55,6 +55,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.text.ITextComponent;
@@ -290,6 +291,14 @@ public class FormationPlanePart extends UpgradeablePart implements IStorageProvi
             openConfigGui(player);
         }
         return true;
+    }
+
+    @Override
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
+        if (super.onUseItemOn(heldItem, player, hand, pos)) {
+            return true;
+        }
+        return this.onUseWithoutItem(player, pos);
     }
 
     @Override

@@ -42,7 +42,9 @@ import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
 import appeng.util.ConfigInventory;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.Nullable;
@@ -290,6 +292,14 @@ public class StorageLevelEmitterPart extends AbstractLevelEmitterPart
             GuiOpener.openPartGui(player, GuiIds.GuiKey.STORAGE_LEVEL_EMITTER, this);
         }
         return true;
+    }
+
+    @Override
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
+        if (super.onUseItemOn(heldItem, player, hand, pos)) {
+            return true;
+        }
+        return this.onUseWithoutItem(player, pos);
     }
 
     public ConfigInventory getConfig() {

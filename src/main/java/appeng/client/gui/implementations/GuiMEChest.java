@@ -38,7 +38,7 @@ public class GuiMEChest extends AEBaseGui<ContainerMEChest> {
     protected void updateBeforeRender() {
         super.updateBeforeRender();
         var title = this.container.getGuiTitle();
-        if (title != null && !title.getUnformattedText().isEmpty()) {
+        if (title != null && !title.getFormattedText().isEmpty()) {
             setTextContent(TEXT_ID_DIALOG_TITLE, title);
         }
     }

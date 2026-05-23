@@ -270,7 +270,9 @@ public class TileVibrationChamber extends AENetworkedInvTile implements IGridTic
     }
 
     private void setCurrentFuelTicksPerTick(double currentFuelTicksPerTick) {
-        this.currentFuelTicksPerTick = Math.clamp(this.getMaxFuelTicksPerTick(), this.getMinFuelTicksPerTick(), currentFuelTicksPerTick);
+        double minFuelTicksPerTick = Math.min(this.getMinFuelTicksPerTick(), this.getMaxFuelTicksPerTick());
+        double maxFuelTicksPerTick = Math.max(this.getMinFuelTicksPerTick(), this.getMaxFuelTicksPerTick());
+        this.currentFuelTicksPerTick = Math.clamp(currentFuelTicksPerTick, minFuelTicksPerTick, maxFuelTicksPerTick);
     }
 
     public double getMaxFuelTicksPerTick() {
@@ -292,8 +294,10 @@ public class TileVibrationChamber extends AENetworkedInvTile implements IGridTic
     }
 
     private double getInitialFuelTicksPerTick() {
-        return Math.clamp(this.getMaxFuelTicksPerTick(), this.getMinFuelTicksPerTick(),
-            AEConfig.instance().getVibrationChamberBaseEnergyPerFuelTick() / this.getEnergyPerFuelTick());
+        double minFuelTicksPerTick = Math.min(this.getMinFuelTicksPerTick(), this.getMaxFuelTicksPerTick());
+        double maxFuelTicksPerTick = Math.max(this.getMinFuelTicksPerTick(), this.getMaxFuelTicksPerTick());
+        return Math.clamp(AEConfig.instance().getVibrationChamberBaseEnergyPerFuelTick() / this.getEnergyPerFuelTick(),
+            minFuelTicksPerTick, maxFuelTicksPerTick);
     }
 
     private double getSpeedScalingPerTick() {

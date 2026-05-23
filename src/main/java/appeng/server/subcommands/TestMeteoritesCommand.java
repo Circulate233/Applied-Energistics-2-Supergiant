@@ -4,6 +4,9 @@ import appeng.server.ISubCommand;
 import appeng.worldgen.meteorite.MeteoriteStructurePiece;
 import appeng.worldgen.meteorite.MeteoritesWorldData;
 import appeng.worldgen.meteorite.PlacedMeteoriteSettings;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.NumberInvalidException;
@@ -14,8 +17,6 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -64,6 +65,20 @@ public class TestMeteoritesCommand implements ISubCommand {
     @Override
     public String getHelp(MinecraftServer srv) {
         return "commands.ae2.test_meteorites";
+    }
+
+    @Override
+    public List<String> getTabCompletions(MinecraftServer srv, ICommandSender sender, String[] args,
+                                          BlockPos targetPos) {
+        if (args.length == 2) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, "~", Integer.toString(sender.getPosition().getX()));
+        }
+
+        if (args.length == 3) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, "~", Integer.toString(sender.getPosition().getZ()));
+        }
+
+        return ISubCommand.super.getTabCompletions(srv, sender, args, targetPos);
     }
 
     @Override

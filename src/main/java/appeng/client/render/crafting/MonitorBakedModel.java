@@ -18,8 +18,8 @@
 
 package appeng.client.render.crafting;
 
-import appeng.api.orientation.IOrientationStrategy;
 import appeng.api.util.AEColor;
+import appeng.block.AEBaseTileBlock;
 import appeng.block.crafting.AbstractCraftingUnitBlock;
 import appeng.block.crafting.CraftingMonitorBlock;
 import appeng.client.render.cablebus.CubeBuilder;
@@ -58,10 +58,21 @@ class MonitorBakedModel extends CraftingCubeBakedModel {
         return AEColor.TRANSPARENT;
     }
 
+    private static EnumFacing getForward(IBlockState state) {
+        if (state instanceof IExtendedBlockState) {
+            EnumFacing forward = ((IExtendedBlockState) state).getValue(AEBaseTileBlock.FORWARD);
+            if (forward != null) {
+                return forward;
+            }
+        }
+
+        return EnumFacing.NORTH;
+    }
+
     @Override
     protected void addInnerCube(EnumFacing side, IBlockState state, CubeBuilder builder, float x1, float y1, float z1,
                                 float x2, float y2, float z2) {
-        EnumFacing forward = IOrientationStrategy.get(state).getFacing(state);
+        EnumFacing forward = getForward(state);
 
         if (side != forward) {
             builder.setTexture(this.chassisTexture);

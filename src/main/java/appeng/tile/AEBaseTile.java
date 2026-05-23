@@ -130,7 +130,7 @@ public class AEBaseTile extends TileEntity implements ITickable {
         }
 
         if (this.customName != null) {
-            data.setString(CUSTOM_NAME_TAG, this.customName.getUnformattedText());
+            data.setString(CUSTOM_NAME_TAG, this.customName.getFormattedText());
         }
     }
 
@@ -296,11 +296,11 @@ public class AEBaseTile extends TileEntity implements ITickable {
     public void exportSettings(SettingsFrom mode, NBTTagCompound output) {
         if (mode == SettingsFrom.DISMANTLE_ITEM) {
             if (this.customName != null) {
-                output.setString(CUSTOM_NAME_TAG, this.customName.getUnformattedText());
+                output.setString(CUSTOM_NAME_TAG, this.customName.getFormattedText());
             }
         } else if (mode == SettingsFrom.MEMORY_CARD) {
             if (this.customName != null) {
-                output.setString(MEMORY_CARD_CUSTOM_NAME_TAG, this.customName.getUnformattedText());
+                output.setString(MEMORY_CARD_CUSTOM_NAME_TAG, this.customName.getFormattedText());
             }
             MemoryCardItem.exportGenericSettings(this, output);
         }
@@ -394,7 +394,12 @@ public class AEBaseTile extends TileEntity implements ITickable {
         if (currentState != null && currentState.getBlock() instanceof AEBaseTileBlock<?> block) {
             IBlockState newState = block.getTileEntityBlockState(currentState, this);
             if (currentState != newState) {
-                this.markForUpdate();
+                if (this.world != null && this.world.isRemote) {
+                    this.world.setBlockState(this.pos, newState, 2);
+                    this.world.markBlockRangeForRenderUpdate(this.pos, this.pos);
+                } else {
+                    this.markForUpdate();
+                }
             }
         }
     }
@@ -478,7 +483,7 @@ public class AEBaseTile extends TileEntity implements ITickable {
             this.syncOrientationFromBlockState(this.getBlockState());
         }
         this.refreshOrientation();
-        if (this.world != null && !this.world.isRemote) {
+        if (this.world != null) {
             this.refreshBlockStateAfterReady();
         }
         if (this.pendingVisualStateUpdate && this.world != null && this.world.isRemote) {

@@ -31,7 +31,7 @@ import java.util.Comparator;
 final class KeySorters {
 
     public static final Comparator<AEKey> NAME_ASC = Comparator.comparing(
-        is -> is.getDisplayName().getUnformattedText(),
+        is -> is.getDisplayName().getFormattedText(),
         String::compareToIgnoreCase);
     public static final Comparator<AEKey> NAME_DESC = NAME_ASC.reversed();
     public static final Comparator<AEKey> MOD_ASC = Comparator.comparing(

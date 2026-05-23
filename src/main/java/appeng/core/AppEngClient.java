@@ -48,6 +48,7 @@ import appeng.entity.TinyTNTPrimedEntity;
 import appeng.entity.TinyTNTPrimedRenderer;
 import appeng.helpers.IMouseWheelItem;
 import appeng.hooks.RenderBlockOutlineHook;
+import appeng.hooks.WirelessTerminalPickBlockHook;
 import appeng.init.client.InitBlockColors;
 import appeng.init.client.InitBuiltInModels;
 import appeng.init.client.InitGuis;
@@ -208,6 +209,7 @@ public final class AppEngClient extends AppEngServer {
     @SubscribeEvent
     public void clientTick(TickEvent.ClientTickEvent event) {
         if (event.phase == TickEvent.Phase.START) {
+            WirelessTerminalPickBlockHook.tick();
             updateCableRenderMode();
             syncPartPlacementOppositeState();
             return;

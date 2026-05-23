@@ -147,19 +147,19 @@ public class EncodedPatternItem<T extends IPatternDetails> extends AEBaseItem {
         }
 
         for (var output : tooltip.getOutputs()) {
-            lines.add(formatLine(tooltip.getOutputMethod(), getTooltipEntryLine(output)).getUnformattedText());
+            lines.add(formatLine(tooltip.getOutputMethod(), getTooltipEntryLine(output)).getFormattedText());
         }
 
         var withText = GuiText.With.text();
         for (var input : tooltip.getInputs()) {
-            lines.add(formatLine(withText, getTooltipEntryLine(input)).getUnformattedText());
+            lines.add(formatLine(withText, getTooltipEntryLine(input)).getFormattedText());
         }
 
         for (var property : tooltip.getProperties()) {
             if (property.value() != null) {
-                lines.add(formatLine(property.name(), property.value()).getUnformattedText());
+                lines.add(formatLine(property.name(), property.value()).getFormattedText());
             } else {
-                lines.add(property.name().getUnformattedText());
+                lines.add(property.name().getFormattedText());
             }
         }
     }

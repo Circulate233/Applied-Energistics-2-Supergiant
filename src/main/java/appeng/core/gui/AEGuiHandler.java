@@ -72,7 +72,6 @@ import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.core.gui.locator.PartLocator;
 import appeng.helpers.WirelessCraftingTerminalGuiHost;
 import appeng.items.contents.NetworkToolGuiHost;
-import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.parts.AEBasePart;
 import appeng.parts.automation.EnergyLevelEmitterPart;
 import appeng.parts.automation.ExportBusPart;
@@ -110,7 +109,6 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
-import net.minecraft.util.text.TextComponentString;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.common.network.IGuiHandler;
 import org.jspecify.annotations.Nullable;
@@ -541,13 +539,9 @@ public class AEGuiHandler implements IGuiHandler {
             }
             case CRAFTING_CPU -> {
                 if (te instanceof TileCraftingUnit craftingUnit) {
-                    CraftingCPUCluster cluster = craftingUnit.getCluster();
-                    ITextComponent title = cluster != null && cluster.getName() != null
-                        ? cluster.getName()
-                        : new TextComponentString("");
                     ContainerCraftingCPU container = initTileContainer(new ContainerCraftingCPU(player.inventory,
-                        craftingUnit, title), te, ID);
-                    return new GuiCraftingCPU<>(container, player.inventory, container.getInitialTitle(),
+                        craftingUnit), te, ID);
+                    return new GuiCraftingCPU<>(container, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/crafting_status.json"));
                 }
             }

@@ -32,15 +32,15 @@ public final class MEIngredientActions {
         };
     }
 
-    public static boolean handleWirelessTerminals(EntityPlayerMP player, MEIngredientAction action,
-                                                  GenericStack stack) {
+    public static void handleWirelessTerminals(EntityPlayerMP player, MEIngredientAction action,
+                                               GenericStack stack) {
         int inventorySize = player.inventory.getSizeInventory();
         for (int slot = 0; slot < inventorySize; slot++) {
             if (!isGuiItem(player.inventory.getStackInSlot(slot))) {
                 continue;
             }
             if (handleWirelessTerminal(player, GuiHostLocators.forInventorySlot(slot), action, stack)) {
-                return true;
+                return;
             }
         }
 
@@ -50,11 +50,45 @@ public final class MEIngredientActions {
                 continue;
             }
             if (handleWirelessTerminal(player, GuiHostLocators.forBaubleSlot(slot), action, stack)) {
-                return true;
+                return;
             }
         }
 
-        return false;
+    }
+
+    public static void retrieveToHotbarFromWirelessTerminals(EntityPlayerMP player, ItemStack target,
+                                                             int hotbarSlot) {
+        if (target.isEmpty() || !InventoryPlayer.isHotbar(hotbarSlot)) {
+            return;
+        }
+
+        AEItemKey targetKey = AEItemKey.of(target);
+        if (targetKey == null) {
+            return;
+        }
+
+        int inventorySize = player.inventory.getSizeInventory();
+        for (int slot = 0; slot < inventorySize; slot++) {
+            if (!isGuiItem(player.inventory.getStackInSlot(slot))) {
+                continue;
+            }
+            if (retrieveToHotbarFromWirelessTerminal(player, GuiHostLocators.forInventorySlot(slot), targetKey, target,
+                hotbarSlot)) {
+                return;
+            }
+        }
+
+        int baubleSlots = BaublesIntegration.getSlots(player);
+        for (int slot = 0; slot < baubleSlots; slot++) {
+            if (!isGuiItem(BaublesIntegration.getStackInSlot(player, slot))) {
+                continue;
+            }
+            if (retrieveToHotbarFromWirelessTerminal(player, GuiHostLocators.forBaubleSlot(slot), targetKey, target,
+                hotbarSlot)) {
+                return;
+            }
+        }
+
     }
 
     private static boolean handleWirelessTerminal(EntityPlayerMP player, GuiHostLocator locator,
@@ -76,7 +110,7 @@ public final class MEIngredientActions {
         return switch (action) {
             case RETRIEVE -> stack.what() instanceof AEItemKey itemKey
                 && retrieveFromWirelessTerminal(player, host, actionHost, itemKey);
-            case CRAFT -> openWirelessCraftAmount(player, locator, node, stack.what());
+            case CRAFT -> openWirelessCraftAmount(player, locator, node, stack.what(), stack.amount(), true);
         };
     }
 
@@ -101,13 +135,83 @@ public final class MEIngredientActions {
     }
 
     private static boolean openWirelessCraftAmount(EntityPlayerMP player, GuiHostLocator locator, IGridNode node,
-                                                   AEKey what) {
+                                                   AEKey what, long initialAmount,
+                                                   boolean preserveReturnToContainerOverride) {
         if (!node.getGrid().getCraftingService().isCraftable(what)) {
             return false;
         }
 
-        ContainerCraftAmount.open(player, locator, what, what.getAmountPerUnit(), player.openContainer);
+        int amount = Math.clamp(initialAmount, what.getAmountPerUnit(), Integer.MAX_VALUE);
+        if (preserveReturnToContainerOverride) {
+            ContainerCraftAmount.open(player, locator, what, amount, player.openContainer);
+        } else {
+            ContainerCraftAmount.open(player, locator, what, amount);
+        }
         return true;
+    }
+
+    private static boolean retrieveToHotbarFromWirelessTerminal(EntityPlayerMP player, GuiHostLocator locator,
+                                                                AEItemKey targetKey, ItemStack target, int hotbarSlot) {
+        ITerminalHost host = locator.locate(player, ITerminalHost.class);
+        if (!(host instanceof IPortableTerminal) || !host.getLinkStatus().connected()) {
+            return false;
+        }
+
+        if (!(host instanceof IActionHost actionHost)) {
+            return false;
+        }
+
+        IGridNode node = actionHost.getActionableNode();
+        if (node == null || !node.isActive()) {
+            return false;
+        }
+
+        return retrieveToHotbar(player, locator, host, actionHost, node, targetKey, target, hotbarSlot);
+    }
+
+    private static boolean retrieveToHotbar(EntityPlayerMP player, GuiHostLocator locator, ITerminalHost host,
+                                            IActionHost actionHost, IGridNode node, AEItemKey targetKey,
+                                            ItemStack target, int hotbarSlot) {
+        ItemStack hotbarStack = player.inventory.getStackInSlot(hotbarSlot);
+        if (!hotbarStack.isEmpty()) {
+            AEItemKey hotbarKey = AEItemKey.of(hotbarStack);
+            if (hotbarKey == null || !hotbarKey.equals(targetKey)) {
+                return false;
+            }
+        }
+
+        int amount = getRetrievableHotbarAmount(target, hotbarStack, targetKey);
+        if (amount <= 0) {
+            return false;
+        }
+
+        IEnergySource energySource = host instanceof IEnergySource source
+            ? source
+            : new ActionHostEnergySource(actionHost);
+        long extracted = StorageHelper.poweredExtraction(energySource, host.getInventory(), targetKey, amount,
+            new PlayerSource(player, actionHost));
+        if (extracted <= 0) {
+            return openWirelessCraftAmount(player, locator, node, targetKey, target.getCount(), false);
+        }
+
+        if (hotbarStack.isEmpty()) {
+            player.inventory.setInventorySlotContents(hotbarSlot, targetKey.toStack((int) extracted));
+        } else {
+            hotbarStack.grow((int) extracted);
+            player.inventory.setInventorySlotContents(hotbarSlot, hotbarStack);
+        }
+        return true;
+    }
+
+    private static int getRetrievableHotbarAmount(ItemStack target, ItemStack hotbarStack, AEItemKey targetKey) {
+        int maxStackSize = targetKey.getMaxStackSize();
+        int requestedAmount = Math.min(target.getCount(), maxStackSize);
+        if (hotbarStack.isEmpty()) {
+            return requestedAmount;
+        }
+
+        int slotLimit = Math.min(hotbarStack.getMaxStackSize(), maxStackSize);
+        return Math.clamp(slotLimit - hotbarStack.getCount(), 0, requestedAmount);
     }
 
     private static int getInsertableAmount(InventoryPlayer inventory, AEItemKey what) {

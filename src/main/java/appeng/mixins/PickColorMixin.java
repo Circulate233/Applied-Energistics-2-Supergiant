@@ -1,6 +1,7 @@
 package appeng.mixins;
 
 import appeng.hooks.ColorApplicatorPickColorHook;
+import appeng.hooks.WirelessTerminalPickBlockHook;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.entity.EntityPlayerSP;
 import net.minecraft.util.math.RayTraceResult;
@@ -25,6 +26,14 @@ public class PickColorMixin {
             if (ColorApplicatorPickColorHook.onPickColor(this.player, this.objectMouseOver)) {
                 ci.cancel();
             }
+        }
+    }
+
+    @Inject(method = "middleClickMouse", at = @At("TAIL"))
+    private void wirelessPickBlock(CallbackInfo ci) {
+        if (this.player != null && this.objectMouseOver != null
+            && this.objectMouseOver.typeOfHit == RayTraceResult.Type.BLOCK) {
+            WirelessTerminalPickBlockHook.onPickBlock(this.player, this.objectMouseOver);
         }
     }
 }

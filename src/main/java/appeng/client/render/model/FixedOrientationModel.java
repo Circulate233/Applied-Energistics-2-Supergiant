@@ -37,19 +37,23 @@ public class FixedOrientationModel extends DelegateBakedModel {
             return super.getQuads(state, side, rand);
         }
 
+        if (state != null) {
+            return this.getRotatedQuads(state, side, rand);
+        }
+
         if (side == null) {
             if (this.nullSideCache == null) {
-                this.nullSideCache = this.getRotatedQuads(null);
+                this.nullSideCache = this.getRotatedQuads(null, null, 0L);
             }
             return this.nullSideCache;
         }
 
-        return this.sideCache.computeIfAbsent(side, this::getRotatedQuads);
+        return this.sideCache.computeIfAbsent(side, key -> this.getRotatedQuads(null, key, 0L));
     }
 
-    private List<BakedQuad> getRotatedQuads(@Nullable EnumFacing side) {
+    private List<BakedQuad> getRotatedQuads(@Nullable IBlockState state, @Nullable EnumFacing side, long rand) {
         EnumFacing sourceSide = side == null ? null : this.rotation.resultingRotate(side);
-        List<BakedQuad> quads = super.getQuads(null, sourceSide, 0L);
+        List<BakedQuad> quads = super.getQuads(state, sourceSide, rand);
         if (quads.isEmpty()) {
             return quads;
         }

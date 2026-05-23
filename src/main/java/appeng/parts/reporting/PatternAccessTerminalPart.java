@@ -31,7 +31,9 @@ import appeng.core.gui.GuiOpener;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
 
@@ -60,6 +62,14 @@ public class PatternAccessTerminalPart extends AbstractDisplayPart implements IP
             GuiOpener.openPartGui(player, GuiIds.GuiKey.PATTERN_ACCESS_TERMINAL, this);
         }
         return true;
+    }
+
+    @Override
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
+        if (super.onUseItemOn(heldItem, player, hand, pos)) {
+            return true;
+        }
+        return this.onUseWithoutItem(player, pos);
     }
 
     @Override

@@ -41,6 +41,7 @@ import appeng.client.gui.style.TerminalStyle;
 import appeng.client.gui.widgets.AETextField;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.ISortSource;
+import appeng.client.gui.widgets.ITextFieldGui;
 import appeng.client.gui.widgets.KeyTypeSelectionButton;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.client.gui.widgets.SettingToggleButton;
@@ -68,6 +69,8 @@ import appeng.text.TextComponentItemStack;
 import appeng.util.Platform;
 import appeng.util.prioritylist.IPartitionList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -84,12 +87,13 @@ import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> implements ISortSource {
+public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> implements ISortSource, ITextFieldGui {
     private static final String TEXT_ID_ENTRIES_SHOWN = "entriesShown";
     private static final int MIN_ROWS = 2;
     private static final int DEFAULT_ROWS = 5;
@@ -826,6 +830,11 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
                 info.canPrune = true;
             }
         }
+    }
+
+    @Override
+    public Collection<? extends GuiTextField> getTextFields() {
+        return ObjectLists.singleton(this.searchField);
     }
 }
 

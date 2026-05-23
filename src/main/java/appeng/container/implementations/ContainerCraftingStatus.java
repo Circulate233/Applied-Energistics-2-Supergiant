@@ -51,7 +51,7 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISu
 
     private static final Comparator<CraftingCpuListEntry> CPU_COMPARATOR = Comparator
         .comparing((CraftingCpuListEntry e) -> e.name() == null)
-        .thenComparing(e -> e.name() != null ? e.name().getUnformattedText() : "")
+        .thenComparing(e -> e.name() != null ? e.name().getFormattedText() : "")
         .thenComparingInt(CraftingCpuListEntry::serial);
 
     private static final String ACTION_SELECT_CPU = "selectCpu";

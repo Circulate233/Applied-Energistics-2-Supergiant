@@ -65,6 +65,7 @@ import net.minecraft.stats.StatBasic;
 import net.minecraft.stats.StatList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
@@ -209,6 +210,14 @@ public class StorageBusPart extends UpgradeablePart
         return true;
     }
 
+    @Override
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
+        if (super.onUseItemOn(heldItem, player, hand, pos)) {
+            return true;
+        }
+        return this.onUseWithoutItem(player, pos);
+    }
+
     protected final void openConfigGui(EntityPlayer player) {
         GuiOpener.openPartGui(player, getGuiKey(), this);
     }
@@ -247,7 +256,9 @@ public class StorageBusPart extends UpgradeablePart
     @Override
     public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
         if (pos.offset(getSide()).equals(neighbor) && !isClientSide()) {
-            getMainNode().ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
+            this.adjacentStorageAccessor.onNeighborChanged(neighbor);
+            this.clearCachedExternalStorageStrategies();
+            this.scheduleUpdate();
         }
     }
 

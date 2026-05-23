@@ -3,14 +3,28 @@ package appeng.server.subcommands;
 import appeng.core.localization.PlayerMessages;
 import appeng.me.service.TickManagerService;
 import appeng.server.ISubCommand;
+import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
+
+import java.util.List;
+
 public class TickMonitoring implements ISubCommand {
     @Override
     public String getHelp(MinecraftServer srv) {
         return "commands.ae2.tickmonitor";
+    }
+
+    @Override
+    public List<String> getTabCompletions(MinecraftServer srv, ICommandSender sender, String[] args,
+                                          BlockPos targetPos) {
+        if (args.length == 2) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, "on", "off", "true", "false");
+        }
+        return ISubCommand.super.getTabCompletions(srv, sender, args, targetPos);
     }
 
     @Override

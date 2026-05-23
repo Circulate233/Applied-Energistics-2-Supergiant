@@ -21,6 +21,7 @@ package appeng.client.render.model;
 import appeng.decorative.solid.GlassState;
 import appeng.decorative.solid.QuartzGlassBlock;
 import com.google.common.base.Strings;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.renderer.block.model.BakedQuad;
 import net.minecraft.client.renderer.block.model.IBakedModel;
@@ -34,7 +35,6 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraftforge.client.model.pipeline.UnpackedBakedQuad;
 import net.minecraftforge.common.property.IExtendedBlockState;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import javax.annotation.Nullable;
 import java.util.Collections;
@@ -155,6 +155,9 @@ public class GlassBakedModel implements IBakedModel {
 
         UnpackedBakedQuad.Builder builder = new UnpackedBakedQuad.Builder(this.vertexFormat);
         builder.setTexture(sprite);
+        builder.setQuadOrientation(side);
+        builder.setQuadTint(-1);
+        builder.setApplyDiffuseLighting(false);
         this.putVertex(builder, normal, c1.x, c1.y, c1.z, sprite, u1, v1);
         this.putVertex(builder, normal, c2.x, c2.y, c2.z, sprite, u1, v2);
         this.putVertex(builder, normal, c3.x, c3.y, c3.z, sprite, u2, v2);
@@ -176,7 +179,9 @@ public class GlassBakedModel implements IBakedModel {
                     if (this.vertexFormat.getElement(e).getIndex() == 0) {
                         builder.put(e, sprite.getInterpolatedU(u), sprite.getInterpolatedV(v), 0f, 1f);
                     } else {
-                        builder.put(e, (float) normal.x, (float) normal.y, (float) normal.z, 0f);
+                        final float lightMapU = (float) (15 * 0x20) / 0xFFFF;
+                        final float lightMapV = (float) (15 * 0x20) / 0xFFFF;
+                        builder.put(e, lightMapU, lightMapV);
                     }
                 }
                 case NORMAL -> builder.put(e, (float) normal.x, (float) normal.y, (float) normal.z, 0f);

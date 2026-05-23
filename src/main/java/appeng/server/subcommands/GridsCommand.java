@@ -21,6 +21,7 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
+import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
@@ -54,6 +55,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -256,6 +258,24 @@ public class GridsCommand implements ISubCommand {
     @Override
     public String getHelp(MinecraftServer srv) {
         return "commands.ae2.grids";
+    }
+
+    @Override
+    public List<String> getTabCompletions(MinecraftServer srv, ICommandSender sender, String[] args,
+                                          BlockPos targetPos) {
+        if (args.length == 2) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, "export");
+        }
+
+        if (args.length == 3 && "export".equalsIgnoreCase(args[1])) {
+            ObjectSet<String> candidates = new ObjectOpenHashSet<>();
+            for (Grid grid : TickHandler.instance().getGridList()) {
+                candidates.add(Integer.toString(grid.getSerialNumber()));
+            }
+            return CommandBase.getListOfStringsMatchingLastWord(args, candidates);
+        }
+
+        return ISubCommand.super.getTabCompletions(srv, sender, args, targetPos);
     }
 
     @Override

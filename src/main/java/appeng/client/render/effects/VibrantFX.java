@@ -22,6 +22,7 @@ import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.world.World;
 
 public class VibrantFX extends Particle {
+    private final boolean usesAtlasSprite;
 
     public VibrantFX(World world, double x, double y, double z, double motionX,
                      double motionY, double motionZ, TextureAtlasSprite sprite) {
@@ -39,14 +40,17 @@ public class VibrantFX extends Particle {
         this.prevPosY = this.posY;
         this.prevPosZ = this.posZ;
         this.particleMaxAge = (int) (20.0D / (Math.random() * 0.8D + 0.1D));
+        this.usesAtlasSprite = sprite != null;
         if (sprite != null) {
             this.setParticleTexture(sprite);
+        } else {
+            this.setParticleTextureIndex(0);
         }
     }
 
     @Override
     public int getFXLayer() {
-        return 1;
+        return this.usesAtlasSprite ? 1 : 0;
     }
 
     @Override

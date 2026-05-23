@@ -18,6 +18,7 @@
 
 package appeng.client.gui;
 
+import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.behaviors.EmptyingAction;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.stacks.AmountFormat;
@@ -34,6 +35,8 @@ import appeng.client.gui.style.SlotPosition;
 import appeng.client.gui.style.Text;
 import appeng.client.gui.style.TextAlignment;
 import appeng.client.gui.style.WidgetStyle;
+import appeng.client.gui.widgets.AETextField;
+import appeng.client.gui.widgets.ITextFieldGui;
 import appeng.client.gui.widgets.VerticalButtonBar;
 import appeng.container.AEBaseContainer;
 import appeng.container.SlotSemantic;
@@ -293,17 +296,17 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         drawVerticalLine(guiLeft + xSize - 1, guiTop, guiTop + ySize - 1, 0xffffffff);
     }
 
-    private void renderWidgetTooltip(int mouseX, int mouseY) {
-        if (getEmptyingAction(this.hoveredSlot, playerInventory.getItemStack()) != null) {
-            return;
+    private static boolean isClickedTextField(GuiTextField textField, int mouseX, int mouseY) {
+        if (!textField.getVisible()) {
+            return false;
         }
 
-        Tooltip tooltip = widgets.getTooltip(mouseX - guiLeft, mouseY - guiTop);
-        if (tooltip != null && !tooltip.content().isEmpty()) {
-            drawTooltip(mouseX, mouseY, tooltip.content());
-            return;
+        if (textField instanceof AETextField aeTextField) {
+            return aeTextField.isMouseOver(mouseX, mouseY);
         }
 
+        return mouseX >= textField.x && mouseX < textField.x + textField.width
+            && mouseY >= textField.y && mouseY < textField.y + textField.height;
     }
 
     private boolean renderEmptyingTooltip(int mouseX, int mouseY) {
@@ -318,29 +321,43 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         return false;
     }
 
-    @Override
-    protected void renderHoveredToolTip(int mouseX, int mouseY) {
-        if (renderEmptyingTooltip(mouseX, mouseY)) {
-            return;
-        } else if (renderHeiIngredientTooltip(mouseX, mouseY)) {
-            return;
-        } else if (this.hoveredSlot instanceof AppEngSlot appEngSlot) {
-            List<ITextComponent> customTooltip = appEngSlot.getCustomTooltip(playerInventory.getItemStack());
-            if (customTooltip != null) {
-                drawTooltip(mouseX, mouseY, customTooltip);
-                return;
+    public static String getTextFieldInsertionText(ItemStack stack, int mouseButton) {
+        if (mouseButton == 1) {
+            GenericStack containedStack = ContainerItemStrategies.getContainedStack(stack);
+            if (containedStack != null) {
+                return containedStack.what().getDisplayName().getFormattedText();
             }
         }
 
-        if (renderDisplayStackTooltip(mouseX, mouseY)) {
+        return stack.getDisplayName();
+    }
+
+    private void renderWidgetTooltip(int mouseX, int mouseY) {
+        if (getEmptyingAction(this.hoveredSlot, playerInventory.getItemStack()) != null) {
             return;
         }
 
-        if (renderStorageCellTooltip(mouseX, mouseY)) {
+        if (getTextFieldInsertionTooltip(mouseX, mouseY) != null) {
             return;
         }
 
-        super.renderHoveredToolTip(mouseX, mouseY);
+        Tooltip tooltip = widgets.getTooltip(mouseX - guiLeft, mouseY - guiTop);
+        if (tooltip != null && !tooltip.content().isEmpty()) {
+            drawTooltip(mouseX, mouseY, tooltip.content());
+            return;
+        }
+
+    }
+
+    private boolean renderTextFieldInsertionTooltip(int mouseX, int mouseY) {
+        TextFieldInsertionTooltip tooltip = getTextFieldInsertionTooltip(mouseX, mouseY);
+        if (tooltip == null) {
+            return false;
+        }
+
+        drawTooltip(mouseX, mouseY,
+            Tooltips.getEmptyingTooltip(ButtonToolTips.SetAction, tooltip.displayStack(), tooltip.emptyingAction()));
+        return true;
     }
 
     private boolean renderDisplayStackTooltip(int mouseX, int mouseY) {
@@ -738,10 +755,72 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         return super.checkHotbarKeys(keyCode);
     }
 
+    @Nullable
+    private TextFieldInsertionTooltip getTextFieldInsertionTooltip(int mouseX, int mouseY) {
+        if (findTextFieldAt(mouseX, mouseY) == null) {
+            return null;
+        }
+
+        ItemStack carried = this.playerInventory.getItemStack();
+        if (!carried.isEmpty()) {
+            EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(carried);
+            return emptyingAction != null ? new TextFieldInsertionTooltip(carried, emptyingAction) : null;
+        }
+
+        var hei = Integrations.hei();
+        if (!hei.isEnabled()) {
+            return null;
+        }
+
+        Object ingredient = hei.getCurrentGhostIngredient();
+        if (ingredient == null) {
+            return null;
+        }
+
+        ItemStack displayStack = hei.getDisplayStack(ingredient);
+        if (displayStack.isEmpty()) {
+            return null;
+        }
+
+        EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(displayStack);
+        return emptyingAction != null ? new TextFieldInsertionTooltip(displayStack, emptyingAction) : null;
+    }
+
+    @Override
+    protected void renderHoveredToolTip(int mouseX, int mouseY) {
+        if (renderTextFieldInsertionTooltip(mouseX, mouseY)) {
+            return;
+        } else if (renderEmptyingTooltip(mouseX, mouseY)) {
+            return;
+        } else if (renderHeiIngredientTooltip(mouseX, mouseY)) {
+            return;
+        } else if (this.hoveredSlot instanceof AppEngSlot appEngSlot) {
+            List<ITextComponent> customTooltip = appEngSlot.getCustomTooltip(playerInventory.getItemStack());
+            if (customTooltip != null) {
+                drawTooltip(mouseX, mouseY, customTooltip);
+                return;
+            }
+        }
+
+        if (renderDisplayStackTooltip(mouseX, mouseY)) {
+            return;
+        }
+
+        if (renderStorageCellTooltip(mouseX, mouseY)) {
+            return;
+        }
+
+        super.renderHoveredToolTip(mouseX, mouseY);
+    }
+
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         this.drag_click.clear();
         this.drag_click_sent.clear();
+
+        if (mouseButton == 0 || mouseButton == 1) {
+            writeCarriedItemNameToClickedTextField(mouseX, mouseY, mouseButton);
+        }
 
         if (mouseButton == 1) {
             handlingRightClick = true;
@@ -762,6 +841,48 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
             return;
         }
         super.mouseClicked(mouseX, mouseY, mouseButton);
+    }
+
+    private void writeCarriedItemNameToClickedTextField(int mouseX, int mouseY, int mouseButton) {
+        ItemStack carried = this.playerInventory.getItemStack();
+        if (carried.isEmpty()) {
+            return;
+        }
+
+        GuiTextField textField = findTextFieldAt(mouseX, mouseY);
+        if (textField == null) {
+            return;
+        }
+
+        String text = getTextFieldInsertionText(carried, mouseButton);
+        if (textField instanceof AETextField aeTextField) {
+            aeTextField.setTextFromClient(text);
+        } else {
+            textField.setText(text);
+        }
+    }
+
+    @Nullable
+    private GuiTextField findTextFieldAt(int mouseX, int mouseY) {
+        for (GuiTextField textField : this.widgets.getTextFields()) {
+            if (isClickedTextField(textField, mouseX, mouseY)) {
+                return textField;
+            }
+        }
+
+        if (this instanceof ITextFieldGui textFieldGui) {
+            for (GuiTextField textField : textFieldGui.getTextFields()) {
+                if (isClickedTextField(textField, mouseX, mouseY)) {
+                    return textField;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    public WidgetContainer getWidgets() {
+        return widgets;
     }
 
     @Override
@@ -1046,6 +1167,9 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
 
     public final T getContainer() {
         return container;
+    }
+
+    private record TextFieldInsertionTooltip(ItemStack displayStack, EmptyingAction emptyingAction) {
     }
 
     public final void switchToScreen(AEBaseGui<?> screen) {

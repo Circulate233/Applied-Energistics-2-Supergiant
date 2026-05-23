@@ -77,21 +77,21 @@ public class PatternProviderBlock extends AEBaseTileBlock<TilePatternProvider> {
     @Override
     public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
                                     EnumFacing facing, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ)) {
+            return true;
+        }
+
         TilePatternProvider tile = this.getTileEntity(world, pos);
         if (tile == null) {
-            return super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ);
+            return false;
         }
 
         ItemStack heldItem = player.getHeldItem(hand);
-        if (!heldItem.isEmpty()) {
-            if (InteractionUtil.canWrenchRotate(heldItem)) {
-                if (!world.isRemote) {
-                    this.setSide(world, pos, facing);
-                }
-                return true;
+        if (!heldItem.isEmpty() && InteractionUtil.canWrenchRotate(heldItem)) {
+            if (!world.isRemote) {
+                this.setSide(world, pos, facing);
             }
-
-            return super.onBlockActivated(world, pos, state, player, hand, facing, hitX, hitY, hitZ);
+            return true;
         }
 
         if (!world.isRemote) {

@@ -7,15 +7,28 @@ import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
 import appeng.me.service.EnergyService;
 import appeng.server.ISubCommand;
+import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
+
+import java.util.List;
 
 public class DebugEnergyCommand implements ISubCommand {
     @Override
     public String getHelp(MinecraftServer srv) {
         return "commands.ae2.debugenergy";
+    }
+
+    @Override
+    public List<String> getTabCompletions(MinecraftServer srv, ICommandSender sender, String[] args,
+                                          BlockPos targetPos) {
+        if (args.length == 2) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, "on", "off");
+        }
+        return ISubCommand.super.getTabCompletions(srv, sender, args, targetPos);
     }
 
     @Override

@@ -11,6 +11,7 @@ import appeng.spatial.SpatialStoragePlotManager;
 import appeng.spatial.TransitionInfo;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
+import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
@@ -23,7 +24,10 @@ import net.minecraft.world.Teleporter;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
 
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
+import java.util.Locale;
 
 public class SpatialStorageCommand implements ISubCommand {
 
@@ -123,6 +127,12 @@ public class SpatialStorageCommand implements ISubCommand {
     @Override
     public String getHelp(MinecraftServer srv) {
         return "commands.ae2.spatial";
+    }
+
+    private static boolean acceptsPlotId(String action) {
+        String normalized = action.toLowerCase(Locale.ROOT);
+        return "info".equals(normalized) || "tp".equals(normalized) || "tpback".equals(normalized)
+            || "givecell".equals(normalized);
     }
 
     @Override
@@ -244,6 +254,31 @@ public class SpatialStorageCommand implements ISubCommand {
 
         spatialCellItem.setStoredDimension(cell, plot.getId(), plot.getSize());
         player.addItemStackToInventory(cell);
+    }
+
+    private static ObjectList<String> getPlotIdCandidates() {
+        ObjectList<String> candidates = new ObjectArrayList<>();
+        try {
+            for (SpatialStoragePlot plot : SpatialStoragePlotManager.INSTANCE.getPlots()) {
+                candidates.add(Integer.toString(plot.getId()));
+            }
+        } catch (IllegalStateException ignored) {
+        }
+        return candidates;
+    }
+
+    @Override
+    public List<String> getTabCompletions(MinecraftServer srv, ICommandSender sender, String[] args,
+                                          BlockPos targetPos) {
+        if (args.length == 2) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, "info", "tp", "tpback", "givecell");
+        }
+
+        if (args.length == 3 && acceptsPlotId(args[1])) {
+            return CommandBase.getListOfStringsMatchingLastWord(args, getPlotIdCandidates());
+        }
+
+        return Collections.emptyList();
     }
 
     private static final class FixedTeleporter extends Teleporter {

@@ -21,11 +21,16 @@ package appeng.client.gui.implementations;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.widgets.AETextField;
+import appeng.client.gui.widgets.ITextFieldGui;
 import appeng.container.implementations.ContainerQuartzKnife;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
 
-public class GuiQuartzKnife extends AEBaseGui<ContainerQuartzKnife> {
+import java.util.Collection;
+
+public class GuiQuartzKnife extends AEBaseGui<ContainerQuartzKnife> implements ITextFieldGui {
     private final AETextField name;
 
     public GuiQuartzKnife(ContainerQuartzKnife container, InventoryPlayer playerInventory, ITextComponent title,
@@ -45,5 +50,10 @@ public class GuiQuartzKnife extends AEBaseGui<ContainerQuartzKnife> {
     @Override
     public void drawBG(int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         super.drawBG(offsetX, offsetY, mouseX, mouseY, partialTicks);
+    }
+
+    @Override
+    public Collection<? extends GuiTextField> getTextFields() {
+        return ObjectLists.singleton(this.name);
     }
 }

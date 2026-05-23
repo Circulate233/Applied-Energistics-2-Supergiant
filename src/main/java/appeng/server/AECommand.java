@@ -2,14 +2,14 @@ package appeng.server;
 
 import appeng.core.AEConfig;
 import com.google.common.base.Joiner;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
 
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.ObjectList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -101,6 +101,15 @@ public final class AECommand extends CommandBase {
                 candidates.add(command.getName());
             }
             return getListOfStringsMatchingLastWord(args, candidates);
+        }
+
+        if (args.length > 1) {
+            Commands command = Commands.fromName(args[0]);
+            if (command == null || !sender.canUseCommand(command.level, this.getName())
+                || command.test && !AEConfig.instance().isDebugToolsEnabled()) {
+                return Collections.emptyList();
+            }
+            return command.command.getTabCompletions(this.server, sender, args, targetPos);
         }
 
         return Collections.emptyList();

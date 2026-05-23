@@ -43,7 +43,7 @@ public final class PendingCraftingJobs {
                                  CraftingJobStatusPacket.Status status) {
 
         AELog.debug("Crafting job " + id + " for " + requestedAmount
-            + "x" + AEKeyRendering.getDisplayName(what).getUnformattedText() + ". State=" + status);
+            + "x" + AEKeyRendering.getDisplayName(what).getFormattedText() + ". State=" + status);
 
         PendingJob existing = jobs.get(id);
         switch (status) {

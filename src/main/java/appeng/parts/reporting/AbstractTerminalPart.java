@@ -41,6 +41,7 @@ import appeng.util.inv.InternalInventoryHost;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
 
@@ -120,6 +121,14 @@ public abstract class AbstractTerminalPart extends AbstractDisplayPart
             GuiOpener.openPartGui(player, getGuiKey(player), this);
         }
         return true;
+    }
+
+    @Override
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
+        if (super.onUseItemOn(heldItem, player, hand, pos)) {
+            return true;
+        }
+        return this.onUseWithoutItem(player, pos);
     }
 
     @Override

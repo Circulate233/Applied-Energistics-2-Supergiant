@@ -16,7 +16,7 @@ final class NameSearchPredicate implements Predicate<GridInventoryEntry> {
     @Override
     public boolean test(GridInventoryEntry gridInventoryEntry) {
         AEKey entryInfo = Objects.requireNonNull(gridInventoryEntry.what());
-        String displayName = entryInfo.getDisplayName().getUnformattedText();
+        String displayName = entryInfo.getDisplayName().getFormattedText();
         return displayName.toLowerCase().contains(term);
     }
 }

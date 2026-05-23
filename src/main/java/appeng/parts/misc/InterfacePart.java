@@ -19,6 +19,7 @@ import appeng.parts.PartModel;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.Vec3d;
 
@@ -111,6 +112,14 @@ public class InterfacePart extends AEBasePart implements InterfaceLogicHost {
             this.openGui(player, GuiHostLocators.forPart(this));
         }
         return true;
+    }
+
+    @Override
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
+        if (super.onUseItemOn(heldItem, player, hand, pos)) {
+            return true;
+        }
+        return this.onUseWithoutItem(player, pos);
     }
 
     @Override

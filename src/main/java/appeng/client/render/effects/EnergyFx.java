@@ -43,6 +43,7 @@ public class EnergyFx extends Particle {
         this.motionX = motionX;
         this.motionY = motionY;
         this.motionZ = motionZ;
+        this.particleMaxAge = Math.max(16, (int) (this.particleMaxAge * 1.8f));
         if (sprite != null) {
             this.setParticleTexture(sprite);
         }
@@ -81,7 +82,7 @@ public class EnergyFx extends Particle {
     public void onUpdate() {
         super.onUpdate();
         this.onGround = false;
-        this.particleScale *= 0.89f;
-        this.particleAlpha *= 0.89f;
+        this.particleScale *= 0.94f;
+        this.particleAlpha *= 0.94f;
     }
 }

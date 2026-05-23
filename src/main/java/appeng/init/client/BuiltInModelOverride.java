@@ -10,6 +10,8 @@ import appeng.client.render.model.FixedOrientationModel;
 import appeng.client.render.model.GlassModel;
 import appeng.client.render.tesr.spatial.SpatialPylonModel;
 import appeng.core.Tags;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.client.renderer.block.model.IBakedModel;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.client.renderer.block.model.ModelRotation;
@@ -26,8 +28,6 @@ import net.minecraftforge.common.model.TRSRTransformation;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.relauncher.Side;
-import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 
 import java.util.Map;
 import java.util.function.Function;
@@ -36,7 +36,6 @@ import java.util.function.Function;
 public final class BuiltInModelOverride {
     private static final Map<String, BlockOrientation> FULL_ORIENT_MODEL_BASES = Map.of(
         "cell_workbench", BlockOrientation.NORTH_UP,
-        "crafting_monitor", BlockOrientation.NORTH_UP,
         "inscriber", BlockOrientation.NORTH_UP,
         "io_port", BlockOrientation.NORTH_UP,
         "spatial_anchor", BlockOrientation.NORTH_UP,

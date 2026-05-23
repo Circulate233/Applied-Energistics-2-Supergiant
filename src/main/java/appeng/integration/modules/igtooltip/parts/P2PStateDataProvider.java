@@ -81,14 +81,14 @@ public final class P2PStateDataProvider implements BodyProvider<P2PTunnelPart>, 
             }
 
             if (part.getCustomName() != null) {
-                serverData.setString(TAG_P2P_FREQUENCY_NAME, part.getCustomName().getUnformattedText());
+                serverData.setString(TAG_P2P_FREQUENCY_NAME, part.getCustomName().getFormattedText());
             }
         } else {
             var input = part.getInput();
             if (input != null) {
                 state = STATE_OUTPUT;
                 if (input.getCustomName() != null) {
-                    serverData.setString(TAG_P2P_FREQUENCY_NAME, input.getCustomName().getUnformattedText());
+                    serverData.setString(TAG_P2P_FREQUENCY_NAME, input.getCustomName().getFormattedText());
                 }
             }
         }

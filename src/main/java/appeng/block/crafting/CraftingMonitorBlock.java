@@ -57,7 +57,7 @@ public class CraftingMonitorBlock extends AbstractCraftingUnitBlock<TileCrafting
 
     @Override
     protected IUnlistedProperty<?>[] getUnlistedProperties() {
-        return new IUnlistedProperty<?>[]{STATE, COLOR};
+        return new IUnlistedProperty<?>[]{FORWARD, UP, STATE, COLOR};
     }
 
     @Override
@@ -80,4 +80,3 @@ public class CraftingMonitorBlock extends AbstractCraftingUnitBlock<TileCrafting
         return ((IExtendedBlockState) state).withProperty(COLOR, tile.getColor());
     }
 }
-

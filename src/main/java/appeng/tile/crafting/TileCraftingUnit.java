@@ -27,12 +27,14 @@ import appeng.api.networking.IGridNodeListener;
 import appeng.api.orientation.BlockOrientation;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
+import appeng.block.crafting.AbstractCraftingUnitBlock;
 import appeng.me.cluster.IAEMultiBlock;
 import appeng.me.cluster.implementations.CraftingCPUCalculator;
 import appeng.me.cluster.implementations.CraftingCPUCluster;
 import appeng.tile.grid.AENetworkedTile;
 import appeng.util.NullConfigManager;
 import appeng.util.Platform;
+import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.block.Block;
 import net.minecraft.block.properties.IProperty;
@@ -60,6 +62,7 @@ public class TileCraftingUnit extends AENetworkedTile
     private NBTTagCompound previousState;
     private boolean coreBlock;
     private CraftingCPUCluster cluster;
+    private ClientState clientState = ClientState.DEFAULT;
 
     public TileCraftingUnit() {
         this.getMainNode().setFlags(GridFlags.MULTIBLOCK, GridFlags.REQUIRE_CHANNEL)
@@ -112,13 +115,53 @@ public class TileCraftingUnit extends AENetworkedTile
         return AEBlockIds.CRAFTING_ACCELERATOR.equals(getCraftingBlockId()) ? 1 : 0;
     }
 
+    private static int encodeConnections(EnumSet<EnumFacing> connections) {
+        int mask = 0;
+        for (EnumFacing facing : connections) {
+            mask |= 1 << facing.getIndex();
+        }
+        return mask;
+    }
+
+    private static EnumSet<EnumFacing> decodeConnections(int mask) {
+        EnumSet<EnumFacing> connections = EnumSet.noneOf(EnumFacing.class);
+        for (EnumFacing facing : EnumFacing.values()) {
+            if ((mask & (1 << facing.getIndex())) != 0) {
+                connections.add(facing);
+            }
+        }
+        return connections;
+    }
+
     @Override
     public void onReady() {
         super.onReady();
         this.getMainNode().setVisualRepresentation(this.getItemFromTile());
         if (this.world != null && !this.world.isRemote) {
             this.calc.calculateMultiblock(this.world, this.pos);
+            this.recalculateDisplay();
         }
+    }
+
+    @Override
+    protected void writeToStream(ByteBuf data) {
+        super.writeToStream(data);
+
+        ClientState state = this.getRenderState();
+        data.writeBoolean(state.formed());
+        data.writeBoolean(state.powered());
+        data.writeByte(encodeConnections(state.connections()));
+    }
+
+    @Override
+    protected boolean readFromStream(ByteBuf data) {
+        boolean changed = super.readFromStream(data);
+
+        ClientState nextState = new ClientState(data.readBoolean(), data.readBoolean(),
+            decodeConnections(data.readUnsignedByte()));
+        changed |= !nextState.equals(this.clientState);
+        this.clientState = nextState;
+        return changed;
     }
 
     public void updateMultiBlock(BlockPos changedPos) {
@@ -136,25 +179,14 @@ public class TileCraftingUnit extends AENetworkedTile
         this.updateSubType(true);
     }
 
-    public void updateSubType(boolean updateFormed) {
-        if (this.world == null || this.isInvalid()) {
-            return;
-        }
+    @Override
+    protected void saveVisualState(NBTTagCompound data) {
+        super.saveVisualState(data);
 
-        final boolean formed = this.isFormed();
-        boolean power = this.getMainNode().isOnline();
-
-        final IBlockState current = this.world.getBlockState(this.pos);
-        IBlockState newState = setBooleanProperty(current, "powered", power);
-        newState = setBooleanProperty(newState, "formed", formed);
-
-        if (current != newState) {
-            this.world.setBlockState(this.pos, newState, 2);
-        }
-
-        if (updateFormed) {
-            onGridConnectableSidesChanged();
-        }
+        ClientState state = this.getRenderState();
+        data.setBoolean("formed", state.formed());
+        data.setBoolean("powered", state.powered());
+        data.setByte("connections", (byte) encodeConnections(state.connections()));
     }
 
     private IBlockState setBooleanProperty(IBlockState state, String propertyName, boolean value) {
@@ -166,16 +198,6 @@ public class TileCraftingUnit extends AENetworkedTile
         return state;
     }
 
-    @Nullable
-    private Boolean getBooleanProperty(IBlockState state, String propertyName) {
-        for (IProperty<?> property : state.getPropertyKeys()) {
-            if (property instanceof PropertyBool boolProperty && property.getName().equals(propertyName)) {
-                return state.getValue(boolProperty);
-            }
-        }
-        return null;
-    }
-
     @Override
     public Set<EnumFacing> getGridConnectableSides(BlockOrientation orientation) {
         if (isFormed()) {
@@ -184,12 +206,12 @@ public class TileCraftingUnit extends AENetworkedTile
         return EnumSet.noneOf(EnumFacing.class);
     }
 
-    public boolean isFormed() {
-        if (this.world != null && this.world.isRemote) {
-            Boolean formed = getBooleanProperty(this.world.getBlockState(this.pos), "formed");
-            return formed != null && formed;
-        }
-        return this.cluster != null;
+    @Override
+    protected void loadVisualState(NBTTagCompound data) {
+        super.loadVisualState(data);
+
+        this.clientState = new ClientState(data.getBoolean("formed"), data.getBoolean("powered"),
+            decodeConnections(data.getByte("connections") & 0xFF));
     }
 
     @Override
@@ -286,13 +308,27 @@ public class TileCraftingUnit extends AENetworkedTile
         this.cluster.destroy();
     }
 
-    @Override
-    public boolean isPowered() {
-        if (this.world != null && this.world.isRemote) {
-            Boolean powered = getBooleanProperty(this.world.getBlockState(this.pos), "powered");
-            return powered != null && powered;
+    public void updateSubType(boolean updateFormed) {
+        if (this.world == null || this.isInvalid()) {
+            return;
         }
-        return this.getMainNode().isActive();
+
+        final boolean formed = this.isFormed();
+        boolean power = this.getMainNode().isOnline();
+
+        final IBlockState current = this.world.getBlockState(this.pos);
+        IBlockState newState = setBooleanProperty(current, "powered", power);
+        newState = setBooleanProperty(newState, "formed", formed);
+
+        if (current != newState) {
+            this.world.setBlockState(this.pos, newState, 2);
+        }
+
+        if (updateFormed) {
+            onGridConnectableSidesChanged();
+        }
+
+        this.recalculateDisplay();
     }
 
     @Override
@@ -318,6 +354,66 @@ public class TileCraftingUnit extends AENetworkedTile
 
     public void setPreviousState(@Nullable NBTTagCompound previousState) {
         this.previousState = previousState;
+    }
+
+    public boolean isFormed() {
+        if (this.world != null && this.world.isRemote) {
+            return this.clientState.formed();
+        }
+        return this.cluster != null;
+    }
+
+    @Override
+    public boolean isPowered() {
+        if (this.world != null && this.world.isRemote) {
+            return this.clientState.powered();
+        }
+        return this.getMainNode().isActive();
+    }
+
+    public ClientState getRenderState() {
+        if (this.world != null && !this.world.isRemote) {
+            return this.createRenderState();
+        }
+        return this.clientState;
+    }
+
+    private void recalculateDisplay() {
+        if (this.world == null || this.world.isRemote) {
+            return;
+        }
+
+        ClientState nextState = this.createRenderState();
+        if (!nextState.equals(this.clientState)) {
+            this.clientState = nextState;
+            this.markForUpdate();
+        }
+    }
+
+    private ClientState createRenderState() {
+        return new ClientState(this.isFormed(), this.isPowered(), this.getConnections());
+    }
+
+    private EnumSet<EnumFacing> getConnections() {
+        EnumSet<EnumFacing> connections = EnumSet.noneOf(EnumFacing.class);
+        if (this.world == null) {
+            return connections;
+        }
+
+        for (EnumFacing facing : EnumFacing.values()) {
+            if (this.world.getBlockState(this.pos.offset(facing)).getBlock() instanceof AbstractCraftingUnitBlock) {
+                connections.add(facing);
+            }
+        }
+        return connections;
+    }
+
+    public record ClientState(boolean formed, boolean powered, EnumSet<EnumFacing> connections) {
+        public static final ClientState DEFAULT = new ClientState(false, false, EnumSet.noneOf(EnumFacing.class));
+
+        public ClientState {
+            connections = connections.clone();
+        }
     }
 
     private Iterator<IGridNode> getMultiblockNodes() {

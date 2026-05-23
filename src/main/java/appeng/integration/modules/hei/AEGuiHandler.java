@@ -1,29 +1,31 @@
 package appeng.integration.modules.hei;
 
-import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Rect2i;
 import appeng.client.gui.StackWithBounds;
+import appeng.client.gui.widgets.AETextField;
+import appeng.client.gui.widgets.ITextFieldGui;
 import appeng.container.slot.FakeSlot;
 import appeng.container.slot.FakeSlotFilterSupport;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.helpers.InventoryAction;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import mezz.jei.api.gui.IAdvancedGuiHandler;
 import mezz.jei.api.gui.IGhostIngredientHandler;
 import mezz.jei.bookmarks.BookmarkItem;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fluids.FluidUtil;
+import org.jspecify.annotations.Nullable;
+import org.lwjgl.input.Mouse;
 
 import javax.annotation.Nonnull;
 import java.awt.Rectangle;
 import java.util.List;
-
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import org.jspecify.annotations.Nullable;
-import org.lwjgl.input.Mouse;
 
 public final class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui<?>>, IGhostIngredientHandler<AEBaseGui<?>> {
     @Nullable
@@ -114,19 +116,27 @@ public final class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui<?>>, IG
         return this.currentGhostIngredient;
     }
 
-    public List<Target<Object>> getTargetsForIngredient(AEBaseGui<?> gui, Object ingredient) {
-        List<Target<Object>> targets = new ObjectArrayList<>();
-        for (var slot : gui.getContainer().inventorySlots) {
-            if (!(slot instanceof FakeSlot fakeSlot) || !fakeSlot.isEnabled()) {
-                continue;
-            }
-
-            ItemStack stack = toFilterStack(fakeSlot, ingredient);
-            if (!stack.isEmpty()) {
-                targets.add(new FakeSlotTarget(gui, fakeSlot));
-            }
+    @Nullable
+    private static String getTextFieldInsertionText(Object ingredient, int mouseButton) {
+        if (ingredient instanceof BookmarkItem<?> bookmarkItem) {
+            return getTextFieldInsertionText(bookmarkItem.ingredient, mouseButton);
         }
-        return targets;
+
+        if (ingredient instanceof ItemStack itemStack) {
+            return AEBaseGui.getTextFieldInsertionText(itemStack, mouseButton);
+        }
+
+        GenericStack stack = GenericIngredientHelper.ingredientToStack(ingredient);
+        if (stack != null) {
+            return stack.what().getDisplayName().getFormattedText();
+        }
+
+        ItemStack itemStack = toPacketFilterStack(ingredient);
+        if (itemStack.isEmpty()) {
+            return null;
+        }
+
+        return AEBaseGui.getTextFieldInsertionText(itemStack, mouseButton);
     }
 
     public static ItemStack toGhostDisplayStack(Object ingredient) {
@@ -177,6 +187,55 @@ public final class AEGuiHandler implements IAdvancedGuiHandler<AEBaseGui<?>>, IG
                 this.slot.slotNumber,
                 Mouse.getEventButton(),
                 stack));
+        }
+
+    }
+
+    public List<Target<Object>> getTargetsForIngredient(AEBaseGui<?> gui, Object ingredient) {
+        List<Target<Object>> targets = new ObjectArrayList<>();
+
+        for (var slot : gui.getContainer().inventorySlots) {
+            if (!(slot instanceof FakeSlot fakeSlot) || !fakeSlot.isEnabled()) {
+                continue;
+            }
+
+            ItemStack stack = toFilterStack(fakeSlot, ingredient);
+            if (!stack.isEmpty()) {
+                targets.add(new FakeSlotTarget(gui, fakeSlot));
+            }
+        }
+
+        for (var field : gui.getWidgets().getTextFields()) {
+            targets.add(new TextFieldTarget(gui, field));
+        }
+
+        if (gui instanceof ITextFieldGui g) {
+            for (var field : g.getTextFields()) {
+                targets.add(new TextFieldTarget(gui, field));
+            }
+        }
+
+        return targets;
+    }
+
+    private record TextFieldTarget(AEBaseGui<?> gui, GuiTextField field) implements Target<Object> {
+
+        @Override
+        public Rectangle getArea() {
+            return new Rectangle(this.gui.getGuiLeft() + this.field.x, this.gui.getGuiTop() + this.field.y, field.width, field.height);
+        }
+
+        @Override
+        public void accept(@Nonnull Object ingredient) {
+            String text = getTextFieldInsertionText(ingredient, Mouse.getEventButton());
+            if (text == null) {
+                return;
+            }
+            if (field instanceof AETextField aeTextField) {
+                aeTextField.setTextFromClient(text);
+            } else {
+                field.setText(text);
+            }
         }
 
     }

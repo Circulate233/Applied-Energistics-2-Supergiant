@@ -39,6 +39,7 @@ import appeng.core.network.serverbound.SelectKeyTypePacket;
 import appeng.core.network.serverbound.SwapSlotsPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
 import appeng.core.network.serverbound.UpdateHoldingCtrlPacket;
+import appeng.core.network.serverbound.WirelessTerminalPickBlockPacket;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
@@ -100,6 +101,7 @@ public final class InitNetwork {
         registerServerbound(AppEngPayloadHandler.Server.class, SwapSlotsPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, SwitchGuisPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, UpdateHoldingCtrlPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, WirelessTerminalPickBlockPacket.class);
         CHANNEL.registerMessage(ConfigValuePacket.ServerHandler.class, ConfigValuePacket.class, nextPacketId++, Side.SERVER);
     }
 

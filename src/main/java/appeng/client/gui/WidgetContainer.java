@@ -38,12 +38,14 @@ import appeng.core.network.InitNetwork;
 import appeng.core.network.ServerboundPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
 import com.google.common.base.Preconditions;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.util.text.ITextComponent;
-import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -549,5 +551,9 @@ public class WidgetContainer {
             this.area = area;
             this.tooltip = tooltip;
         }
+    }
+
+    public Collection<? extends GuiTextField> getTextFields() {
+        return textFields.values();
     }
 }

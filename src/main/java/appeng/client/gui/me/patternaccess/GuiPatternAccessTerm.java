@@ -29,6 +29,7 @@ import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.widgets.AETextField;
+import appeng.client.gui.widgets.ITextFieldGui;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.client.gui.widgets.ServerSettingToggleButton;
 import appeng.client.gui.widgets.SettingToggleButton;
@@ -42,12 +43,14 @@ import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.core.network.serverbound.QuickMovePatternPacket;
 import appeng.helpers.InventoryAction;
 import com.google.common.collect.HashMultimap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -60,6 +63,7 @@ import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -67,7 +71,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 
-public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends AEBaseGui<C> {
+public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends AEBaseGui<C> implements ITextFieldGui {
 
     private static final ResourceLocation TEXTURE = AppEng.makeId("textures/guis/patternaccessterminal.png");
 
@@ -93,13 +97,13 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
     private static final Rect2i FOOTER_BBOX = new Rect2i(0, 125, GUI_WIDTH, GUI_FOOTER_HEIGHT);
 
     private static final Comparator<PatternContainerGroup> GROUP_COMPARATOR = Comparator
-        .comparing(group -> group.name().getUnformattedText().toLowerCase(Locale.ROOT));
+        .comparing(group -> group.name().getFormattedText().toLowerCase(Locale.ROOT));
 
     private final Long2ObjectOpenHashMap<PatternContainerEntry> byId = new Long2ObjectOpenHashMap<>();
     private final HashMultimap<PatternContainerGroup, PatternContainerEntry> byGroup = HashMultimap.create();
     private final List<PatternContainerGroup> groups = new ObjectArrayList<>();
     private final List<Row> rows = new ObjectArrayList<>();
-    private final Map<ItemStack, String> patternSearchText = new Object2ObjectOpenHashMap<>();
+    private final Map<ItemStack, String> patternSearchText = new Reference2ObjectOpenHashMap<>();
 
     private final ITextComponent title;
     private final Scrollbar scrollbar;
@@ -208,7 +212,7 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
 
     @Override
     public void drawFG(int offsetX, int offsetY, int mouseX, int mouseY) {
-        this.fontRenderer.drawString(getGuiDisplayName(this.title).getUnformattedText(), 8, 6, 4210752);
+        this.fontRenderer.drawString(getGuiDisplayName(this.title).getFormattedText(), 8, 6, 4210752);
 
         int scrollLevel = this.scrollbar.getCurrentScroll();
         for (int i = 0; i < this.visibleRows; i++) {
@@ -529,7 +533,7 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
 
         if (pattern != null) {
             for (appeng.api.stacks.GenericStack output : pattern.getOutputs()) {
-                text.append(output.what().getDisplayName().getUnformattedText().toLowerCase(Locale.ROOT));
+                text.append(output.what().getDisplayName().getFormattedText().toLowerCase(Locale.ROOT));
                 text.append('\n');
             }
         }
@@ -610,6 +614,11 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
     private void blit(int x, int y, int u, int v, int width, int height) {
         bindTexture(TEXTURE);
         drawTexturedModalRect(x, y, u, v, width, height);
+    }
+
+    @Override
+    public Collection<? extends GuiTextField> getTextFields() {
+        return ObjectLists.singleton(this.searchField);
     }
 
     private interface Row {

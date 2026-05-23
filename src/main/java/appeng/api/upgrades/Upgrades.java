@@ -126,7 +126,7 @@ public final class Upgrades {
         for (int i = 0; i < associations.size(); i++) {
             Association association = associations.get(i);
             ITextComponent name = new TextComponentString(new ItemStack(association.upgradableItem()).getDisplayName());
-            String dedupeKey = name.getUnformattedText();
+            String dedupeKey = name.getFormattedText();
 
             if (association.tooltipGroup() != null && namesAdded.contains(association.tooltipGroup())) {
                 continue;

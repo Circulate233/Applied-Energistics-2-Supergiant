@@ -264,11 +264,11 @@ public abstract class AEBasePart implements IPart, IActionHost, ISegmentedInvent
     public void exportSettings(SettingsFrom mode, NBTTagCompound output) {
         if (mode == SettingsFrom.DISMANTLE_ITEM) {
             if (this.customName != null) {
-                output.setString(CUSTOM_NAME_TAG, this.customName.getUnformattedText());
+                output.setString(CUSTOM_NAME_TAG, this.customName.getFormattedText());
             }
         } else if (mode == SettingsFrom.MEMORY_CARD) {
             if (this.customName != null) {
-                output.setString(MEMORY_CARD_CUSTOM_NAME_TAG, this.customName.getUnformattedText());
+                output.setString(MEMORY_CARD_CUSTOM_NAME_TAG, this.customName.getFormattedText());
             }
             MemoryCardItem.exportGenericSettings(this, output);
         }
@@ -337,7 +337,7 @@ public abstract class AEBasePart implements IPart, IActionHost, ISegmentedInvent
 
     public String getName() {
         ItemStack stack = this.partItem.asItemStack();
-        return this.customName != null ? this.customName.getUnformattedText() : stack.getTranslationKey();
+        return this.customName != null ? this.customName.getFormattedText() : stack.getTranslationKey();
     }
 
     public ITextComponent getDisplayName() {

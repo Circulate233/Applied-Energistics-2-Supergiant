@@ -23,13 +23,13 @@ import appeng.client.gui.Rect2i;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.PaletteColor;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
-import it.unimi.dsi.fastutil.objects.ObjectLists;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
@@ -121,6 +121,14 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
 
     public void setResponder(@Nullable Consumer<String> responder) {
         this.responder = responder;
+    }
+
+    public void setTextFromClient(String text) {
+        String oldValue = this.getText();
+        super.setText(text);
+        if (!oldValue.equals(this.getText()) && this.responder != null) {
+            this.responder.accept(this.getText());
+        }
     }
 
     protected boolean canConsumeInput() {

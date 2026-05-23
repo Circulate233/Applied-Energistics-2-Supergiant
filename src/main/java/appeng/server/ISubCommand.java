@@ -21,9 +21,18 @@ package appeng.server;
 import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.math.BlockPos;
+
+import java.util.Collections;
+import java.util.List;
 
 public interface ISubCommand {
     String getHelp(MinecraftServer srv);
 
     void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException;
+
+    default List<String> getTabCompletions(MinecraftServer srv, ICommandSender sender, String[] args,
+                                           BlockPos targetPos) {
+        return Collections.emptyList();
+    }
 }

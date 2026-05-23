@@ -97,13 +97,35 @@ public abstract class AbstractCraftingUnitBlock<T extends TileCraftingUnit> exte
     }
 
     protected IUnlistedProperty<?>[] getUnlistedProperties() {
-        return new IUnlistedProperty<?>[]{STATE};
+        return new IUnlistedProperty<?>[]{FORWARD, UP, STATE};
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public IBlockState getActualState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        state = super.getActualState(state, world, pos);
+
+        T tile = this.getTileEntity(world, pos);
+        if (tile == null) {
+            return state;
+        }
+
+        TileCraftingUnit.ClientState renderState = tile.getRenderState();
+        return state.withProperty(FORMED, renderState.formed())
+                    .withProperty(POWERED, renderState.powered());
     }
 
     @Override
     public IBlockState getExtendedState(IBlockState state, IBlockAccess world, BlockPos pos) {
+        state = super.getExtendedState(state, world, pos);
         if (!(state instanceof IExtendedBlockState)) {
             return state;
+        }
+
+        T tile = this.getTileEntity(world, pos);
+        if (tile != null) {
+            return ((IExtendedBlockState) state).withProperty(STATE,
+                new CraftingCubeState(tile.getRenderState().connections()));
         }
 
         EnumSet<EnumFacing> connections = EnumSet.noneOf(EnumFacing.class);
@@ -112,7 +134,6 @@ public abstract class AbstractCraftingUnitBlock<T extends TileCraftingUnit> exte
                 connections.add(facing);
             }
         }
-
         return ((IExtendedBlockState) state).withProperty(STATE, new CraftingCubeState(connections));
     }
 
@@ -175,6 +196,10 @@ public abstract class AbstractCraftingUnitBlock<T extends TileCraftingUnit> exte
     @Override
     public boolean onBlockActivated(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumHand hand,
                                     EnumFacing side, float hitX, float hitY, float hitZ) {
+        if (super.onBlockActivated(world, pos, state, player, hand, side, hitX, hitY, hitZ)) {
+            return true;
+        }
+
         ItemStack heldItem = player.getHeldItem(hand);
         if (heldItem.isEmpty()) {
             if (InteractionUtil.isInAlternateUseMode(player)) {
@@ -182,19 +207,19 @@ public abstract class AbstractCraftingUnitBlock<T extends TileCraftingUnit> exte
                 return this.removeUpgrade(world, pos, player, craftingUnitBlock.getDefaultState())
                     != EnumActionResult.PASS;
             }
-
-            T tile = this.getTileEntity(world, pos);
-            if (tile != null && tile.isFormed() && tile.isActive()) {
-                if (!world.isRemote) {
-                    GuiOpener.openGui(player, GuiIds.GuiKey.CRAFTING_CPU, tile);
-                }
-                return true;
-            }
         } else if (this.upgrade(world, pos, state, player, side, heldItem)) {
             return true;
         }
 
-        return super.onBlockActivated(world, pos, state, player, hand, side, hitX, hitY, hitZ);
+        T tile = this.getTileEntity(world, pos);
+        if (tile != null && tile.isFormed() && tile.isActive()) {
+            if (!world.isRemote) {
+                GuiOpener.openGui(player, GuiIds.GuiKey.CRAFTING_CPU, tile);
+            }
+            return true;
+        }
+
+        return false;
     }
 
     private boolean upgrade(World world, BlockPos pos, IBlockState state, EntityPlayer player, EnumFacing side,

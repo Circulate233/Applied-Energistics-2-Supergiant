@@ -34,7 +34,7 @@ public final class ParticleTypes {
     public static final ParticleType LIGHTNING_ARC = new ParticleType(new ResourceLocation("minecraft", "blocks/glowstone"), EnumParticleTypes.CRIT_MAGIC);
     public static final ParticleType LIGHTNING = new ParticleType(new ResourceLocation("minecraft", "blocks/glowstone"), EnumParticleTypes.CRIT);
     public static final ParticleType MATTER_CANNON = new ParticleType(AppEng.makeId("particle/matter_cannon"), EnumParticleTypes.SMOKE_NORMAL);
-    public static final ParticleType VIBRANT = new ParticleType(new ResourceLocation("minecraft", "blocks/glowstone"), EnumParticleTypes.VILLAGER_HAPPY);
+    public static final ParticleType VIBRANT = new ParticleType(null, EnumParticleTypes.VILLAGER_HAPPY);
 
     private ParticleTypes() {
     }

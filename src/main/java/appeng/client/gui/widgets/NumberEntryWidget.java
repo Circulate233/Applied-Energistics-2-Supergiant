@@ -406,7 +406,7 @@ public class NumberEntryWidget implements ICompositeWidget {
     }
 
     private ITextComponent makeLabel(ITextComponent prefix, int amountIndex, boolean useDecimalSteps) {
-        return new TextComponentString(prefix.getUnformattedText()
+        return new TextComponentString(prefix.getFormattedText()
             + decimalFormat.format(useDecimalSteps ? STEPS_1000[amountIndex] : STEPS_64[amountIndex]));
     }
 

@@ -125,7 +125,7 @@ public class NetworkToolItem extends AEBaseItem implements IGuiItem, IStackToolt
         result.addAll(getUpgradeCounts(stack).object2IntEntrySet());
         result.sort(Comparator.<Object2IntMap.Entry<Item>>comparingInt(Object2IntMap.Entry::getIntValue)
                               .reversed()
-                              .thenComparing(entry -> TextComponentItemStack.of(new ItemStack(entry.getKey())).getUnformattedText()));
+                              .thenComparing(entry -> TextComponentItemStack.of(new ItemStack(entry.getKey())).getFormattedText()));
         return result;
     }
 
