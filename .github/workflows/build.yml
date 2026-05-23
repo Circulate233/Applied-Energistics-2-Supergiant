@@ -4,7 +4,7 @@ on:
   [workflow_dispatch, push]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -31,3 +31,25 @@ jobs:
       uses: actions/upload-artifact@v7
       with:
         path: build/libs
+
+    - name: Ensure dev release exists
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        if ! git ls-remote --exit-code --tags origin refs/tags/dev >/dev/null 2>&1; then
+          git tag dev
+          git push origin refs/tags/dev
+        fi
+        if ! gh release view dev >/dev/null 2>&1; then
+          gh release create dev --title "dev" --notes "Latest development build artifacts"
+        fi
+
+    - name: Replace dev release assets
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        mapfile -t assets < <(gh release view dev --json assets --jq '.assets[].name')
+        for asset in "${assets[@]}"; do
+          gh release delete-asset dev "$asset" --yes
+        done
+        gh release upload dev build/libs/* --clobber
