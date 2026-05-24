@@ -97,6 +97,7 @@ public final class Upgrades {
         return UPGRADE_CARD_TOOLTIP_LINES.computeIfAbsent(card, Upgrades::createTooltipLinesForCard);
     }
 
+    @SuppressWarnings("unused")
     public static synchronized List<ITextComponent> getTooltipLinesForMachine(Item upgradableItem) {
         var result = new ObjectArrayList<ITextComponent>();
 
@@ -111,6 +112,25 @@ public final class Upgrades {
                     result.add(upgradeName);
                     break;
                 }
+            }
+        }
+
+        return result;
+    }
+
+    public static synchronized List<ITextComponent> getTooltipLinesForInventory(IUpgradeInventory upgrades) {
+        var result = new ObjectArrayList<ITextComponent>();
+
+        for (var cardAssociations : ASSOCIATIONS.values()) {
+            Item upgradeCard = cardAssociations.getFirst().upgradeCard();
+            int maxSupported = upgrades.getMaxInstalled(upgradeCard);
+            if (maxSupported > 0) {
+                ITextComponent upgradeName = new TextComponentString(new ItemStack(upgradeCard).getDisplayName());
+                if (maxSupported > 1) {
+                    upgradeName = upgradeName.createCopy()
+                                             .appendSibling(new TextComponentString(" (" + maxSupported + ")"));
+                }
+                result.add(upgradeName);
             }
         }
 

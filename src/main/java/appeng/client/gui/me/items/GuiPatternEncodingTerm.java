@@ -64,6 +64,12 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
         }
     }
 
+    @Override
+    public void initGui() {
+        super.initGui();
+        this.container.setClearOnClose(AEConfig.instance().isClearGridOnClose());
+    }
+
     private static ITextComponent resolveTitle(ContainerPatternEncodingTerm container, @Nullable ITextComponent title) {
         if (title != null) {
             return title;
@@ -106,9 +112,6 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
 
     @Override
     public void onGuiClosed() {
-        if (AEConfig.instance().isClearGridOnClose()) {
-            this.container.clear();
-        }
         super.onGuiClosed();
     }
 
@@ -116,7 +119,7 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
         if (mouseButton == 2) {
             Slot slot = findSlot(mouseX, mouseY);
-            if (this.container.canModifyAmountForSlot(slot)) {
+            if (slot != null && this.container.canModifyAmountForSlot(slot)) {
                 GenericStack currentStack = GenericStack.fromItemStack(slot.getStack());
                 if (currentStack != null) {
                     switchToScreen(new GuiSetProcessingPatternAmount(this, currentStack,

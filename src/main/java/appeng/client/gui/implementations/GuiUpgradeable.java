@@ -38,10 +38,12 @@ public class GuiUpgradeable<T extends UpgradeableContainer<?>> extends AEBaseGui
         this(container, playerInventory, null, style);
     }
 
-    public GuiUpgradeable(T container, InventoryPlayer playerInventory, ITextComponent title, GuiStyle style) {
+    public GuiUpgradeable(T container, InventoryPlayer playerInventory, @SuppressWarnings("unused") ITextComponent title,
+                          GuiStyle style) {
         super(container, playerInventory, style);
 
-        this.widgets.add("upgrades", new UpgradesPanel(
+        this.widgets.add("upgrades", UpgradesPanel.create(
+            this.widgets,
             container.getSlots(SlotSemantics.UPGRADE),
             this::getCompatibleUpgrades));
         if (container.getToolbox().isPresent()) {
@@ -52,7 +54,7 @@ public class GuiUpgradeable<T extends UpgradeableContainer<?>> extends AEBaseGui
     private List<ITextComponent> getCompatibleUpgrades() {
         var list = new ObjectArrayList<ITextComponent>();
         list.add(GuiText.CompatibleUpgrades.text());
-        list.addAll(Upgrades.getTooltipLinesForMachine(container.getUpgrades().getUpgradableItem()));
+        list.addAll(Upgrades.getTooltipLinesForInventory(container.getUpgrades()));
         return list;
     }
 }

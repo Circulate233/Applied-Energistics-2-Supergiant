@@ -5,7 +5,8 @@ import appeng.api.inventories.InternalInventory;
 import appeng.container.ISubGui;
 import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.items.contents.StackDependentSupplier;
-import appeng.items.tools.powered.WirelessCraftingTerminalItem;
+import appeng.items.tools.powered.WirelessTerminalItem;
+import appeng.items.tools.powered.WirelessTerminals;
 import appeng.parts.reporting.CraftingTerminalPart;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.InternalInventoryHost;
@@ -18,30 +19,28 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.function.BiConsumer;
 
-public class WirelessCraftingTerminalGuiHost<T extends WirelessCraftingTerminalItem>
-    extends WirelessTerminalGuiHost<T> implements ISegmentedInventory {
-    private static final String CRAFTING_INV = "crafting_inv";
+public class WirelessCraftingTerminalGuiHost extends WirelessTerminalGuiHost<WirelessTerminalItem>
+    implements ISegmentedInventory {
     private final SupplierInternalInventory<InternalInventory> craftingGrid;
 
-    public WirelessCraftingTerminalGuiHost(T item, EntityPlayer player, ItemGuiHostLocator locator,
+    public WirelessCraftingTerminalGuiHost(WirelessTerminalItem stackItem,
+                                           WirelessTerminalItem terminalItem, EntityPlayer player,
+                                           ItemGuiHostLocator locator,
                                            BiConsumer<EntityPlayer, ISubGui> returnToMainGui) {
-        super(item, player, locator, returnToMainGui);
+        super(stackItem, terminalItem, player, locator, returnToMainGui);
         this.craftingGrid = new SupplierInternalInventory<>(
-            new StackDependentSupplier<>(this::getItemStack, stack -> createCraftingInv(player, stack)));
+            new StackDependentSupplier<>(this::getItemStack, stack -> createCraftingInv(player, stack, terminalItem)));
     }
 
-    private static InternalInventory createCraftingInv(EntityPlayer player, ItemStack stack) {
+    private static InternalInventory createCraftingInv(EntityPlayer player, ItemStack stack,
+                                                       WirelessTerminalItem terminal) {
         var craftingGrid = new AppEngInternalInventory(new InternalInventoryHost() {
             @Override
             public void saveChangedInventory(AppEngInternalInventory inv) {
-                NBTTagCompound tag = stack.getTagCompound();
-                if (tag == null) {
-                    tag = new NBTTagCompound();
-                    stack.setTagCompound(tag);
-                }
                 NBTTagCompound invTag = new NBTTagCompound();
                 inv.writeToNBT(invTag, "items");
-                tag.setTag(CRAFTING_INV, invTag.copy());
+                WirelessTerminals.getTerminalData(stack, terminal)
+                                 .setTag(WirelessTerminals.TAG_CRAFTING_GRID, invTag.copy());
             }
 
             @Override
@@ -49,9 +48,9 @@ public class WirelessCraftingTerminalGuiHost<T extends WirelessCraftingTerminalI
                 return player.world.isRemote;
             }
         }, 9);
-        NBTTagCompound tag = stack.getTagCompound();
-        if (tag != null && tag.hasKey(CRAFTING_INV, 10)) {
-            craftingGrid.readFromNBT(tag.getCompoundTag(CRAFTING_INV), "items");
+        NBTTagCompound tag = WirelessTerminals.getExistingTerminalData(stack, terminal);
+        if (tag != null && tag.hasKey(WirelessTerminals.TAG_CRAFTING_GRID, 10)) {
+            craftingGrid.readFromNBT(tag.getCompoundTag(WirelessTerminals.TAG_CRAFTING_GRID), "items");
         }
         return craftingGrid;
     }

@@ -71,7 +71,11 @@ import appeng.core.gui.locator.GuiHostLocators;
 import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.core.gui.locator.PartLocator;
 import appeng.helpers.WirelessCraftingTerminalGuiHost;
+import appeng.helpers.WirelessPatternAccessTerminalGuiHost;
+import appeng.helpers.WirelessPatternEncodingTerminalGuiHost;
 import appeng.items.contents.NetworkToolGuiHost;
+import appeng.items.tools.powered.WirelessTerminalRegistry;
+import appeng.items.tools.powered.WirelessUniversalTerminalItem;
 import appeng.parts.AEBasePart;
 import appeng.parts.automation.EnergyLevelEmitterPart;
 import appeng.parts.automation.ExportBusPart;
@@ -124,7 +128,9 @@ public class AEGuiHandler implements IGuiHandler {
             || bridge == GuiIds.GuiKey.PORTABLE_ITEM_CELL
             || bridge == GuiIds.GuiKey.PORTABLE_FLUID_CELL
             || bridge == GuiIds.GuiKey.WIRELESS_TERMINAL
-            || bridge == GuiIds.GuiKey.WIRELESS_CRAFTING_TERMINAL;
+            || bridge == GuiIds.GuiKey.WIRELESS_CRAFTING_TERMINAL
+            || bridge == GuiIds.GuiKey.WIRELESS_PATTERN_ENCODING_TERMINAL
+            || bridge == GuiIds.GuiKey.WIRELESS_PATTERN_ACCESS_TERMINAL;
     }
 
     private static boolean isPartGui(GuiIds.GuiKey bridge) {
@@ -362,6 +368,12 @@ public class AEGuiHandler implements IGuiHandler {
             }
             case WIRELESS_CRAFTING_TERMINAL -> {
                 return createWirelessCraftingTerminalContainer(player, x, ID);
+            }
+            case WIRELESS_PATTERN_ENCODING_TERMINAL -> {
+                return createWirelessPatternEncodingTerminalContainer(player, x, ID);
+            }
+            case WIRELESS_PATTERN_ACCESS_TERMINAL -> {
+                return createWirelessPatternAccessTerminalContainer(player, x, ID);
             }
         }
         return null;
@@ -709,6 +721,24 @@ public class AEGuiHandler implements IGuiHandler {
                 }
                 return null;
             }
+            case WIRELESS_PATTERN_ENCODING_TERMINAL -> {
+                ContainerPatternEncodingTerm wirelessPatternEncodingTerminalContainer =
+                    createWirelessPatternEncodingTerminalContainer(player, x, ID);
+                if (wirelessPatternEncodingTerminalContainer != null) {
+                    return new GuiPatternEncodingTerm(wirelessPatternEncodingTerminalContainer, player.inventory, null,
+                        GuiStyleManager.loadStyleDoc("/screens/terminals/pattern_encoding_terminal.json"));
+                }
+                return null;
+            }
+            case WIRELESS_PATTERN_ACCESS_TERMINAL -> {
+                ContainerPatternAccessTerm wirelessPatternAccessTerminalContainer =
+                    createWirelessPatternAccessTerminalContainer(player, x, ID);
+                if (wirelessPatternAccessTerminalContainer != null) {
+                    return new GuiPatternAccessTerm<>(wirelessPatternAccessTerminalContainer, player.inventory, null,
+                        GuiStyleManager.loadStyleDoc("/screens/terminals/pattern_access_terminal.json"));
+                }
+                return null;
+            }
         }
         return null;
     }
@@ -768,7 +798,7 @@ public class AEGuiHandler implements IGuiHandler {
 
     private @Nullable ContainerMEStorage createWirelessTerminalContainer(EntityPlayer player, int slot, int guiId) {
         ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
-        IPortableTerminal host = createPortableTerminalHost(player, locator);
+        IPortableTerminal host = createPortableTerminalHost(player, locator, GuiIds.GuiKey.WIRELESS_TERMINAL);
         if (host == null) {
             return null;
         }
@@ -780,16 +810,44 @@ public class AEGuiHandler implements IGuiHandler {
     private @Nullable ContainerWirelessCraftingTerm createWirelessCraftingTerminalContainer(EntityPlayer player, int slot,
                                                                                             int guiId) {
         ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
-        ItemGuiHost<?> host = createItemGuiHost(player, locator);
-        if (!(host instanceof WirelessCraftingTerminalGuiHost<?> wirelessHost)) {
+        ItemGuiHost<?> host = createItemGuiHost(player, locator, GuiIds.GuiKey.WIRELESS_CRAFTING_TERMINAL);
+        if (!(host instanceof WirelessCraftingTerminalGuiHost wirelessHost)) {
             return null;
         }
 
         return initContainer(new ContainerWirelessCraftingTerm(player.inventory, wirelessHost), locator, guiId);
     }
 
+    private @Nullable ContainerPatternEncodingTerm createWirelessPatternEncodingTerminalContainer(EntityPlayer player,
+                                                                                                  int slot, int guiId) {
+        ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
+        ItemGuiHost<?> host = createItemGuiHost(player, locator, GuiIds.GuiKey.WIRELESS_PATTERN_ENCODING_TERMINAL);
+        if (!(host instanceof WirelessPatternEncodingTerminalGuiHost wirelessHost)) {
+            return null;
+        }
+
+        return initContainer(new ContainerPatternEncodingTerm(GuiIds.GuiKey.WIRELESS_PATTERN_ENCODING_TERMINAL,
+            player.inventory, wirelessHost, true), locator, guiId);
+    }
+
+    private @Nullable ContainerPatternAccessTerm createWirelessPatternAccessTerminalContainer(EntityPlayer player,
+                                                                                              int slot, int guiId) {
+        ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
+        ItemGuiHost<?> host = createItemGuiHost(player, locator, GuiIds.GuiKey.WIRELESS_PATTERN_ACCESS_TERMINAL);
+        if (!(host instanceof WirelessPatternAccessTerminalGuiHost wirelessHost)) {
+            return null;
+        }
+
+        return initContainer(new ContainerPatternAccessTerm(player.inventory, wirelessHost), locator, guiId);
+    }
+
     private @Nullable IPortableTerminal createPortableTerminalHost(EntityPlayer player, ItemGuiHostLocator locator) {
-        ItemGuiHost<?> host = createItemGuiHost(player, locator);
+        return createPortableTerminalHost(player, locator, null);
+    }
+
+    private @Nullable IPortableTerminal createPortableTerminalHost(EntityPlayer player, ItemGuiHostLocator locator,
+                                                                   GuiIds.GuiKey requestedGui) {
+        ItemGuiHost<?> host = createItemGuiHost(player, locator, requestedGui);
         if (host instanceof IPortableTerminal portableTerminal) {
             return portableTerminal;
         }
@@ -805,6 +863,11 @@ public class AEGuiHandler implements IGuiHandler {
     }
 
     private @Nullable ItemGuiHost<?> createItemGuiHost(EntityPlayer player, ItemGuiHostLocator locator) {
+        return createItemGuiHost(player, locator, null);
+    }
+
+    private @Nullable ItemGuiHost<?> createItemGuiHost(EntityPlayer player, ItemGuiHostLocator locator,
+                                                       GuiIds.GuiKey requestedGui) {
         Integer slot = locator.getPlayerInventorySlot();
         if (slot == null || slot < 0 || slot >= player.inventory.getSizeInventory()) {
             return null;
@@ -815,6 +878,18 @@ public class AEGuiHandler implements IGuiHandler {
             return null;
         }
 
+        selectUniversalTerminalForGui(stack, requestedGui);
         return guiItem.getGuiHost(player, locator, locator.hitResult());
+    }
+
+    private void selectUniversalTerminalForGui(ItemStack stack, GuiIds.GuiKey requestedGui) {
+        if (requestedGui == null || !(stack.getItem() instanceof WirelessUniversalTerminalItem universalTerminal)) {
+            return;
+        }
+        WirelessTerminalRegistry.allDefinitions()
+                                .stream()
+                                .filter(definition -> definition.item().getGuiKey(stack) == requestedGui)
+                                .findFirst()
+                                .ifPresent(definition -> universalTerminal.selectTerminal(stack, definition.id()));
     }
 }

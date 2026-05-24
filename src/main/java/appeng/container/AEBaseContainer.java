@@ -390,12 +390,14 @@ public abstract class AEBaseContainer extends Container {
             return ItemStack.EMPTY;
         }
 
+        ItemStack originalStack = stackToMove.copy();
         boolean changed = false;
         boolean fromPlayerSide = isPlayerSideSlot(clickSlot);
         if (fromPlayerSide) {
-            int transferred = transferStackToContainer(stackToMove.copy());
-            if (transferred > 0) {
-                clickSlot.decrStackSize(transferred);
+            ItemStack remainder = quickMoveToOtherSlots(stackToMove.copy(), true);
+            int movedToSlots = originalStack.getCount() - remainder.getCount();
+            if (movedToSlots > 0) {
+                clickSlot.decrStackSize(movedToSlots);
                 changed = true;
             }
         }
@@ -409,9 +411,27 @@ public abstract class AEBaseContainer extends Container {
             return ItemStack.EMPTY;
         }
 
-        ItemStack originalStack = stackToMove.copy();
-        ItemStack remainder = quickMoveToOtherSlots(stackToMove, fromPlayerSide);
-        if (remainder.getCount() == originalStack.getCount()) {
+        if (fromPlayerSide) {
+            int transferred = transferStackToContainer(stackToMove.copy());
+            if (transferred > 0) {
+                clickSlot.decrStackSize(transferred);
+                changed = true;
+            }
+
+            stackToMove = clickSlot.getStack();
+            if (stackToMove.isEmpty()) {
+                if (changed) {
+                    clickSlot.onSlotChanged();
+                    detectAndSendChanges();
+                }
+                return originalStack;
+            }
+        }
+
+        ItemStack stackToMoveCopy = stackToMove.copy();
+        ItemStack remainder = quickMoveToOtherSlots(stackToMoveCopy, fromPlayerSide);
+        int moved = stackToMove.getCount() - remainder.getCount();
+        if (moved <= 0) {
             if (changed) {
                 clickSlot.onSlotChanged();
                 detectAndSendChanges();
@@ -419,11 +439,7 @@ public abstract class AEBaseContainer extends Container {
             return ItemStack.EMPTY;
         }
 
-        if (remainder.isEmpty()) {
-            clickSlot.putStack(ItemStack.EMPTY);
-        } else {
-            clickSlot.putStack(remainder);
-        }
+        clickSlot.decrStackSize(moved);
         changed = true;
         clickSlot.onSlotChanged();
         if (changed) {
@@ -434,24 +450,6 @@ public abstract class AEBaseContainer extends Container {
 
     private ItemStack quickMoveToOtherSlots(ItemStack stackToMove, boolean fromPlayerSide) {
         List<Slot> destinationSlots = getQuickMoveDestinationSlots(stackToMove, fromPlayerSide);
-
-        if (destinationSlots.isEmpty() && fromPlayerSide) {
-            for (Slot slot : this.inventorySlots) {
-                if (slot instanceof FakeSlot && !isPlayerSideSlot(slot)) {
-                    ItemStack destination = slot.getStack();
-                    if (ItemStack.areItemsEqual(destination, stackToMove)
-                        && ItemStack.areItemStackTagsEqual(destination, stackToMove)) {
-                        break;
-                    } else if (destination.isEmpty()) {
-                        slot.putStack(stackToMove.copy());
-                        this.broadcastChanges();
-                        break;
-                    }
-                }
-            }
-
-            return stackToMove;
-        }
 
         for (Slot destination : destinationSlots) {
             if (destination.getHasStack()) {
@@ -1038,7 +1036,7 @@ public abstract class AEBaseContainer extends Container {
                     + MAX_STRING_LENGTH + " (" + jsonPayload.length() + ")");
         }
 
-        InitNetwork.sendToServer(new GuiActionPacket(this.windowId, clientAction.name, jsonPayload));
+        InitNetwork.sendToServer(new GuiActionPacket(clientAction.name, jsonPayload));
     }
 
     protected final void sendClientAction(String action) {
@@ -1048,7 +1046,7 @@ public abstract class AEBaseContainer extends Container {
     public final void receiveClientAction(String actionName, @Nullable String jsonPayload) {
         ClientAction<?> action = this.clientActions.get(actionName);
         if (action == null) {
-            throw new IllegalArgumentException("Unknown client action: '" + actionName + "'");
+            return;
         }
 
         action.handle(jsonPayload);

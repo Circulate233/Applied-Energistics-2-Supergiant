@@ -18,6 +18,9 @@ public final class SlotSemantics {
     public static final SlotSemantic PROCESSING_INPUTS = register("PROCESSING_INPUTS", false);
     public static final SlotSemantic PROCESSING_OUTPUTS = register("PROCESSING_OUTPUTS", false);
     public static final SlotSemantic VIEW_CELL = register("VIEW_CELL", false);
+    public static final SlotSemantic MAGNET_PICKUP_CONFIG = register("MAGNET_PICKUP_CONFIG", false);
+    public static final SlotSemantic MAGNET_INSERT_CONFIG = register("MAGNET_INSERT_CONFIG", false);
+    public static final SlotSemantic WIRELESS_SINGULARITY = register("WIRELESS_SINGULARITY", false);
     public static final SlotSemantic UPGRADE = register("UPGRADE", false);
     public static final SlotSemantic STORAGE_CELL = register("STORAGE_CELL", false);
     public static final SlotSemantic MACHINE_INPUT = register("MACHINE_INPUT", false);

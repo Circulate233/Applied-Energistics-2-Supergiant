@@ -2,6 +2,7 @@
   "recipes": {
     "add_item_upgrade": "appeng.recipes.serializers.AddItemUpgradeRecipeFactory",
     "remove_item_upgrade": "appeng.recipes.serializers.RemoveItemUpgradeRecipeFactory",
+    "wireless_universal_terminal": "appeng.recipes.serializers.WirelessUniversalTerminalRecipeFactory",
     "storage_cell_upgrade": "appeng.recipes.serializers.StorageCellUpgradeRecipeFactory",
     "quartz_cutting": "appeng.recipes.serializers.QuartzCuttingRecipeFactory",
     "charger": "appeng.recipes.serializers.ChargerRecipeFactory",

@@ -95,15 +95,15 @@ public abstract class IconButton extends GuiButton implements ITooltip {
         this.hovered = mouseX >= this.x && mouseY >= this.y && mouseX < this.x + this.width && mouseY < this.y + this.height;
 
         var icon = this.getIcon();
-        var item = this.getItemOverlay();
+        var item = this.getItemStackOverlay();
         int yOffset = this.hovered ? 1 : 0;
 
         if (this.halfSize) {
             if (!disableBackground) {
                 Icon.TOOLBAR_BUTTON_BACKGROUND.getBlitter().dest(this.x, this.y).zOffset(10).blit();
             }
-            if (item != null) {
-                renderItem(minecraft, new ItemStack(item), this.x, this.y, 20);
+            if (!item.isEmpty()) {
+                renderItem(minecraft, item, this.x, this.y, 20);
             } else if (icon != null) {
                 Blitter blitter = icon.getBlitter().copy();
                 if (!this.enabled) {
@@ -121,8 +121,8 @@ public abstract class IconButton extends GuiButton implements ITooltip {
                       .zOffset(2)
                       .blit();
             }
-            if (item != null) {
-                renderItem(minecraft, new ItemStack(item), this.x, this.y + 1 + yOffset, 3);
+            if (!item.isEmpty()) {
+                renderItem(minecraft, item, this.x, this.y + 1 + yOffset, 3);
             } else if (icon != null) {
                 icon.getBlitter().dest(this.x, this.y + 1 + yOffset).zOffset(3).blit();
             }
@@ -134,6 +134,11 @@ public abstract class IconButton extends GuiButton implements ITooltip {
     @Nullable
     protected Item getItemOverlay() {
         return null;
+    }
+
+    protected ItemStack getItemStackOverlay() {
+        Item item = getItemOverlay();
+        return item == null ? ItemStack.EMPTY : new ItemStack(item);
     }
 
     public void setMessage(ITextComponent message) {
@@ -164,6 +169,7 @@ public abstract class IconButton extends GuiButton implements ITooltip {
         return this.visible;
     }
 
+    @SuppressWarnings("unused")
     public boolean isHalfSize() {
         return this.halfSize;
     }
@@ -174,6 +180,7 @@ public abstract class IconButton extends GuiButton implements ITooltip {
         this.height = halfSize ? 8 : 16;
     }
 
+    @SuppressWarnings("unused")
     public boolean isDisableClickSound() {
         return disableClickSound;
     }
@@ -182,6 +189,7 @@ public abstract class IconButton extends GuiButton implements ITooltip {
         this.disableClickSound = disableClickSound;
     }
 
+    @SuppressWarnings("unused")
     public boolean isDisableBackground() {
         return disableBackground;
     }
@@ -210,4 +218,3 @@ public abstract class IconButton extends GuiButton implements ITooltip {
         GlStateManager.popMatrix();
     }
 }
-

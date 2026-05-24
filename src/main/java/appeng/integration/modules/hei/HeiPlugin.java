@@ -260,9 +260,13 @@ public class HeiPlugin implements IModPlugin {
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(
             new CraftingRecipeTransferHandler<>(ContainerCraftingTerm.class, transferHelper),
             VanillaRecipeCategoryUid.CRAFTING);
+        registry.getRecipeTransferRegistry().addUniversalRecipeTransferHandler(
+            new CraftingRecipeTransferHandler<>(ContainerCraftingTerm.class, transferHelper));
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(
             new CraftingRecipeTransferHandler<>(ContainerWirelessCraftingTerm.class, transferHelper),
             VanillaRecipeCategoryUid.CRAFTING);
+        registry.getRecipeTransferRegistry().addUniversalRecipeTransferHandler(
+            new CraftingRecipeTransferHandler<>(ContainerWirelessCraftingTerm.class, transferHelper));
         PatternEncodingRecipeTransferHandler patternTransferHandler = new PatternEncodingRecipeTransferHandler();
         registry.getRecipeTransferRegistry().addUniversalRecipeTransferHandler(patternTransferHandler);
         registry.addAdvancedGuiHandlers(GUI_HANDLER);

@@ -38,6 +38,10 @@ public interface ICompositeWidget {
 
     Rectangle getBounds();
 
+    default boolean hitTest(Point mousePos) {
+        return mousePos.isIn(getBounds());
+    }
+
     default void addExclusionZones(List<Rectangle> exclusionZones, Rectangle screenBounds) {
         Rectangle bounds = getBounds();
         if (bounds.width <= 0 || bounds.height <= 0) {
@@ -111,5 +115,8 @@ public interface ICompositeWidget {
         return null;
     }
 
-}
+    default boolean blocksTooltips(int mouseX, int mouseY) {
+        return false;
+    }
 
+}

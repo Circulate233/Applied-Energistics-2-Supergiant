@@ -77,6 +77,11 @@ public final class ViewCellsPanel implements ICompositeWidget {
     }
 
     @Override
+    public boolean hitTest(Point mousePos) {
+        return mousePos.isIn(getBounds()) && !isHoveringPanelSlot(mousePos.x(), mousePos.y());
+    }
+
+    @Override
     public void populateScreen(Consumer<net.minecraft.client.gui.GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
         this.screenOrigin = Point.fromTopLeft(bounds);
     }
@@ -140,7 +145,7 @@ public final class ViewCellsPanel implements ICompositeWidget {
     @Nullable
     @Override
     public Tooltip getTooltip(int mouseX, int mouseY) {
-        if (getSlotCount() == 0) {
+        if (getSlotCount() == 0 || !isHoveringEmptyPanelSlot(mouseX, mouseY)) {
             return null;
         }
 
@@ -160,5 +165,39 @@ public final class ViewCellsPanel implements ICompositeWidget {
             }
         }
         return count;
+    }
+
+    private boolean isHoveringPanelSlot(int mouseX, int mouseY) {
+        for (Slot slot : this.slots) {
+            if (!(slot instanceof AppEngSlot appEngSlot) || !appEngSlot.isSlotEnabled()) {
+                continue;
+            }
+
+            if (mouseX >= slot.xPos && mouseX < slot.xPos + SLOT_SIZE
+                && mouseY >= slot.yPos && mouseY < slot.yPos + SLOT_SIZE) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isHoveringEmptyPanelSlot(int mouseX, int mouseY) {
+        for (Slot slot : this.slots) {
+            if (!(slot instanceof AppEngSlot appEngSlot) || !appEngSlot.isSlotEnabled()) {
+                continue;
+            }
+
+            if (!slot.getStack().isEmpty()) {
+                continue;
+            }
+
+            if (mouseX >= slot.xPos && mouseX < slot.xPos + SLOT_SIZE
+                && mouseY >= slot.yPos && mouseY < slot.yPos + SLOT_SIZE) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

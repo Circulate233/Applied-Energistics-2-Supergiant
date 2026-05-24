@@ -23,6 +23,15 @@
       "text": {
         "translate": "gui.ae2.SearchSettingsTitle"
       }
+    },
+    "wireless_settings_title": {
+      "position": {
+        "left": 8,
+        "top": 50
+      },
+      "text": {
+        "translate": "gui.ae2.WirelessTerminalSettingsTitle"
+      }
     }
   },
   "widgets": {
@@ -46,6 +55,37 @@
       "left": 10,
       "top": 82,
       "width": 180
+    },
+    "pickBlockCheckbox": {
+      "left": 10,
+      "top": 72,
+      "width": 180
+    },
+    "craftIfMissingCheckbox": {
+      "left": 10,
+      "top": 88,
+      "width": 180
+    },
+    "restockCheckbox": {
+      "left": 10,
+      "top": 104,
+      "width": 180
+    },
+    "magnetCheckbox": {
+      "left": 10,
+      "top": 120,
+      "width": 85
+    },
+    "pickupToMECheckbox": {
+      "left": 100,
+      "top": 120,
+      "width": 90
+    },
+    "magnetSettingsButton": {
+      "left": 10,
+      "top": 142,
+      "width": 180,
+      "height": 20
     },
     "useInternalSearchRadio": {
       "left": 10,

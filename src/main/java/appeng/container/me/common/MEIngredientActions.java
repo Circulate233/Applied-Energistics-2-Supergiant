@@ -1,6 +1,5 @@
 package appeng.container.me.common;
 
-import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.implementations.guiobjects.IPortableTerminal;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.energy.IEnergySource;
@@ -13,7 +12,9 @@ import appeng.api.storage.StorageHelper;
 import appeng.container.implementations.ContainerCraftAmount;
 import appeng.core.gui.locator.GuiHostLocator;
 import appeng.core.gui.locator.GuiHostLocators;
+import appeng.helpers.WirelessTerminalActions;
 import appeng.integration.modules.baubles.BaublesIntegration;
+import appeng.items.tools.powered.WirelessTerminalItem;
 import appeng.me.helpers.ActionHostEnergySource;
 import appeng.me.helpers.PlayerSource;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -36,7 +37,7 @@ public final class MEIngredientActions {
                                                GenericStack stack) {
         int inventorySize = player.inventory.getSizeInventory();
         for (int slot = 0; slot < inventorySize; slot++) {
-            if (!isGuiItem(player.inventory.getStackInSlot(slot))) {
+            if (!isWirelessTerminal(player.inventory.getStackInSlot(slot))) {
                 continue;
             }
             if (handleWirelessTerminal(player, GuiHostLocators.forInventorySlot(slot), action, stack)) {
@@ -46,7 +47,7 @@ public final class MEIngredientActions {
 
         int baubleSlots = BaublesIntegration.getSlots(player);
         for (int slot = 0; slot < baubleSlots; slot++) {
-            if (!isGuiItem(BaublesIntegration.getStackInSlot(player, slot))) {
+            if (!isWirelessTerminal(BaublesIntegration.getStackInSlot(player, slot))) {
                 continue;
             }
             if (handleWirelessTerminal(player, GuiHostLocators.forBaubleSlot(slot), action, stack)) {
@@ -61,6 +62,9 @@ public final class MEIngredientActions {
         if (target.isEmpty() || !InventoryPlayer.isHotbar(hotbarSlot)) {
             return;
         }
+        if (!WirelessTerminalActions.isPickBlockEnabled(player)) {
+            return;
+        }
 
         AEItemKey targetKey = AEItemKey.of(target);
         if (targetKey == null) {
@@ -69,7 +73,7 @@ public final class MEIngredientActions {
 
         int inventorySize = player.inventory.getSizeInventory();
         for (int slot = 0; slot < inventorySize; slot++) {
-            if (!isGuiItem(player.inventory.getStackInSlot(slot))) {
+            if (!isWirelessTerminal(player.inventory.getStackInSlot(slot))) {
                 continue;
             }
             if (retrieveToHotbarFromWirelessTerminal(player, GuiHostLocators.forInventorySlot(slot), targetKey, target,
@@ -80,7 +84,7 @@ public final class MEIngredientActions {
 
         int baubleSlots = BaublesIntegration.getSlots(player);
         for (int slot = 0; slot < baubleSlots; slot++) {
-            if (!isGuiItem(BaublesIntegration.getStackInSlot(player, slot))) {
+            if (!isWirelessTerminal(BaublesIntegration.getStackInSlot(player, slot))) {
                 continue;
             }
             if (retrieveToHotbarFromWirelessTerminal(player, GuiHostLocators.forBaubleSlot(slot), targetKey, target,
@@ -191,6 +195,9 @@ public final class MEIngredientActions {
         long extracted = StorageHelper.poweredExtraction(energySource, host.getInventory(), targetKey, amount,
             new PlayerSource(player, actionHost));
         if (extracted <= 0) {
+            if (!WirelessTerminalActions.isCraftIfMissingEnabled(player)) {
+                return false;
+            }
             return openWirelessCraftAmount(player, locator, node, targetKey, target.getCount(), false);
         }
 
@@ -231,7 +238,7 @@ public final class MEIngredientActions {
         return result;
     }
 
-    private static boolean isGuiItem(ItemStack stack) {
-        return !stack.isEmpty() && stack.getItem() instanceof IGuiItem;
+    private static boolean isWirelessTerminal(ItemStack stack) {
+        return !stack.isEmpty() && stack.getItem() instanceof WirelessTerminalItem;
     }
 }

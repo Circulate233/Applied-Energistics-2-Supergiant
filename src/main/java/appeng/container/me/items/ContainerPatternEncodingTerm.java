@@ -46,6 +46,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
     private static final String ACTION_SET_MODE = "setMode";
     private static final String ACTION_ENCODE = "encode";
     private static final String ACTION_CLEAR = "clear";
+    private static final String ACTION_SET_CLEAR_ON_CLOSE = "setClearOnClose";
     private static final String ACTION_SET_SUBSTITUTION = "setSubstitution";
     private static final String ACTION_SET_FLUID_SUBSTITUTION = "setFluidSubstitution";
     private static final String ACTION_CYCLE_PROCESSING_OUTPUT = "cycleProcessingOutput";
@@ -76,6 +77,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
     public YesNo autoFillPatterns = YesNo.NO;
     @Nullable
     private IRecipe currentRecipe;
+    private boolean clearOnClose;
 
     public ContainerPatternEncodingTerm(InventoryPlayer ip, IPatternTerminalGuiHost host) {
         this(GuiIds.GuiKey.PATTERN_ENCODING_TERMINAL, ip, host, true);
@@ -119,6 +121,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
 
         registerClientAction(ACTION_ENCODE, this::encode);
         registerClientAction(ACTION_CLEAR, this::clear);
+        registerClientAction(ACTION_SET_CLEAR_ON_CLOSE, Boolean.class, this::setClearOnClose);
         registerClientAction(ACTION_SET_MODE, EncodingMode.class, this::changeMode);
         registerClientAction(ACTION_SET_SUBSTITUTION, Boolean.class, this::changeSubstitution);
         registerClientAction(ACTION_SET_FLUID_SUBSTITUTION, Boolean.class, this::changeFluidSubstitution);
@@ -416,6 +419,14 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
         return null;
     }
 
+    @Override
+    public void onContainerClosed(net.minecraft.entity.player.EntityPlayer player) {
+        if (isServerSide() && this.clearOnClose) {
+            clear();
+        }
+        super.onContainerClosed(player);
+    }
+
     public void clear() {
         if (isClientSide()) {
             sendClientAction(ACTION_CLEAR);
@@ -427,6 +438,15 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
         this.currentRecipe = null;
         this.craftOutputSlot.setResultItem(ItemStack.EMPTY);
         this.broadcastChanges();
+    }
+
+    public void setClearOnClose(boolean clearOnClose) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_CLEAR_ON_CLOSE, clearOnClose);
+            return;
+        }
+
+        this.clearOnClose = clearOnClose;
     }
 
     public EncodingMode getMode() {

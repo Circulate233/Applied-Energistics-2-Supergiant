@@ -886,7 +886,7 @@ public class CableBusContainer implements IPartHost, ICableBusContainer {
             if (partModelData != null) {
                 renderState.getPartModelData().put(side, partModelData);
                 if (partModelData instanceof Long) {
-                    renderState.getPartFlags().put(side, (Long) partModelData);
+                    renderState.getPartFlags().put(side, ((Long) partModelData).longValue());
                 } else if (partModelData instanceof Number) {
                     renderState.getAttachmentSpins().put(side, ((Number) partModelData).intValue());
                 }

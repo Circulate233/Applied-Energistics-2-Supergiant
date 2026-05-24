@@ -18,8 +18,8 @@
 
 package appeng.core.definitions;
 
-import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.crafting.EncodedPatternItemBuilder;
+import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.ids.AEItemIds;
 import appeng.api.stacks.AEKeyType;
 import appeng.api.upgrades.Upgrades;
@@ -61,7 +61,10 @@ import appeng.items.tools.powered.EntropyManipulatorItem;
 import appeng.items.tools.powered.MatterCannonItem;
 import appeng.items.tools.powered.PortableCellItem;
 import appeng.items.tools.powered.WirelessCraftingTerminalItem;
+import appeng.items.tools.powered.WirelessPatternAccessTerminalItem;
+import appeng.items.tools.powered.WirelessPatternEncodingTerminalItem;
 import appeng.items.tools.powered.WirelessTerminalItem;
+import appeng.items.tools.powered.WirelessUniversalTerminalItem;
 import appeng.items.tools.quartz.QuartzAxeItem;
 import appeng.items.tools.quartz.QuartzCuttingKnifeItem;
 import appeng.items.tools.quartz.QuartzHoeItem;
@@ -194,6 +197,10 @@ public final class AEItems {
         AEItemIds.EQUAL_DISTRIBUTION_CARD, Upgrades.createUpgradeCardItem());
     public static final ItemDefinition<EnergyCardItem> ENERGY_CARD = new ItemDefinition<>(AEItemIds.ENERGY_CARD,
         new EnergyCardItem(1));
+    public static final ItemDefinition<Item> QUANTUM_BRIDGE_CARD = new ItemDefinition<>(AEItemIds.QUANTUM_BRIDGE_CARD,
+        Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<Item> MAGNET_CARD = new ItemDefinition<>(AEItemIds.MAGNET_CARD,
+        Upgrades.createUpgradeCardItem());
     public static final ItemDefinition<MaterialItem> SPATIAL_2_CELL_COMPONENT = new ItemDefinition<>(
         AEItemIds.SPATIAL_2_CELL_COMPONENT, new MaterialItem());
     public static final ItemDefinition<MaterialItem> SPATIAL_16_CELL_COMPONENT = new ItemDefinition<>(
@@ -310,6 +317,15 @@ public final class AEItems {
         AEItemIds.WIRELESS_TERMINAL, new WirelessTerminalItem(getWirelessTerminalBattery()));
     public static final ItemDefinition<WirelessCraftingTerminalItem> WIRELESS_CRAFTING_TERMINAL = new ItemDefinition<>(
         AEItemIds.WIRELESS_CRAFTING_TERMINAL, new WirelessCraftingTerminalItem(getWirelessTerminalBattery()));
+    public static final ItemDefinition<WirelessPatternEncodingTerminalItem> WIRELESS_PATTERN_ENCODING_TERMINAL =
+        new ItemDefinition<>(AEItemIds.WIRELESS_PATTERN_ENCODING_TERMINAL,
+            new WirelessPatternEncodingTerminalItem(getWirelessTerminalBattery()));
+    public static final ItemDefinition<WirelessPatternAccessTerminalItem> WIRELESS_PATTERN_ACCESS_TERMINAL =
+        new ItemDefinition<>(AEItemIds.WIRELESS_PATTERN_ACCESS_TERMINAL,
+            new WirelessPatternAccessTerminalItem(getWirelessTerminalBattery()));
+    public static final ItemDefinition<WirelessUniversalTerminalItem> WIRELESS_UNIVERSAL_TERMINAL =
+        new ItemDefinition<>(AEItemIds.WIRELESS_UNIVERSAL_TERMINAL,
+            new WirelessUniversalTerminalItem(getWirelessTerminalBattery()));
     public static final ItemDefinition<ChargedStaffItem> CHARGED_STAFF = new ItemDefinition<>(
         AEItemIds.CHARGED_STAFF, new ChargedStaffItem());
     public static final ItemDefinition<MatterCannonItem> MATTER_CANNON = new ItemDefinition<>(AEItemIds.MATTER_CANNON,
@@ -391,6 +407,8 @@ public final class AEItems {
         CRAFTING_CARD,
         EQUAL_DISTRIBUTION_CARD,
         ENERGY_CARD,
+        QUANTUM_BRIDGE_CARD,
+        MAGNET_CARD,
         SPATIAL_2_CELL_COMPONENT,
         SPATIAL_16_CELL_COMPONENT,
         SPATIAL_128_CELL_COMPONENT,
@@ -438,6 +456,9 @@ public final class AEItems {
         PORTABLE_FLUID_CELL256K,
         WIRELESS_TERMINAL,
         WIRELESS_CRAFTING_TERMINAL,
+        WIRELESS_PATTERN_ENCODING_TERMINAL,
+        WIRELESS_PATTERN_ACCESS_TERMINAL,
+        WIRELESS_UNIVERSAL_TERMINAL,
         CHARGED_STAFF,
         MATTER_CANNON,
         ENTROPY_MANIPULATOR,

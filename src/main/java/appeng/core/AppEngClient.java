@@ -49,6 +49,7 @@ import appeng.entity.TinyTNTPrimedRenderer;
 import appeng.helpers.IMouseWheelItem;
 import appeng.hooks.RenderBlockOutlineHook;
 import appeng.hooks.WirelessTerminalPickBlockHook;
+import appeng.hooks.WirelessUniversalTerminalClientHandler;
 import appeng.init.client.InitBlockColors;
 import appeng.init.client.InitBuiltInModels;
 import appeng.init.client.InitGuis;
@@ -135,6 +136,7 @@ public final class AppEngClient extends AppEngServer {
         ClientRegistry.registerKeyBinding(PART_PLACEMENT_OPPOSITE);
         ClientCommands.register();
         MinecraftForge.EVENT_BUS.register(new RenderBlockOutlineHook());
+        MinecraftForge.EVENT_BUS.register(new WirelessUniversalTerminalClientHandler());
         MinecraftForge.EVENT_BUS.register(new MeteoriteCompassBeaconRenderer());
         MinecraftForge.EVENT_BUS.register(OverlayManager.getInstance());
         MinecraftForge.EVENT_BUS.register(StackTooltipRenderer.INSTANCE);

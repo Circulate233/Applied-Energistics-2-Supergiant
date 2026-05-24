@@ -1,0 +1,23 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "bcb",
+    "aba"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:fluix_crystal"
+    },
+    "b": {
+      "item": "minecraft:iron_ingot"
+    },
+    "c": {
+      "item": "ae2:advanced_card"
+    }
+  },
+  "result": {
+    "item": "ae2:magnet_card",
+    "count": 1
+  }
+}

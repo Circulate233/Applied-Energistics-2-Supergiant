@@ -26,6 +26,7 @@ import appeng.core.network.serverbound.CableBusPartLeftClickPacket;
 import appeng.core.network.serverbound.ColorApplicatorSelectColorPacket;
 import appeng.core.network.serverbound.ConfigButtonPacket;
 import appeng.core.network.serverbound.ConfirmAutoCraftPacket;
+import appeng.core.network.serverbound.CycleWirelessTerminalPacket;
 import appeng.core.network.serverbound.FillCraftingGridFromRecipePacket;
 import appeng.core.network.serverbound.GuiActionPacket;
 import appeng.core.network.serverbound.HeiIngredientActionPacket;
@@ -36,10 +37,12 @@ import appeng.core.network.serverbound.MouseWheelPacket;
 import appeng.core.network.serverbound.QuickMovePatternPacket;
 import appeng.core.network.serverbound.RequestClosestMeteoritePacket;
 import appeng.core.network.serverbound.SelectKeyTypePacket;
+import appeng.core.network.serverbound.SelectWirelessTerminalPacket;
 import appeng.core.network.serverbound.SwapSlotsPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
 import appeng.core.network.serverbound.UpdateHoldingCtrlPacket;
 import appeng.core.network.serverbound.WirelessTerminalPickBlockPacket;
+import appeng.core.network.serverbound.WirelessTerminalSettingsPacket;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.world.World;
@@ -88,6 +91,7 @@ public final class InitNetwork {
         registerServerbound(AppEngPayloadHandler.Server.class, CableBusPartLeftClickPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, ConfigButtonPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, ConfirmAutoCraftPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, CycleWirelessTerminalPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, FillCraftingGridFromRecipePacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, GuiActionPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, HeiIngredientActionPacket.class);
@@ -98,10 +102,12 @@ public final class InitNetwork {
         registerServerbound(AppEngPayloadHandler.Server.class, MouseWheelPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, QuickMovePatternPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, SelectKeyTypePacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, SelectWirelessTerminalPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, SwapSlotsPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, SwitchGuisPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, UpdateHoldingCtrlPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, WirelessTerminalPickBlockPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, WirelessTerminalSettingsPacket.class);
         CHANNEL.registerMessage(ConfigValuePacket.ServerHandler.class, ConfigValuePacket.class, nextPacketId++, Side.SERVER);
     }
 

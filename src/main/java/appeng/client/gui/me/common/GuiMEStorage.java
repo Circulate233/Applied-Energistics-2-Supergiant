@@ -35,6 +35,7 @@ import appeng.api.util.IConfigManager;
 import appeng.client.Point;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Icon;
+import appeng.client.gui.me.items.WirelessUniversalTerminalSelectorWindow;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.TerminalStyle;
@@ -42,6 +43,7 @@ import appeng.client.gui.widgets.AETextField;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.ISortSource;
 import appeng.client.gui.widgets.ITextFieldGui;
+import appeng.client.gui.widgets.ItemStackButton;
 import appeng.client.gui.widgets.KeyTypeSelectionButton;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.client.gui.widgets.SettingToggleButton;
@@ -63,8 +65,10 @@ import appeng.core.network.InitNetwork;
 import appeng.core.network.bidirectional.ConfigValuePacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
 import appeng.helpers.InventoryAction;
+import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.integration.abstraction.ItemListMod;
 import appeng.items.storage.ViewCellItem;
+import appeng.items.tools.powered.WirelessUniversalTerminalItem;
 import appeng.text.TextComponentItemStack;
 import appeng.util.Platform;
 import appeng.util.prioritylist.IPartitionList;
@@ -145,8 +149,10 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
             this.widgets.add("viewCells", new ViewCellsPanel(viewCellSlots, () -> tooltip));
         }
 
-        this.widgets.add("upgrades", new UpgradesPanel(
+        this.widgets.add("upgrades", UpgradesPanel.create(
+            this.widgets,
             container.getSlots(SlotSemantics.UPGRADE),
+            container.getSlots(SlotSemantics.WIRELESS_SINGULARITY),
             container.getHost()));
         if (container.getToolbox().isPresent()) {
             this.widgets.add("toolbox", new ToolboxPanel(style, container.getToolbox().getName()));
@@ -185,6 +191,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
         this.addToLeftToolbar(new ActionButton(ActionItems.TERMINAL_SETTINGS, this::showSettings));
         this.addToLeftToolbar(new SettingToggleButton<>(
             Settings.TERMINAL_STYLE, AEConfig.instance().getTerminalStyle(), this::toggleTerminalStyle));
+        addWirelessUniversalTerminalButton();
 
         this.searchField = this.widgets.addTextField("search");
         this.searchField.setPlaceholder(GuiText.SearchPlaceholder.text());
@@ -304,7 +311,23 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
     }
 
     private void showSettings() {
-        switchToScreen(new GuiTerminalSettings<>(this));
+        switchToScreen(new GuiTerminalSettings(this));
+    }
+
+    private void addWirelessUniversalTerminalButton() {
+        if (!(this.container.getHost() instanceof WirelessTerminalGuiHost<?> wirelessHost)) {
+            return;
+        }
+        ItemStack stack = wirelessHost.getItemStack();
+        if (!(stack.getItem() instanceof WirelessUniversalTerminalItem)) {
+            return;
+        }
+        WirelessUniversalTerminalSelectorWindow selector = new WirelessUniversalTerminalSelectorWindow(this);
+        this.widgets.add("wirelessUniversalTerminalSelector", selector);
+        this.addToLeftToolbar(new ItemStackButton(
+            () -> wirelessHost.getTerminalItem().getWirelessTerminalDefinition().icon(wirelessHost.getTerminalItem()),
+            GuiText.WirelessTerminalSelector.text(),
+            selector::toggle));
     }
 
     private void showCraftingStatus() {

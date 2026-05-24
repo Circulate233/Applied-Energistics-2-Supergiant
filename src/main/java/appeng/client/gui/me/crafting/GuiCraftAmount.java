@@ -65,7 +65,7 @@ public class GuiCraftAmount extends AEBaseGui<ContainerCraftAmount> {
             var whatToCraft = container.getWhatToCraft();
             if (whatToCraft != null) {
                 this.amountToCraft.setType(NumberEntryType.of(whatToCraft.what()));
-                this.amountToCraft.setLongValue(whatToCraft.amount());
+                this.amountToCraft.setLongValue(container.getInitialAmount());
                 this.amountInitialized = true;
             }
         }

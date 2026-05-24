@@ -1,0 +1,62 @@
+{
+  "$schema": "schema.json",
+  "includes": [
+    "common/common.json"
+  ],
+  "generatedBackground": {
+    "width": 200,
+    "height": 82
+  },
+  "text": {
+    "dialog_title": {
+      "position": {
+        "left": 8,
+        "top": 7
+      }
+    }
+  },
+  "widgets": {
+    "back": {
+      "left": 176,
+      "top": -5,
+      "width": 16,
+      "height": 16
+    },
+    "terminal0": {
+      "left": 10,
+      "top": 28,
+      "width": 16,
+      "height": 16
+    },
+    "terminal1": {
+      "left": 36,
+      "top": 28,
+      "width": 16,
+      "height": 16
+    },
+    "terminal2": {
+      "left": 62,
+      "top": 28,
+      "width": 16,
+      "height": 16
+    },
+    "terminal3": {
+      "left": 88,
+      "top": 28,
+      "width": 16,
+      "height": 16
+    },
+    "terminal4": {
+      "left": 114,
+      "top": 28,
+      "width": 16,
+      "height": 16
+    },
+    "terminal5": {
+      "left": 140,
+      "top": 28,
+      "width": 16,
+      "height": 16
+    }
+  }
+}

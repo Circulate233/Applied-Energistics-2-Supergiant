@@ -3,6 +3,10 @@ package appeng.client.render.cablebus;
 import appeng.api.parts.IPartModel;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
+import appeng.util.collections.Enum2IntMap;
+import appeng.util.collections.Enum2LongMap;
+import it.unimi.dsi.fastutil.objects.Reference2IntMap;
+import it.unimi.dsi.fastutil.objects.Reference2LongMap;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
@@ -14,24 +18,25 @@ import java.lang.ref.WeakReference;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @SuppressWarnings("unused")
 public class CableBusRenderState {
 
     private final EnumMap<EnumFacing, IPartModel> attachments = new EnumMap<>(EnumFacing.class);
-    private final EnumMap<EnumFacing, Integer> attachmentConnections = new EnumMap<>(EnumFacing.class);
+    private final Enum2IntMap<EnumFacing> attachmentConnections = new Enum2IntMap<>(EnumFacing.class);
     private final EnumMap<EnumFacing, FacadeRenderState> facades = new EnumMap<>(EnumFacing.class);
     private final List<AxisAlignedBB> boundingBoxes = new ObjectArrayList<>();
     private final EnumMap<EnumFacing, Object> partModelData = new EnumMap<>(EnumFacing.class);
-    private final EnumMap<EnumFacing, Integer> attachmentSpins = new EnumMap<>(EnumFacing.class);
-    private final EnumMap<EnumFacing, Long> partFlags = new EnumMap<>(EnumFacing.class);
+    private final Enum2IntMap<EnumFacing> attachmentSpins = new Enum2IntMap<>(EnumFacing.class);
+    private final Enum2LongMap<EnumFacing> partFlags = new Enum2LongMap<>(EnumFacing.class);
     private AECableType cableType = AECableType.NONE;
     private CableCoreType coreType;
     private AEColor cableColor = AEColor.TRANSPARENT;
     private EnumMap<EnumFacing, AECableType> connectionTypes = new EnumMap<>(EnumFacing.class);
     private EnumSet<EnumFacing> cableBusAdjacent = EnumSet.noneOf(EnumFacing.class);
-    private EnumMap<EnumFacing, Integer> channelsOnSide = new EnumMap<>(EnumFacing.class);
+    private final Enum2IntMap<EnumFacing> channelsOnSide = new Enum2IntMap<>(EnumFacing.class);
     private WeakReference<IBlockAccess> world;
     private BlockPos pos;
 
@@ -78,19 +83,20 @@ public class CableBusRenderState {
         this.cableBusAdjacent = cableBusAdjacent;
     }
 
-    public EnumMap<EnumFacing, Integer> getChannelsOnSide() {
+    public Reference2IntMap<EnumFacing> getChannelsOnSide() {
         return this.channelsOnSide;
     }
 
-    public void setChannelsOnSide(EnumMap<EnumFacing, Integer> channelsOnSide) {
-        this.channelsOnSide = channelsOnSide;
+    public void setChannelsOnSide(Map<EnumFacing, Integer> channelsOnSide) {
+        this.channelsOnSide.clear();
+        this.channelsOnSide.putAll(channelsOnSide);
     }
 
     public EnumMap<EnumFacing, IPartModel> getAttachments() {
         return this.attachments;
     }
 
-    public EnumMap<EnumFacing, Integer> getAttachmentConnections() {
+    public Reference2IntMap<EnumFacing> getAttachmentConnections() {
         return this.attachmentConnections;
     }
 
@@ -123,11 +129,11 @@ public class CableBusRenderState {
         return this.partModelData;
     }
 
-    public EnumMap<EnumFacing, Integer> getAttachmentSpins() {
+    public Reference2IntMap<EnumFacing> getAttachmentSpins() {
         return this.attachmentSpins;
     }
 
-    public EnumMap<EnumFacing, Long> getPartFlags() {
+    public Reference2LongMap<EnumFacing> getPartFlags() {
         return this.partFlags;
     }
 

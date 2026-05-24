@@ -10,9 +10,12 @@ import appeng.api.config.SortDir;
 import appeng.api.config.SortOrder;
 import appeng.api.config.ViewItems;
 import appeng.api.features.GridLinkables;
+import appeng.api.features.HotkeyAction;
 import appeng.api.features.IGridLinkableHandler;
 import appeng.api.implementations.blockentities.IWirelessAccessPoint;
 import appeng.api.implementations.guiobjects.IGuiItem;
+import appeng.api.implementations.items.AddWirelessTerminalEvent;
+import appeng.api.implementations.items.WirelessTerminalDefinition;
 import appeng.api.networking.IGrid;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableItem;
@@ -53,18 +56,47 @@ import java.util.function.Supplier;
 @Optional.Interface(iface = "baubles.api.IBauble", modid = "baubles")
 public class WirelessTerminalItem extends PoweredContainerItem implements IGuiItem, IUpgradeableItem, IBauble {
     public static final IGridLinkableHandler LINKABLE_HANDLER = new LinkableHandler();
-    private static final String WIRELESS_LINK_TARGET = "wireless_link_target";
-    private static final String LINK_TAG_DIM = "dim";
-    private static final String LINK_TAG_X = "x";
-    private static final String LINK_TAG_Y = "y";
-    private static final String LINK_TAG_Z = "z";
     private final double powerCapacity;
+    private final GuiIds.GuiKey fallbackGuiKey;
+    private WirelessTerminalDefinition definition;
 
     public WirelessTerminalItem(double powerCapacity) {
+        this(powerCapacity,
+            "wireless_terminal",
+            GuiIds.GuiKey.WIRELESS_TERMINAL,
+            ItemStack::new,
+            WirelessTerminalGuiHost::new,
+            HotkeyAction.WIRELESS_TERMINAL,
+            2);
+    }
+
+    protected WirelessTerminalItem(double powerCapacity, String id, GuiIds.GuiKey guiKey,
+                                   java.util.function.Function<WirelessTerminalItem, ItemStack> iconFactory,
+                                   WirelessTerminalDefinition.HostFactory hostFactory,
+                                   String hotkeyName, int upgradeSlots) {
+        this(powerCapacity, id, guiKey, iconFactory, hostFactory, hotkeyName, upgradeSlots, true);
+    }
+
+    protected WirelessTerminalItem(double powerCapacity, String id, GuiIds.GuiKey guiKey,
+                                   java.util.function.Function<WirelessTerminalItem, ItemStack> iconFactory,
+                                   WirelessTerminalDefinition.HostFactory hostFactory,
+                                   String hotkeyName, int upgradeSlots, boolean registerTerminal) {
         super(powerCapacity);
         this.setMaxStackSize(1);
         this.powerCapacity = powerCapacity;
+        this.fallbackGuiKey = guiKey;
         GridLinkables.register(this, LINKABLE_HANDLER);
+        if (registerTerminal) {
+            AddWirelessTerminalEvent.register(event -> event.builder(id, this,
+                                                                (registeredDefinition, player, locator, terminalStack, returningFromSubmenu) ->
+                                                                    !terminalStack.isEmpty()
+                                                                        && openBuiltInGui(registeredDefinition, player, locator, returningFromSubmenu),
+                                                                hostFactory,
+                                                                iconFactory)
+                                                            .hotkeyName(hotkeyName)
+                                                            .upgradeSlots(upgradeSlots)
+                                                            .addTerminal());
+        }
     }
 
     @Override
@@ -72,6 +104,37 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
         return 800d + 800d * Upgrades.getEnergyCardMultiplier(getUpgrades(stack));
     }
 
+    private static boolean openBuiltInGui(WirelessTerminalDefinition definition, EntityPlayer player,
+                                          ItemGuiHostLocator locator, boolean returningFromSubmenu) {
+        return GuiOpener.openItemGui(player, definition.item().getGuiKey(), locator, returningFromSubmenu);
+    }
+
+    public final double powerCapacity() {
+        return this.powerCapacity;
+    }
+
+    public final WirelessTerminalDefinition getWirelessTerminalDefinition() {
+        if (this.definition == null) {
+            WirelessTerminalDefinition registered = WirelessTerminalRegistry.ofItem(this);
+            if (registered != null) {
+                this.definition = registered;
+            }
+        }
+        if (this.definition == null) {
+            throw new IllegalStateException("Wireless terminal is not registered: " + getClass().getName());
+        }
+        return this.definition;
+    }
+
+    public final void setWirelessTerminalDefinition(WirelessTerminalDefinition definition) {
+        this.definition = definition;
+    }
+
+    public final String getTerminalId() {
+        return getWirelessTerminalDefinition().id();
+    }
+
+    @SuppressWarnings("unused")
     public boolean openFromInventory(EntityPlayer player, ItemGuiHostLocator locator) {
         return openFromInventory(player, locator, false);
     }
@@ -80,7 +143,7 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
         var is = locator.locateItem(player);
 
         if (!player.world.isRemote && checkPreconditions(is)) {
-            return GuiOpener.openItemGui(player, getGuiKey(), locator, returningFromSubmenu);
+            return getWirelessTerminalDefinition().open(player, locator, is, returningFromSubmenu);
         }
         return false;
     }
@@ -90,7 +153,7 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
         var is = player.getHeldItem(hand);
 
         if (!player.world.isRemote && checkPreconditions(is)) {
-            if (GuiOpener.openItemGui(player, getGuiKey(), GuiHostLocators.forHand(player, hand))) {
+            if (getWirelessTerminalDefinition().open(player, GuiHostLocators.forHand(player, hand), is, false)) {
                 return new ActionResult<>(EnumActionResult.SUCCESS, is);
             }
         }
@@ -103,7 +166,7 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
                                          final ITooltipFlag advancedTooltips) {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
 
-        if (getLinkedPosition(stack) == null) {
+        if (!isLinkedForTooltip(stack)) {
             lines.add(Tooltips.of(GuiText.Unlinked, Tooltips.RED).getFormattedText());
         } else {
             lines.add(Tooltips.of(GuiText.Linked, Tooltips.GREEN).getFormattedText());
@@ -111,28 +174,44 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
     }
 
     @Nullable
+    @SuppressWarnings("unused")
     public DimensionalBlockPos getLinkedPosition(ItemStack item) {
-        NBTTagCompound tag = item.getTagCompound();
+        return getLinkedPosition(item, this);
+    }
+
+    @Nullable
+    public DimensionalBlockPos getLinkedPosition(ItemStack item, WirelessTerminalItem terminal) {
+        NBTTagCompound tag = item.getItem() instanceof WirelessUniversalTerminalItem
+            ? WirelessTerminals.getUniversalSharedData(item)
+            : WirelessTerminals.getExistingTerminalData(item, terminal);
         if (tag == null) {
             return null;
         }
 
-        if (!tag.hasKey(WIRELESS_LINK_TARGET, 10)) {
+        if (!tag.hasKey(WirelessTerminals.TAG_LINK, 10)) {
             return null;
         }
-        NBTTagCompound link = tag.getCompoundTag(WIRELESS_LINK_TARGET);
-        int dim = link.getInteger(LINK_TAG_DIM);
+        NBTTagCompound link = tag.getCompoundTag(WirelessTerminals.TAG_LINK);
+        int dim = link.getInteger(WirelessTerminals.TAG_LINK_DIM);
         WorldServer world = DimensionManager.getWorld(dim);
         if (world == null) {
             return null;
         }
-        return new DimensionalBlockPos(world, link.getInteger(LINK_TAG_X), link.getInteger(LINK_TAG_Y),
-            link.getInteger(LINK_TAG_Z));
+        return new DimensionalBlockPos(world, link.getInteger(WirelessTerminals.TAG_LINK_X),
+            link.getInteger(WirelessTerminals.TAG_LINK_Y), link.getInteger(WirelessTerminals.TAG_LINK_Z));
     }
 
     @Nullable
+    @SuppressWarnings("unused")
     public IGrid getLinkedGrid(ItemStack item, World level, @Nullable Consumer<ITextComponent> errorConsumer) {
-        var linkedPos = getLinkedPosition(item);
+        return getLinkedGrid(item, this, level, errorConsumer);
+    }
+
+    @Nullable
+    @SuppressWarnings("unused")
+    public IGrid getLinkedGrid(ItemStack item, WirelessTerminalItem terminal, World level,
+                               @Nullable Consumer<ITextComponent> errorConsumer) {
+        var linkedPos = getLinkedPosition(item, terminal);
         if (linkedPos == null) {
             if (errorConsumer != null) {
                 errorConsumer.accept(PlayerMessages.DeviceNotLinked.text());
@@ -163,25 +242,39 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
     }
 
     public GuiIds.GuiKey getGuiKey() {
-        return GuiIds.GuiKey.WIRELESS_TERMINAL;
+        return this.fallbackGuiKey;
+    }
+
+    public GuiIds.GuiKey getGuiKey(ItemStack stack) {
+        return this.fallbackGuiKey;
     }
 
     @Nullable
     @Override
     public WirelessTerminalGuiHost<?> getGuiHost(EntityPlayer player, ItemGuiHostLocator locator,
                                                  @Nullable RayTraceResult hitResult) {
-        return new WirelessTerminalGuiHost<>(this, player, locator,
-            (p, subGui) -> openFromInventory(p, locator, true));
+        return getWirelessTerminalDefinition().hostFactory().create(this, this, player, locator,
+            (p, ignored) -> openFromInventory(p, locator, true));
     }
 
     protected boolean checkPreconditions(ItemStack item) {
+        return isTerminalStack(item);
+    }
+
+    protected boolean isTerminalStack(ItemStack item) {
         return !item.isEmpty() && item.getItem() == this;
     }
 
+    protected boolean isLinkedForTooltip(ItemStack stack) {
+        return getLinkedPosition(stack, this) != null;
+    }
+
+    @SuppressWarnings("unused")
     public boolean usePower(EntityPlayer player, double amount, ItemStack is) {
         return extractAEPower(is, amount, Actionable.MODULATE) >= amount - 0.5;
     }
 
+    @SuppressWarnings("unused")
     public boolean hasPower(EntityPlayer player, double amt, ItemStack is) {
         return getAECurrentPower(is) >= amt;
     }
@@ -202,7 +295,8 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
 
     @Override
     public IUpgradeInventory getUpgrades(ItemStack stack) {
-        return UpgradeInventories.forItem(stack, 2, this::onUpgradesChanged);
+        return UpgradeInventories.forItem(stack, getWirelessTerminalDefinition().upgradeSlots(),
+            this::onUpgradesChanged);
     }
 
     private void onUpgradesChanged(ItemStack stack, IUpgradeInventory upgrades) {
@@ -212,31 +306,61 @@ public class WirelessTerminalItem extends PoweredContainerItem implements IGuiIt
     private static class LinkableHandler implements IGridLinkableHandler {
         @Override
         public boolean canLink(ItemStack stack) {
-            return stack.getItem() instanceof WirelessTerminalItem;
+            if (stack.getItem() instanceof WirelessUniversalTerminalItem universalTerminal) {
+                return universalTerminal.getInstalledTerminalIds(stack)
+                                        .stream()
+                                        .anyMatch(id -> WirelessTerminalRegistry.definitionOfId(id) != null);
+            }
+            return stack.getItem() instanceof WirelessTerminalItem terminal
+                && WirelessTerminalRegistry.ofItem(terminal) != null;
         }
 
         @Override
         public void link(ItemStack itemStack, World world, net.minecraft.util.math.BlockPos pos) {
-            NBTTagCompound tag = itemStack.getTagCompound();
-            if (tag == null) {
-                tag = new NBTTagCompound();
-                itemStack.setTagCompound(tag);
-            }
             NBTTagCompound link = new NBTTagCompound();
-            link.setInteger(LINK_TAG_DIM, world.provider.getDimension());
-            link.setInteger(LINK_TAG_X, pos.getX());
-            link.setInteger(LINK_TAG_Y, pos.getY());
-            link.setInteger(LINK_TAG_Z, pos.getZ());
-            tag.setTag(WIRELESS_LINK_TARGET, link.copy());
+            link.setInteger(WirelessTerminals.TAG_LINK_DIM, world.provider.getDimension());
+            link.setInteger(WirelessTerminals.TAG_LINK_X, pos.getX());
+            link.setInteger(WirelessTerminals.TAG_LINK_Y, pos.getY());
+            link.setInteger(WirelessTerminals.TAG_LINK_Z, pos.getZ());
+
+            if (itemStack.getItem() instanceof WirelessUniversalTerminalItem universalTerminal) {
+                WirelessTerminals.getOrCreateUniversalSharedData(itemStack)
+                                 .setTag(WirelessTerminals.TAG_LINK, link.copy());
+                universalTerminal.getCurrentTerminal(itemStack);
+                return;
+            }
+
+            if (itemStack.getItem() instanceof WirelessTerminalItem terminal) {
+                WirelessTerminals.getTerminalData(itemStack, terminal)
+                                 .setTag(WirelessTerminals.TAG_LINK, link.copy());
+            }
         }
 
         @Override
         public void unlink(ItemStack itemStack) {
-            NBTTagCompound tag = itemStack.getTagCompound();
-            if (tag != null) {
-                tag.removeTag(WIRELESS_LINK_TARGET);
-                if (Platform.isNbtEmpty(tag)) {
+            if (itemStack.getItem() instanceof WirelessUniversalTerminalItem) {
+                NBTTagCompound root = itemStack.getTagCompound();
+                if (root == null) {
+                    return;
+                }
+                root.removeTag(WirelessTerminals.TAG_LINK);
+                if (Platform.isNbtEmpty(root)) {
                     itemStack.setTagCompound(null);
+                }
+                return;
+            }
+
+            WirelessTerminalItem terminal = WirelessTerminalRegistry.ofStack(itemStack);
+            if (terminal == null) {
+                return;
+            }
+            NBTTagCompound tag = WirelessTerminals.getExistingTerminalData(itemStack, terminal);
+            if (tag != null) {
+                tag.removeTag(WirelessTerminals.TAG_LINK);
+                if (Platform.isNbtEmpty(tag)) {
+                    if (!(itemStack.getItem() instanceof WirelessUniversalTerminalItem)) {
+                        itemStack.setTagCompound(null);
+                    }
                 }
             }
         }

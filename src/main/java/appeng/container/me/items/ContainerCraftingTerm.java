@@ -66,6 +66,7 @@ import java.util.List;
 public class ContainerCraftingTerm extends ContainerMEStorage implements ICraftingGridContainer {
 
     private static final String ACTION_CLEAR_TO_PLAYER = "clearToPlayer";
+    private static final String ACTION_SET_CLEAR_ON_CLOSE = "setClearOnClose";
     private static final int GRID_WIDTH = 3;
     private static final int GRID_HEIGHT = 3;
     private static final int GRID_LEFT = 30;
@@ -86,6 +87,7 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
     private NonNullList<ItemStack> lastTestedInput;
     @Nullable
     private IRecipe currentRecipe;
+    private boolean clearGridOnClose;
 
     public ContainerCraftingTerm( InventoryPlayer ip, ITerminalHost host) {
         this(GuiIds.GuiKey.CRAFTING_TERMINAL, ip, host, true);
@@ -114,6 +116,7 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
         updateCurrentRecipeAndOutput(true);
 
         registerClientAction(ACTION_CLEAR_TO_PLAYER, this::clearToPlayerInventory);
+        registerClientAction(ACTION_SET_CLEAR_ON_CLOSE, Boolean.class, this::setClearGridOnClose);
     }
 
     @Override
@@ -188,6 +191,14 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
         Preconditions.checkState(isClientSide());
         CraftingMatrixSlot slot = this.craftingSlots[0];
         InitNetwork.sendToServer(new InventoryActionPacket(this.windowId, InventoryAction.MOVE_REGION, slot.slotNumber, 0));
+    }
+
+    @Override
+    public void onContainerClosed(EntityPlayer player) {
+        if (isServerSide() && this.clearGridOnClose) {
+            moveCraftingGridToNetwork();
+        }
+        super.onContainerClosed(player);
     }
 
     @Override
@@ -275,6 +286,19 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
             return;
         }
 
+        moveCraftingGridToPlayerInventory();
+    }
+
+    public void setClearGridOnClose(boolean clearGridOnClose) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_CLEAR_ON_CLOSE, clearGridOnClose);
+            return;
+        }
+
+        this.clearGridOnClose = clearGridOnClose;
+    }
+
+    private void moveCraftingGridToPlayerInventory() {
         PlayerInternalInventory playerInv = new PlayerInternalInventory(getPlayerInventory());
 
         for (int i = 0; i < this.craftingGrid.size(); ++i) {
@@ -294,6 +318,23 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
                             playerInv.getSlotInv(j).addItems(this.craftingGrid.getStackInSlot(i)));
                     }
                 }
+            }
+        }
+
+        onCraftMatrixChanged(this.craftingGrid.toContainer());
+    }
+
+    private void moveCraftingGridToNetwork() {
+        for (int i = 0; i < this.craftingGrid.size(); ++i) {
+            ItemStack stack = this.craftingGrid.getStackInSlot(i);
+            if (stack.isEmpty()) {
+                continue;
+            }
+
+            int transferred = transferStackToContainer(stack.copy());
+            if (transferred > 0) {
+                stack.shrink(transferred);
+                this.craftingGrid.setItemDirect(i, stack.isEmpty() ? ItemStack.EMPTY : stack);
             }
         }
 

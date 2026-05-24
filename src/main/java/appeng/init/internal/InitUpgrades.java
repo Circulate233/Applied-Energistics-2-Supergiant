@@ -18,6 +18,7 @@
 
 package appeng.init.internal;
 
+import appeng.api.implementations.items.WirelessTerminalUpgradeHelper;
 import appeng.api.upgrades.Upgrades;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
@@ -36,8 +37,6 @@ public final class InitUpgrades {
         String itemIoBusGroup = GuiText.IOBuses.getTranslationKey();
         String storageCellGroup = GuiText.StorageCells.getTranslationKey();
         String portableCellGroup = GuiText.PortableCells.getTranslationKey();
-        String wirelessTerminalGroup = GuiText.WirelessTerminals.getTranslationKey();
-
         Upgrades.add(AEItems.FUZZY_CARD.item(), AEItems.VIEW_CELL.item(), 1);
         Upgrades.add(AEItems.INVERTER_CARD.item(), AEItems.VIEW_CELL.item(), 1);
 
@@ -115,9 +114,9 @@ public final class InitUpgrades {
             Upgrades.add(AEItems.ENERGY_CARD.item(), portableFluidCell.item(), 2, portableCellGroup);
         }
 
-        Upgrades.add(AEItems.ENERGY_CARD.item(), AEItems.WIRELESS_TERMINAL.item(), 2, wirelessTerminalGroup);
-        Upgrades.add(AEItems.ENERGY_CARD.item(), AEItems.WIRELESS_CRAFTING_TERMINAL.item(), 2,
-            wirelessTerminalGroup);
+        WirelessTerminalUpgradeHelper.addDefaultUpgrades();
+        WirelessTerminalUpgradeHelper.addUpgradeToAllTerminals(AEItems.QUANTUM_BRIDGE_CARD.item(), 1);
+        WirelessTerminalUpgradeHelper.addUpgradeToAllTerminals(AEItems.MAGNET_CARD.item(), 1);
 
         Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.STORAGE_BUS.item(), 1);
         Upgrades.add(AEItems.INVERTER_CARD.item(), AEParts.STORAGE_BUS.item(), 1);

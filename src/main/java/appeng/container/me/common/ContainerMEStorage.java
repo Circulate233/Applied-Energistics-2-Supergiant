@@ -63,6 +63,7 @@ import appeng.core.network.clientbound.MEInventoryUpdatePacket;
 import appeng.core.network.clientbound.SetLinkStatusPacket;
 import appeng.core.network.serverbound.MEInteractionPacket;
 import appeng.helpers.InventoryAction;
+import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.me.helpers.ActionHostEnergySource;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
@@ -168,9 +169,19 @@ public class ContainerMEStorage extends AEBaseContainer
         this.toolboxInventory = new ToolboxInventory(this);
 
         setupUpgrades(host.getUpgrades());
+        setupWirelessSingularity(host);
 
         if (bindInventory) {
             this.addPlayerInventorySlots(0, 0);
+        }
+    }
+
+    private void setupWirelessSingularity(ITerminalHost host) {
+        if (host instanceof WirelessTerminalGuiHost<?> wirelessHost) {
+            RestrictedInputSlot slot = new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.QE_SINGULARITY,
+                wirelessHost.getSingularityStorage(), 0, 0, 0);
+            slot.setStackLimit(1);
+            this.addSlot(slot, SlotSemantics.WIRELESS_SINGULARITY);
         }
     }
 

@@ -41,11 +41,15 @@ public class TabButton extends GuiButton implements ITooltip {
     private boolean selected;
     private boolean disableBackground;
     private boolean focused;
+    private Icon defaultBackground;
+    private Icon selectedBackground;
+    private Icon focusedBackground;
 
     public TabButton(Icon icon, ITextComponent message, Runnable onPress) {
         this(icon, ItemStack.EMPTY, message, onPress);
     }
 
+    @SuppressWarnings("unused")
     public TabButton(ItemStack item, ITextComponent message, Runnable onPress) {
         this(null, item, message, onPress);
     }
@@ -93,6 +97,15 @@ public class TabButton extends GuiButton implements ITooltip {
             case CORNER -> this.isFocused() ? Icon.TAB_BUTTON_BACKGROUND_BORDERLESS_FOCUS
                 : Icon.TAB_BUTTON_BACKGROUND_BORDERLESS;
             case HORIZONTAL -> {
+                if (this.isFocused() && this.focusedBackground != null) {
+                    yield this.focusedBackground;
+                }
+                if (this.selected && this.selectedBackground != null) {
+                    yield this.selectedBackground;
+                }
+                if (this.defaultBackground != null) {
+                    yield this.defaultBackground;
+                }
                 if (this.isFocused()) {
                     yield Icon.HORIZONTAL_TAB_FOCUS;
                 }
@@ -173,10 +186,12 @@ public class TabButton extends GuiButton implements ITooltip {
         this.selected = selected;
     }
 
+    @SuppressWarnings("unused")
     public boolean isDisableBackground() {
         return this.disableBackground;
     }
 
+    @SuppressWarnings("unused")
     public void setDisableBackground(boolean disableBackground) {
         this.disableBackground = disableBackground;
     }
@@ -187,6 +202,12 @@ public class TabButton extends GuiButton implements ITooltip {
 
     public void setFocused(boolean focused) {
         this.focused = focused;
+    }
+
+    public void setHorizontalBackgrounds(Icon defaultBackground, Icon selectedBackground, Icon focusedBackground) {
+        this.defaultBackground = defaultBackground;
+        this.selectedBackground = selectedBackground;
+        this.focusedBackground = focusedBackground;
     }
 
     public enum Style {

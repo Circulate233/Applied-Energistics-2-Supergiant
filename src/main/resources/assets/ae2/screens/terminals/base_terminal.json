@@ -61,5 +61,11 @@
       "width": 89,
       "height": 12
     }
+  },
+  "slots": {
+    "WIRELESS_SINGULARITY": {
+      "right": 239,
+      "top": 110
+    }
   }
 }

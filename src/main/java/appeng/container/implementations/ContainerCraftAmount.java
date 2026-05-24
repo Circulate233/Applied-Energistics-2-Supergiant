@@ -29,6 +29,7 @@ import appeng.container.AEBaseContainer;
 import appeng.container.GuiIds;
 import appeng.container.ISubGui;
 import appeng.container.SlotSemantics;
+import appeng.container.guisync.GuiSync;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.InaccessibleSlot;
 import appeng.core.gui.locator.GuiHostLocator;
@@ -51,6 +52,8 @@ public class ContainerCraftAmount extends AEBaseContainer implements ISubGui {
     private final ISubGuiHost host;
     @Nullable
     private AEKey whatToCraft;
+    @GuiSync(4)
+    public int initialAmount = 1;
 
     public ContainerCraftAmount( InventoryPlayer ip, ISubGuiHost host) {
         super(ip, host);
@@ -85,7 +88,8 @@ public class ContainerCraftAmount extends AEBaseContainer implements ISubGui {
 
     private void setWhatToCraft(AEKey whatToCraft, int initialAmount) {
         this.whatToCraft = Objects.requireNonNull(whatToCraft, "whatToCraft");
-        this.craftingItem.putStack(GenericStack.wrapInItemStack(whatToCraft, initialAmount));
+        this.initialAmount = Math.max(1, initialAmount);
+        this.craftingItem.putStack(GenericStack.wrapInItemStack(whatToCraft, 1));
     }
 
     public void confirm(int amount, boolean craftMissingAmount, boolean autoStart) {
@@ -138,5 +142,9 @@ public class ContainerCraftAmount extends AEBaseContainer implements ISubGui {
     @Nullable
     public GenericStack getWhatToCraft() {
         return GenericStack.unwrapItemStack(this.craftingItem.getDisplayStack());
+    }
+
+    public int getInitialAmount() {
+        return this.initialAmount;
     }
 }

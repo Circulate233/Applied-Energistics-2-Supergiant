@@ -21,18 +21,38 @@ package appeng.client.gui.me.common;
 import appeng.client.gui.AEBaseGui;
 import appeng.client.gui.Icon;
 import appeng.client.gui.style.GuiStyleManager;
+import appeng.client.gui.widgets.AE2Button;
 import appeng.client.gui.widgets.AECheckbox;
+import appeng.client.gui.widgets.ActionButton;
+import appeng.client.gui.widgets.IconButton;
 import appeng.client.gui.widgets.TabButton;
+import appeng.api.config.ActionItems;
+import appeng.container.AEBaseContainer;
+import appeng.container.GuiIds;
 import appeng.container.me.common.ContainerMEStorage;
+import appeng.container.me.items.ContainerCraftingTerm;
+import appeng.container.me.items.ContainerPatternEncodingTerm;
 import appeng.core.AEConfig;
+import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
+import appeng.core.network.InitNetwork;
+import appeng.core.network.serverbound.SwitchGuisPacket;
+import appeng.core.network.serverbound.WirelessTerminalSettingsPacket;
+import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.integration.abstraction.ItemListMod;
+import appeng.items.tools.powered.WirelessTerminalItem;
+import appeng.items.tools.powered.WirelessTerminalMagnetMode;
+import appeng.items.tools.powered.WirelessTerminals;
 import appeng.text.TextComponentItemStack;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
+import org.jetbrains.annotations.Nullable;
 
-public class GuiTerminalSettings<C extends ContainerMEStorage> extends AEBaseGui<C> {
-    private final GuiMEStorage<C> parent;
+public class GuiTerminalSettings extends AEBaseGui<AEBaseContainer> {
+    private final AEBaseGui<?> parent;
+    private final Runnable beforeReturn;
+    private final boolean wirelessOnly;
     private final AECheckbox pinAutoCraftedItemsCheckbox;
     private final AECheckbox notifyForFinishedCraftingJobsCheckbox;
     private final AECheckbox clearGridOnCloseCheckbox;
@@ -42,17 +62,53 @@ public class GuiTerminalSettings<C extends ContainerMEStorage> extends AEBaseGui
     private final AECheckbox autoFocusCheckbox;
     private final AECheckbox syncWithExternalCheckbox;
     private final AECheckbox clearExternalCheckbox;
+    private final IconButton generalPageButton;
+    private final IconButton wirelessPageButton;
+    @Nullable
+    private final WirelessTerminalGuiHost<?> wirelessHost;
+    @Nullable
+    private final AECheckbox pickBlockCheckbox;
+    @Nullable
+    private final AECheckbox craftIfMissingCheckbox;
+    @Nullable
+    private final AECheckbox restockCheckbox;
+    @Nullable
+    private final AECheckbox magnetCheckbox;
+    @Nullable
+    private final AECheckbox pickupToMECheckbox;
+    @Nullable
+    private final AE2Button magnetSettingsButton;
+    private Page page = Page.GENERAL;
 
-    public GuiTerminalSettings(GuiMEStorage<C> parent) {
-        super(parent.getContainer(), parent.getContainer().getPlayerInventory(),
+    public GuiTerminalSettings(GuiMEStorage<? extends ContainerMEStorage> parent) {
+        this(parent, parent.getContainer(),
+            parent.getContainer().getHost() instanceof WirelessTerminalGuiHost<?> host ? host : null,
+            parent.getContainer().getHost().getMainContainerIcon(),
+            parent::onCloseTerminalSettings,
+            false);
+    }
+
+    public GuiTerminalSettings(AEBaseGui<?> parent, AEBaseContainer container,
+                               @Nullable WirelessTerminalGuiHost<?> wirelessHost,
+                               ItemStack parentIcon, Runnable beforeReturn, boolean wirelessOnly) {
+        super(container, container.getPlayerInventory(),
             GuiStyleManager.loadStyleDoc("/screens/terminals/terminal_settings.json"));
         this.parent = parent;
+        this.beforeReturn = beforeReturn;
+        this.wirelessOnly = wirelessOnly;
+        this.wirelessHost = wirelessHost;
 
         ITextComponent externalSearchName = new TextComponentString(
             ItemListMod.isEnabled() ? ItemListMod.getShortName() : "HEI");
 
-        widgets.add("back", new TabButton(Icon.BACK, TextComponentItemStack.of(parent.getContainer().getHost().getMainContainerIcon()),
+        widgets.add("back", new TabButton(
+            Icon.BACK,
+            TextComponentItemStack.of(parentIcon),
             this::returnToParent));
+        this.generalPageButton = addToLeftToolbar(
+            new ActionButton(ActionItems.TERMINAL_SETTINGS, () -> switchPage(Page.GENERAL)));
+        this.wirelessPageButton = new WirelessSettingsPageButton(() -> switchPage(Page.WIRELESS));
+        addToLeftToolbar(this.wirelessPageButton);
 
         this.pinAutoCraftedItemsCheckbox = widgets.addCheckbox("pinAutoCraftedItemsCheckbox",
             GuiText.TerminalSettingsPinAutoCraftedItems.text(), this::save);
@@ -74,9 +130,40 @@ public class GuiTerminalSettings<C extends ContainerMEStorage> extends AEBaseGui
             GuiText.SearchSettingsSyncWithExternal.text(externalSearchName), this::save);
         this.clearExternalCheckbox = widgets.addCheckbox("clearExternalCheckbox",
             GuiText.SearchSettingsClearExternal.text(externalSearchName), this::save);
+        if (this.wirelessHost != null) {
+            this.pickBlockCheckbox = widgets.addCheckbox("pickBlockCheckbox",
+                GuiText.WirelessTerminalSettingsPickBlock.text(), this::save);
+            this.craftIfMissingCheckbox = widgets.addCheckbox("craftIfMissingCheckbox",
+                GuiText.WirelessTerminalSettingsCraftIfMissing.text(), this::save);
+            this.restockCheckbox = widgets.addCheckbox("restockCheckbox",
+                GuiText.WirelessTerminalSettingsRestock.text(), this::save);
+            this.magnetCheckbox = widgets.addCheckbox("magnetCheckbox",
+                GuiText.WirelessTerminalSettingsMagnet.text(), this::save);
+            this.pickupToMECheckbox = widgets.addCheckbox("pickupToMECheckbox",
+                GuiText.WirelessTerminalSettingsPickupToME.text(), this::save);
+            this.magnetSettingsButton = new AE2Button(GuiText.WirelessMagnetConfigure.text(), this::openMagnetSettings);
+            widgets.add("magnetSettingsButton", this.magnetSettingsButton);
+        } else {
+            this.pickBlockCheckbox = null;
+            this.craftIfMissingCheckbox = null;
+            this.restockCheckbox = null;
+            this.magnetCheckbox = null;
+            this.pickupToMECheckbox = null;
+            this.magnetSettingsButton = null;
+        }
 
-        setTextContent(TEXT_ID_DIALOG_TITLE, GuiText.TerminalSettingsTitle.text());
+        setTextContent(TEXT_ID_DIALOG_TITLE,
+            wirelessOnly ? GuiText.WirelessTerminalSettingsTitle.text() : GuiText.TerminalSettingsTitle.text());
         setTextContent("search_settings_title", GuiText.SearchSettingsTitle.text());
+        setTextContent("wireless_settings_title", GuiText.WirelessTerminalSettingsTitle.text());
+        if (wirelessOnly) {
+            this.page = Page.WIRELESS;
+        } else {
+            this.wirelessPageButton.visible = this.wirelessHost != null;
+            if (this.wirelessHost == null) {
+                this.page = Page.GENERAL;
+            }
+        }
         updateState();
     }
 
@@ -87,9 +174,17 @@ public class GuiTerminalSettings<C extends ContainerMEStorage> extends AEBaseGui
     }
 
     private void returnToParent() {
-        this.parent.onCloseTerminalSettings();
+        this.beforeReturn.run();
         switchToScreen(parent);
         parent.returnFromSubScreen(this);
+    }
+
+    private void switchPage(Page page) {
+        if (page == Page.WIRELESS && this.wirelessHost == null) {
+            return;
+        }
+        this.page = page;
+        updateState();
     }
 
     private void switchToAeSearch() {
@@ -110,17 +205,53 @@ public class GuiTerminalSettings<C extends ContainerMEStorage> extends AEBaseGui
         save();
     }
 
+    private void openMagnetSettings() {
+        InitNetwork.sendToServer(SwitchGuisPacket.openSubGui(GuiIds.GuiKey.WIRELESS_MAGNET));
+    }
+
     private void save() {
         AEConfig config = AEConfig.instance();
         config.setPinAutoCraftedItems(pinAutoCraftedItemsCheckbox.isSelected());
         config.setNotifyForFinishedCraftingJobs(notifyForFinishedCraftingJobsCheckbox.isSelected());
         config.setClearGridOnClose(clearGridOnCloseCheckbox.isSelected());
+        syncClearGridOnClose();
         config.setUseExternalSearch(hasExternalSearch() && this.useExternalSearchRadio.isSelected());
         config.setRememberLastSearch(this.rememberCheckbox.isSelected());
         config.setAutoFocusSearch(this.autoFocusCheckbox.isSelected());
         config.setSyncWithExternalSearch(this.syncWithExternalCheckbox.isSelected());
         config.setClearExternalSearchOnOpen(this.clearExternalCheckbox.isSelected());
-        updateState();
+        saveWirelessSettings();
+        updateVisibility();
+    }
+
+    private void syncClearGridOnClose() {
+        if (this.container instanceof ContainerCraftingTerm craftingTerm) {
+            craftingTerm.setClearGridOnClose(this.clearGridOnCloseCheckbox.isSelected());
+        } else if (this.container instanceof ContainerPatternEncodingTerm patternEncodingTerm) {
+            patternEncodingTerm.setClearOnClose(this.clearGridOnCloseCheckbox.isSelected());
+        }
+    }
+
+    private void saveWirelessSettings() {
+        if (this.wirelessHost == null || this.pickBlockCheckbox == null || this.craftIfMissingCheckbox == null
+            || this.restockCheckbox == null || this.magnetCheckbox == null || this.pickupToMECheckbox == null
+            || this.magnetSettingsButton == null) {
+            return;
+        }
+
+        WirelessTerminalItem terminal = this.wirelessHost.getTerminalItem();
+        var stack = this.wirelessHost.getItemStack();
+        WirelessTerminals.setPickBlockEnabled(stack, terminal, this.pickBlockCheckbox.isSelected());
+        WirelessTerminals.setCraftIfMissingEnabled(stack, terminal, this.craftIfMissingCheckbox.isSelected());
+        WirelessTerminals.setRestockEnabled(stack, terminal, this.restockCheckbox.isSelected());
+        WirelessTerminals.setMagnetMode(stack, terminal,
+            WirelessTerminalMagnetMode.from(this.magnetCheckbox.isSelected(), this.pickupToMECheckbox.isSelected()));
+        InitNetwork.sendToServer(new WirelessTerminalSettingsPacket(
+            this.pickBlockCheckbox.isSelected(),
+            this.craftIfMissingCheckbox.isSelected(),
+            this.restockCheckbox.isSelected(),
+            this.magnetCheckbox.isSelected(),
+            this.pickupToMECheckbox.isSelected()));
     }
 
     private void updateState() {
@@ -146,9 +277,96 @@ public class GuiTerminalSettings<C extends ContainerMEStorage> extends AEBaseGui
         this.autoFocusCheckbox.visible = this.useInternalSearchRadio.isSelected();
         this.syncWithExternalCheckbox.visible = this.useInternalSearchRadio.isSelected();
         this.clearExternalCheckbox.visible = this.useExternalSearchRadio.isSelected();
+        updateWirelessState();
+        updateVisibility();
+    }
+
+    private void updateWirelessState() {
+        AE2Button magnetSettingsButton = this.magnetSettingsButton;
+        if (this.wirelessHost == null || this.pickBlockCheckbox == null || this.craftIfMissingCheckbox == null
+            || this.restockCheckbox == null || this.magnetCheckbox == null || this.pickupToMECheckbox == null
+            || magnetSettingsButton == null) {
+            return;
+        }
+
+        WirelessTerminalItem terminal = this.wirelessHost.getTerminalItem();
+        var stack = this.wirelessHost.getItemStack();
+        WirelessTerminalMagnetMode magnetMode = WirelessTerminals.getMagnetMode(stack, terminal);
+        this.pickBlockCheckbox.setSelected(WirelessTerminals.isPickBlockEnabled(stack, terminal));
+        this.craftIfMissingCheckbox.setSelected(WirelessTerminals.isCraftIfMissingEnabled(stack, terminal));
+        this.craftIfMissingCheckbox.enabled = this.pickBlockCheckbox.isSelected();
+        this.restockCheckbox.setSelected(WirelessTerminals.isRestockEnabled(stack, terminal));
+        this.magnetCheckbox.setSelected(magnetMode.magnet());
+        this.pickupToMECheckbox.setSelected(magnetMode.pickupToME());
+        boolean magnetCardInstalled = this.wirelessHost.getUpgrades().isInstalled(AEItems.MAGNET_CARD.item());
+        this.magnetCheckbox.enabled = magnetCardInstalled;
+        this.pickupToMECheckbox.enabled = magnetCardInstalled;
+        magnetSettingsButton.enabled = magnetCardInstalled;
+        magnetSettingsButton.visible = magnetCardInstalled;
+    }
+
+    private void updateVisibility() {
+        boolean general = !this.wirelessOnly && this.page == Page.GENERAL;
+        boolean wireless = this.page == Page.WIRELESS && this.wirelessHost != null;
+        setTextContent(TEXT_ID_DIALOG_TITLE,
+            wireless ? GuiText.WirelessTerminalSettingsTitle.text() : GuiText.TerminalSettingsTitle.text());
+
+        this.generalPageButton.visible = !this.wirelessOnly;
+        this.generalPageButton.setFocused(general);
+        this.wirelessPageButton.setFocused(wireless);
+        this.wirelessPageButton.visible = !this.wirelessOnly && this.wirelessHost != null;
+
+        setTextHidden("search_settings_title", !general);
+        setTextHidden("wireless_settings_title", true);
+        this.pinAutoCraftedItemsCheckbox.visible = general;
+        this.notifyForFinishedCraftingJobsCheckbox.visible = general;
+        this.clearGridOnCloseCheckbox.visible = general;
+        this.useInternalSearchRadio.visible = general;
+        this.useExternalSearchRadio.visible = general;
+        this.rememberCheckbox.visible = general && this.useInternalSearchRadio.isSelected();
+        this.autoFocusCheckbox.visible = general && this.useInternalSearchRadio.isSelected();
+        this.syncWithExternalCheckbox.visible = general && this.useInternalSearchRadio.isSelected();
+        this.clearExternalCheckbox.visible = general && this.useExternalSearchRadio.isSelected();
+
+        if (this.pickBlockCheckbox != null) {
+            this.pickBlockCheckbox.visible = wireless;
+        }
+        if (this.craftIfMissingCheckbox != null) {
+            this.craftIfMissingCheckbox.visible = wireless;
+        }
+        if (this.restockCheckbox != null) {
+            this.restockCheckbox.visible = wireless;
+        }
+        if (this.magnetCheckbox != null) {
+            this.magnetCheckbox.visible = wireless;
+        }
+        if (this.pickupToMECheckbox != null) {
+            this.pickupToMECheckbox.visible = wireless;
+        }
+        if (this.magnetSettingsButton != null) {
+            this.magnetSettingsButton.visible = wireless
+                && this.wirelessHost.getUpgrades().isInstalled(AEItems.MAGNET_CARD.item());
+        }
     }
 
     private boolean hasExternalSearch() {
         return ItemListMod.isEnabled();
+    }
+
+    private static class WirelessSettingsPageButton extends IconButton {
+        private WirelessSettingsPageButton(Runnable onPress) {
+            super(onPress);
+            setMessage(GuiText.WirelessTerminalSettingsTitle.text());
+        }
+
+        @Override
+        protected Icon getIcon() {
+            return Icon.WIRELESS_SETTINGS_PAGE;
+        }
+    }
+
+    private enum Page {
+        GENERAL,
+        WIRELESS
     }
 }

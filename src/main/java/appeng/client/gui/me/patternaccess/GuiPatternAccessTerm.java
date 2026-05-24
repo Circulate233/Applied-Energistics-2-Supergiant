@@ -25,13 +25,21 @@ import appeng.api.config.TerminalStyle;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.storage.ILinkStatus;
+import appeng.api.upgrades.IUpgradeableObject;
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.me.common.GuiTerminalSettings;
+import appeng.client.gui.me.items.WirelessUniversalTerminalSelectorWindow;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.widgets.AETextField;
+import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.ITextFieldGui;
+import appeng.client.gui.widgets.ItemStackButton;
 import appeng.client.gui.widgets.Scrollbar;
 import appeng.client.gui.widgets.ServerSettingToggleButton;
 import appeng.client.gui.widgets.SettingToggleButton;
+import appeng.client.gui.widgets.UpgradesPanel;
+import appeng.api.config.ActionItems;
+import appeng.container.SlotSemantics;
 import appeng.container.implementations.ContainerPatternAccessTerm;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
@@ -41,6 +49,8 @@ import appeng.core.network.InitNetwork;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.core.network.serverbound.QuickMovePatternPacket;
 import appeng.helpers.InventoryAction;
+import appeng.helpers.WirelessTerminalGuiHost;
+import appeng.items.tools.powered.WirelessUniversalTerminalItem;
 import com.google.common.collect.HashMultimap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -128,13 +138,53 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
             Settings.TERMINAL_STYLE,
             AEConfig.instance().getTerminalStyle(),
             this::toggleTerminalStyle));
+        addWirelessSettingsButton();
         this.showPatternProviders = this.addToLeftToolbar(new ServerSettingToggleButton<>(
             Settings.TERMINAL_SHOW_PATTERN_PROVIDERS,
             ShowPatternProviders.VISIBLE));
+        if (container.getItemGuiHost() instanceof IUpgradeableObject upgradeableObject) {
+            this.widgets.add("upgrades", UpgradesPanel.create(
+                this.widgets,
+                container.getSlots(SlotSemantics.UPGRADE),
+                container.getSlots(SlotSemantics.WIRELESS_SINGULARITY),
+                upgradeableObject));
+        }
+        addWirelessUniversalTerminalButton();
 
         this.xSize = GUI_WIDTH;
         this.ySize = GUI_HEADER_HEIGHT + GUI_FOOTER_HEIGHT + MIN_VISIBLE_ROWS * ROW_HEIGHT;
         this.setTextHidden("entriesShown", true);
+    }
+
+    private void addWirelessUniversalTerminalButton() {
+        if (!(this.container.getItemGuiHost() instanceof WirelessTerminalGuiHost<?> wirelessHost)) {
+            return;
+        }
+        ItemStack stack = wirelessHost.getItemStack();
+        if (!(stack.getItem() instanceof WirelessUniversalTerminalItem)) {
+            return;
+        }
+        WirelessUniversalTerminalSelectorWindow selector = new WirelessUniversalTerminalSelectorWindow(this);
+        this.widgets.add("wirelessUniversalTerminalSelector", selector);
+        this.addToLeftToolbar(new ItemStackButton(
+            () -> wirelessHost.getTerminalItem().getWirelessTerminalDefinition().icon(wirelessHost.getTerminalItem()),
+            GuiText.WirelessTerminalSelector.text(),
+            selector::toggle));
+    }
+
+    private void addWirelessSettingsButton() {
+        if (!(this.container.getItemGuiHost() instanceof WirelessTerminalGuiHost<?> wirelessHost)) {
+            return;
+        }
+        this.addToLeftToolbar(new ActionButton(ActionItems.TERMINAL_SETTINGS,
+            () -> switchToScreen(new GuiTerminalSettings(
+                this,
+                this.container,
+                wirelessHost,
+                wirelessHost.getMainContainerIcon(),
+                () -> {
+                },
+                true))));
     }
 
     @Override

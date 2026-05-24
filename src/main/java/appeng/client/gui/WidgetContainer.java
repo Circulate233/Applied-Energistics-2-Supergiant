@@ -386,6 +386,18 @@ public class WidgetContainer {
         return false;
     }
 
+    public boolean onMouseDownBeforeButtons(Point mousePos, int btn) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
+            if (widget.isVisible()
+                && widget.wantsAllMouseDownEvents()
+                && widget.onMouseDown(mousePos, btn)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * @see ICompositeWidget#onMouseUp(Point, int)
      */
@@ -475,6 +487,23 @@ public class WidgetContainer {
 
     @Nullable
     public Tooltip getTooltip(int mouseX, int mouseY) {
+        for (ICompositeWidget widget : compositeWidgets.values()) {
+            if (!widget.isVisible()) {
+                continue;
+            }
+
+            Rectangle bounds = widget.getBounds();
+            if (widget.wantsAllMouseDownEvents() || contains(bounds, mouseX, mouseY)) {
+                Tooltip tooltip = widget.getTooltip(mouseX, mouseY);
+                if (tooltip != null) {
+                    return tooltip;
+                }
+                if (widget.blocksTooltips(mouseX, mouseY)) {
+                    return null;
+                }
+            }
+        }
+
         for (GuiButton widget : widgets.values()) {
             if (widget instanceof ITooltip tooltip) {
                 if (tooltip.isTooltipAreaVisible()) {
@@ -495,20 +524,6 @@ public class WidgetContainer {
             }
         }
 
-        for (ICompositeWidget widget : compositeWidgets.values()) {
-            if (!widget.isVisible()) {
-                continue;
-            }
-
-            Rectangle bounds = widget.getBounds();
-            if (contains(bounds, mouseX, mouseY)) {
-                Tooltip tooltip = widget.getTooltip(mouseX, mouseY);
-                if (tooltip != null) {
-                    return tooltip;
-                }
-            }
-        }
-
         for (ResolvedTooltipArea tooltipArea : tooltips.values()) {
             if (tooltipArea.enabled && contains(tooltipArea.area, mouseX, mouseY)) {
                 return tooltipArea.tooltip;
@@ -523,7 +538,7 @@ public class WidgetContainer {
      */
     public boolean hitTest(Point mousePos) {
         for (ICompositeWidget widget : compositeWidgets.values()) {
-            if (mousePos.isIn(widget.getBounds())) {
+            if (widget.isVisible() && widget.hitTest(mousePos)) {
                 return true;
             }
         }

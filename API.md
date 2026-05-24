@@ -299,6 +299,56 @@ For the machine version created by `UpgradeInventories.forMachine`, save the inv
 the item version created by `UpgradeInventories.forItem`, the upgrade inventory writes changes directly into the
 provided `ItemStack` NBT. The item variant also accepts an optional change callback.
 
+## Wireless Terminals
+
+Wireless terminals are registered through `AddWirelessTerminalEvent`. Register your handler during mod loading, before
+AE2 finishes wireless terminal registration. Registration is frozen after AE2 runs the event; duplicate ids, missing
+fields, invalid upgrade slot counts, and registrations after the event fail with an exception.
+
+| Class                                                             | Purpose                                                                 |
+|-------------------------------------------------------------------|-------------------------------------------------------------------------|
+| `appeng.api.implementations.items.AddWirelessTerminalEvent`       | Registers terminal definitions during AE2 initialization.                |
+| `appeng.api.implementations.items.WirelessTerminalDefinition`     | Read-only terminal definition used by hotkeys, universal terminals, and GUIs. |
+| `appeng.api.implementations.items.WirelessTerminalDefinitionBuilder` | Builder for registering a wireless terminal definition.                  |
+| `appeng.api.implementations.items.WirelessTerminalApi`            | Lookup helpers and universal terminal helpers.                           |
+| `appeng.api.implementations.items.WirelessTerminalUpgradeHelper`  | Registers upgrade cards against all registered wireless terminals.       |
+
+Definitions contain a unique id, the terminal item, an icon factory, a GUI opener, a host factory, a hotkey name, and
+the number of upgrade slots supported by that terminal. Terminal items should extend `WirelessTerminalItem`.
+
+Example registration:
+
+```java
+AddWirelessTerminalEvent.register(event -> event.builder(
+        "example",
+        MY_WIRELESS_TERMINAL,
+        (definition, player, locator, stack, returningFromSubmenu) -> {
+            // Open your GUI here. Return true when it was opened.
+            return true;
+        },
+        (stackItem, terminalItem, player, locator, returnToMainContainer) -> {
+            // Return your WirelessTerminalGuiHost implementation.
+            return new MyWirelessTerminalGuiHost(stackItem, terminalItem, player, locator, returnToMainContainer);
+        },
+        terminal -> new ItemStack(terminal))
+    .hotkeyName("wireless_example_terminal")
+    .upgradeSlots(2)
+    .addTerminal());
+```
+
+Use `noUpgrades()` for terminals that do not accept upgrade cards. `upgradeCount(int)` is an alias for
+`upgradeSlots(int)`.
+
+`WirelessTerminalApi.wirelessTerminals()`, `ofId(...)`, `ofItem(...)`, and `ofStack(...)` expose the registered
+definitions. `makeUniversalTerminal(...)`, `mergeUniversalTerminal(...)`, and `selectTerminal(...)` are helper methods
+for working with the wireless universal terminal. Missing or unregistered terminal definitions are ignored by the
+universal terminal selection UI and hotkey lookup.
+
+To make an upgrade card available to every registered wireless terminal, call
+`WirelessTerminalUpgradeHelper.addUpgradeToAllTerminals(upgradeCard, maxSupported)`. Pass `0` as `maxSupported` to use
+each terminal definition's own upgrade slot count. The wireless universal terminal receives the combined supported
+count for registered terminals.
+
 ## Porting from Older AE2 APIs
 
 This branch uses the key-based storage and crafting API. Older addons built around `IAEStack`, `IAEItemStack`,

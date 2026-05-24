@@ -102,10 +102,6 @@ public class SpatialPylonBlock extends AEBaseTileBlock<TileSpatialPylon> {
 
     @Override
     public int getLightValue(IBlockState state, IBlockAccess world, BlockPos pos) {
-        TileSpatialPylon tile = getTileEntity(world, pos);
-        if (tile != null) {
-            return tile.getLightValue();
-        }
         return state.getValue(POWERED_ON) ? 8 : 0;
     }
 
@@ -128,4 +124,3 @@ public class SpatialPylonBlock extends AEBaseTileBlock<TileSpatialPylon> {
         }
     }
 }
-

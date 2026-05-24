@@ -1,7 +1,6 @@
 package appeng.container;
 
 import org.jetbrains.annotations.NotNull;
-import org.jspecify.annotations.Nullable;
 
 public final class GuiIds {
 
@@ -59,6 +58,10 @@ public final class GuiIds {
         PORTABLE_FLUID_CELL,
         WIRELESS_TERMINAL,
         WIRELESS_CRAFTING_TERMINAL,
+        WIRELESS_PATTERN_ENCODING_TERMINAL,
+        WIRELESS_PATTERN_ACCESS_TERMINAL,
+        WIRELESS_UNIVERSAL_TERMINAL_SELECTOR,
+        WIRELESS_MAGNET,
         CRAFT_AMOUNT,
         CRAFT_CONFIRM,
         CRAFTING_STATUS,

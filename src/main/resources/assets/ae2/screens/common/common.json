@@ -10,6 +10,16 @@
       "$comment": "The upgrade panel found on some screens",
       "right": 1,
       "top": 0
+    },
+    "wirelessUniversalTerminalSelector": {
+      "left": 0,
+      "top": 0,
+      "width": 0,
+      "height": 0
+    },
+    "upgradeScrollbar": {
+      "right": -17,
+      "top": 6
     }
   }
 }

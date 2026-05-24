@@ -84,6 +84,7 @@ public final class Icon {
     public static final Icon SORT_BY_NAME = registerBuiltin("sort_by_name", 16, 16);
     public static final Icon SORT_BY_AMOUNT = registerBuiltin("sort_by_amount", 16, 16);
     public static final Icon COG = registerBuiltin("cog", 16, 16);
+    public static final Icon WIRELESS_SETTINGS_PAGE = registerBuiltin("wireless_settings_page", 16, 16);
     public static final Icon COG_DISABLED = registerBuiltin("cog_disabled", 16, 16);
     public static final Icon SORT_BY_INVENTORY_TWEAKS = registerBuiltin("sort_by_inventory_tweaks", 16, 16);
     public static final Icon SORT_BY_MOD = registerBuiltin("sort_by_mod", 16, 16);

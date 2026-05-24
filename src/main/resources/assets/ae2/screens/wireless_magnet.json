@@ -1,0 +1,81 @@
+{
+  "$schema": "schema.json",
+  "includes": [
+    "common/common.json",
+    "common/player_inventory.json"
+  ],
+  "background": {
+    "texture": "guis/magnet.png",
+    "srcRect": [0, 0, 176, 256]
+  },
+  "slots": {
+    "MAGNET_PICKUP_CONFIG": {
+      "left": 8,
+      "top": 22,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "MAGNET_INSERT_CONFIG": {
+      "left": 8,
+      "top": 103,
+      "grid": "BREAK_AFTER_9COLS"
+    }
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "gui.ae2.WirelessMagnetTitle"
+      },
+      "position": {
+        "left": 8,
+        "top": 6
+      }
+    },
+    "player_inventory_title": {
+      "text": {
+        "translate": "container.inventory"
+      },
+      "position": {
+        "left": 8,
+        "bottom": 95
+      }
+    }
+  },
+  "widgets": {
+    "back": {
+      "left": 152,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "pickup_mode": {
+      "left": 45,
+      "top": 80,
+      "width": 16,
+      "height": 16
+    },
+    "insert_mode": {
+      "left": 117,
+      "top": 80,
+      "width": 16,
+      "height": 16
+    },
+    "copy_up": {
+      "left": 99,
+      "top": 80,
+      "width": 16,
+      "height": 16
+    },
+    "copy_down": {
+      "left": 63,
+      "top": 80,
+      "width": 16,
+      "height": 16
+    },
+    "switch": {
+      "left": 81,
+      "top": 80,
+      "width": 16,
+      "height": 16
+    }
+  }
+}

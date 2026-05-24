@@ -20,7 +20,9 @@ package appeng.core.network.clientbound;
 
 import appeng.api.storage.ISubGuiHost;
 import appeng.api.storage.ITerminalHost;
+import appeng.client.gui.PreviousExternalGui;
 import appeng.client.gui.implementations.GuiPriority;
+import appeng.client.gui.implementations.GuiWirelessMagnet;
 import appeng.client.gui.me.crafting.GuiCraftAmount;
 import appeng.client.gui.me.crafting.GuiCraftConfirm;
 import appeng.client.gui.me.crafting.GuiCraftingStatus;
@@ -33,12 +35,14 @@ import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.container.implementations.ContainerCraftingStatus;
 import appeng.container.implementations.ContainerPriority;
 import appeng.container.implementations.ContainerSetStockAmount;
+import appeng.container.implementations.ContainerWirelessMagnet;
 import appeng.core.AELog;
 import appeng.core.gui.locator.GuiHostLocator;
 import appeng.core.gui.locator.GuiHostLocators;
 import appeng.core.network.ClientboundPacket;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.InterfaceLogicHost;
+import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.text.TextComponents;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -54,8 +58,11 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
+import java.util.Map;
+import java.util.WeakHashMap;
 
 public class OpenGuiPacket extends ClientboundPacket {
+    private static final Map<GuiScreen, Boolean> SERVER_GUI_SWITCH_SOURCES = new WeakHashMap<>();
     private GuiIds.GuiKey guiKey;
     private GuiHostLocator locator;
     private boolean returnedFromSubScreen;
@@ -94,6 +101,9 @@ public class OpenGuiPacket extends ClientboundPacket {
         }
         if (guiKey == GuiIds.GuiKey.PRIORITY) {
             return IPriorityHost.class;
+        }
+        if (guiKey == GuiIds.GuiKey.WIRELESS_MAGNET) {
+            return WirelessTerminalGuiHost.class;
         }
         return null;
     }
@@ -150,9 +160,33 @@ public class OpenGuiPacket extends ClientboundPacket {
             return;
         }
 
+        GuiScreen previousScreen = minecraft.currentScreen;
+        markServerGuiSwitchSource(previousScreen);
+
         minecraft.player.openContainer = container;
         container.windowId = this.windowId;
+        if (this.externalGuiReturn) {
+            PreviousExternalGui.capture(previousScreen);
+        }
         minecraft.displayGuiScreen(screen);
+    }
+
+    public static boolean isServerGuiSwitchSource(@Nullable GuiScreen screen) {
+        if (screen == null) {
+            return false;
+        }
+        synchronized (SERVER_GUI_SWITCH_SOURCES) {
+            return SERVER_GUI_SWITCH_SOURCES.getOrDefault(screen, Boolean.FALSE);
+        }
+    }
+
+    private static void markServerGuiSwitchSource(@Nullable GuiScreen screen) {
+        if (screen == null) {
+            return;
+        }
+        synchronized (SERVER_GUI_SWITCH_SOURCES) {
+            SERVER_GUI_SWITCH_SOURCES.put(screen, Boolean.TRUE);
+        }
     }
 
     @SideOnly(Side.CLIENT)
@@ -205,6 +239,9 @@ public class OpenGuiPacket extends ClientboundPacket {
             }
             return priorityContainer;
         }
+        if (this.guiKey == GuiIds.GuiKey.WIRELESS_MAGNET) {
+            return new ContainerWirelessMagnet(inventory, (WirelessTerminalGuiHost<?>) host);
+        }
         return null;
     }
 
@@ -229,6 +266,10 @@ public class OpenGuiPacket extends ClientboundPacket {
         }
         if (this.guiKey == GuiIds.GuiKey.PRIORITY) {
             return new GuiPriority((ContainerPriority) container, inventory,
+                this.guiTitle != null ? this.guiTitle : container.getGuiTitle());
+        }
+        if (this.guiKey == GuiIds.GuiKey.WIRELESS_MAGNET) {
+            return new GuiWirelessMagnet((ContainerWirelessMagnet) container, inventory,
                 this.guiTitle != null ? this.guiTitle : container.getGuiTitle());
         }
         return null;

@@ -48,6 +48,7 @@ import appeng.core.network.clientbound.CraftConfirmPlanPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
 import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.helpers.PlayerSource;
+import com.google.common.primitives.Ints;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -89,7 +90,8 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
     private ICraftingCPU selectedCpu;
     @Nullable
     private AEKey whatToCraft;
-    private int amount;
+    private long amount;
+    private CalculationStrategy strategy = CalculationStrategy.REPORT_MISSING_ITEMS;
     @Nullable
     private Future<ICraftingPlan> job;
     @Nullable
@@ -130,7 +132,8 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
             SwitchGuisPacket.openSubGui(player, locator, GuiIds.GuiKey.CRAFT_CONFIRM, returnToContainerOverride);
 
             if (player.openContainer instanceof ContainerCraftConfirm container) {
-                if (!container.planJob(firstToCraft.what(), firstToCraft.slots().size(), CalculationStrategy.CRAFT_LESS)) {
+                if (!container.planJob(firstToCraft.what(), firstToCraft.amount(),
+                    CalculationStrategy.REPORT_MISSING_ITEMS)) {
                     container.setValidContainer(false);
                     return;
                 }
@@ -143,7 +146,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         }
     }
 
-    public boolean planJob(AEKey what, int amount, CalculationStrategy strategy) {
+    public boolean planJob(AEKey what, long amount, CalculationStrategy strategy) {
         if (this.job != null) {
             this.job.cancel(true);
         }
@@ -151,6 +154,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         this.clearError();
         this.whatToCraft = what;
         this.amount = amount;
+        this.strategy = strategy;
 
         IGrid grid = getGrid();
         if (grid == null) {
@@ -344,7 +348,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                 ContainerCraftConfirm.openWithCraftingList(getActionHost(), serverPlayer, getLocator(),
                     this.autoCraftingQueue, getReturnToContainerOverride());
             } else if (this.whatToCraft != null) {
-                ContainerCraftAmount.open(serverPlayer, getLocator(), this.whatToCraft, this.amount,
+                ContainerCraftAmount.open(serverPlayer, getLocator(), this.whatToCraft, Ints.saturatedCast(this.amount),
                     getReturnToContainerOverride());
             } else {
                 this.host.returnToMainContainer(getPlayer(), this);
@@ -368,7 +372,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         }
 
         if (this.whatToCraft != null) {
-            if (!planJob(this.whatToCraft, this.amount, CalculationStrategy.CRAFT_LESS)) {
+            if (!planJob(this.whatToCraft, this.amount, this.strategy)) {
                 goBack();
             }
         } else {

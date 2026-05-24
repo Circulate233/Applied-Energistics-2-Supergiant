@@ -49,13 +49,16 @@ import appeng.container.slot.FakeSlotFilterSupport;
 import appeng.container.slot.IOptionalSlot;
 import appeng.container.slot.ResizableSlot;
 import appeng.core.AEConfig;
+import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.Tooltips;
 import appeng.core.network.InitNetwork;
+import appeng.core.network.serverbound.CycleWirelessTerminalPacket;
 import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.core.network.serverbound.SwapSlotsPacket;
 import appeng.helpers.InventoryAction;
 import appeng.integration.Integrations;
+import appeng.items.tools.powered.WirelessUniversalTerminalItem;
 import com.google.common.base.Stopwatch;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -265,7 +268,8 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         updateBeforeRender();
         widgets.updateBeforeRender();
-        Slot aeHoveredSlot = findSlot(mouseX, mouseY);
+        Point mousePos = getMousePoint(mouseX, mouseY);
+        Slot aeHoveredSlot = widgets.hitTest(mousePos) ? null : findSlot(mouseX, mouseY);
         this.hoveredSlot = aeHoveredSlot;
 
         super.drawDefaultBackground();
@@ -333,6 +337,12 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
     }
 
     private void renderWidgetTooltip(int mouseX, int mouseY) {
+        if (widgets.hitTest(getMousePoint(mouseX, mouseY))
+            && this.hoveredSlot != null
+            && !this.hoveredSlot.getStack().isEmpty()) {
+            return;
+        }
+
         if (getEmptyingAction(this.hoveredSlot, playerInventory.getItemStack()) != null) {
             return;
         }
@@ -344,7 +354,6 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         Tooltip tooltip = widgets.getTooltip(mouseX - guiLeft, mouseY - guiTop);
         if (tooltip != null && !tooltip.content().isEmpty()) {
             drawTooltip(mouseX, mouseY, tooltip.content());
-            return;
         }
 
     }
@@ -853,6 +862,10 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         this.drag_click.clear();
         this.drag_click_sent.clear();
 
+        if (widgets.onMouseDownBeforeButtons(getMousePoint(mouseX, mouseY), mouseButton)) {
+            return;
+        }
+
         if (mouseButton == 0 || mouseButton == 1) {
             writeCarriedItemNameToClickedTextField(mouseX, mouseY, mouseButton);
         }
@@ -963,9 +976,30 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
             if (widgets.onMouseWheel(mouse, delta > 0 ? 1 : -1)) {
                 return;
             }
+            if (handleWirelessUniversalTerminalCycle(delta)) {
+                return;
+            }
         }
 
         super.handleMouseInput();
+    }
+
+    private boolean handleWirelessUniversalTerminalCycle(int delta) {
+        if (this.mc.player == null
+            || !Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) && !Keyboard.isKeyDown(Keyboard.KEY_RSHIFT)) {
+            return false;
+        }
+        if (!(this.container.getLocator() instanceof ItemGuiHostLocator itemLocator)) {
+            return false;
+        }
+
+        ItemStack stack = itemLocator.locateItem(this.mc.player);
+        if (!(stack.getItem() instanceof WirelessUniversalTerminalItem)) {
+            return false;
+        }
+
+        InitNetwork.sendToServer(new CycleWirelessTerminalPacket(delta < 0));
+        return true;
     }
 
     @Override
@@ -1134,8 +1168,6 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
             return;
         }
 
-        int x = guiLeft + slot.xPos;
-        int y = guiTop + slot.yPos;
         int width = 16;
         int height = 16;
         if (slot instanceof ResizableSlot resizableSlot) {
@@ -1146,7 +1178,8 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         GlStateManager.disableLighting();
         GlStateManager.disableDepth();
         GlStateManager.colorMask(true, true, true, false);
-        this.drawGradientRect(x - 1, y - 1, x + width + 1, y + height + 1, 0x669cd3ff, 0x669cd3ff);
+        this.drawGradientRect(guiLeft + slot.xPos - 1, guiTop + slot.yPos - 1,
+            guiLeft + slot.xPos + width + 1, guiTop + slot.yPos + height + 1, 0x669cd3ff, 0x669cd3ff);
         GlStateManager.colorMask(true, true, true, true);
         GlStateManager.enableDepth();
         GlStateManager.enableLighting();
@@ -1227,6 +1260,7 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
     }
 
     public final void switchToScreen(AEBaseGui<?> screen) {
+        beforeSwitchToScreen(screen);
         savedSlotInfos.clear();
         for (Slot slot : container.inventorySlots) {
             savedSlotInfos.add(new SavedSlotInfo(slot));
@@ -1242,6 +1276,15 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
             }
             screen.savedSlotInfos.clear();
         }
+    }
+
+    protected void beforeSwitchToScreen(AEBaseGui<?> screen) {
+        Objects.requireNonNull(screen, "screen");
+    }
+
+    @Override
+    public void onGuiClosed() {
+        super.onGuiClosed();
     }
 
     public final void returnFromSubScreen(AEBaseGui<?> subScreen) {

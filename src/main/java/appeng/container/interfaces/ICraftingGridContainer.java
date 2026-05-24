@@ -83,6 +83,6 @@ public interface ICraftingGridContainer {
      */
     boolean isPlayerInventorySlotLocked(int invSlot);
 
-    record AutoCraftEntry(AEItemKey what, IntList slots) {
+    record AutoCraftEntry(AEItemKey what, long amount, IntList slots) {
     }
 }

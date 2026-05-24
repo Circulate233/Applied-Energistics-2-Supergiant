@@ -24,7 +24,8 @@ public class SearchInventoryEvent extends PlayerEvent {
 
     public static List<ItemStack> getItems(EntityPlayer player) {
         List<ItemStack> items = new ObjectArrayList<>(player.inventory.mainInventory);
-        for (int i = 0; i < BaublesIntegration.getSlots(player); i++) {
+        var slots = BaublesIntegration.getSlots(player);
+        for (int i = 0; i < slots; i++) {
             items.add(BaublesIntegration.getStackInSlot(player, i));
         }
         MinecraftForge.EVENT_BUS.post(new SearchInventoryEvent(player, items));

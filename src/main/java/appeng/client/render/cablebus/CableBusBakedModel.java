@@ -157,9 +157,8 @@ public class CableBusBakedModel implements IBakedModel {
     }
 
     private int getAttachmentSpin(CableBusRenderState renderState, EnumFacing facing) {
-        Integer spin = renderState.getAttachmentSpins().get(facing);
-        if (spin != null) {
-            return spin;
+        if (renderState.getAttachmentSpins().containsKey(facing)) {
+            return renderState.getAttachmentSpins().getInt(facing);
         }
 
         Object partModelData = renderState.getPartModelData().get(facing);
@@ -207,7 +206,7 @@ public class CableBusBakedModel implements IBakedModel {
             this.cableBuilder.addCableCore(coreType, cableColor, quadsOut);
         }
 
-        for (Entry<EnumFacing, Integer> attachmentConnection : renderState.getAttachmentConnections().entrySet()) {
+        for (Entry<EnumFacing, Integer> attachmentConnection : renderState.getAttachmentConnections().reference2IntEntrySet()) {
             EnumFacing facing = attachmentConnection.getKey();
             int distance = attachmentConnection.getValue();
             int channels = renderState.getChannelsOnSide().getOrDefault(facing, 0);
@@ -217,8 +216,6 @@ public class CableBusBakedModel implements IBakedModel {
                 case COVERED -> this.cableBuilder.addConstrainedCoveredConnection(facing, cableColor, distance, quadsOut);
                 case SMART -> this.cableBuilder.addConstrainedSmartConnection(facing, cableColor, distance, channels,
                     quadsOut);
-                case DENSE_COVERED, DENSE_SMART -> {
-                }
                 default -> {
                 }
             }

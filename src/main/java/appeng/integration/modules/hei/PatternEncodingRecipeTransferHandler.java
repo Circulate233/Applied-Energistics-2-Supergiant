@@ -5,6 +5,8 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.client.patternimport.PatternImportPriorityContextImpl;
 import appeng.client.patternimport.PatternImportPrioritySelector;
+import appeng.container.me.common.GridInventoryEntry;
+import appeng.container.me.common.IClientRepo;
 import appeng.container.me.items.ContainerPatternEncodingTerm;
 import appeng.container.slot.FakeSlot;
 import appeng.core.network.InitNetwork;
@@ -12,13 +14,21 @@ import appeng.core.network.serverbound.InventoryActionPacket;
 import appeng.helpers.InventoryAction;
 import appeng.parts.encoding.EncodingMode;
 import com.google.common.math.LongMath;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
+import it.unimi.dsi.fastutil.ints.IntList;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IRecipeLayout;
+import mezz.jei.api.ingredients.VanillaTypes;
 import mezz.jei.api.recipe.VanillaRecipeCategoryUid;
 import mezz.jei.api.recipe.transfer.IRecipeTransferError;
 import mezz.jei.api.recipe.transfer.IRecipeTransferHandler;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.crafting.Ingredient;
 import javax.annotation.Nonnull;
 
 import java.util.List;
@@ -44,7 +54,8 @@ public class PatternEncodingRecipeTransferHandler implements IRecipeTransferHand
         }
 
         if (!doTransfer) {
-            return null;
+            RecipeTransferSlots slots = findTransferSlots(container, recipeLayout);
+            return new PatternRecipeTransferUserError(recipeLayout, slots.missingGuiSlots(), slots.craftableGuiSlots());
         }
 
         if (recipeLayout.getRecipeCategory().getUid().equals(VanillaRecipeCategoryUid.CRAFTING)) {
@@ -101,6 +112,87 @@ public class PatternEncodingRecipeTransferHandler implements IRecipeTransferHand
 
     private static List<List<GenericStack>> getCraftingInputs(IRecipeLayout recipeLayout) {
         return GenericIngredientHelper.getIngredients(recipeLayout, true, true, CRAFTING_GRID_SIZE);
+    }
+
+    private static RecipeTransferSlots findTransferSlots(ContainerPatternEncodingTerm container,
+                                                         IRecipeLayout recipeLayout) {
+        IntList missingSlots = new IntArrayList();
+        IntList craftableSlots = new IntArrayList();
+        IClientRepo repo = container.getClientRepo();
+        if (repo == null) {
+            return new RecipeTransferSlots(missingSlots, craftableSlots);
+        }
+        Object2IntMap<Object> reservedAmounts = new Object2IntOpenHashMap<>();
+        var map = recipeLayout.getIngredientsGroup(VanillaTypes.ITEM).getGuiIngredients();
+
+        if (map instanceof Int2ObjectMap<? extends IGuiIngredient<ItemStack>> m) {
+            for (var entry : m.int2ObjectEntrySet()) {
+                IGuiIngredient<ItemStack> guiIngredient = entry.getValue();
+                if (guiIngredient == null || !guiIngredient.isInput()) {
+                    continue;
+                }
+
+                List<ItemStack> allIngredients = guiIngredient.getAllIngredients();
+                if (allIngredients == null || allIngredients.isEmpty()) {
+                    continue;
+                }
+
+                Ingredient ingredient = createIngredient(allIngredients);
+                if (ingredient == Ingredient.EMPTY || container.hasIngredient(ingredient, reservedAmounts)) {
+                    continue;
+                }
+
+                if (isCraftable(repo, ingredient)) {
+                    craftableSlots.add(entry.getIntKey());
+                } else {
+                    missingSlots.add(entry.getIntKey());
+                }
+            }
+        } else {
+            for (var entry : map.entrySet()) {
+                IGuiIngredient<ItemStack> guiIngredient = entry.getValue();
+                if (guiIngredient == null || !guiIngredient.isInput()) {
+                    continue;
+                }
+
+                List<ItemStack> allIngredients = guiIngredient.getAllIngredients();
+                if (allIngredients == null || allIngredients.isEmpty()) {
+                    continue;
+                }
+
+                Ingredient ingredient = createIngredient(allIngredients);
+                if (ingredient == Ingredient.EMPTY || container.hasIngredient(ingredient, reservedAmounts)) {
+                    continue;
+                }
+
+                if (isCraftable(repo, ingredient)) {
+                    craftableSlots.add(entry.getKey().intValue());
+                } else {
+                    missingSlots.add(entry.getKey().intValue());
+                }
+            }
+        }
+        return new RecipeTransferSlots(missingSlots, craftableSlots);
+    }
+
+    private static boolean isCraftable(IClientRepo repo, Ingredient ingredient) {
+        for (GridInventoryEntry entry : repo.getAllEntries()) {
+            if (entry.what() instanceof AEItemKey itemKey && itemKey.matches(ingredient) && entry.craftable()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Ingredient createIngredient(List<ItemStack> stacks) {
+        ItemStack[] matchingStacks = stacks.stream()
+            .filter(stack -> stack != null && !stack.isEmpty())
+            .map(ItemStack::copy)
+            .toArray(ItemStack[]::new);
+        return matchingStacks.length == 0 ? Ingredient.EMPTY : Ingredient.fromStacks(matchingStacks);
+    }
+
+    private record RecipeTransferSlots(IntList missingGuiSlots, IntList craftableGuiSlots) {
     }
 
     private static void encodeSelectedStacksIntoSlots(ContainerPatternEncodingTerm container,

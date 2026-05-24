@@ -10,51 +10,51 @@ import it.unimi.dsi.fastutil.ints.IntSets;
 
 record CraftingRecipeTransferAnalysis(
     Outcome outcome,
-    IntSet missingGridSlots,
-    IntSet craftableGridSlots,
+    IntSet missingGuiSlots,
+    IntSet craftableGuiSlots,
     int ingredientCount) {
 
     CraftingRecipeTransferAnalysis {
-        missingGridSlots = IntSets.unmodifiable(new IntRBTreeSet(missingGridSlots));
-        craftableGridSlots = IntSets.unmodifiable(new IntRBTreeSet(craftableGridSlots));
+        missingGuiSlots = IntSets.unmodifiable(new IntRBTreeSet(missingGuiSlots));
+        craftableGuiSlots = IntSets.unmodifiable(new IntRBTreeSet(craftableGuiSlots));
     }
 
     static CraftingRecipeTransferAnalysis analyze(ContainerCraftingTerm.MissingIngredientSlots missingSlots,
                                                   int ingredientCount) {
-        return of(missingSlots.missingSlots(), missingSlots.craftableSlots(), ingredientCount);
+        return of(missingSlots.missingSlots(), missingSlots.craftableSlots(), ingredientCount, 1);
     }
 
-    static CraftingRecipeTransferAnalysis of(IntSet missingGridSlots, IntSet craftableGridSlots,
+    static CraftingRecipeTransferAnalysis of(IntSet missingGuiSlots, IntSet craftableGuiSlots,
                                              int ingredientCount) {
-        int unavailableCount = missingGridSlots.size() + craftableGridSlots.size();
+        return of(missingGuiSlots, craftableGuiSlots, ingredientCount, 0);
+    }
+
+    private static CraftingRecipeTransferAnalysis of(IntSet missingSlots, IntSet craftableSlots,
+                                                     int ingredientCount, int guiSlotOffset) {
+        int unavailableCount = missingSlots.size() + craftableSlots.size();
 
         Outcome outcome;
         if (unavailableCount == 0) {
             outcome = Outcome.READY;
         } else if (unavailableCount >= ingredientCount) {
             outcome = Outcome.BLOCK_ALL_MISSING;
-        } else if (!missingGridSlots.isEmpty() && !craftableGridSlots.isEmpty()) {
+        } else if (!missingSlots.isEmpty() && !craftableSlots.isEmpty()) {
             outcome = Outcome.PARTIAL_MIXED;
-        } else if (!craftableGridSlots.isEmpty()) {
+        } else if (!craftableSlots.isEmpty()) {
             outcome = Outcome.PARTIAL_CRAFTABLE;
         } else {
             outcome = Outcome.PARTIAL_UNCRAFTABLE;
         }
 
-        return new CraftingRecipeTransferAnalysis(outcome, missingGridSlots, craftableGridSlots, ingredientCount);
+        return new CraftingRecipeTransferAnalysis(outcome, toGuiSlots(missingSlots, guiSlotOffset),
+            toGuiSlots(craftableSlots, guiSlotOffset), ingredientCount);
     }
 
-    private static IntCollection toGuiSlots(IntSet gridSlots) {
-        IntList result = new IntArrayList(gridSlots.size());
-        for (int slot : gridSlots) {
-            result.add(slot + 1);
+    private static IntSet toGuiSlots(IntSet slots, int offset) {
+        IntRBTreeSet result = new IntRBTreeSet();
+        for (int slot : slots) {
+            result.add(slot + offset);
         }
-        return result;
-    }
-
-    IntSet getUnavailableGridSlots() {
-        IntRBTreeSet result = new IntRBTreeSet(missingGridSlots);
-        result.addAll(craftableGridSlots);
         return result;
     }
 
@@ -63,23 +63,27 @@ record CraftingRecipeTransferAnalysis(
     }
 
     boolean hasCraftableMissingIngredients() {
-        return !craftableGridSlots.isEmpty();
+        return !craftableGuiSlots.isEmpty();
     }
 
     boolean hasUncraftableMissingIngredients() {
-        return !missingGridSlots.isEmpty();
+        return !missingGuiSlots.isEmpty();
     }
 
     IntCollection getMissingGuiSlots() {
-        return toGuiSlots(missingGridSlots);
+        IntList result = new IntArrayList(missingGuiSlots.size());
+        result.addAll(missingGuiSlots);
+        return result;
     }
 
     IntCollection getCraftableGuiSlots() {
-        return toGuiSlots(craftableGridSlots);
+        IntList result = new IntArrayList(craftableGuiSlots.size());
+        result.addAll(craftableGuiSlots);
+        return result;
     }
 
     private int getUnavailableCount() {
-        return missingGridSlots.size() + craftableGridSlots.size();
+        return missingGuiSlots.size() + craftableGuiSlots.size();
     }
 
     enum Outcome {

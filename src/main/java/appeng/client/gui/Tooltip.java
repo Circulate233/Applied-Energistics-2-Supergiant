@@ -48,10 +48,8 @@ public record Tooltip(List<ITextComponent> content) {
     }
 
     private static void visitComponent(ITextComponent component, LineSplittingVisitor visitor) {
+        // getFormattedText() already includes this component and all of its siblings.
         visitor.accept(component.getStyle(), component.getFormattedText());
-        for (ITextComponent sibling : component.getSiblings()) {
-            visitComponent(sibling, visitor);
-        }
     }
 
     private static class LineSplittingVisitor {

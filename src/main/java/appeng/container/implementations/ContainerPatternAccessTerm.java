@@ -28,14 +28,17 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.ILinkStatus;
 import appeng.api.storage.IPatternAccessTermContainerHost;
 import appeng.container.AEBaseContainer;
+import appeng.container.SlotSemantics;
 import appeng.container.guisync.GuiSync;
 import appeng.container.guisync.ILinkStatusAwareContainer;
+import appeng.container.slot.RestrictedInputSlot;
 import appeng.core.AELog;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.network.clientbound.ClearPatternAccessTerminalPacket;
 import appeng.core.network.clientbound.PatternAccessTerminalPacket;
 import appeng.core.network.clientbound.SetLinkStatusPacket;
 import appeng.helpers.InventoryAction;
+import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.helpers.patternprovider.PatternContainer;
 import appeng.tile.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.util.inv.AppEngInternalInventory;
@@ -44,14 +47,14 @@ import appeng.util.inv.filter.IAEItemFilter;
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
-import it.unimi.dsi.fastutil.longs.LongCollection;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongCollection;
 import it.unimi.dsi.fastutil.longs.LongIterator;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
@@ -76,6 +79,13 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
     public ContainerPatternAccessTerm( InventoryPlayer playerInventory, IPatternAccessTermContainerHost host) {
         super(playerInventory, host);
         this.host = host;
+        if (host instanceof WirelessTerminalGuiHost<?> wirelessHost) {
+            setupUpgrades(wirelessHost.getUpgrades());
+            RestrictedInputSlot slot = new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.QE_SINGULARITY,
+                wirelessHost.getSingularityStorage(), 0, 0, 0);
+            slot.setStackLimit(1);
+            this.addSlot(slot, SlotSemantics.WIRELESS_SINGULARITY);
+        }
         this.addPlayerInventorySlots(0, 0);
     }
 

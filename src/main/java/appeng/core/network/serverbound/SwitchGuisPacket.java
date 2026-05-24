@@ -10,6 +10,7 @@ import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.container.implementations.ContainerCraftingStatus;
 import appeng.container.implementations.ContainerPriority;
 import appeng.container.implementations.ContainerSetStockAmount;
+import appeng.container.implementations.ContainerWirelessMagnet;
 import appeng.core.gui.locator.GuiHostLocator;
 import appeng.core.network.InitNetwork;
 import appeng.core.network.ServerboundPacket;
@@ -17,6 +18,7 @@ import appeng.core.network.clientbound.OpenGuiPacket;
 import appeng.core.network.clientbound.RestorePreviousGuiPacket;
 import appeng.helpers.IPriorityHost;
 import appeng.helpers.InterfaceLogicHost;
+import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.parts.AEBasePart;
 import appeng.tile.AEBaseTile;
 import io.netty.buffer.ByteBuf;
@@ -141,6 +143,9 @@ public class SwitchGuisPacket extends ServerboundPacket {
         if (guiKey == GuiIds.GuiKey.PRIORITY) {
             return IPriorityHost.class;
         }
+        if (guiKey == GuiIds.GuiKey.WIRELESS_MAGNET) {
+            return WirelessTerminalGuiHost.class;
+        }
         return null;
     }
 
@@ -160,6 +165,9 @@ public class SwitchGuisPacket extends ServerboundPacket {
         }
         if (guiKey == GuiIds.GuiKey.PRIORITY) {
             return new ContainerPriority(inventory, (IPriorityHost) host);
+        }
+        if (guiKey == GuiIds.GuiKey.WIRELESS_MAGNET) {
+            return new ContainerWirelessMagnet(inventory, (WirelessTerminalGuiHost<?>) host);
         }
         return null;
     }
@@ -232,7 +240,7 @@ public class SwitchGuisPacket extends ServerboundPacket {
 
         GuiHostLocator locator = openContainer.getLocator();
         if (locator != null) {
-            openSubGui(player, locator, this.newGui);
+            openSubGui(player, locator, this.newGui, openContainer);
         }
     }
 

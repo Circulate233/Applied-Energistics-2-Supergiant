@@ -18,14 +18,16 @@
 
 package appeng.core;
 
+import appeng.api.implementations.items.AddWirelessTerminalEvent;
 import appeng.capabilities.Capabilities;
 import appeng.core.definitions.AEBlockEntities;
 import appeng.core.definitions.AEEntities;
 import appeng.core.gui.AEGuiHandler;
 import appeng.core.network.InitNetwork;
 import appeng.core.registries.AppEngRegistries;
-import appeng.hooks.SkyStoneBreakSpeed;
 import appeng.hooks.CableBusLeftClickHook;
+import appeng.hooks.SkyStoneBreakSpeed;
+import appeng.hooks.WirelessTerminalEventHandler;
 import appeng.hooks.WrenchHook;
 import appeng.hooks.ticking.TickHandler;
 import appeng.hotkeys.HotkeyActions;
@@ -162,6 +164,7 @@ public final class AppEngBase implements AppEng {
         MinecraftForge.EVENT_BUS.register(new SkyStoneBreakSpeed());
         MinecraftForge.EVENT_BUS.register(new CableBusLeftClickHook());
         MinecraftForge.EVENT_BUS.register(new WrenchHook());
+        MinecraftForge.EVENT_BUS.register(new WirelessTerminalEventHandler());
         TickHandler.instance().init();
         AppEngRegistries.init();
         InitGridServices.init();
@@ -189,6 +192,7 @@ public final class AppEngBase implements AppEng {
         InitAdvancementTriggers.init();
         InitVillager.init();
         Integrations.initOptionalIntegrations();
+        AddWirelessTerminalEvent.run();
         HotkeyActions.init();
         this.commonSetupInitialized = true;
     }

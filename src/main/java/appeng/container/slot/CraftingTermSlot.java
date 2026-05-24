@@ -18,15 +18,19 @@
 
 package appeng.container.slot;
 
+import appeng.api.behaviors.ContainerItemStrategies;
 import appeng.api.config.Actionable;
-import appeng.api.config.PowerMultiplier;
+import appeng.api.config.FuzzyMode;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEFluidKey;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.MEStorage;
+import appeng.api.storage.StorageHelper;
 import appeng.container.interfaces.ICraftingGridContainer;
 import appeng.container.me.items.ContainerCraftingTerm;
 import appeng.helpers.InventoryAction;
@@ -37,7 +41,9 @@ import appeng.util.inv.PlayerInternalInventory;
 import appeng.util.prioritylist.IPartitionList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.init.Items;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
@@ -45,8 +51,9 @@ import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.util.NonNullList;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -54,6 +61,7 @@ import java.util.List;
  * player clicks it.
  */
 public class CraftingTermSlot extends AppEngCraftingSlot {
+    private static final int GRID_SIZE = 9;
 
     private static final Container DUMMY_CONTAINER = new Container() {
         @Override
@@ -69,6 +77,35 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
     private final MEStorage storage;
     private final ICraftingGridContainer container;
 
+    private enum CraftSource {
+        NETWORK_EXACT_ITEM,
+        NETWORK_FUZZY_ITEM,
+        NETWORK_FLUID_CONTENT,
+        NETWORK_FLUID_BUCKET_ITEM,
+        GRID_ITEM
+    }
+
+    private record SlotUse(int slot, CraftSource source, ItemStack recipeInput, AEKey networkKey, long networkAmount,
+                           boolean consumeGrid, boolean suppressRemainder) {
+    }
+
+    private record Refill(int slot, AEItemKey key) {
+    }
+
+    private record CraftOperation(NonNullList<ItemStack> remainders) {
+    }
+
+    private record CraftPlan(ItemStack crafted, List<ItemStack> eventInputs, List<CraftOperation> operations,
+                             List<Refill> refills, Object2LongOpenHashMap<AEKey> networkRequests,
+                             int[] gridConsumes) {
+        int times() {
+            return operations.size();
+        }
+    }
+
+    private record FluidContainerInput(AEFluidKey fluid, long amount) {
+    }
+
     public CraftingTermSlot(EntityPlayer player, IActionSource actionSource, IEnergySource energySource,
                             MEStorage storage, InternalInventory craftingMatrix, InternalInventory craftInventory,
                             ICraftingGridContainer container, int x, int y) {
@@ -79,80 +116,6 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
         this.pattern = craftingMatrix;
         this.craftInv = craftInventory;
         this.container = container;
-    }
-
-    static void extractRecipeInputs(IEnergySource energySource, IActionSource actionSource,
-                                    InternalInventory pattern, MEStorage storage, World world, IRecipe recipe, ItemStack output,
-                                    List<ItemStack> craftingItems, ItemStack[] extractedInputs, KeyCounter availableStacks,
-                                    IPartitionList filter) {
-        for (int slot = 0; slot < pattern.size(); slot++) {
-            ItemStack template = pattern.getStackInSlot(slot);
-            if (!template.isEmpty()) {
-                extractedInputs[slot] = extractItemsByRecipe(energySource, actionSource, storage, world, recipe,
-                    output, craftingItems, template, slot, availableStacks, filter);
-                craftingItems.set(slot, extractedInputs[slot]);
-            }
-        }
-    }
-
-    static ItemStack extractItemsByRecipe(IEnergySource energySource, IActionSource actionSource,
-                                          MEStorage storage, World world, IRecipe recipe, ItemStack output, List<ItemStack> craftingItems,
-                                          ItemStack providedTemplate, int slot, KeyCounter availableStacks, IPartitionList filter) {
-        if (energySource.extractAEPower(1, Actionable.SIMULATE, PowerMultiplier.CONFIG) <= 0.9) {
-            return ItemStack.EMPTY;
-        }
-
-        AEItemKey requested = AEItemKey.of(providedTemplate);
-        if (requested == null) {
-            return ItemStack.EMPTY;
-        }
-
-        if (filter == null || filter.isListed(requested)) {
-            long extracted = storage.extract(requested, 1, Actionable.MODULATE, actionSource);
-            if (extracted > 0) {
-                energySource.extractAEPower(1, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                return requested.toStack();
-            }
-        }
-
-        boolean shouldCheckFuzzy = providedTemplate.hasTagCompound() || providedTemplate.isItemStackDamageable();
-        if (!shouldCheckFuzzy || availableStacks == null) {
-            return ItemStack.EMPTY;
-        }
-
-        List<ItemStack> candidateInputs = new ObjectArrayList<>(craftingItems);
-
-        for (Object2LongMap.Entry<AEKey> entry : availableStacks) {
-            if (!(entry.getKey() instanceof AEItemKey itemKey)) {
-                continue;
-            }
-            if (providedTemplate.getItem() != itemKey.getItem() || itemKey.matches(output)) {
-                continue;
-            }
-
-            candidateInputs.set(slot, itemKey.toStack());
-            InventoryCrafting adjustedInput = createRecipeInput(candidateInputs);
-            if (!recipe.matches(adjustedInput, world)) {
-                continue;
-            }
-
-            ItemStack adjustedOutput = recipe.getCraftingResult(adjustedInput);
-            if (!areStacksEqual(adjustedOutput, output)) {
-                continue;
-            }
-
-            if (filter != null && !filter.isListed(itemKey)) {
-                continue;
-            }
-
-            long extracted = storage.extract(itemKey, 1, Actionable.MODULATE, actionSource);
-            if (extracted > 0) {
-                energySource.extractAEPower(1, Actionable.MODULATE, PowerMultiplier.CONFIG);
-                return itemKey.toStack();
-            }
-        }
-
-        return ItemStack.EMPTY;
     }
 
     private static InventoryCrafting createRecipeInput(List<ItemStack> stacks) {
@@ -184,52 +147,41 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
             return;
         }
 
-        final int craftedPerOperation = this.getStack().getCount();
-
-        int maxTimesToCraft;
         InternalInventory target;
+        boolean batch;
+        int maxTimesToCraft;
         if (action == InventoryAction.CRAFT_SHIFT || action == InventoryAction.CRAFT_ALL) {
             target = new PlayerInternalInventory(who.inventory);
-            if (action == InventoryAction.CRAFT_SHIFT) {
-                maxTimesToCraft = (int) Math.floor((double) this.getStack().getMaxStackSize() / craftedPerOperation);
-            } else {
-                maxTimesToCraft = (int) Math.floor((double) this.getStack().getMaxStackSize() / craftedPerOperation
-                    * who.inventory.mainInventory.size());
-            }
+            batch = true;
+            maxTimesToCraft = getMaxTimesForTarget(target, this.getStack(), getStackCraftLimit());
         } else if (action == InventoryAction.CRAFT_STACK) {
             target = new CarriedItemInventory(getContainer());
-            maxTimesToCraft = (int) Math.floor((double) this.getStack().getMaxStackSize() / craftedPerOperation);
+            batch = true;
+            maxTimesToCraft = getMaxTimesForTarget(target, this.getStack(), getStackCraftLimit());
         } else {
-            if (getContainer().getPlayerInventory().getItemStack().isEmpty()) {
-                getContainer().getPlayerInventory().setItemStack(craftItem(who, this.storage, this.storage.getAvailableStacks()));
-                return;
-            }
-
             target = new CarriedItemInventory(getContainer());
+            batch = false;
             maxTimesToCraft = 1;
         }
 
-        ItemStack itemAtStart = this.getStack().copy();
-        if (itemAtStart.isEmpty()) {
+        if (maxTimesToCraft <= 0) {
             return;
         }
 
-        for (int crafted = 0; crafted < maxTimesToCraft; crafted++) {
-            if (!areStacksEqual(itemAtStart, getStack())) {
-                return;
-            }
-
-            if (!target.simulateAdd(itemAtStart).isEmpty()) {
-                return;
-            }
-
-            KeyCounter available = this.storage.getAvailableStacks();
-            ItemStack extra = target.addItems(craftItem(who, this.storage, available));
-            if (!extra.isEmpty()) {
-                Platform.spawnDrops(who.world, who.getPosition(), List.of(extra));
-                return;
-            }
+        CraftPlan plan = batch
+            ? planBatchCraft(who, maxTimesToCraft)
+            : planSingleCraft(who);
+        if (plan == null || plan.times() <= 0) {
+            return;
         }
+
+        ItemStack output = plan.crafted().copy();
+        output.setCount(plan.crafted().getCount() * plan.times());
+        if (!target.simulateAdd(output).isEmpty()) {
+            return;
+        }
+
+        executePlan(who, target, plan, output);
     }
 
     @Override
@@ -241,100 +193,471 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
         return super.getRemainingItems(crafting, world);
     }
 
-    private ItemStack craftItem(EntityPlayer player, MEStorage inventory, KeyCounter availableStacks) {
-        ItemStack crafted = this.getStack().copy();
-        if (crafted.isEmpty()) {
-            return ItemStack.EMPTY;
+    private int getStackCraftLimit() {
+        ItemStack output = this.getStack();
+        if (output.isEmpty() || output.getCount() <= 0) {
+            return 0;
         }
+        return Math.max(1, output.getMaxStackSize() / output.getCount());
+    }
 
-        ServerCraftResult serverCraft = null;
-
-        if (!player.world.isRemote) {
-            serverCraft = craftItemServerSide(player.world, inventory, availableStacks);
-            if (serverCraft.crafted().isEmpty()) {
-                return ItemStack.EMPTY;
+    private static int getMaxTimesForTarget(InternalInventory target, ItemStack crafted, int upperLimit) {
+        int maxTimes = 0;
+        for (int times = 1; times <= upperLimit; times++) {
+            ItemStack stack = crafted.copy();
+            stack.setCount(crafted.getCount() * times);
+            if (!target.simulateAdd(stack).isEmpty()) {
+                break;
             }
-            crafted = serverCraft.crafted();
+            maxTimes = times;
+        }
+        return maxTimes;
+    }
+
+    private CraftPlan planSingleCraft(EntityPlayer player) {
+        PlanContext ctx = createPlanContext(player);
+        if (ctx == null) {
+            return null;
         }
 
-        finishCraft(player, inventory, crafted, serverCraft);
+        CraftOperation operation = planSingleOperation(ctx);
+        if (operation == null) {
+            return null;
+        }
+        ctx.operations.add(operation);
+        if (!addRefills(ctx, false)) {
+            return null;
+        }
+        return new CraftPlan(ctx.crafted, ctx.templateInputs, ctx.operations, ctx.refills, ctx.networkRequests,
+            ctx.gridConsumes);
+    }
+
+    private CraftPlan planBatchCraft(EntityPlayer player, int maxTimesToCraft) {
+        PlanContext ctx = createPlanContext(player);
+        if (ctx == null) {
+            return null;
+        }
+
+        for (int crafted = 0; crafted < maxTimesToCraft; crafted++) {
+            CraftOperation operation = planBatchOperation(ctx);
+            if (operation == null) {
+                break;
+            }
+            ctx.operations.add(operation);
+        }
+
+        if (ctx.operations.isEmpty()) {
+            return null;
+        }
+
+        addRefills(ctx, true);
+        return new CraftPlan(ctx.crafted, ctx.templateInputs, ctx.operations, ctx.refills, ctx.networkRequests,
+            ctx.gridConsumes);
+    }
+
+    private PlanContext createPlanContext(EntityPlayer player) {
+        List<ItemStack> templateInputs = getTemplateInputs();
+        InventoryCrafting recipeInput = createRecipeInput(templateInputs);
+        IRecipe recipe = findRecipe(recipeInput, player.world);
+        setRecipeUsed(recipe);
+        if (recipe == null || !recipe.matches(recipeInput, player.world)) {
+            return null;
+        }
+
+        ItemStack crafted = recipe.getCraftingResult(recipeInput);
+        if (crafted.isEmpty()) {
+            return null;
+        }
+
+        NonNullList<ItemStack> templateRemainders = recipe.getRemainingItems(recipeInput);
+        return new PlanContext(player, player.world, recipe, crafted, templateInputs, templateRemainders,
+            ViewCellItem.createItemFilter(this.container.getViewCells()));
+    }
+
+    private List<ItemStack> getTemplateInputs() {
+        List<ItemStack> result = new ObjectArrayList<>(GRID_SIZE);
+        for (int slot = 0; slot < GRID_SIZE; slot++) {
+            result.add(this.pattern.getStackInSlot(slot).copy());
+        }
+        return result;
+    }
+
+    private CraftOperation planSingleOperation(PlanContext ctx) {
+        SlotUse[] uses = new SlotUse[GRID_SIZE];
+        List<ItemStack> recipeInputs = copyInputs(ctx.templateInputs);
+
+        for (int slot = 0; slot < GRID_SIZE; slot++) {
+            ItemStack template = ctx.templateInputs.get(slot);
+            if (template.isEmpty()) {
+                continue;
+            }
+
+            SlotUse use = planSingleSlot(ctx, slot, template);
+            if (use == null) {
+                return null;
+            }
+            uses[slot] = use;
+            recipeInputs.set(slot, use.recipeInput());
+        }
+
+        return new CraftOperation(getRemainders(ctx, uses, recipeInputs));
+    }
+
+    private SlotUse planSingleSlot(PlanContext ctx, int slot, ItemStack template) {
+        FluidContainerInput fluidInput = getFluidContainerInput(ctx, slot, template);
+        if (fluidInput != null) {
+            SlotUse fluidUse = tryUseNetworkFluid(ctx, slot, template, fluidInput);
+            if (fluidUse != null) {
+                return fluidUse;
+            }
+
+            SlotUse bucketUse = tryUseNetworkItem(ctx, slot, template, CraftSource.NETWORK_FLUID_BUCKET_ITEM);
+            if (bucketUse != null) {
+                return bucketUse;
+            }
+
+            return tryUseGrid(ctx, slot, template);
+        }
+
+        SlotUse exactUse = tryUseNetworkItem(ctx, slot, template, CraftSource.NETWORK_EXACT_ITEM);
+        if (exactUse != null) {
+            return exactUse;
+        }
+
+        int remainingGrid = ctx.gridRemaining[slot] - ctx.gridConsumes[slot];
+        if (remainingGrid > 1) {
+            return tryUseGrid(ctx, slot, template);
+        }
+
+        SlotUse lastGridUse = tryUseGrid(ctx, slot, template);
+        if (lastGridUse != null) {
+            ctx.slotsRequiringRefill[slot] = true;
+        }
+        return lastGridUse;
+    }
+
+    private CraftOperation planBatchOperation(PlanContext ctx) {
+        SlotUse[] uses = new SlotUse[GRID_SIZE];
+        List<ItemStack> recipeInputs = copyInputs(ctx.templateInputs);
+        boolean usedFuzzy = false;
+
+        for (int slot = 0; slot < GRID_SIZE; slot++) {
+            ItemStack template = ctx.templateInputs.get(slot);
+            if (template.isEmpty()) {
+                continue;
+            }
+
+            SlotUse use = planBatchSlot(ctx, slot, template, recipeInputs);
+            if (use == null) {
+                rollbackUses(ctx, uses);
+                return null;
+            }
+            if (use.source() == CraftSource.NETWORK_FUZZY_ITEM) {
+                usedFuzzy = true;
+            }
+            uses[slot] = use;
+            recipeInputs.set(slot, use.recipeInput());
+        }
+
+        if (usedFuzzy && !isSameRecipeOutput(ctx.recipe, recipeInputs, ctx.world, ctx.crafted)) {
+            rollbackUses(ctx, uses);
+            return null;
+        }
+
+        return new CraftOperation(getRemainders(ctx, uses, recipeInputs));
+    }
+
+    private SlotUse planBatchSlot(PlanContext ctx, int slot, ItemStack template, List<ItemStack> recipeInputs) {
+        FluidContainerInput fluidInput = getFluidContainerInput(ctx, slot, template);
+        if (fluidInput != null) {
+            SlotUse fluidUse = tryUseNetworkFluid(ctx, slot, template, fluidInput);
+            if (fluidUse != null) {
+                return fluidUse;
+            }
+
+            SlotUse bucketUse = tryUseNetworkItem(ctx, slot, template, CraftSource.NETWORK_FLUID_BUCKET_ITEM);
+            if (bucketUse != null) {
+                return bucketUse;
+            }
+
+            return tryUseGrid(ctx, slot, template);
+        }
+
+        int remainingGrid = ctx.gridRemaining[slot] - ctx.gridConsumes[slot];
+        if (remainingGrid > 0) {
+            return tryUseGrid(ctx, slot, template);
+        }
+
+        SlotUse exactUse = tryUseNetworkItem(ctx, slot, template, CraftSource.NETWORK_EXACT_ITEM);
+        if (exactUse != null) {
+            return exactUse;
+        }
+
+        return tryUseFuzzyNetworkItem(ctx, slot, template, recipeInputs, true);
+    }
+
+    private SlotUse tryUseNetworkFluid(PlanContext ctx, int slot, ItemStack template,
+                                       FluidContainerInput fluidInput) {
+        if (canExtract(ctx, fluidInput.fluid(), fluidInput.amount())) {
+            addNetworkRequest(ctx, fluidInput.fluid(), fluidInput.amount());
+            return new SlotUse(slot, CraftSource.NETWORK_FLUID_CONTENT, template.copy(), fluidInput.fluid(),
+                fluidInput.amount(), false, true);
+        }
+        return null;
+    }
+
+    private SlotUse tryUseNetworkItem(PlanContext ctx, int slot, ItemStack template, CraftSource source) {
+        AEItemKey key = AEItemKey.of(template);
+        if (key == null || !isAllowedByFilter(ctx.filter, key) || !canExtract(ctx, key, 1)) {
+            return null;
+        }
+
+        addNetworkRequest(ctx, key, 1);
+        return new SlotUse(slot, source, template.copy(), key, 1, false, false);
+    }
+
+    private SlotUse tryUseFuzzyNetworkItem(PlanContext ctx, int slot, ItemStack template,
+                                           List<ItemStack> recipeInputs, boolean validateOutput) {
+        AEItemKey requested = AEItemKey.of(template);
+        if (requested == null || !shouldCheckFuzzy(template)) {
+            return null;
+        }
+
+        for (Object2LongMap.Entry<AEKey> entry : ctx.getAvailableStacks().findFuzzy(requested,
+            FuzzyMode.IGNORE_ALL)) {
+            if (!(entry.getKey() instanceof AEItemKey itemKey)) {
+                continue;
+            }
+            if (itemKey.equals(requested) || itemKey.matches(ctx.crafted) || !isAllowedByFilter(ctx.filter, itemKey)) {
+                continue;
+            }
+            if (!canExtract(ctx, itemKey, 1)) {
+                continue;
+            }
+
+            ItemStack candidate = itemKey.toStack();
+            if (validateOutput) {
+                List<ItemStack> adjustedInputs = copyInputs(recipeInputs);
+                adjustedInputs.set(slot, candidate);
+                if (!isSameRecipeOutput(ctx.recipe, adjustedInputs, ctx.world, ctx.crafted)) {
+                    continue;
+                }
+            }
+
+            addNetworkRequest(ctx, itemKey, 1);
+            return new SlotUse(slot, CraftSource.NETWORK_FUZZY_ITEM, candidate, itemKey, 1, false, false);
+        }
+        return null;
+    }
+
+    private SlotUse tryUseGrid(PlanContext ctx, int slot, ItemStack template) {
+        int remainingGrid = ctx.gridRemaining[slot] - ctx.gridConsumes[slot];
+        if (remainingGrid <= 0) {
+            return null;
+        }
+        ctx.gridConsumes[slot]++;
+        return new SlotUse(slot, CraftSource.GRID_ITEM, template.copy(), null, 0, true, false);
+    }
+
+    private void rollbackUses(PlanContext ctx, SlotUse[] uses) {
+        for (SlotUse use : uses) {
+            if (use == null) {
+                continue;
+            }
+            if (use.consumeGrid()) {
+                ctx.gridConsumes[use.slot()]--;
+            }
+            if (use.networkKey() != null && use.networkAmount() > 0) {
+                ctx.networkRequests.addTo(use.networkKey(), -use.networkAmount());
+            }
+        }
+    }
+
+    private boolean addRefills(PlanContext ctx, boolean validateFuzzy) {
+        boolean requiredRefillsSatisfied = true;
+        for (int slot = 0; slot < GRID_SIZE; slot++) {
+            if (!shouldRefillSlot(ctx, slot)) {
+                continue;
+            }
+            ItemStack template = ctx.templateInputs.get(slot);
+
+            AEItemKey exact = AEItemKey.of(template);
+            if (exact != null && isAllowedByFilter(ctx.filter, exact) && canExtract(ctx, exact, 1)) {
+                addNetworkRequest(ctx, exact, 1);
+                ctx.refills.add(new Refill(slot, exact));
+                continue;
+            }
+
+            SlotUse fuzzyRefill = tryUseFuzzyNetworkItem(ctx, slot, template, ctx.templateInputs, validateFuzzy);
+            if (fuzzyRefill != null && fuzzyRefill.networkKey() instanceof AEItemKey refillKey) {
+                ctx.refills.add(new Refill(slot, refillKey));
+            } else if (ctx.slotsRequiringRefill[slot]) {
+                requiredRefillsSatisfied = false;
+            }
+        }
+        return requiredRefillsSatisfied;
+    }
+
+    private boolean shouldRefillSlot(PlanContext ctx, int slot) {
+        if (ctx.templateInputs.get(slot).isEmpty() || ctx.gridRemaining[slot] - ctx.gridConsumes[slot] > 0) {
+            return false;
+        }
+
+        for (CraftOperation operation : ctx.operations) {
+            if (slot < operation.remainders().size() && !operation.remainders().get(slot).isEmpty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private NonNullList<ItemStack> getRemainders(PlanContext ctx, SlotUse[] uses, List<ItemStack> recipeInputs) {
+        InventoryCrafting crafting = createRecipeInput(recipeInputs);
+        ForgeHooks.setCraftingPlayer(ctx.player);
+        NonNullList<ItemStack> remainders;
+        try {
+            remainders = getRemainingItems(crafting, ctx.world);
+        } finally {
+            ForgeHooks.setCraftingPlayer(null);
+        }
+
+        for (SlotUse use : uses) {
+            if (use != null && use.suppressRemainder() && use.slot() < remainders.size()) {
+                remainders.set(use.slot(), ItemStack.EMPTY);
+            }
+        }
+        return remainders;
+    }
+
+    private boolean isSameRecipeOutput(IRecipe recipe, List<ItemStack> recipeInputs, World world, ItemStack expected) {
+        InventoryCrafting adjustedInput = createRecipeInput(recipeInputs);
+        if (!recipe.matches(adjustedInput, world)) {
+            return false;
+        }
+        return areStacksEqual(recipe.getCraftingResult(adjustedInput), expected);
+    }
+
+    private FluidContainerInput getFluidContainerInput(PlanContext ctx, int slot, ItemStack template) {
+        GenericStack contained = ContainerItemStrategies.getContainedStack(template);
+        if (contained == null || !(contained.what() instanceof AEFluidKey fluidKey)) {
+            return null;
+        }
+
+        if (slot >= ctx.templateRemainders.size()) {
+            return null;
+        }
+        ItemStack remainder = ctx.templateRemainders.get(slot);
+        if (remainder.getCount() == 1 && remainder.getItem() == Items.BUCKET) {
+            return new FluidContainerInput(fluidKey, contained.amount());
+        }
+        return null;
+    }
+
+    private boolean canExtract(PlanContext ctx, AEKey key, long amount) {
+        long total = amount + ctx.networkRequests.getLong(key);
+        return StorageHelper.poweredExtraction(this.energySource, this.storage, key, total, this.actionSource,
+            Actionable.SIMULATE) >= total;
+    }
+
+    private void addNetworkRequest(PlanContext ctx, AEKey key, long amount) {
+        ctx.networkRequests.addTo(key, amount);
+    }
+
+    private static boolean isAllowedByFilter(IPartitionList filter, AEItemKey key) {
+        return filter == null || filter.isListed(key);
+    }
+
+    private static boolean shouldCheckFuzzy(ItemStack template) {
+        return template.hasTagCompound() || template.isItemStackDamageable();
+    }
+
+    private void executePlan(EntityPlayer player, InternalInventory target, CraftPlan plan, ItemStack output) {
+        for (Object2LongMap.Entry<AEKey> entry : plan.networkRequests.object2LongEntrySet()) {
+            long amount = entry.getLongValue();
+            if (amount <= 0) {
+                continue;
+            }
+            long extracted = StorageHelper.poweredExtraction(this.energySource, this.storage, entry.getKey(), amount,
+                this.actionSource, Actionable.MODULATE);
+            if (extracted < amount) {
+                return;
+            }
+        }
+
+        for (int slot = 0; slot < plan.gridConsumes.length; slot++) {
+            int amount = plan.gridConsumes[slot];
+            if (amount > 0) {
+                this.craftInv.extractItem(slot, amount, false);
+            }
+        }
+
+        onCrafted(player, output, plan.eventInputs());
+
+        ItemStack extra = target.addItems(output);
+        if (!extra.isEmpty()) {
+            Platform.spawnDrops(player.world, player.getPosition(), List.of(extra));
+        }
+
+        applyRemainders(player, plan);
+        applyRefills(plan);
 
         if (getContainer() != null) {
             getContainer().onCraftMatrixChanged(this.craftInv.toContainer());
         }
-
-        return crafted;
     }
 
-    ServerCraftResult craftItemServerSide(World world, MEStorage inventory, KeyCounter availableStacks) {
-        List<ItemStack> craftingItems = new ObjectArrayList<>(9);
-        for (int slot = 0; slot < 9; slot++) {
-            craftingItems.add(this.pattern.getStackInSlot(slot));
-        }
-
-        InventoryCrafting recipeInput = createRecipeInput(craftingItems);
-        IRecipe recipe = findRecipe(recipeInput, world);
-        setRecipeUsed(recipe);
-
-        if (recipe == null) {
-            return new ServerCraftResult(ItemStack.EMPTY, new ItemStack[this.pattern.size()]);
-        }
-
-        ItemStack crafted = recipe.getCraftingResult(recipeInput);
-        ItemStack[] extractedInputs = new ItemStack[this.pattern.size()];
-        Arrays.fill(extractedInputs, ItemStack.EMPTY);
-
-        if (inventory != null) {
-            IPartitionList filter = ViewCellItem.createItemFilter(this.container.getViewCells());
-            extractRecipeInputs(this.energySource, this.actionSource, this.pattern, inventory, world,
-                recipe, crafted, craftingItems, extractedInputs, availableStacks, filter);
-        }
-
-        return new ServerCraftResult(crafted, extractedInputs);
+    private void onCrafted(EntityPlayer player, ItemStack output, List<ItemStack> eventInputs) {
+        onCrafting(output, output.getCount());
+        output.getItem().onCreated(output, player.world, player);
+        FMLCommonHandler.instance().firePlayerCraftingEvent(player, output, createRecipeInput(eventInputs));
     }
 
-    void finishCraft(EntityPlayer player, MEStorage inventory, ItemStack crafted, ServerCraftResult serverCraft) {
-        makeItem(player, crafted);
-        if (serverCraft != null) {
-            postCraft(player, inventory, serverCraft.extractedInputs());
-        }
-    }
-
-    void makeItem(EntityPlayer player, ItemStack crafted) {
-        super.onTake(player, crafted);
-    }
-
-    private List<ItemStack> writeCraftingGridInputs(MEStorage inventory, ItemStack[] extractedInputs) {
-        List<ItemStack> drops = new ObjectArrayList<>();
-
-        for (int slot = 0; slot < this.craftInv.size(); slot++) {
-            if (this.craftInv.getStackInSlot(slot).isEmpty()) {
-                this.craftInv.setItemDirect(slot, extractedInputs[slot]);
-            } else if (!extractedInputs[slot].isEmpty()) {
-                AEItemKey what = AEItemKey.of(extractedInputs[slot]);
-                if (what == null) {
-                    continue;
-                }
-
-                long amount = extractedInputs[slot].getCount();
-                long inserted = inventory.insert(what, amount, Actionable.MODULATE, this.actionSource);
-                if (inserted < amount) {
-                    drops.add(what.toStack((int) (amount - inserted)));
+    private void applyRemainders(EntityPlayer player, CraftPlan plan) {
+        for (CraftOperation operation : plan.operations()) {
+            NonNullList<ItemStack> remainders = operation.remainders();
+            for (int slot = 0; slot < Math.min(remainders.size(), this.craftInv.size()); slot++) {
+                ItemStack remainder = remainders.get(slot);
+                if (!remainder.isEmpty()) {
+                    insertRemainder(player, slot, remainder.copy());
                 }
             }
         }
-
-        return drops;
     }
 
-    void postCraft(EntityPlayer player, MEStorage inventory, ItemStack[] extractedInputs) {
-        List<ItemStack> drops = writeCraftingGridInputs(inventory, extractedInputs);
-
-        if (!drops.isEmpty()) {
-            Platform.spawnDrops(player.world,
-                new BlockPos((int) player.posX, (int) player.posY, (int) player.posZ),
-                drops);
+    private void insertRemainder(EntityPlayer player, int slot, ItemStack remainder) {
+        remainder = this.craftInv.getSlotInv(slot).addItems(remainder);
+        if (remainder.isEmpty()) {
+            return;
         }
+
+        AEItemKey key = AEItemKey.of(remainder);
+        if (key != null) {
+            long inserted = StorageHelper.poweredInsert(this.energySource, this.storage, key, remainder.getCount(),
+                this.actionSource);
+            remainder.shrink((int) inserted);
+        }
+
+        if (!remainder.isEmpty()) {
+            Platform.spawnDrops(player.world, new BlockPos((int) player.posX, (int) player.posY, (int) player.posZ),
+                List.of(remainder));
+        }
+    }
+
+    private void applyRefills(CraftPlan plan) {
+        for (Refill refill : plan.refills()) {
+            if (!this.craftInv.getStackInSlot(refill.slot()).isEmpty()) {
+                continue;
+            }
+            this.craftInv.setItemDirect(refill.slot(), refill.key().toStack());
+        }
+    }
+
+    private static List<ItemStack> copyInputs(List<ItemStack> inputs) {
+        List<ItemStack> result = new ObjectArrayList<>(inputs.size());
+        for (ItemStack input : inputs) {
+            result.add(input.copy());
+        }
+        return result;
     }
 
     IRecipe findRecipe(InventoryCrafting recipeInput, World world) {
@@ -348,6 +671,41 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
         return net.minecraft.item.crafting.CraftingManager.findMatchingRecipe(recipeInput, world);
     }
 
-    record ServerCraftResult(ItemStack crafted, ItemStack[] extractedInputs) {
+    private final class PlanContext {
+        final EntityPlayer player;
+        final World world;
+        final IRecipe recipe;
+        final ItemStack crafted;
+        final List<ItemStack> templateInputs;
+        final NonNullList<ItemStack> templateRemainders;
+        final IPartitionList filter;
+        KeyCounter availableStacks;
+        final int[] gridRemaining = new int[GRID_SIZE];
+        final int[] gridConsumes = new int[GRID_SIZE];
+        final boolean[] slotsRequiringRefill = new boolean[GRID_SIZE];
+        final Object2LongOpenHashMap<AEKey> networkRequests = new Object2LongOpenHashMap<>();
+        final List<CraftOperation> operations = new ObjectArrayList<>();
+        final List<Refill> refills = new ObjectArrayList<>();
+
+        PlanContext(EntityPlayer player, World world, IRecipe recipe, ItemStack crafted, List<ItemStack> templateInputs,
+                    NonNullList<ItemStack> templateRemainders, IPartitionList filter) {
+            this.player = player;
+            this.world = world;
+            this.recipe = recipe;
+            this.crafted = crafted;
+            this.templateInputs = templateInputs;
+            this.templateRemainders = templateRemainders;
+            this.filter = filter;
+            for (int slot = 0; slot < GRID_SIZE; slot++) {
+                this.gridRemaining[slot] = templateInputs.get(slot).getCount();
+            }
+        }
+
+        KeyCounter getAvailableStacks() {
+            if (this.availableStacks == null) {
+                this.availableStacks = CraftingTermSlot.this.storage.getAvailableStacks();
+            }
+            return this.availableStacks;
+        }
     }
 }
