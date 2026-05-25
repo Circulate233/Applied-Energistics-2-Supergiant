@@ -1,6 +1,8 @@
 package appeng.server.subcommands;
 
 import appeng.core.localization.PlayerMessages;
+import appeng.hooks.ticking.TickHandler;
+import appeng.me.Grid;
 import appeng.me.service.TickManagerService;
 import appeng.server.ISubCommand;
 import net.minecraft.command.CommandBase;
@@ -35,6 +37,9 @@ public class TickMonitoring implements ISubCommand {
 
         if ("true".equalsIgnoreCase(args[1]) || "on".equalsIgnoreCase(args[1])) {
             TickManagerService.MONITORING_ENABLED = true;
+            for (Grid grid : TickHandler.instance().getGridList()) {
+                ((TickManagerService) grid.getTickManager()).resetMonitoringStatistics();
+            }
         } else if ("false".equalsIgnoreCase(args[1]) || "off".equalsIgnoreCase(args[1])) {
             TickManagerService.MONITORING_ENABLED = false;
         } else {

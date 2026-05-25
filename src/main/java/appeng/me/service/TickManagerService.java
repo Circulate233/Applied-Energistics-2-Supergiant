@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 
 public class TickManagerService implements ITickManager, IGridServiceProvider {
 
+    private static final long MONITORING_RESET_INTERVAL_TICKS = 20L * 60L;
     private static final int TICK_RATE_SPEED_UP_FACTOR = 2;
     private static final int TICK_RATE_SLOW_DOWN_FACTOR = 1;
     public static boolean MONITORING_ENABLED = false;
@@ -62,6 +63,9 @@ public class TickManagerService implements ITickManager, IGridServiceProvider {
     @Override
     public void onServerStartTick() {
         this.currentTick++;
+        if (MONITORING_ENABLED && this.currentTick % MONITORING_RESET_INTERVAL_TICKS == 0) {
+            resetMonitoringStatistics();
+        }
     }
 
     @Override
@@ -405,6 +409,18 @@ public class TickManagerService implements ITickManager, IGridServiceProvider {
         boolean queued,
         int currentRate,
         long lastTick) {
+    }
+
+    public void resetMonitoringStatistics() {
+        resetStatistics(this.alertable);
+        resetStatistics(this.sleeping);
+        resetStatistics(this.awake);
+    }
+
+    private void resetStatistics(Reference2ObjectMap<IGridNode, TickTracker> trackers) {
+        for (var tracker : trackers.values()) {
+            tracker.resetStatistics();
+        }
     }
 
 }

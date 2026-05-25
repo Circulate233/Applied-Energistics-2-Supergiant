@@ -16,6 +16,8 @@ import java.util.List;
 public enum Tooltips implements LocalizationEnum {
 
     Empty,
+    On,
+    Off,
     Stored,
     Capacity,
     SubstitutionsOn,

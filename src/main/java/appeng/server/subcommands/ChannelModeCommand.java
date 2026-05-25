@@ -1,6 +1,7 @@
 package appeng.server.subcommands;
 
 import appeng.api.networking.pathing.ChannelMode;
+import appeng.core.localization.GuiText;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.localization.PlayerMessages;
@@ -13,6 +14,7 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.List;
 import java.util.Locale;
@@ -44,7 +46,7 @@ public class ChannelModeCommand implements ISubCommand {
     public void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException {
         if (args.length == 1) {
             ChannelMode mode = AEConfig.instance().getChannelMode();
-            sender.sendMessage(PlayerMessages.ChannelModeCurrent.text(mode.name().toLowerCase(Locale.ROOT)));
+            sender.sendMessage(PlayerMessages.ChannelModeCurrent.text(getModeLabel(mode)));
             return;
         }
 
@@ -63,7 +65,7 @@ public class ChannelModeCommand implements ISubCommand {
             gridCount++;
         }
 
-        sender.sendMessage(PlayerMessages.ChannelModeSet.text(mode.name().toLowerCase(Locale.ROOT), gridCount));
+        sender.sendMessage(PlayerMessages.ChannelModeSet.text(getModeLabel(mode), gridCount));
     }
 
     @Override
@@ -74,5 +76,15 @@ public class ChannelModeCommand implements ISubCommand {
         }
 
         return CommandBase.getListOfStringsMatchingLastWord(args, getModeNames());
+    }
+
+    private static ITextComponent getModeLabel(ChannelMode mode) {
+        return switch (mode) {
+            case DEFAULT -> GuiText.ChannelModeDefault.text();
+            case INFINITE -> GuiText.ChannelModeInfinite.text();
+            case X2 -> GuiText.ChannelModeX2.text();
+            case X3 -> GuiText.ChannelModeX3.text();
+            case X4 -> GuiText.ChannelModeX4.text();
+        };
     }
 }

@@ -31,7 +31,7 @@ public class TickTracker implements Comparable<TickTracker> {
     private final TickingRequest request;
     private final IGridTickable gt;
     private final IGridNode node;
-    private final LongSummaryStatistics statistics;
+    private LongSummaryStatistics statistics;
 
     private long lastTick;
     private int currentRate;
@@ -113,5 +113,9 @@ public class TickTracker implements Comparable<TickTracker> {
 
     public LongSummaryStatistics getStatistics() {
         return statistics;
+    }
+
+    public void resetStatistics() {
+        this.statistics = new LongSummaryStatistics();
     }
 }

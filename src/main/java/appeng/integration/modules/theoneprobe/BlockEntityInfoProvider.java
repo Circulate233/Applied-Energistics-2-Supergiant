@@ -126,10 +126,11 @@ public final class BlockEntityInfoProvider implements IProbeInfoProvider, IBlock
         if (blockEntity != null) {
             var serverData = getServerData(player, blockEntity);
             var context = getContext(player, data, serverData);
-            TooltipBuilder tooltipBuilder = new TopTooltipBuilder(probeInfo);
+            TopTooltipBuilder tooltipBuilder = new TopTooltipBuilder(probeInfo);
             for (var customizer : bodyCustomizers) {
                 customizer.buildTooltip(blockEntity, context, tooltipBuilder);
             }
+            TopNetworkDebugProvider.addProbeInfo(player, blockEntity, data.getHitVec(), tooltipBuilder);
         }
     }
 

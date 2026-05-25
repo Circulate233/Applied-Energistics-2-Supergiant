@@ -3,6 +3,7 @@ package appeng.server.subcommands;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
 import appeng.core.localization.PlayerMessages;
+import appeng.core.localization.Tooltips;
 import appeng.hooks.ticking.TickHandler;
 import appeng.me.Grid;
 import appeng.me.service.EnergyService;
@@ -13,7 +14,6 @@ import net.minecraft.command.ICommandSender;
 import net.minecraft.command.WrongUsageException;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.util.math.BlockPos;
-
 import java.util.List;
 
 public class DebugEnergyCommand implements ISubCommand {
@@ -35,7 +35,7 @@ public class DebugEnergyCommand implements ISubCommand {
     public void call(MinecraftServer srv, String[] args, ICommandSender sender) throws CommandException {
         if (args.length == 1) {
             sender.sendMessage(PlayerMessages.DebugEnergyCurrent.text(
-                AEConfig.instance().isDebugEnergyEnabled() ? "on" : "off"));
+                getModeLabel(AEConfig.instance().isDebugEnergyEnabled())));
             return;
         }
 
@@ -62,6 +62,10 @@ public class DebugEnergyCommand implements ISubCommand {
             gridCount++;
         }
 
-        sender.sendMessage(PlayerMessages.DebugEnergySet.text(enabled ? "on" : "off", gridCount));
+        sender.sendMessage(PlayerMessages.DebugEnergySet.text(getModeLabel(enabled), gridCount));
+    }
+
+    private static String getModeLabel(boolean enabled) {
+        return enabled ? Tooltips.On.text().getFormattedText() : Tooltips.Off.text().getFormattedText();
     }
 }
