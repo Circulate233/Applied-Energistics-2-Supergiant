@@ -31,8 +31,14 @@ public enum Tooltips implements LocalizationEnum {
     Singularity,
     QuantumKey;
 
+    private final String translationKey;
+
     public static final TextFormatting RED = TextFormatting.RED;
     public static final TextFormatting GREEN = TextFormatting.GREEN;
+
+    Tooltips() {
+        this.translationKey = "gui.tooltips.ae2." + name();
+    }
 
     public static List<ITextComponent> getEmptyingTooltip(LocalizationEnum baseAction, ItemStack carried,
                                                           EmptyingAction emptyingAction) {
@@ -129,6 +135,6 @@ public enum Tooltips implements LocalizationEnum {
 
     @Override
     public String getTranslationKey() {
-        return "gui.tooltips.ae2." + name();
+        return this.translationKey;
     }
 }

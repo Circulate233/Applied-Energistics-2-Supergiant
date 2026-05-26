@@ -25,7 +25,9 @@ import appeng.api.config.SchedulingMode;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.crafting.ICraftingForceStartRequester;
 import appeng.api.networking.crafting.ICraftingLink;
+import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.networking.energy.IEnergyService;
@@ -39,6 +41,7 @@ import appeng.container.GuiIds;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
 import appeng.core.settings.TickRates;
+import appeng.helpers.InterfaceLogic;
 import appeng.helpers.MultiCraftingTracker;
 import appeng.items.parts.PartModels;
 import appeng.parts.PartModel;
@@ -55,7 +58,7 @@ import org.jetbrains.annotations.Nullable;
  * Generalized base class for export buses that move stacks from network storage to an adjacent block using a non-AE
  * API.
  */
-public class ExportBusPart extends IOBusPart implements ICraftingRequester {
+public class ExportBusPart extends IOBusPart implements ICraftingForceStartRequester {
 
     public static final ResourceLocation MODEL_BASE = AppEng.makeId("part/export_bus_base");
 
@@ -218,6 +221,11 @@ public class ExportBusPart extends IOBusPart implements ICraftingRequester {
     @Override
     public ImmutableSet<ICraftingLink> getRequestedJobs() {
         return this.craftingTracker.getRequestedJobs();
+    }
+
+    @Override
+    public boolean canForceStartCrafting(ICraftingPlan plan) {
+        return InterfaceLogic.isForceStartCraftingEnabled(this.getUpgrades());
     }
 
     protected int getStartingSlot(SchedulingMode schedulingMode, int x) {

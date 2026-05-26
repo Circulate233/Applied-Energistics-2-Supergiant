@@ -4,7 +4,7 @@ import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
-import appeng.core.localization.InGameTooltip;
+import appeng.integration.modules.theoneprobe.TopText;
 import appeng.parts.p2p.MEP2PTunnelPart;
 import appeng.parts.p2p.P2PTunnelPart;
 import appeng.util.Platform;
@@ -27,9 +27,9 @@ public final class P2PStateDataProvider implements BodyProvider<P2PTunnelPart>, 
 
     private static ITextComponent getOutputText(int outputs) {
         if (outputs <= 1) {
-            return InGameTooltip.P2PInputOneOutput.text();
+            return TopText.p2p_input_one_output.text();
         }
-        return InGameTooltip.P2PInputManyOutputs.text(outputs);
+        return TopText.p2p_input_many_outputs.text(outputs);
     }
 
     @Override
@@ -41,8 +41,8 @@ public final class P2PStateDataProvider implements BodyProvider<P2PTunnelPart>, 
             int outputs = serverData.getInteger(TAG_P2P_OUTPUTS);
 
             switch (state) {
-                case STATE_UNLINKED -> tooltip.addLine(InGameTooltip.P2PUnlinked.text());
-                case STATE_OUTPUT -> tooltip.addLine(InGameTooltip.P2POutput.text());
+                case STATE_UNLINKED -> tooltip.addLine(TopText.p2p_unlinked.text());
+                case STATE_OUTPUT -> tooltip.addLine(TopText.p2p_output.text());
                 case STATE_INPUT -> tooltip.addLine(getOutputText(outputs));
                 default -> {
                 }
@@ -55,11 +55,11 @@ public final class P2PStateDataProvider implements BodyProvider<P2PTunnelPart>, 
                 freqTooltip = new TextComponentString(freqName).appendText(" (").appendSibling(freqTooltip).appendText(")");
             }
 
-            tooltip.addLine(InGameTooltip.P2PFrequency.text(freqTooltip));
+            tooltip.addLine(TopText.p2p_frequency.text(freqTooltip));
 
             if (serverData.hasKey(TAG_P2P_ME_CARRIED_CHANNELS, 3)) {
                 int carriedChannels = serverData.getInteger(TAG_P2P_ME_CARRIED_CHANNELS);
-                tooltip.addLine(InGameTooltip.P2PMECarriedChannels.text(carriedChannels));
+                tooltip.addLine(TopText.p2p_me_carried_channels.text(carriedChannels));
             }
         }
     }

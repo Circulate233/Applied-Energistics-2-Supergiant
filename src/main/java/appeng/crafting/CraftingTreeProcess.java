@@ -113,18 +113,25 @@ public class CraftingTreeProcess {
         this.job.handlePausing();
 
         long start = System.nanoTime();
+        long intermediateFinalOutputMarker = this.job.getIntermediateFinalOutputMarker();
+        var recursiveMissingSeedsMarker = this.job.getRecursiveMissingSeedsMarker();
         var sharedInputs = new ChildCraftingSimulationState(inv);
+        this.job.pushProcess(this);
         try {
             this.reusablePreview = null;
             long craftableTimes = maxTimes;
             if (canReusePreview()) {
-                var entry = this.nodes.object2LongEntrySet().iterator().next();
+                var entry = this.nodes.object2LongEntrySet().getFirst();
                 long requiredPerPattern = entry.getLongValue();
                 long availableInputs = entry.getKey().extractAvailableForCrafting(sharedInputs,
                     requiredPerPattern * craftableTimes);
                 craftableTimes = availableInputs / requiredPerPattern;
                 if (craftableTimes > 0) {
-                    this.reusablePreview = new Preview(inv, sharedInputs, craftableTimes);
+                    var recursiveMissingSeeds = this.job.getRecursiveMissingSeedsMarker();
+                    recursiveMissingSeeds.removeAll(recursiveMissingSeedsMarker);
+                    this.reusablePreview = new Preview(inv, sharedInputs, craftableTimes,
+                        this.job.getIntermediateFinalOutputMarker() - intermediateFinalOutputMarker,
+                        recursiveMissingSeeds);
                 }
                 return craftableTimes;
             }
@@ -140,6 +147,9 @@ public class CraftingTreeProcess {
             }
             return craftableTimes;
         } finally {
+            this.job.popProcess();
+            this.job.restoreIntermediateFinalOutputMarker(intermediateFinalOutputMarker);
+            this.job.restoreRecursiveMissingSeedsMarker(recursiveMissingSeedsMarker);
             this.job.recordPerformanceStage("process-max-craftable inputs=" + this.nodes.size(),
                 System.nanoTime() - start);
         }
@@ -158,6 +168,10 @@ public class CraftingTreeProcess {
         preview.state().addCrafting(details, times);
         preview.state().addBytes(times);
         preview.state().applyDiff(inv);
+        if (preview.intermediateFinalOutputAmount() > 0) {
+            this.job.addIntermediateFinalOutput(preview.intermediateFinalOutputAmount());
+        }
+        this.job.addRecursiveMissingSeeds(preview.recursiveMissingSeeds());
         this.reusablePreview = null;
         return true;
     }
@@ -235,6 +249,15 @@ public class CraftingTreeProcess {
         return tot;
     }
 
+    long getEffectiveOutputCount(AEKey what) {
+        long output = getOutputCount(what);
+        long input = getInputCount(what);
+        if (input <= 0 || output <= input) {
+            return output;
+        }
+        return output - input;
+    }
+
     long getInputCount(AEKey what) {
         long total = 0;
 
@@ -260,6 +283,18 @@ public class CraftingTreeProcess {
             return null;
         }
         return possibleInputs[0].what();
+    }
+
+    long getFirstInputAmount() {
+        var inputs = this.details.getInputs();
+        if (inputs.length == 0) {
+            return 0;
+        }
+        var possibleInputs = inputs[0].possibleInputs();
+        if (possibleInputs.length == 0) {
+            return 0;
+        }
+        return possibleInputs[0].amount() * inputs[0].getMultiplier();
     }
 
     void accumulateNet(KeyCounter netByKey) {
@@ -289,6 +324,7 @@ public class CraftingTreeProcess {
         }
     }
 
-    private record Preview(CraftingSimulationState parent, ChildCraftingSimulationState state, long times) {
+    private record Preview(CraftingSimulationState parent, ChildCraftingSimulationState state, long times,
+                           long intermediateFinalOutputAmount, KeyCounter recursiveMissingSeeds) {
     }
 }

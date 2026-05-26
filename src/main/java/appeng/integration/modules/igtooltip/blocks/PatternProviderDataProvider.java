@@ -8,8 +8,8 @@ import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.core.localization.GuiText;
-import appeng.core.localization.InGameTooltip;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
+import appeng.integration.modules.theoneprobe.TopText;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.ITextComponent;
@@ -43,8 +43,8 @@ public final class PatternProviderDataProvider
                 stackAmount = new TextComponentString(
                     genericStack.what().formatAmount(genericStack.amount(), AmountFormat.FULL));
             }
-            tooltip.addLine(InGameTooltip.CraftingLockedUntilResult.text(stackName, stackAmount)
-                                                                   .setStyle(new Style().setColor(TextFormatting.RED)));
+            tooltip.addLine(TopText.crafting_locked_until_result.text(stackName, stackAmount)
+                .setStyle(new Style().setColor(TextFormatting.RED)));
         }
     }
 
@@ -54,9 +54,9 @@ public final class PatternProviderDataProvider
 
         ITextComponent reason = null;
         switch (logic.getCraftingLockedReason()) {
-            case LOCK_UNTIL_PULSE -> reason = InGameTooltip.CraftingLockedUntilPulse.text();
-            case LOCK_WHILE_HIGH -> reason = InGameTooltip.CraftingLockedByRedstoneSignal.text();
-            case LOCK_WHILE_LOW -> reason = InGameTooltip.CraftingLockedByLackOfRedstoneSignal.text();
+            case LOCK_UNTIL_PULSE -> reason = TopText.crafting_locked_until_pulse.text();
+            case LOCK_WHILE_HIGH -> reason = TopText.crafting_locked_by_redstone_signal.text();
+            case LOCK_WHILE_LOW -> reason = TopText.crafting_locked_by_lack_of_redstone_signal.text();
             case LOCK_UNTIL_RESULT -> {
                 var stack = logic.getUnlockStack();
                 if (stack != null) {

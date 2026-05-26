@@ -170,6 +170,11 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
         return this.unmodifiedCache.get(what);
     }
 
+    public long getAvailableAmount(AEKey what) {
+        cacheFuzzy(what);
+        return this.modifiableCache.get(what);
+    }
+
     public void ignore(AEKey stack) {
         cacheFuzzy(stack);
         unmodifiedCache.set(stack, 0);

@@ -5,8 +5,8 @@ import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.api.networking.pathing.ControllerState;
-import appeng.core.localization.InGameTooltip;
 import appeng.core.localization.LocalizationEnum;
+import appeng.integration.modules.theoneprobe.TopText;
 import appeng.me.service.PathingService;
 import appeng.parts.networking.IUsedChannelProvider;
 import net.minecraft.entity.player.EntityPlayer;
@@ -38,9 +38,9 @@ public final class ChannelDataProvider
             var maxChannels = serverData.getInteger(TAG_MAX_CHANNELS);
             // Even in the maxChannels=0 case, we'll show as infinite
             if (maxChannels <= 0) {
-                tooltip.addLine(InGameTooltip.Channels.text(usedChannels));
+                tooltip.addLine(TopText.channels.text(usedChannels));
             } else {
-                tooltip.addLine(InGameTooltip.ChannelsOf.text(usedChannels, maxChannels));
+                tooltip.addLine(TopText.channels_of.text(usedChannels, maxChannels));
             }
         }
     }
@@ -71,9 +71,9 @@ public final class ChannelDataProvider
     }
 
     enum ChannelError {
-        AD_HOC_NESTED_P2P_TUNNEL(InGameTooltip.ErrorNestedP2PTunnel),
-        AD_HOC_TOO_MANY_CHANNELS(InGameTooltip.ErrorTooManyChannels),
-        CONTROLLER_CONFLICT(InGameTooltip.ErrorControllerConflict);
+        AD_HOC_NESTED_P2P_TUNNEL(TopText.nested_p2p_tunnel),
+        AD_HOC_TOO_MANY_CHANNELS(TopText.error_too_many_channels),
+        CONTROLLER_CONFLICT(TopText.error_controller_conflict);
 
         final LocalizationEnum text;
 

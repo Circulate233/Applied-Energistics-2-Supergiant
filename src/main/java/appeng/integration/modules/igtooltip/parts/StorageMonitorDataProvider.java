@@ -3,7 +3,7 @@ package appeng.integration.modules.igtooltip.parts;
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
-import appeng.core.localization.InGameTooltip;
+import appeng.integration.modules.theoneprobe.TopText;
 import appeng.parts.reporting.AbstractMonitorPart;
 
 public final class StorageMonitorDataProvider implements BodyProvider<AbstractMonitorPart> {
@@ -13,9 +13,9 @@ public final class StorageMonitorDataProvider implements BodyProvider<AbstractMo
         boolean locked = monitor.isLocked();
 
         if (displayed != null) {
-            tooltip.addLine(InGameTooltip.Showing.text().appendText(": ").appendSibling(displayed.getDisplayName()));
+            tooltip.addLine(TopText.showing.text().appendText(": ").appendSibling(displayed.getDisplayName()));
         }
 
-        tooltip.addLine(locked ? InGameTooltip.Locked.text() : InGameTooltip.Unlocked.text());
+        tooltip.addLine(locked ? TopText.locked.text() : TopText.unlocked.text());
     }
 }

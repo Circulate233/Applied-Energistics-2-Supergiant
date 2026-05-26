@@ -3,14 +3,14 @@ package appeng.core.localization;
 public enum GeneralText implements LocalizationEnum {
     ClientReadOnly("client_read_only");
 
-    private final String translationKeySuffix;
+    private final String translationKey;
 
     GeneralText(String translationKeySuffix) {
-        this.translationKeySuffix = translationKeySuffix;
+        this.translationKey = "ae2." + translationKeySuffix;
     }
 
     @Override
     public String getTranslationKey() {
-        return "ae2." + this.translationKeySuffix;
+        return this.translationKey;
     }
 }

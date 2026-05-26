@@ -243,6 +243,59 @@ This service provides access to craftable patterns, crafting CPUs, job calculati
 and active-request tracking. Craftable keys are queried through this service rather than being reported as ordinary
 stored network contents.
 
+### Forced Start for Missing Crafting Ingredients
+
+Crafting calculation can now produce submit-capable plans even when some ingredients are missing. This is primarily
+used by the player crafting confirmation flow, and it is also available to automation through explicit opt-in.
+
+`ICraftingPlan.missingItems()` always reports the missing ingredient totals for the calculated plan. A plan carrying
+missing items can still be submit-capable. In that case, `ICraftingPlan.simulation()` remains `false`, and the missing
+items are converted into CPU `waitingFor` requests once the job starts.
+
+Use `CalculationStrategy.REPORT_MISSING_ITEMS` when you want the full requested amount to be planned, including the
+missing branch. Use `CalculationStrategy.CRAFT_LESS` when you want AE2 to reduce the requested amount to what can be
+crafted immediately.
+
+`ICraftingService` exposes an overload for explicit forced submission:
+
+```java
+ICraftingSubmitResult submitJob(
+    ICraftingPlan job,
+    @Nullable ICraftingRequester requestingMachine,
+    @Nullable ICraftingCPU target,
+    boolean prioritizePower,
+    IActionSource src,
+    boolean forceStart);
+```
+
+When `forceStart` is `true`, a submit-capable plan with missing ingredients may be submitted. The crafting CPU will
+extract all currently available inputs, place only the remaining missing amounts into its waiting list, and continue
+when those items later arrive through normal crafting or external insertion.
+
+The older `submitJob(...)` signature remains conservative and behaves as `forceStart = false`.
+
+Automation can opt in by implementing `appeng.api.networking.crafting.ICraftingForceStartRequester`, which is a direct
+extension of `ICraftingRequester`:
+
+```java
+public interface ICraftingForceStartRequester extends ICraftingRequester {
+    boolean canForceStartCrafting(ICraftingPlan plan);
+}
+```
+
+`MultiCraftingTracker` checks this interface after calculation completes. If the requester returns `true`, it forwards
+`forceStart = true` to `ICraftingService.submitJob(...)`. Requesters that do not implement the interface, or return
+`false`, keep the conservative behavior.
+
+Current built-in automated requesters that implement this contract:
+
+* `appeng.helpers.InterfaceLogic`
+* `appeng.parts.automation.ExportBusPart`
+
+Both use the installed AE2 crafting card upgrade to decide whether forced start is allowed. The requester only opts in
+when it has a crafting card with its force-start mode enabled. This keeps normal automation conservative while still
+allowing explicit machine-driven forced crafting.
+
 #### Pathing
 
 **Service Interface:** `IPathingService`  

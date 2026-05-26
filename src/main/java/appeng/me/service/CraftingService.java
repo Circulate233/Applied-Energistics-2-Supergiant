@@ -346,7 +346,17 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     @Override
     public ICraftingSubmitResult submitJob(ICraftingPlan job, @Nullable ICraftingRequester requestingMachine,
                                            @Nullable ICraftingCPU target, boolean prioritizePower, IActionSource src) {
+        return submitJob(job, requestingMachine, target, prioritizePower, src, false);
+    }
+
+    @Override
+    public ICraftingSubmitResult submitJob(ICraftingPlan job, @Nullable ICraftingRequester requestingMachine,
+                                           @Nullable ICraftingCPU target, boolean prioritizePower, IActionSource src,
+                                           boolean forceStart) {
         if (job.simulation()) {
+            return CraftingSubmitResult.INCOMPLETE_PLAN;
+        }
+        if (!forceStart && !job.missingItems().isEmpty()) {
             return CraftingSubmitResult.INCOMPLETE_PLAN;
         }
 

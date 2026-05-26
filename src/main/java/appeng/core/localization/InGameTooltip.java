@@ -55,8 +55,14 @@ public enum InGameTooltip implements LocalizationEnum {
     ErrorControllerConflict,
     supported_by;
 
+    private final String translationKey;
+
+    InGameTooltip() {
+        this.translationKey = "ae2.tooltip." + name();
+    }
+
     @Override
     public String getTranslationKey() {
-        return "ae2.tooltip." + name();
+        return this.translationKey;
     }
 }

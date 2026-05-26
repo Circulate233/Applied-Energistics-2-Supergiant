@@ -72,10 +72,23 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
     }
 
     private void updateTooltipVisibility() {
-        this.widgets.setTooltipAreaEnabled("processing-primary-output", this.visible && this.scrollbar.getCurrentScroll() == 0);
-        this.widgets.setTooltipAreaEnabled("processing-optional-output1", this.visible && this.scrollbar.getCurrentScroll() > 0);
-        this.widgets.setTooltipAreaEnabled("processing-optional-output2", this.visible);
-        this.widgets.setTooltipAreaEnabled("processing-optional-output3", this.visible);
+        int scroll = this.scrollbar.getCurrentScroll();
+        this.widgets.setTooltipAreaEnabled("processing-primary-output",
+            this.visible && scroll == 0 && isVisibleOutputSlotEmpty(0));
+        this.widgets.setTooltipAreaEnabled("processing-optional-output1",
+            this.visible && scroll > 0 && isVisibleOutputSlotEmpty(0));
+        this.widgets.setTooltipAreaEnabled("processing-optional-output2",
+            this.visible && isVisibleOutputSlotEmpty(1));
+        this.widgets.setTooltipAreaEnabled("processing-optional-output3",
+            this.visible && isVisibleOutputSlotEmpty(2));
+    }
+
+    private boolean isVisibleOutputSlotEmpty(int visibleIndex) {
+        int slotIndex = this.scrollbar.getCurrentScroll() + visibleIndex;
+        var slots = this.container.getProcessingOutputSlots();
+        return slotIndex >= 0
+            && slotIndex < slots.length
+            && slots[slotIndex].getStack().isEmpty();
     }
 
     @Override

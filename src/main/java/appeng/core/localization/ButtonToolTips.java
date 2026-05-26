@@ -160,8 +160,14 @@ public enum ButtonToolTips implements LocalizationEnum {
     View,
     Write;
 
+    private final String translationKey;
+
+    ButtonToolTips() {
+        this.translationKey = "gui.tooltips.ae2." + name();
+    }
+
     @Override
     public String getTranslationKey() {
-        return "gui.tooltips.ae2." + name();
+        return this.translationKey;
     }
 }

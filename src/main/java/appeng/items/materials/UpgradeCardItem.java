@@ -23,18 +23,26 @@ import appeng.api.parts.SelectedPart;
 import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.upgrades.Upgrades;
+import appeng.container.AEBaseContainer;
+import appeng.container.SlotSemantics;
+import appeng.container.slot.AppEngSlot;
+import appeng.api.ids.AEItemIds;
 import appeng.core.localization.InGameTooltip;
 import appeng.core.localization.PlayerMessages;
 import appeng.items.AEBaseItem;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumActionResult;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -42,11 +50,52 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 import java.util.List;
 
 public class UpgradeCardItem extends AEBaseItem {
+    private static final String FORCE_CRAFTING_TAG = "crafting_card_force_start";
+
+    public static boolean isCraftingCard(ItemStack stack) {
+        if (stack.isEmpty() || !(stack.getItem() instanceof UpgradeCardItem)) {
+            return false;
+        }
+        return AEItemIds.CRAFTING_CARD.equals(stack.getItem().getRegistryName());
+    }
+
+    public static boolean isForceCraftingEnabled(ItemStack stack) {
+        if (!isCraftingCard(stack)) {
+            return false;
+        }
+        NBTTagCompound tag = stack.getTagCompound();
+        return tag != null && tag.getBoolean(FORCE_CRAFTING_TAG);
+    }
+
+    public static void setForceCraftingEnabled(ItemStack stack, boolean enabled) {
+        if (!isCraftingCard(stack)) {
+            return;
+        }
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag == null) {
+            tag = new NBTTagCompound();
+            stack.setTagCompound(tag);
+        }
+        tag.setBoolean(FORCE_CRAFTING_TAG, enabled);
+    }
+
+    private static void toggleForceCrafting(ItemStack stack) {
+        setForceCraftingEnabled(stack, !isForceCraftingEnabled(stack));
+    }
 
     @SideOnly(Side.CLIENT)
     @Override
     protected void addCheckedInformation(ItemStack stack, World world, List<String> lines, ITooltipFlag advancedTooltips) {
         super.addCheckedInformation(stack, world, lines, advancedTooltips);
+
+        if (isCraftingCard(stack)) {
+            String status = isForceCraftingEnabled(stack)
+                ? TextFormatting.GREEN + I18n.format("gui.ae2.Yes")
+                : TextFormatting.RED + I18n.format("gui.ae2.No");
+            lines.add(TextFormatting.GRAY + I18n.format("item.ae2.crafting_card.tooltip.force_crafting", status));
+            lines.add(TextFormatting.DARK_GRAY + I18n.format("item.ae2.crafting_card.tooltip.force_crafting_hint"));
+            lines.add(TextFormatting.DARK_GRAY + I18n.format("item.ae2.crafting_card.tooltip.force_crafting_desc"));
+        }
 
         var supportedBy = Upgrades.getTooltipLinesForCard(this);
         if (!supportedBy.isEmpty()) {
@@ -109,5 +158,25 @@ public class UpgradeCardItem extends AEBaseItem {
         }
 
         return super.onItemUseFirst(player, world, pos, side, hitX, hitY, hitZ, hand);
+    }
+
+    @Override
+    public boolean onOtherStackedOnMe(ItemStack stack, ItemStack otherStack, Slot slot, EntityPlayer player) {
+        if (!otherStack.isEmpty() || !isCraftingCard(stack)) {
+            return false;
+        }
+        if (!(slot instanceof AppEngSlot appEngSlot)) {
+            return false;
+        }
+        if (!(appEngSlot.getContainer() instanceof AEBaseContainer container)) {
+            return false;
+        }
+        if (container.getSlotSemantic(slot) != SlotSemantics.UPGRADE) {
+            return false;
+        }
+
+        toggleForceCrafting(stack);
+        slot.onSlotChanged();
+        return true;
     }
 }

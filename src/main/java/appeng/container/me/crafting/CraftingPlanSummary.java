@@ -73,10 +73,15 @@ public record CraftingPlanSummary(long usedBytes, boolean simulation, List<Craft
             long missingAmount = out.getValue().missing;
             long storedAmount = out.getValue().stored;
             long craftAmount = out.getValue().crafting;
+            long intermediateCraftAmount = 0;
             long inventoryAmount = cachedInventory.get(out.getKey());
             boolean finalOutputEntry = out.getKey().equals(finalOutput);
+            if (finalOutputEntry) {
+                craftAmount = job.finalOutput().amount();
+                intermediateCraftAmount = job.intermediateFinalOutputAmount();
+            }
             entries.add(new CraftingPlanSummaryEntry(out.getKey(), missingAmount, storedAmount, craftAmount,
-                inventoryAmount, finalOutputEntry));
+                intermediateCraftAmount, inventoryAmount, finalOutputEntry));
         }
 
         Collections.sort(entries);

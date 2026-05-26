@@ -123,8 +123,14 @@ public enum PlayerMessages implements LocalizationEnum {
     CubeGeneratorSize,
     CommandRequiresServerWorld;
 
+    private final String translationKey;
+
+    PlayerMessages() {
+        this.translationKey = "chat.ae2." + name();
+    }
+
     @Override
     public String getTranslationKey() {
-        return "chat.ae2." + name();
+        return this.translationKey;
     }
 }

@@ -4,7 +4,7 @@ import appeng.api.implementations.items.IAEItemPowerStorage;
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
-import appeng.core.localization.InGameTooltip;
+import appeng.integration.modules.theoneprobe.TopText;
 import appeng.text.TextComponentItemStack;
 import appeng.tile.misc.TileCharger;
 import net.minecraft.item.ItemStack;
@@ -18,12 +18,12 @@ public final class ChargerDataProvider implements BodyProvider<TileCharger> {
         ItemStack chargingItem = charger.getClientDisplayItem();
 
         if (!chargingItem.isEmpty()) {
-            tooltip.addLine(InGameTooltip.Contains.text(TextComponentItemStack.of(chargingItem)));
+            tooltip.addLine(TopText.contains.text(TextComponentItemStack.of(chargingItem)));
 
             if (chargingItem.getItem() instanceof IAEItemPowerStorage powerStorage) {
                 var fillRate = (int) Math.floor(
                     powerStorage.getAECurrentPower(chargingItem) * 100 / powerStorage.getAEMaxPower(chargingItem));
-                tooltip.addLine(InGameTooltip.Charged.text(fillRate));
+                tooltip.addLine(TopText.charged.text(fillRate));
             }
         }
     }

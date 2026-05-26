@@ -55,6 +55,10 @@ public class CraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPla
             String amount = entry.what().getType().formatAmount(entry.craftAmount(), AmountFormat.SLOT);
             lines.add(GuiText.ToCraft.text(amount));
         }
+        if (entry.intermediateCraftAmount() > 0) {
+            String amount = entry.what().getType().formatAmount(entry.intermediateCraftAmount(), AmountFormat.SLOT);
+            lines.add(GuiText.IntermediateCraft.text(amount));
+        }
         return lines;
     }
 
@@ -80,6 +84,10 @@ public class CraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPla
             lines.add(GuiText.ToCraft
                 .text(entry.what().getType().formatAmount(entry.craftAmount(), AmountFormat.FULL)));
         }
+        if (entry.intermediateCraftAmount() > 0) {
+            lines.add(GuiText.IntermediateCraft
+                .text(entry.what().getType().formatAmount(entry.intermediateCraftAmount(), AmountFormat.FULL)));
+        }
 
         return lines;
     }
@@ -90,7 +98,7 @@ public class CraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPla
     }
 
     private static void addInventoryUsageLine(CraftingPlanSummaryEntry entry, List<ITextComponent> lines) {
-        if (entry.finalOutput()) {
+        if (entry.finalOutput() || entry.inventoryAmount() <= 0) {
             return;
         }
 
@@ -101,10 +109,6 @@ public class CraftConfirmTableRenderer extends AbstractTableRenderer<CraftingPla
     }
 
     private static InventoryUsage getInventoryUsage(CraftingPlanSummaryEntry entry) {
-        if (entry.inventoryAmount() <= 0) {
-            return new InventoryUsage("100", TextFormatting.RED);
-        }
-
         double percent = entry.inventoryUsageAmount() * 100.0D / entry.inventoryAmount();
         TextFormatting color = percent > 80.0D ? TextFormatting.RED : TextFormatting.GREEN;
 

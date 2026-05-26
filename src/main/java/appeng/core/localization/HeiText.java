@@ -12,8 +12,14 @@ public enum HeiText implements LocalizationEnum {
     Explosion,
     SubmergeIn;
 
+    private final String translationKey;
+
+    HeiText() {
+        this.translationKey = "ae2.hei." + name();
+    }
+
     @Override
     public String getTranslationKey() {
-        return "ae2.hei." + name();
+        return this.translationKey;
     }
 }

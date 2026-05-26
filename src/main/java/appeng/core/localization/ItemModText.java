@@ -17,8 +17,14 @@ public enum ItemModText implements LocalizationEnum {
     StoredEnergy,
     StoredItems;
 
+    private final String translationKey;
+
+    ItemModText() {
+        this.translationKey = "ae2.itemlist_integration." + name();
+    }
+
     @Override
     public String getTranslationKey() {
-        return "ae2.itemlist_integration." + name();
+        return this.translationKey;
     }
 }

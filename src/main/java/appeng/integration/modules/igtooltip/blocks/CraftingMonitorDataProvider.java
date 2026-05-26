@@ -3,7 +3,7 @@ package appeng.integration.modules.igtooltip.blocks;
 import appeng.api.integrations.igtooltip.TooltipBuilder;
 import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
-import appeng.core.localization.InGameTooltip;
+import appeng.integration.modules.theoneprobe.TopText;
 import appeng.tile.crafting.TileCraftingMonitor;
 
 /**
@@ -15,7 +15,7 @@ public final class CraftingMonitorDataProvider implements BodyProvider<TileCraft
         var displayStack = monitor.getJobProgress();
 
         if (displayStack != null) {
-            tooltip.addLine(InGameTooltip.Crafting.text(displayStack.what().getDisplayName()));
+            tooltip.addLine(TopText.crafting.text(displayStack.what().getDisplayName()));
         }
     }
 }

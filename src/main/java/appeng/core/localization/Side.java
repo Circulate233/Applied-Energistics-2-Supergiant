@@ -13,8 +13,14 @@ public enum Side implements LocalizationEnum {
     Up,
     Down;
 
+    private final String translationKey;
+
+    Side() {
+        this.translationKey = "ae2.side." + name();
+    }
+
     @Override
     public String getTranslationKey() {
-        return "ae2.side." + name();
+        return this.translationKey;
     }
 }

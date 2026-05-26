@@ -76,6 +76,7 @@ public enum GuiText implements LocalizationEnum {
     ForceStartHoldShift,
     Fuzzy,
     Included,
+    IntermediateCraft,
     HeiCraftIngredientTooltip,
     HeiRetrieveIngredientTooltip,
     InvalidNumber,
@@ -206,8 +207,14 @@ public enum GuiText implements LocalizationEnum {
     IncompatibleWithCell,
     CantFitInsideStorageCell;
 
+    private final String translationKey;
+
+    GuiText() {
+        this.translationKey = "gui.ae2." + name();
+    }
+
     @Override
     public String getTranslationKey() {
-        return "gui.ae2." + name();
+        return this.translationKey;
     }
 }

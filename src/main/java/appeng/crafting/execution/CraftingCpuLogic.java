@@ -297,8 +297,16 @@ public class CraftingCpuLogic {
                 }
             }
 
-            // Final output is special: it goes directly into the requester
-            inserted = job.link.insert(what, amount, type);
+            // Standalone jobs have no requester link, so their requested output must be kept locally and returned to the
+            // network when the CPU finishes.
+            if (job.link.isStandalone()) {
+                if (type == Actionable.MODULATE) {
+                    inventory.insert(what, amount, Actionable.MODULATE);
+                }
+            } else {
+                // Final output is special: it goes directly into the requester.
+                job.link.insert(what, amount, type);
+            }
 
             // Note: we ignore any remainder (could be the entire input if there is no requester),
             // we already marked the items as done, and we might even finish the job.

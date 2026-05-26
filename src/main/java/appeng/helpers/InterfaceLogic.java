@@ -7,7 +7,9 @@ import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IManagedGridNode;
+import appeng.api.networking.crafting.ICraftingForceStartRequester;
 import appeng.api.networking.crafting.ICraftingLink;
+import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.energy.IEnergySource;
 import appeng.api.networking.security.IActionHost;
@@ -30,6 +32,7 @@ import appeng.api.util.IConfigurableObject;
 import appeng.core.AEConfig;
 import appeng.core.definitions.AEItems;
 import appeng.core.settings.TickRates;
+import appeng.items.materials.UpgradeCardItem;
 import appeng.me.helpers.MachineSource;
 import appeng.me.storage.DelegatingMEInventory;
 import appeng.me.storage.NullInventory;
@@ -49,7 +52,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-public class InterfaceLogic implements ICraftingRequester, IUpgradeableObject, IConfigurableObject {
+public class InterfaceLogic implements ICraftingForceStartRequester, IUpgradeableObject,
+    IConfigurableObject {
     protected final InterfaceLogicHost host;
     protected final IManagedGridNode mainNode;
     protected final IActionSource actionSource;
@@ -384,6 +388,20 @@ public class InterfaceLogic implements ICraftingRequester, IUpgradeableObject, I
         if (grid != null && upgrades.isInstalled(AEItems.CRAFTING_CARD.item()) && key != null) {
             return this.craftingTracker.handleCrafting(slot, key, amount, this.host.getTileEntity().getWorld(),
                 grid.getCraftingService(), this.actionSource);
+        }
+        return false;
+    }
+
+    @Override
+    public boolean canForceStartCrafting(ICraftingPlan plan) {
+        return isForceStartCraftingEnabled(this.upgrades);
+    }
+
+    public static boolean isForceStartCraftingEnabled(Iterable<ItemStack> upgrades) {
+        for (var stack : upgrades) {
+            if (UpgradeCardItem.isForceCraftingEnabled(stack)) {
+                return true;
+            }
         }
         return false;
     }

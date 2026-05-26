@@ -175,11 +175,11 @@ public class CraftingCalculation {
                     return craftLessPlan;
                 }
 
-                return runCraftAttemptToFixedPoint(false, requestedAmount, true);
+                return runCraftAttempt(false, requestedAmount, requestedAmount, true);
             }
 
             // Missing items no longer prevent submitting a player-requested plan.
-            return runCraftAttemptToFixedPoint(false, requestedAmount, true);
+            return runCraftAttempt(false, requestedAmount, requestedAmount, true);
         } finally {
             finishPerformanceListener(System.nanoTime() - calculationStart);
         }
@@ -192,28 +192,6 @@ public class CraftingCalculation {
     @Contract("true, _ -> !null") // the calculation can't fail if simulated
     private CraftingPlan runCraftAttempt(boolean simulate, long amount) throws InterruptedException {
         return runCraftAttempt(simulate, amount, amount, false);
-    }
-
-    /**
-     * @return null on failure
-     */
-    @Nullable
-    private CraftingPlan runCraftAttemptToFixedPoint(boolean simulate, long amount, boolean allowMissing)
-        throws InterruptedException {
-        long productionAmount = amount;
-        CraftingPlan plan;
-        do {
-            plan = runCraftAttempt(simulate, productionAmount, amount, allowMissing);
-            if (plan == null) {
-                return null;
-            }
-
-            long nextProductionAmount = amount + plan.intermediateFinalOutputAmount();
-            if (nextProductionAmount == productionAmount) {
-                return plan;
-            }
-            productionAmount = nextProductionAmount;
-        } while (true);
     }
 
     private CraftingPlan runCraftAttempt(boolean simulate, long productionAmount, long finalAmount, boolean allowMissing)
@@ -248,6 +226,7 @@ public class CraftingCalculation {
         }
         // Add bytes for the tree size.
         craftingInventory.addBytes(this.tree.getNodeCount() * 8);
+        addRecursiveMissingSeedsToPlan();
 
         var plan = timed("build-plan " + attemptName,
             () -> CraftingSimulationState.buildCraftingPlan(craftingInventory, this, finalAmount));
@@ -397,6 +376,10 @@ public class CraftingCalculation {
     }
 
     boolean cycleHasNetOutput(AEKey what) {
+        return getCycleNetOutput(what) > 0;
+    }
+
+    long getCycleNetOutput(AEKey what) {
         int requestIndex = -1;
         for (int i = this.requestStack.size() - 1; i >= 0; i--) {
             if (this.requestStack.get(i).equals(what)) {
@@ -405,7 +388,7 @@ public class CraftingCalculation {
             }
         }
         if (requestIndex < 0) {
-            return false;
+            return 0;
         }
 
         long netOutput = 0;
@@ -414,10 +397,40 @@ public class CraftingCalculation {
             netOutput += process.getOutputCount(what);
             netOutput -= process.getInputCount(what);
         }
-        return netOutput > 0;
+        return netOutput;
     }
 
     boolean resolveRecursiveRequest(AEKey what, CraftingSimulationState inv, long amount) {
+        var resolution = getRecursiveResolution(what, inv);
+        if (resolution == null) {
+            return false;
+        }
+
+        if (resolution.seed() != null) {
+            clearRecursiveMissingSeeds(resolution.netByKey());
+            inv.extract(resolution.seed().what(), resolution.seed().amount(), Actionable.MODULATE);
+            inv.insert(what, amount, Actionable.MODULATE);
+            return true;
+        }
+
+        if (resolution.missingSeeds()) {
+            this.recursiveMissingSeedSuppression++;
+            try {
+                inv.insert(what, amount, Actionable.MODULATE);
+                return true;
+            } finally {
+                this.recursiveMissingSeedSuppression--;
+            }
+        }
+
+        return false;
+    }
+
+    boolean canResolveRecursiveRequest(AEKey what, CraftingSimulationState inv) {
+        return getRecursiveResolution(what, inv) != null;
+    }
+
+    private RecursiveResolution getRecursiveResolution(AEKey what, CraftingSimulationState inv) {
         int requestIndex = -1;
         for (int i = this.requestStack.size() - 1; i >= 0; i--) {
             if (this.requestStack.get(i).equals(what)) {
@@ -426,7 +439,7 @@ public class CraftingCalculation {
             }
         }
         if (requestIndex < 0) {
-            return false;
+            return null;
         }
 
         var netByKey = new KeyCounter();
@@ -443,7 +456,7 @@ public class CraftingCalculation {
         for (var entry : netByKey) {
             long net = entry.getLongValue();
             if (net < 0) {
-                return false;
+                return null;
             }
             if (net > 0) {
                 hasPositiveNet = true;
@@ -451,35 +464,114 @@ public class CraftingCalculation {
         }
 
         if (!hasPositiveNet || netByKey.get(what) < 0) {
-            return false;
+            return null;
         }
 
-        if (hasRecursiveSeed(inv, netByKey)) {
-            inv.insert(what, amount, Actionable.MODULATE);
-            return true;
+        var seed = getRecursiveSeed(netByKey, requestIndex);
+        if (seed != null) {
+            return new RecursiveResolution(seed, false, netByKey);
         }
 
         if (canUseMissingItems() && this.recursiveMissingSeedSuppression == 0
             && addMissingRecursiveSeeds(netByKey, requestIndex)) {
-            this.recursiveMissingSeedSuppression++;
-            try {
-                inv.insert(what, amount, Actionable.MODULATE);
-                return true;
-            } finally {
-                this.recursiveMissingSeedSuppression--;
-            }
+            return new RecursiveResolution(null, true, netByKey);
         }
 
-        return false;
+        return null;
     }
 
-    private static boolean hasRecursiveSeed(CraftingSimulationState inv, KeyCounter netByKey) {
-        for (var entry : netByKey) {
-            if (entry.getLongValue() >= 0 && inv.getOriginalAmount(entry.getKey()) > 0) {
-                return true;
+    long getExpandedPatternNetOutput(IPatternDetails pattern, AEKey what) {
+        long directOutput = getPatternOutputCount(pattern, what);
+        if (directOutput <= 0) {
+            return 0;
+        }
+
+        var netByKey = new KeyCounter();
+        var includedPatterns = new HashSet<IPatternDetails>();
+        includedPatterns.add(pattern);
+        accumulatePatternNet(netByKey, pattern);
+        expandRecursiveNetClosure(netByKey, includedPatterns);
+
+        long netOutput = netByKey.get(what);
+        if (netOutput > 0 && netOutput < directOutput) {
+            return netOutput;
+        }
+        return directOutput;
+    }
+
+    RecursivePatternBatch getRecursivePatternBatch(IPatternDetails pattern, AEKey what) {
+        long directOutput = getPatternOutputCount(pattern, what);
+        if (directOutput <= 0) {
+            return new RecursivePatternBatch(1, 0);
+        }
+
+        boolean rootConsumesTarget = getPatternInputCount(pattern, what) > 0;
+        for (long rootTimes = 1; rootTimes <= 64; rootTimes++) {
+            var netByKey = new KeyCounter();
+            var recursiveUse = new RecursiveUse(rootConsumesTarget);
+            accumulatePatternNet(netByKey, pattern, rootTimes);
+            if (!expandRecursiveBatchNet(netByKey, what, recursiveUse)) {
+                return new RecursivePatternBatch(1, directOutput);
+            }
+
+            if (!recursiveUse.value()) {
+                return new RecursivePatternBatch(1, directOutput);
+            }
+
+            long netOutput = netByKey.get(what);
+            if (netOutput > 0) {
+                return new RecursivePatternBatch(rootTimes, netOutput);
             }
         }
-        return false;
+
+        return new RecursivePatternBatch(1, directOutput);
+    }
+
+    private static long getPatternOutputCount(IPatternDetails pattern, AEKey what) {
+        long total = 0;
+        for (var output : pattern.getOutputs()) {
+            if (what.matches(output)) {
+                total += output.amount();
+            }
+        }
+        return total;
+    }
+
+    private static long getPatternInputCount(IPatternDetails pattern, AEKey what) {
+        long total = 0;
+        for (var input : pattern.getInputs()) {
+            for (var possibleInput : input.possibleInputs()) {
+                if (what.matches(possibleInput)) {
+                    total += possibleInput.amount() * input.getMultiplier();
+                    break;
+                }
+            }
+        }
+        return total;
+    }
+
+    private RecursiveSeed getRecursiveSeed(KeyCounter netByKey, int requestIndex) {
+        for (var entry : netByKey) {
+            if (entry.getLongValue() >= 0 && this.networkInv.getOriginalAmount(entry.getKey()) > 0) {
+                return new RecursiveSeed(entry.getKey(), getRecursiveSeedAmount(entry.getKey(), requestIndex));
+            }
+        }
+        return null;
+    }
+
+    private long getRecursiveSeedAmount(AEKey seed, int requestIndex) {
+        if (requestIndex >= 0 && requestIndex < this.processStack.size()) {
+            for (int i = requestIndex; i < this.processStack.size(); i++) {
+                var process = this.processStack.get(i);
+                if (process.getFirstInputKey() != null && process.getFirstInputKey().equals(seed)) {
+                    long amount = process.getFirstInputAmount();
+                    if (amount > 0) {
+                        return amount;
+                    }
+                }
+            }
+        }
+        return 1;
     }
 
     private boolean addMissingRecursiveSeeds(KeyCounter netByKey, int requestIndex) {
@@ -512,12 +604,23 @@ public class CraftingCalculation {
 
         long delta = amount - existing;
         this.recursiveMissingSeeds.add(what, delta);
-        this.missing.add(what, delta);
+    }
+
+    private void clearRecursiveMissingSeeds(KeyCounter netByKey) {
+        for (var entry : netByKey) {
+            this.recursiveMissingSeeds.remove(entry.getKey());
+            this.missing.remove(entry.getKey());
+        }
     }
 
     private void injectRecursiveMissingSeeds(CraftingSimulationState inv) {
         for (var entry : this.recursiveMissingSeeds) {
             inv.insert(entry.getKey(), entry.getLongValue(), Actionable.MODULATE);
+        }
+    }
+
+    private void addRecursiveMissingSeedsToPlan() {
+        for (var entry : this.recursiveMissingSeeds) {
             this.missing.add(entry.getKey(), entry.getLongValue());
         }
     }
@@ -546,14 +649,58 @@ public class CraftingCalculation {
     }
 
     private static void accumulatePatternNet(KeyCounter netByKey, IPatternDetails pattern) {
+        accumulatePatternNet(netByKey, pattern, 1);
+    }
+
+    private static void accumulatePatternNet(KeyCounter netByKey, IPatternDetails pattern, long times) {
         for (var output : pattern.getOutputs()) {
-            netByKey.add(output.what(), output.amount());
+            netByKey.add(output.what(), output.amount() * times);
         }
 
         for (var input : pattern.getInputs()) {
             var primaryInput = input.possibleInputs()[0];
-            netByKey.add(primaryInput.what(), -primaryInput.amount() * input.getMultiplier());
+            netByKey.add(primaryInput.what(), -primaryInput.amount() * input.getMultiplier() * times);
         }
+    }
+
+    private boolean expandRecursiveBatchNet(KeyCounter netByKey, AEKey target, RecursiveUse recursiveUse) {
+        for (int guard = 0; guard < 128; guard++) {
+            AEKey missingKey = null;
+            long missingAmount = 0;
+            for (var entry : netByKey) {
+                if (entry.getLongValue() < 0) {
+                    missingKey = entry.getKey();
+                    missingAmount = -entry.getLongValue();
+                    break;
+                }
+            }
+
+            if (missingKey == null) {
+                return true;
+            }
+
+            IPatternDetails selectedPattern = null;
+            long outputAmount = 0;
+            for (var candidate : this.getCraftingFor(missingKey)) {
+                outputAmount = getPatternOutputCount(candidate, missingKey);
+                if (outputAmount > 0) {
+                    selectedPattern = candidate;
+                    break;
+                }
+            }
+
+            if (selectedPattern == null) {
+                return false;
+            }
+
+            if (getPatternInputCount(selectedPattern, target) > 0) {
+                recursiveUse.set();
+            }
+            long times = (missingAmount + outputAmount - 1) / outputAmount;
+            accumulatePatternNet(netByKey, selectedPattern, times);
+        }
+
+        return false;
     }
 
     public AEKey getOutput() {
@@ -570,6 +717,39 @@ public class CraftingCalculation {
 
     void addIntermediateFinalOutput(long amount) {
         this.intermediateFinalOutputAmount += amount;
+    }
+
+    void addRecursiveIntermediateFinalOutput(long amount) {
+        this.intermediateFinalOutputAmount += amount;
+    }
+
+    void addIntermediateFinalOutputInput(AEKey what, long amount) {
+        if (what.equals(this.output)) {
+            addIntermediateFinalOutput(amount);
+        }
+    }
+
+    long getIntermediateFinalOutputMarker() {
+        return this.intermediateFinalOutputAmount;
+    }
+
+    void restoreIntermediateFinalOutputMarker(long marker) {
+        this.intermediateFinalOutputAmount = marker;
+    }
+
+    KeyCounter getRecursiveMissingSeedsMarker() {
+        var marker = new KeyCounter();
+        marker.addAll(this.recursiveMissingSeeds);
+        return marker;
+    }
+
+    void restoreRecursiveMissingSeedsMarker(KeyCounter marker) {
+        this.recursiveMissingSeeds.clear();
+        this.recursiveMissingSeeds.addAll(marker);
+    }
+
+    void addRecursiveMissingSeeds(KeyCounter seeds) {
+        this.recursiveMissingSeeds.addAll(seeds);
     }
 
     World getLevel() {
@@ -724,6 +904,31 @@ public class CraftingCalculation {
     }
 
     private record CraftAttempt(String description, Stopwatch stopwatch) {
+    }
+
+    private record RecursiveSeed(AEKey what, long amount) {
+    }
+
+    private record RecursiveResolution(RecursiveSeed seed, boolean missingSeeds, KeyCounter netByKey) {
+    }
+
+    record RecursivePatternBatch(long rootTimes, long netOutput) {
+    }
+
+    private static final class RecursiveUse {
+        private boolean value;
+
+        private RecursiveUse(boolean value) {
+            this.value = value;
+        }
+
+        private boolean value() {
+            return this.value;
+        }
+
+        private void set() {
+            this.value = true;
+        }
     }
 
     private static final class TimingFrame {

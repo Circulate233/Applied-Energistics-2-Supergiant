@@ -20,6 +20,7 @@ package appeng.helpers;
 
 import appeng.api.networking.crafting.CalculationStrategy;
 import appeng.api.networking.crafting.ICraftingLink;
+import appeng.api.networking.crafting.ICraftingForceStartRequester;
 import appeng.api.networking.crafting.ICraftingPlan;
 import appeng.api.networking.crafting.ICraftingRequester;
 import appeng.api.networking.crafting.ICraftingService;
@@ -82,7 +83,9 @@ public class MultiCraftingTracker {
                 }
 
                 if (job != null) {
-                    var result = cg.submitJob(job, this.owner, null, false, mySrc);
+                    boolean forceStart = this.owner instanceof ICraftingForceStartRequester forceRequester
+                        && forceRequester.canForceStartCrafting(job);
+                    var result = cg.submitJob(job, this.owner, null, false, mySrc, forceStart);
                     this.setJob(x, null);
 
                     if (result.successful()) {

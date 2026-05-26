@@ -260,7 +260,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
             }
             ICraftingService craftingService = grid.getCraftingService();
             ICraftingSubmitResult submitResult = craftingService.submitJob(this.result, null, this.selectedCpu, true,
-                this.getActionSrc());
+                this.getActionSrc(), forceStart);
             this.setAutoStart(false);
             if (submitResult.successful()) {
                 if (this.autoCraftingQueue != null && !this.autoCraftingQueue.isEmpty()) {

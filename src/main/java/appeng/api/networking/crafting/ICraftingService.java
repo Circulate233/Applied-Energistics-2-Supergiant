@@ -130,6 +130,18 @@ public interface ICraftingService extends IGridService {
                                     boolean prioritizePower, IActionSource src);
 
     /**
+     * Submit the job to the Crafting system for processing.
+     *
+     * @param forceStart if true, plans with missing ingredients may be submitted and the missing items will be waited
+     *                   for by the CPU.
+     */
+    default ICraftingSubmitResult submitJob(ICraftingPlan job, @Nullable ICraftingRequester requestingMachine,
+                                            @Nullable ICraftingCPU target,
+                                            boolean prioritizePower, IActionSource src, boolean forceStart) {
+        return submitJob(job, requestingMachine, target, prioritizePower, src);
+    }
+
+    /**
      * @return set of all the crafting cpus on the grid
      */
     ImmutableSet<ICraftingCPU> getCpus();

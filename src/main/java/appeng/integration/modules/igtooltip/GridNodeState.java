@@ -1,16 +1,16 @@
 package appeng.integration.modules.igtooltip;
 
 import appeng.api.networking.IGridNode;
-import appeng.core.localization.InGameTooltip;
 import appeng.core.localization.LocalizationEnum;
+import appeng.integration.modules.theoneprobe.TopText;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
 public enum GridNodeState {
-    OFFLINE(InGameTooltip.DeviceOffline),
-    NETWORK_BOOTING(InGameTooltip.NetworkBooting),
-    MISSING_CHANNEL(InGameTooltip.DeviceMissingChannel),
-    ONLINE(InGameTooltip.DeviceOnline);
+    OFFLINE(TopText.device_offline),
+    NETWORK_BOOTING(TopText.network_booting),
+    MISSING_CHANNEL(TopText.device_missing_channel),
+    ONLINE(TopText.device_online);
 
     private final LocalizationEnum text;
 

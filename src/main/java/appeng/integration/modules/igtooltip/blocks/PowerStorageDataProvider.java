@@ -5,7 +5,7 @@ import appeng.api.integrations.igtooltip.TooltipContext;
 import appeng.api.integrations.igtooltip.providers.BodyProvider;
 import appeng.api.integrations.igtooltip.providers.ServerDataProvider;
 import appeng.api.networking.energy.IAEPowerStorage;
-import appeng.core.localization.InGameTooltip;
+import appeng.integration.modules.theoneprobe.TopText;
 import appeng.util.Platform;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
@@ -33,7 +33,7 @@ public final class PowerStorageDataProvider implements BodyProvider<TileEntity>,
             var formatCurrentPower = Platform.formatPower(currentPower, false);
             var formatMaxPower = Platform.formatPower(maxPower, false);
 
-            tooltip.addLine(InGameTooltip.Stored.text(formatCurrentPower, formatMaxPower));
+            tooltip.addLine(TopText.stored_energy.text(formatCurrentPower, formatMaxPower));
         }
     }
 
