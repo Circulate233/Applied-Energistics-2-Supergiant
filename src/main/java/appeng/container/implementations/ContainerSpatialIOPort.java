@@ -50,7 +50,7 @@ public class ContainerSpatialIOPort extends AEBaseContainer {
         this.addSlot(new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.SPATIAL_STORAGE_CELLS,
             host.getInternalInventory(), 0, 0, 0), SlotSemantics.MACHINE_INPUT);
         this.addSlot(new OutputSlot(host.getInternalInventory(), 1, 0, 0,
-                RestrictedInputSlot.PlacableItemType.SPATIAL_STORAGE_CELLS_NO_SHADOW.icon),
+                RestrictedInputSlot.PlacableItemType.SPATIAL_STORAGE_CELLS_NO_SHADOW.backgroundIcon),
             SlotSemantics.MACHINE_OUTPUT);
         this.addPlayerInventorySlots(8, 117);
     }
@@ -87,4 +87,3 @@ public class ContainerSpatialIOPort extends AEBaseContainer {
         super.broadcastChanges();
     }
 }
-

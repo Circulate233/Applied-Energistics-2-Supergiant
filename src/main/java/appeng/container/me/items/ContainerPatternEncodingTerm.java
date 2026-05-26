@@ -8,7 +8,6 @@ import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.StorageHelper;
-import appeng.client.gui.Icon;
 import appeng.container.GuiIds;
 import appeng.container.SlotSemantics;
 import appeng.container.guisync.GuiSync;
@@ -16,6 +15,7 @@ import appeng.container.me.common.ContainerMEStorage;
 import appeng.container.slot.FakeSlot;
 import appeng.container.slot.PatternTermSlot;
 import appeng.container.slot.RestrictedInputSlot;
+import appeng.container.slot.SlotBackgroundIcon;
 import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.AECraftingPattern;
 import appeng.crafting.pattern.AEProcessingPattern;
@@ -111,7 +111,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
             this.addSlot(this.processingOutputSlots[i] = new FakeSlot(encodedOutputs, i, 0, 0),
                 SlotSemantics.PROCESSING_OUTPUTS);
         }
-        this.processingOutputSlots[0].setIcon(Icon.BACKGROUND_PRIMARY_OUTPUT);
+        this.processingOutputSlots[0].setBackgroundIcon(SlotBackgroundIcon.PRIMARY_OUTPUT);
 
         this.addSlot(this.blankPatternSlot = new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.BLANK_PATTERN,
             this.encodingLogic.getBlankPatternInv(), 0), SlotSemantics.BLANK_PATTERN);

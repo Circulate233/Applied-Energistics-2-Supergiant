@@ -554,7 +554,7 @@ public class AEGuiHandler implements IGuiHandler {
                     ContainerCraftingCPU container = initTileContainer(new ContainerCraftingCPU(player.inventory,
                         craftingUnit), te, ID);
                     return new GuiCraftingCPU<>(container, player.inventory, null,
-                        GuiStyleManager.loadStyleDoc("/screens/crafting_status.json"));
+                        GuiStyleManager.loadStyleDoc("/screens/crafting_cpu.json"));
                 }
             }
             case IMPORT_BUS -> {

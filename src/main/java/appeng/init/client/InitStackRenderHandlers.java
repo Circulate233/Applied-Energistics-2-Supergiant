@@ -54,6 +54,8 @@ import java.util.List;
 import java.util.function.Function;
 
 public final class InitStackRenderHandlers {
+    static final GuiRenderCleanupState GUI_RENDER_CLEANUP_STATE = new GuiRenderCleanupState(true, false, false);
+
     private InitStackRenderHandlers() {
     }
 
@@ -114,9 +116,7 @@ public final class InitStackRenderHandlers {
                 itemRenderer.renderItemOverlayIntoGUI(minecraft.fontRenderer, displayStack, x, y, "");
             } finally {
                 RenderHelper.disableStandardItemLighting();
-                GlStateManager.disableDepth();
-                GlStateManager.enableBlend();
-                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                restoreGuiRenderState();
                 GlStateManager.popMatrix();
             }
         }
@@ -180,10 +180,7 @@ public final class InitStackRenderHandlers {
                             .dest(x, y, 16, 16)
                             .blit();
             } finally {
-                GlStateManager.enableBlend();
-                GlStateManager.enableDepth();
-                GlStateManager.enableLighting();
-                GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+                restoreGuiRenderState();
                 GlStateManager.popMatrix();
             }
         }
@@ -281,5 +278,31 @@ public final class InitStackRenderHandlers {
             }
             renderItem.renderItem(displayStack, model);
         }
+    }
+
+    static GuiRenderCleanupState getGuiRenderCleanupState() {
+        return GUI_RENDER_CLEANUP_STATE;
+    }
+
+    private static void restoreGuiRenderState() {
+        if (GUI_RENDER_CLEANUP_STATE.blendEnabled()) {
+            GlStateManager.enableBlend();
+        } else {
+            GlStateManager.disableBlend();
+        }
+        if (GUI_RENDER_CLEANUP_STATE.depthEnabled()) {
+            GlStateManager.enableDepth();
+        } else {
+            GlStateManager.disableDepth();
+        }
+        if (GUI_RENDER_CLEANUP_STATE.lightingEnabled()) {
+            GlStateManager.enableLighting();
+        } else {
+            GlStateManager.disableLighting();
+        }
+        GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+    }
+
+    record GuiRenderCleanupState(boolean blendEnabled, boolean depthEnabled, boolean lightingEnabled) {
     }
 }

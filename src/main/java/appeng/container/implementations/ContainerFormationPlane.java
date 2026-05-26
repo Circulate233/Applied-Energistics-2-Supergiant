@@ -31,7 +31,7 @@ import net.minecraft.entity.player.InventoryPlayer;
 public class ContainerFormationPlane extends UpgradeableContainer<FormationPlanePart> {
 
     @GuiSync(7)
-    public YesNo placeMode;
+    public YesNo placeMode = YesNo.YES;
     @GuiSync(8)
     public FormationPlaneMode formationPlaneMode;
 

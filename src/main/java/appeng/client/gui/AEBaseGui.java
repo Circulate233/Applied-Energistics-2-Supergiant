@@ -535,11 +535,12 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         }
 
         ItemStack stack = getRawStack(slot);
-        if ((slot.renderIconWithItem() || stack.isEmpty()) && slot.isSlotEnabled() && slot.getIcon() != null) {
-            slot.getIcon().getBlitter()
-                    .dest(guiLeft + slot.xPos, guiTop + slot.yPos)
-                    .opacity(slot.getOpacityOfIcon())
-                    .blit();
+        var backgroundIcon = SlotBackgroundIconMapping.resolve(slot.getBackgroundIcon());
+        if ((slot.renderIconWithItem() || stack.isEmpty()) && slot.isSlotEnabled() && backgroundIcon != null) {
+            backgroundIcon.getBlitter()
+                      .dest(guiLeft + slot.xPos, guiTop + slot.yPos)
+                      .opacity(slot.getOpacityOfIcon())
+                      .blit();
         }
 
         if (!slot.isValid()) {

@@ -15,6 +15,10 @@ repositories {
         name = 'Modrinth'
         url = 'https://api.modrinth.com/maven'
     }
+    maven {
+        name = "ModMaven"
+        url  = uri("https://modmaven.dev/")
+    }
     mavenCentral()
     mavenLocal()
     maven {
@@ -32,6 +36,9 @@ dependencies {
     modImplementation "curse.maven:had-enough-items-557549:7938914"
     // The One Probe
     modImplementation "curse.maven:the-one-probe-245211:2667280"
+    //EIO Core
+    modCompileOnly("com.enderio.core:EnderCore:1.12.2-0.5.78:core")
+    modCompileOnly("com.enderio.core:EnderCore:1.12.2-0.5.78")
     // Baubles
     modCompileOnly "curse.maven:baubles-227083:2518667"
     // CodeChickenLib

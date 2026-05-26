@@ -165,7 +165,7 @@ public class OpenGuiPacket extends ClientboundPacket {
 
         minecraft.player.openContainer = container;
         container.windowId = this.windowId;
-        if (this.externalGuiReturn) {
+        if (shouldCapturePreviousExternalGui(previousScreen, this.externalGuiReturn)) {
             PreviousExternalGui.capture(previousScreen);
         }
         minecraft.displayGuiScreen(screen);
@@ -180,7 +180,11 @@ public class OpenGuiPacket extends ClientboundPacket {
         }
     }
 
-    private static void markServerGuiSwitchSource(@Nullable GuiScreen screen) {
+    static boolean shouldCapturePreviousExternalGui(@Nullable GuiScreen screen, boolean externalGuiReturn) {
+        return externalGuiReturn && !isServerGuiSwitchSource(screen);
+    }
+
+    static void markServerGuiSwitchSource(@Nullable GuiScreen screen) {
         if (screen == null) {
             return;
         }

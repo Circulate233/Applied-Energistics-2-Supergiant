@@ -231,10 +231,21 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
     }
 
     private boolean cpuMatches(ICraftingCPU cpu) {
+        if (!canUseCpuForRequest(cpu, this.plan, getPlayer() != null)) {
+            return false;
+        }
         if (this.plan == null) {
             return true;
         }
         return cpu.getAvailableStorage() >= this.plan.usedBytes() && !cpu.isBusy();
+    }
+
+    static boolean canUseCpuForRequest(ICraftingCPU cpu, @Nullable CraftingPlanSummary plan, boolean playerRequest) {
+        return switch (cpu.getSelectionMode()) {
+            case ANY -> true;
+            case PLAYER_ONLY -> playerRequest;
+            case MACHINE_ONLY -> !playerRequest;
+        };
     }
 
     public void startJob() {

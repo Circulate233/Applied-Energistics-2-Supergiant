@@ -11,7 +11,6 @@ import appeng.api.inventories.InternalInventory;
 import appeng.api.storage.StorageCells;
 import appeng.api.storage.cells.ICellWorkbenchItem;
 import appeng.api.upgrades.Upgrades;
-import appeng.client.gui.Icon;
 import appeng.core.definitions.AEItems;
 import appeng.crafting.pattern.EncodedPatternItem;
 import appeng.tile.misc.InscriberRecipes;
@@ -32,7 +31,7 @@ public class RestrictedInputSlot extends AppEngSlot {
     public RestrictedInputSlot(PlacableItemType type, InternalInventory inventory, int slotIndex, int x, int y) {
         super(inventory, slotIndex, x, y);
         this.type = type;
-        this.setIcon(type.icon);
+        this.setBackgroundIcon(type.backgroundIcon);
     }
 
     public RestrictedInputSlot(PlacableItemType type, InternalInventory inventory, int slotIndex) {
@@ -165,34 +164,34 @@ public class RestrictedInputSlot extends AppEngSlot {
     }
 
     public enum PlacableItemType {
-        STORAGE_CELLS(Icon.BACKGROUND_STORAGE_CELL),
-        ORE(Icon.BACKGROUND_ORE),
-        STORAGE_COMPONENT(Icon.BACKGROUND_STORAGE_COMPONENT),
-        GRID_LINKABLE_ITEM(Icon.BACKGROUND_WIRELESS_TERM),
-        TRASH(Icon.BACKGROUND_TRASH),
-        ENCODED_AE_PATTERN(Icon.BACKGROUND_ENCODED_PATTERN),
-        MOLECULAR_ASSEMBLER_PATTERN(Icon.BACKGROUND_BLANK_PATTERN),
-        PROVIDER_PATTERN(Icon.BACKGROUND_BLANK_PATTERN),
-        ENCODED_PATTERN(Icon.BACKGROUND_ENCODED_PATTERN),
-        PATTERN(Icon.BACKGROUND_BLANK_PATTERN),
-        BLANK_PATTERN(Icon.BACKGROUND_BLANK_PATTERN),
-        POWERED_TOOL(Icon.BACKGROUND_CHARGABLE),
-        RANGE_BOOSTER(Icon.BACKGROUND_WIRELESS_BOOSTER),
-        QE_SINGULARITY(Icon.BACKGROUND_SINGULARITY),
-        SPATIAL_STORAGE_CELLS(Icon.BACKGROUND_SPATIAL_CELL),
-        SPATIAL_STORAGE_CELLS_NO_SHADOW(Icon.BACKGROUND_SPATIAL_CELL_NO_SHADOW),
-        FUEL(Icon.BACKGROUND_FUEL),
-        UPGRADES(Icon.BACKGROUND_UPGRADE),
-        WORKBENCH_CELL(Icon.BACKGROUND_STORAGE_CELL),
-        VIEW_CELL(Icon.BACKGROUND_VIEW_CELL),
-        INSCRIBER_PLATE(Icon.BACKGROUND_PLATE),
-        INSCRIBER_INPUT(Icon.BACKGROUND_INGOT),
-        METAL_INGOTS(Icon.BACKGROUND_INGOT);
+        STORAGE_CELLS(SlotBackgroundIcon.STORAGE_CELL),
+        ORE(SlotBackgroundIcon.ORE),
+        STORAGE_COMPONENT(SlotBackgroundIcon.STORAGE_COMPONENT),
+        GRID_LINKABLE_ITEM(SlotBackgroundIcon.WIRELESS_TERM),
+        TRASH(SlotBackgroundIcon.TRASH),
+        ENCODED_AE_PATTERN(SlotBackgroundIcon.ENCODED_PATTERN),
+        MOLECULAR_ASSEMBLER_PATTERN(SlotBackgroundIcon.BLANK_PATTERN),
+        PROVIDER_PATTERN(SlotBackgroundIcon.BLANK_PATTERN),
+        ENCODED_PATTERN(SlotBackgroundIcon.ENCODED_PATTERN),
+        PATTERN(SlotBackgroundIcon.BLANK_PATTERN),
+        BLANK_PATTERN(SlotBackgroundIcon.BLANK_PATTERN),
+        POWERED_TOOL(SlotBackgroundIcon.CHARGABLE),
+        RANGE_BOOSTER(SlotBackgroundIcon.WIRELESS_BOOSTER),
+        QE_SINGULARITY(SlotBackgroundIcon.SINGULARITY),
+        SPATIAL_STORAGE_CELLS(SlotBackgroundIcon.SPATIAL_CELL),
+        SPATIAL_STORAGE_CELLS_NO_SHADOW(SlotBackgroundIcon.SPATIAL_CELL_NO_SHADOW),
+        FUEL(SlotBackgroundIcon.FUEL),
+        UPGRADES(SlotBackgroundIcon.UPGRADE),
+        WORKBENCH_CELL(SlotBackgroundIcon.STORAGE_CELL),
+        VIEW_CELL(SlotBackgroundIcon.VIEW_CELL),
+        INSCRIBER_PLATE(SlotBackgroundIcon.PLATE),
+        INSCRIBER_INPUT(SlotBackgroundIcon.INGOT),
+        METAL_INGOTS(SlotBackgroundIcon.INGOT);
 
-        public final Icon icon;
+        public final SlotBackgroundIcon backgroundIcon;
 
-        PlacableItemType(Icon icon) {
-            this.icon = icon;
+        PlacableItemType(SlotBackgroundIcon backgroundIcon) {
+            this.backgroundIcon = backgroundIcon;
         }
     }
 }

@@ -64,6 +64,8 @@ import java.util.List;
 
 public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
 
+    private static final String VANILLA_ENCHANTMENTS_TAG = "ench";
+    private static final String PART_ENCHANTMENTS_TAG = "enchantments";
     private static final PlaneModels MODELS = new PlaneModels("part/annihilation_plane",
         "part/annihilation_plane_on");
     private final IActionSource actionSource = new MachineSource(this);
@@ -116,11 +118,7 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
     public void readFromNBT(NBTTagCompound data) {
         super.readFromNBT(data);
 
-        if (data.hasKey("enchantments", 9)) {
-            this.enchantments = readEnchantments(data.getTagList("enchantments", 10));
-        } else {
-            this.enchantments = new Object2IntLinkedOpenHashMap<>();
-        }
+        this.enchantments = readEnchantmentsFromTag(data);
     }
 
     @Override
@@ -128,15 +126,15 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
         super.writeToNBT(data);
 
         if (!this.enchantments.isEmpty()) {
-            data.setTag("enchantments", writeEnchantments(this.enchantments));
+            data.setTag(PART_ENCHANTMENTS_TAG, writeEnchantments(this.enchantments));
         }
     }
 
     @Override
     public void importSettings(SettingsFrom mode, NBTTagCompound data, @Nullable EntityPlayer player) {
         super.importSettings(mode, data, player);
-        if (mode == SettingsFrom.DISMANTLE_ITEM && data.hasKey("enchantments", 9)) {
-            this.enchantments = readEnchantments(data.getTagList("enchantments", 10));
+        if (mode == SettingsFrom.DISMANTLE_ITEM) {
+            this.enchantments = readEnchantmentsFromTag(data);
         }
         this.pickupStrategies = null;
     }
@@ -145,8 +143,19 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
     public void exportSettings(SettingsFrom mode, NBTTagCompound data) {
         super.exportSettings(mode, data);
         if (mode == SettingsFrom.DISMANTLE_ITEM && !this.enchantments.isEmpty()) {
-            data.setTag("enchantments", writeEnchantments(this.enchantments));
+            data.setTag(PART_ENCHANTMENTS_TAG, writeEnchantments(this.enchantments));
+            data.setTag(VANILLA_ENCHANTMENTS_TAG, writeEnchantments(this.enchantments));
         }
+    }
+
+    private static Object2IntMap<Enchantment> readEnchantmentsFromTag(NBTTagCompound data) {
+        if (data.hasKey(PART_ENCHANTMENTS_TAG, 9)) {
+            return readEnchantments(data.getTagList(PART_ENCHANTMENTS_TAG, 10));
+        }
+        if (data.hasKey(VANILLA_ENCHANTMENTS_TAG, 9)) {
+            return readEnchantments(data.getTagList(VANILLA_ENCHANTMENTS_TAG, 10));
+        }
+        return new Object2IntLinkedOpenHashMap<>();
     }
 
     public Object2IntMap<Enchantment> getEnchantments() {

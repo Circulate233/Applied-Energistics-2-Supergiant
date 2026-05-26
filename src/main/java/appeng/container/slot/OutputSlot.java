@@ -1,7 +1,6 @@
 package appeng.container.slot;
 
 import appeng.api.inventories.InternalInventory;
-import appeng.client.gui.Icon;
 import net.minecraft.item.ItemStack;
 
 public class OutputSlot extends AppEngSlot {
@@ -9,9 +8,9 @@ public class OutputSlot extends AppEngSlot {
         super(inventory, slotIndex, x, y);
     }
 
-    public OutputSlot(InternalInventory inventory, int slotIndex, int x, int y, Icon icon) {
+    public OutputSlot(InternalInventory inventory, int slotIndex, int x, int y, SlotBackgroundIcon backgroundIcon) {
         this(inventory, slotIndex, x, y);
-        this.setIcon(icon);
+        this.setBackgroundIcon(backgroundIcon);
     }
 
     @Override

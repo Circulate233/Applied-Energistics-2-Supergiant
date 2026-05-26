@@ -2,7 +2,6 @@ package appeng.container.slot;
 
 import appeng.api.inventories.InternalInventory;
 import appeng.api.stacks.GenericStack;
-import appeng.client.gui.Icon;
 import appeng.container.AEBaseContainer;
 import appeng.core.AELog;
 import net.minecraft.entity.player.EntityPlayer;
@@ -25,7 +24,7 @@ public class AppEngSlot extends Slot {
     private boolean returnAsSingleStack;
     private Supplier<@Nullable List<ITextComponent>> emptyTooltip = () -> null;
     @Nullable
-    private Icon icon;
+    private SlotBackgroundIcon backgroundIcon;
     @Nullable
     private Boolean validState;
     private AEBaseContainer container;
@@ -244,12 +243,12 @@ public class AppEngSlot extends Slot {
     }
 
     @Nullable
-    public Icon getIcon() {
-        return this.icon;
+    public SlotBackgroundIcon getBackgroundIcon() {
+        return this.backgroundIcon;
     }
 
-    public void setIcon(@Nullable Icon icon) {
-        this.icon = icon;
+    public void setBackgroundIcon(@Nullable SlotBackgroundIcon backgroundIcon) {
+        this.backgroundIcon = backgroundIcon;
     }
 
     public void setEmptyTooltip(Supplier<@Nullable List<ITextComponent>> emptyTooltip) {

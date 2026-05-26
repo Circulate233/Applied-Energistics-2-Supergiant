@@ -53,7 +53,8 @@ public class ContainerIOPort extends UpgradeableContainer<TileIOPort> {
         }
 
         for (int i = 0; i < 6; i++) {
-            this.addSlot(new OutputSlot(cells, 6 + i, 0, 0, RestrictedInputSlot.PlacableItemType.STORAGE_CELLS.icon),
+            this.addSlot(new OutputSlot(cells, 6 + i, 0, 0,
+                    RestrictedInputSlot.PlacableItemType.STORAGE_CELLS.backgroundIcon),
                 SlotSemantics.MACHINE_OUTPUT);
         }
     }

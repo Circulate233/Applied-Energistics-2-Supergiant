@@ -44,6 +44,9 @@ public class CraftingCPUCycler {
 
     public void detectAndSendChanges(IGrid network) {
         final ImmutableSet<ICraftingCPU> cpuSet = network.getCraftingService().getCpus();
+        var previouslySelectedCpu = this.selectedCpu >= 0 && this.selectedCpu < this.cpus.size()
+            ? this.cpus.get(this.selectedCpu).getCpu()
+            : null;
 
         int matches = 0;
         boolean changed = !this.initialDataSent;
@@ -79,6 +82,15 @@ public class CraftingCPUCycler {
                 CraftingCPURecord cpu = this.cpus.get(i);
                 if (cpu.getName() == null) {
                     cpu.setName(new TextComponentString("#" + (i + 1)));
+                }
+            }
+            if (previouslySelectedCpu != null) {
+                this.selectedCpu = -1;
+                for (int i = 0; i < this.cpus.size(); i++) {
+                    if (this.cpus.get(i).getCpu() == previouslySelectedCpu) {
+                        this.selectedCpu = i;
+                        break;
+                    }
                 }
             }
 
