@@ -51,6 +51,8 @@ dependencies {
     modCompileOnly "curse.maven:inventory-tweaks-223094:2482482"
     // Inventory Bogo-Sorter
     modCompileOnly "curse.maven:inventory-bogo-sorter-632327:4399738"
+    // mouse tweaks
+    modImplementation "curse.maven:mouse-tweaks-unofficial-461660:5876158"
     // Connected Textures Mod
     modCompileOnly "curse.maven:ctm-267602:2915363"
 }

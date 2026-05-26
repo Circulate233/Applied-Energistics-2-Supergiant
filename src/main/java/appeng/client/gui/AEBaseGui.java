@@ -79,9 +79,11 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
+import net.minecraftforge.fml.common.Optional;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 import org.lwjgl.input.Mouse;
+import yalter.mousetweaks.api.IMTModGuiContainer2;
 
 import java.awt.Rectangle;
 import java.io.IOException;
@@ -93,7 +95,8 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
-public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer {
+@Optional.Interface(iface = "yalter.mousetweaks.api.IMTModGuiContainer2", modid = "mousetweaks")
+public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer implements IMTModGuiContainer2 {
     private static final Point HIDDEN_SLOT_POS = new Point(-9999, -9999);
     private static final float TOOLTIP_Z_LEVEL = 500.0F;
 
