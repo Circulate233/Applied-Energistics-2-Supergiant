@@ -42,11 +42,13 @@ import appeng.container.AEBaseContainer;
 import appeng.container.SlotSemantic;
 import appeng.container.SlotSemantics;
 import appeng.container.slot.AppEngSlot;
+import appeng.container.slot.AppEngCraftingSlot;
 import appeng.container.slot.CraftingTermSlot;
 import appeng.container.slot.DisabledSlot;
 import appeng.container.slot.FakeSlot;
 import appeng.container.slot.FakeSlotFilterSupport;
 import appeng.container.slot.IOptionalSlot;
+import appeng.container.slot.OutputSlot;
 import appeng.container.slot.ResizableSlot;
 import appeng.core.AEConfig;
 import appeng.core.gui.locator.ItemGuiHostLocator;
@@ -1261,6 +1263,61 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
 
     public final T getContainer() {
         return container;
+    }
+
+    @Override
+    @Optional.Method(modid = "mousetweaks")
+    public boolean MT_isMouseTweaksDisabled() {
+        return false;
+    }
+
+    @Override
+    @Optional.Method(modid = "mousetweaks")
+    public boolean MT_isWheelTweakDisabled() {
+        return true;
+    }
+
+    @Override
+    @Optional.Method(modid = "mousetweaks")
+    public Container MT_getContainer() {
+        return this.inventorySlots;
+    }
+
+    @Override
+    @Optional.Method(modid = "mousetweaks")
+    public Slot MT_getSlotUnderMouse() {
+        return getSlotUnderMouse();
+    }
+
+    @Override
+    @Optional.Method(modid = "mousetweaks")
+    public boolean MT_isCraftingOutput(Slot slot) {
+        return slot instanceof OutputSlot
+            || slot instanceof AppEngCraftingSlot;
+    }
+
+    @Override
+    @Optional.Method(modid = "mousetweaks")
+    public boolean MT_isIgnored(Slot slot) {
+        return slot instanceof FakeSlot || slot instanceof DisabledSlot;
+    }
+
+    @Override
+    @Optional.Method(modid = "mousetweaks")
+    public boolean MT_disableRMBDraggingFunctionality() {
+        if (this.dragSplitting && this.dragSplittingButton == 1) {
+            this.dragSplitting = false;
+
+            Slot slot = getSlotUnderMouse();
+            ItemStack carried = this.mc.player != null ? this.mc.player.inventory.getItemStack() : ItemStack.EMPTY;
+            if (slot != null && !carried.isEmpty() && slot.isItemValid(carried)) {
+                this.ignoreMouseUp = true;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     public final void switchToScreen(AEBaseGui<?> screen) {
