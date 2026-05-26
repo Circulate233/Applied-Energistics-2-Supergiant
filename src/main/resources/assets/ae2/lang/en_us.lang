@@ -847,6 +847,7 @@ item.ae2.crafting_card.tooltip.force_crafting_desc=When materials are missing, c
 item.ae2.crafting_pattern.name=Crafting Pattern
 item.ae2.crafting_terminal.name=ME Crafting Terminal
 item.ae2.creative_storage_cell.name=Creative ME Storage Cell
+item.ae2.void_storage_cell.name=Void ME Storage Cell
 item.ae2.cyan_covered_cable.name=Cyan ME Covered Cable
 item.ae2.cyan_covered_dense_cable.name=Cyan ME Dense Covered Cable
 item.ae2.cyan_glass_cable.name=Cyan ME Glass Cable

@@ -48,6 +48,7 @@ import appeng.items.storage.CreativeCellItem;
 import appeng.items.storage.SpatialStorageCellItem;
 import appeng.items.storage.StorageTier;
 import appeng.items.storage.ViewCellItem;
+import appeng.items.storage.VoidCellItem;
 import appeng.items.tools.MemoryCardItem;
 import appeng.items.tools.NetworkToolItem;
 import appeng.items.tools.fluix.FluixAxeItem;
@@ -225,6 +226,8 @@ public final class AEItems {
         AEItemIds.SPATIAL_CELL_128, new SpatialStorageCellItem(128));
     public static final ItemDefinition<CreativeCellItem> CREATIVE_CELL = new ItemDefinition<>(AEItemIds.CREATIVE_CELL,
         new CreativeCellItem());
+    public static final ItemDefinition<VoidCellItem> VOID_CELL = new ItemDefinition<>(AEItemIds.VOID_CELL,
+        new VoidCellItem());
     public static final ItemDefinition<BasicStorageCell> ITEM_CELL_1K = new ItemDefinition<>(AEItemIds.ITEM_CELL_1K,
         new BasicStorageCell(0.5f, 1, 8, 63, AEKeyType.items()));
     public static final ItemDefinition<BasicStorageCell> ITEM_CELL_4K = new ItemDefinition<>(AEItemIds.ITEM_CELL_4K,
@@ -421,6 +424,7 @@ public final class AEItems {
         SPATIAL_CELL16,
         SPATIAL_CELL128,
         CREATIVE_CELL,
+        VOID_CELL,
         ITEM_CELL_1K,
         ITEM_CELL_4K,
         ITEM_CELL_16K,

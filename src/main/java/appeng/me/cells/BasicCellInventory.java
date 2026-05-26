@@ -151,7 +151,7 @@ public class BasicCellInventory implements StorageCell {
         if (amount <= 0 || !cellType.getKeyType().contains(what)) {
             return 0;
         }
-        if (cellType.isBlackListed(itemStack, what)) {
+        if (!cellType.isAllowedByCellWorkbench(itemStack, what)) {
             return 0;
         }
 

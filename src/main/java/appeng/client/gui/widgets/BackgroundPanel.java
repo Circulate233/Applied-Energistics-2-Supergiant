@@ -50,8 +50,12 @@ public class BackgroundPanel implements ICompositeWidget {
     }
 
     @Override
+    public boolean hitTest(Point mousePos) {
+        return false;
+    }
+
+    @Override
     public void drawBackgroundLayer(Rectangle bounds, Point mouse) {
         background.dest(bounds.x + x, bounds.y + y).blit();
     }
 }
-

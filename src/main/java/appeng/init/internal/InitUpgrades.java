@@ -89,6 +89,9 @@ public final class InitUpgrades {
             Upgrades.add(AEItems.VOID_CARD.item(), fluidCell.item(), 1, storageCellGroup);
         }
 
+        Upgrades.add(AEItems.INVERTER_CARD.item(), AEItems.VOID_CELL.item(), 1, storageCellGroup);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEItems.VOID_CELL.item(), 1, storageCellGroup);
+
         for (var portableItemCell : List.of(
             AEItems.PORTABLE_ITEM_CELL1K,
             AEItems.PORTABLE_ITEM_CELL4K,

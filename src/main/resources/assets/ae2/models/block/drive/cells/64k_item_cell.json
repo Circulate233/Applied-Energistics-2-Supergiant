@@ -1,6 +1,7 @@
 {
   "credit": "Made with Blockbench",
   "ambientocclusion": false,
+  "texture_size": [32, 32],
   "textures": {
     "particle": "ae2:block/drive/drive_cells",
     "cell": "ae2:block/drive/drive_cells"
@@ -10,15 +11,11 @@
       "name": "Cell Backdrop",
       "from": [0, 0, 0],
       "to": [6, 2, 2],
-      "rotation": { "angle": 0, "axis": "y", "origin": [9, 8, 8] },
+      "rotation": {"angle": 0, "axis": "y", "origin": [9, 8, 8]},
       "faces": {
-        "north": {
-          "uv": [0, 6, 6, 8],
-          "texture": "#cell",
-          "cullface": "north"
-        },
-        "up": { "uv": [6, 6, 0, 8], "texture": "#cell", "cullface": "north" },
-        "down": { "uv": [6, 6, 0, 8], "texture": "#cell", "cullface": "north" }
+        "north": {"uv": [0, 3, 3, 4], "texture": "#cell", "cullface": "north"},
+        "up": {"uv": [3, 3, 0, 4], "texture": "#cell", "cullface": "north"},
+        "down": {"uv": [3, 3, 0, 4], "texture": "#cell", "cullface": "north"}
       }
     }
   ]

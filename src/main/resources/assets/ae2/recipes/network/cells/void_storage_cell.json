@@ -1,0 +1,28 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "aba",
+    "bdb",
+    "ccc"
+  ],
+  "key": {
+    "a": {
+      "item": "ae2:quartz_glass"
+    },
+    "b": {
+      "type": "forge:ore_dict",
+      "ore": "dustRedstone"
+    },
+    "c": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "d": {
+      "item": "ae2:matter_ball"
+    }
+  },
+  "result": {
+    "item": "ae2:void_storage_cell",
+    "count": 1
+  }
+}

@@ -27,6 +27,7 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
 import appeng.items.storage.StorageCellTooltipComponent;
 import appeng.me.cells.BasicCellHandler;
+import appeng.util.CellWorkbenchFilter;
 import com.google.common.base.Preconditions;
 import net.minecraft.item.ItemStack;
 
@@ -81,6 +82,27 @@ public interface IBasicCellItem extends ICellWorkbenchItem, IStackTooltipDataPro
      */
     default boolean isBlackListed(ItemStack cellItem, AEKey requestedAddition) {
         return false;
+    }
+
+    default boolean isPartitionInverted(ItemStack cellItem) {
+        return CellWorkbenchFilter.isInverted(cellItem, this);
+    }
+
+    default boolean isPartitionFuzzy(ItemStack cellItem) {
+        return CellWorkbenchFilter.isFuzzy(cellItem, this);
+    }
+
+    default boolean isAllowedByCellWorkbench(ItemStack cellItem, AEKey requestedAddition) {
+        if (isBlackListed(cellItem, requestedAddition)) {
+            return false;
+        }
+
+        return CellWorkbenchFilter.matches(
+            cellItem,
+            this,
+            requestedAddition,
+            isPartitionInverted(cellItem),
+            isPartitionFuzzy(cellItem));
     }
 
     /**

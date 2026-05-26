@@ -24,6 +24,7 @@ import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.me.cells.BasicCellHandler;
 import appeng.me.cells.CreativeCellHandler;
+import appeng.me.cells.VoidCellHandler;
 import appeng.recipes.game.FacadeRecipe;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.recipes.game.StorageCellUpgradeRecipe;
@@ -48,6 +49,7 @@ public final class InitStorageCells {
     private static final ResourceLocation MODEL_CELL_FLUIDS_64K = new ResourceLocation("ae2", "block/drive/cells/64k_fluid_cell");
     private static final ResourceLocation MODEL_CELL_FLUIDS_256K = new ResourceLocation("ae2", "block/drive/cells/256k_fluid_cell");
     private static final ResourceLocation MODEL_CELL_CREATIVE = new ResourceLocation("ae2", "block/drive/cells/creative_cell");
+    private static final ResourceLocation MODEL_CELL_VOID = new ResourceLocation("ae2", "block/drive/cells/void_cell");
     private static boolean initialized;
 
     private InitStorageCells() {
@@ -61,6 +63,7 @@ public final class InitStorageCells {
 
         StorageCells.addCellHandler(BasicCellHandler.INSTANCE);
         StorageCells.addCellHandler(CreativeCellHandler.INSTANCE);
+        StorageCells.addCellHandler(VoidCellHandler.INSTANCE);
         initCellDisassembly();
 
         StorageCellModels.registerModel(AEItems.ITEM_CELL_1K.item(), MODEL_CELL_ITEMS_1K);
@@ -74,6 +77,7 @@ public final class InitStorageCells {
         StorageCellModels.registerModel(AEItems.FLUID_CELL_64K.item(), MODEL_CELL_FLUIDS_64K);
         StorageCellModels.registerModel(AEItems.FLUID_CELL_256K.item(), MODEL_CELL_FLUIDS_256K);
         StorageCellModels.registerModel(AEItems.CREATIVE_CELL.item(), MODEL_CELL_CREATIVE);
+        StorageCellModels.registerModel(AEItems.VOID_CELL.item(), MODEL_CELL_VOID);
         StorageCellModels.registerModel(AEItems.PORTABLE_ITEM_CELL1K.item(), MODEL_CELL_ITEMS_1K);
         StorageCellModels.registerModel(AEItems.PORTABLE_ITEM_CELL4K.item(), MODEL_CELL_ITEMS_4K);
         StorageCellModels.registerModel(AEItems.PORTABLE_ITEM_CELL16K.item(), MODEL_CELL_ITEMS_16K);

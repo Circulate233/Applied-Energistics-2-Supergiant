@@ -109,12 +109,12 @@ public class UpgradesPanel implements ICompositeWidget {
     public static ICompositeWidget create(WidgetContainer widgets, List<Slot> slots, List<Slot> leadingSlots,
                                           BooleanSupplier hideLeadingSlots,
                                           Supplier<List<ITextComponent>> tooltipSupplier) {
-        int visibleSlots = slots.size() + (hideLeadingSlots.getAsBoolean() ? 0 : leadingSlots.size());
+        int visibleSlots = getPanelSlotCount(slots, leadingSlots, hideLeadingSlots);
         if (visibleSlots <= SCROLLING_THRESHOLD) {
             return new UpgradesPanel(slots, leadingSlots, hideLeadingSlots, tooltipSupplier);
         }
 
-        Scrollbar scrollbar = widgets.addScrollBar("upgradeScrollbar", Scrollbar.SMALL);
+        Scrollbar scrollbar = widgets == null ? new Scrollbar(Scrollbar.SMALL) : widgets.addScrollBar("upgradeScrollbar", Scrollbar.SMALL);
         return new ScrollingUpgradesPanel(slots, leadingSlots, hideLeadingSlots, tooltipSupplier, scrollbar);
     }
 
@@ -124,6 +124,28 @@ public class UpgradesPanel implements ICompositeWidget {
                 appEngSlot.setSlotEnabled(false);
             }
         }
+    }
+
+    private static boolean isSlotEnabled(Slot slot) {
+        return !(slot instanceof AppEngSlot appEngSlot) || appEngSlot.isSlotEnabled();
+    }
+
+    private static int getEnabledSlotCount(List<Slot> slots) {
+        int count = 0;
+        for (Slot slot : slots) {
+            if (isSlotEnabled(slot)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static int getPanelSlotCount(List<Slot> slots, List<Slot> leadingSlots, BooleanSupplier hideLeadingSlots) {
+        int visibleSlots = getEnabledSlotCount(slots);
+        if (!hideLeadingSlots.getAsBoolean()) {
+            visibleSlots += getEnabledSlotCount(leadingSlots);
+        }
+        return visibleSlots;
     }
 
     private static boolean shouldHideWirelessSingularitySlot(List<Slot> slots, IUpgradeInventory upgrades) {
@@ -189,6 +211,9 @@ public class UpgradesPanel implements ICompositeWidget {
     @Override
     public Rectangle getBounds() {
         int visibleSlots = getVisibleSlotCount();
+        if (visibleSlots <= 0) {
+            return new Rectangle(x, y, 0, 0);
+        }
         int height = TOP_PADDING + BOTTOM_PADDING + visibleSlots * SLOT_SIZE;
         int width = LEFT_PADDING + RIGHT_PADDING + SLOT_SIZE;
         return new Rectangle(x, y, width, height);
@@ -207,15 +232,6 @@ public class UpgradesPanel implements ICompositeWidget {
         int index = 0;
 
         for (Slot slot : getPanelSlots()) {
-            if (slot instanceof AppEngSlot appEngSlot) {
-                boolean slotVisible = index >= firstSlot && index < firstSlot + getVisibleSlotCount();
-                appEngSlot.setSlotEnabled(slotVisible);
-                if (!slotVisible) {
-                    index++;
-                    continue;
-                }
-            }
-
             if (index < firstSlot || index >= firstSlot + getVisibleSlotCount()) {
                 index++;
                 continue;
@@ -313,16 +329,21 @@ public class UpgradesPanel implements ICompositeWidget {
     }
 
     private List<Slot> getPanelSlots() {
-        if (this.leadingSlots.isEmpty()) {
-            return this.slots;
-        }
         var visibleSlots = new ObjectArrayList<Slot>(this.leadingSlots.size() + this.slots.size());
         if (!this.hideLeadingSlots.getAsBoolean()) {
-            visibleSlots.addAll(this.leadingSlots);
+            for (Slot slot : this.leadingSlots) {
+                if (isSlotEnabled(slot)) {
+                    visibleSlots.add(slot);
+                }
+            }
         } else {
             disableSlots(this.leadingSlots);
         }
-        visibleSlots.addAll(this.slots);
+        for (Slot slot : this.slots) {
+            if (isSlotEnabled(slot)) {
+                visibleSlots.add(slot);
+            }
+        }
         return visibleSlots;
     }
 

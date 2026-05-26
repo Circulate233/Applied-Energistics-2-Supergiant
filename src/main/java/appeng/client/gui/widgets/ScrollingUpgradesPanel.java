@@ -82,6 +82,9 @@ final class ScrollingUpgradesPanel implements ICompositeWidget {
     @Override
     public Rectangle getBounds() {
         int visibleSlots = getVisibleSlotCount();
+        if (visibleSlots <= 0) {
+            return new Rectangle(this.x, this.y, 0, 0);
+        }
         UpgradeBackground background = UpgradeBackground.get(scrolling());
         return new Rectangle(this.x, this.y, background.width(), 2 * PADDING + visibleSlots * SLOT_SIZE);
     }
@@ -101,24 +104,23 @@ final class ScrollingUpgradesPanel implements ICompositeWidget {
     @Override
     public void updateBeforeRender() {
         updateScrollbar();
+        deactivatePanelSlots();
         int slotOriginX = this.x + 5;
         int slotOriginY = this.y + PADDING + 1;
         int firstSlot = this.scrollbar.getCurrentScroll();
         int index = 0;
 
         for (Slot slot : getPanelSlots()) {
-            if (!(slot instanceof AppEngSlot appEngSlot)) {
-                continue;
-            }
-
             boolean slotVisible = index >= firstSlot && index < firstSlot + getVisibleSlotCount();
-            appEngSlot.setSlotEnabled(slotVisible);
             index++;
 
             if (!slotVisible) {
                 continue;
             }
 
+            if (slot instanceof AppEngSlot appEngSlot) {
+                appEngSlot.setActive(true);
+            }
             slot.xPos = slotOriginX;
             slot.yPos = slotOriginY;
             slotOriginY += SLOT_SIZE;
@@ -145,11 +147,14 @@ final class ScrollingUpgradesPanel implements ICompositeWidget {
 
     @Override
     public void addExclusionZones(List<Rectangle> exclusionZones, Rectangle screenBounds) {
-        exclusionZones.add(Rects.expand(new Rectangle(
-            screenBounds.x + this.x,
-            screenBounds.y + this.y,
-            getBounds().width,
-            getBounds().height), 2));
+        Rectangle bounds = getBounds();
+        if (bounds.width > 0 && bounds.height > 0) {
+            exclusionZones.add(Rects.expand(new Rectangle(
+                screenBounds.x + this.x,
+                screenBounds.y + this.y,
+                bounds.width,
+                bounds.height), 2));
+        }
     }
 
     @Nullable
@@ -172,23 +177,45 @@ final class ScrollingUpgradesPanel implements ICompositeWidget {
         for (Slot slot : slots) {
             if (slot instanceof AppEngSlot appEngSlot) {
                 appEngSlot.setSlotEnabled(false);
+                appEngSlot.setActive(false);
             }
         }
     }
 
-    private List<Slot> getPanelSlots() {
-        if (this.leadingSlots.isEmpty()) {
-            return this.slots;
-        }
+    private static boolean isSlotEnabled(Slot slot) {
+        return !(slot instanceof AppEngSlot appEngSlot) || appEngSlot.isSlotEnabled();
+    }
 
+    private List<Slot> getPanelSlots() {
         var visibleSlots = new ObjectArrayList<Slot>(this.leadingSlots.size() + this.slots.size());
         if (!this.hideLeadingSlots.getAsBoolean()) {
-            visibleSlots.addAll(this.leadingSlots);
+            for (Slot slot : this.leadingSlots) {
+                if (isSlotEnabled(slot)) {
+                    visibleSlots.add(slot);
+                }
+            }
         } else {
             disableSlots(this.leadingSlots);
         }
-        visibleSlots.addAll(this.slots);
+        for (Slot slot : this.slots) {
+            if (isSlotEnabled(slot)) {
+                visibleSlots.add(slot);
+            }
+        }
         return visibleSlots;
+    }
+
+    private void deactivatePanelSlots() {
+        for (Slot slot : this.leadingSlots) {
+            if (slot instanceof AppEngSlot appEngSlot) {
+                appEngSlot.setActive(false);
+            }
+        }
+        for (Slot slot : this.slots) {
+            if (slot instanceof AppEngSlot appEngSlot) {
+                appEngSlot.setActive(false);
+            }
+        }
     }
 
     private int getUpgradeSlotCount() {
