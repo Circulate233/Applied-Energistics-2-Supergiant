@@ -283,7 +283,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                 } else {
                     EntityPlayer player = getPlayer();
                     if (!(player instanceof EntityPlayerMP serverPlayer)
-                        || !SwitchGuisPacket.restorePreviousGui(serverPlayer)) {
+                        || !SwitchGuisPacket.restoreExternalGui(serverPlayer)) {
                         this.host.returnToMainContainer(player, this);
                     }
                 }

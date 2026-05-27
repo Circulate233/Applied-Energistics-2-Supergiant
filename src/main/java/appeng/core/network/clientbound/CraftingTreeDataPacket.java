@@ -1,11 +1,11 @@
 package appeng.core.network.clientbound;
 
-import appeng.client.ctl.gui.GuiCraftingTree;
 import appeng.api.stacks.GenericStack;
+import appeng.client.gui.me.crafting.GuiCraftingTree;
 import appeng.core.network.ClientboundPacket;
 import appeng.crafting.CraftingTreeNode;
+import appeng.integration.data.CraftingTreeStackRegistry;
 import appeng.integration.data.LiteCraftTreeNode;
-import appeng.util.ctl.AEItemStackSet;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import net.minecraft.client.Minecraft;
@@ -26,8 +26,8 @@ public class CraftingTreeDataPacket extends ClientboundPacket {
 
     @Override
     protected void read(final ByteBuf buf) {
-        AEItemStackSet stackSet = new AEItemStackSet();
-        stackSet.fromBuffer(buf);
+        CraftingTreeStackRegistry stackSet = new CraftingTreeStackRegistry();
+        stackSet.read(buf);
         this.root = LiteCraftTreeNode.fromBuffer(buf, stackSet, null);
     }
 
@@ -37,11 +37,11 @@ public class CraftingTreeDataPacket extends ClientboundPacket {
             throw new IllegalStateException("Cannot write a crafting tree packet without a root node");
         }
 
-        AEItemStackSet stackSet = new AEItemStackSet();
+        CraftingTreeStackRegistry stackSet = new CraftingTreeStackRegistry();
         ByteBuf buffer = Unpooled.buffer();
         this.root.writeToBuffer(buffer, stackSet);
 
-        stackSet.writeToBuffer(buf);
+        stackSet.write(buf);
         buf.writeBytes(buffer);
     }
 

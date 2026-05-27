@@ -28,6 +28,7 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.ContainerPlayer;
+import net.minecraft.inventory.IContainerListener;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.IWorldNameable;
@@ -88,13 +89,14 @@ public class SwitchGuisPacket extends ServerboundPacket {
 
         container.setLocator(locator);
         container.setReturnedFromSubScreen(false);
-        container.setExternalGuiReturn(returnToContainerOverride != null);
+        boolean externalGuiReturn = isExternalGuiReturn(returnToContainerOverride);
+        container.setExternalGuiReturn(externalGuiReturn);
         container.setReturnToContainerOverride(returnToContainerOverride);
         container.setGuiTitle(title);
         container.windowId = windowId;
 
         InitNetwork.CHANNEL.sendTo(new OpenGuiPacket(guiKey, locator, false, title,
-            getInitialData(guiKey, host), windowId, returnToContainerOverride != null), serverPlayer);
+            getInitialData(guiKey, host), windowId, externalGuiReturn), serverPlayer);
 
         serverPlayer.openContainer = container;
         serverPlayer.openContainer.windowId = windowId;
@@ -126,8 +128,29 @@ public class SwitchGuisPacket extends ServerboundPacket {
         player.openContainer = previousContainer;
         player.openContainer.windowId = windowId;
         InitNetwork.CHANNEL.sendTo(new RestorePreviousGuiPacket(windowId), player);
-        player.openContainer.addListener(player);
+        rebindRestoredContainerListener(player.openContainer, player);
         return true;
+    }
+
+    public static boolean restoreExternalGui(EntityPlayerMP player) {
+        if (!(player.openContainer instanceof AEBaseContainer currentContainer)) {
+            return false;
+        }
+
+        if (!currentContainer.hasExternalGuiReturn()) {
+            return false;
+        }
+
+        return restorePreviousGui(player);
+    }
+
+    static void rebindRestoredContainerListener(Container container, IContainerListener listener) {
+        container.removeListener(listener);
+        container.addListener(listener);
+    }
+
+    static boolean isExternalGuiReturn(@Nullable Container returnToContainerOverride) {
+        return returnToContainerOverride != null && !(returnToContainerOverride instanceof AEBaseContainer);
     }
 
     private static @Nullable Class<?> getHostType(GuiIds.GuiKey guiKey) {
@@ -245,7 +268,7 @@ public class SwitchGuisPacket extends ServerboundPacket {
     }
 
     private void doReturnToParentGui(EntityPlayerMP player) {
-        if (restorePreviousGui(player)) {
+        if (restoreExternalGui(player)) {
             return;
         }
 
@@ -257,4 +280,5 @@ public class SwitchGuisPacket extends ServerboundPacket {
         ISubGui currentSubGui = (ISubGui) player.openContainer;
         currentSubGui.getHost().returnToMainContainer(player, currentSubGui);
     }
+
 }

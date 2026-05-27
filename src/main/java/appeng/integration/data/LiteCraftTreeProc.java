@@ -3,7 +3,6 @@ package appeng.integration.data;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingTreeNode;
 import appeng.crafting.CraftingTreeProcess;
-import appeng.util.ctl.AEItemStackSet;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 
@@ -52,7 +51,7 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs) implements Compa
         return (parentAmount + craftedPerPattern - 1) / craftedPerPattern;
     }
 
-    public static LiteCraftTreeProc fromBuffer(final ByteBuf buf, final AEItemStackSet stackSet) {
+    public static LiteCraftTreeProc fromBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet) {
         int size = buf.readByte();
         List<LiteCraftTreeNode> inputs = new ArrayList<>();
         LiteCraftTreeProc proc = new LiteCraftTreeProc(inputs);
@@ -62,7 +61,7 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs) implements Compa
         return proc;
     }
 
-    public void writeToBuffer(final ByteBuf buf, final AEItemStackSet stackSet) {
+    public void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet) {
         if (inputs.size() > Byte.MAX_VALUE) {
             throw new IllegalStateException("Too many inputs for a single node");
         }
@@ -93,16 +92,6 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs) implements Compa
             }
         }
         return recorder.getDepth();
-    }
-
-    public int totalNodes() {
-        int nodeCount = inputs.size();
-        for (final LiteCraftTreeNode node : inputs) {
-            for (final LiteCraftTreeProc input : node.inputs()) {
-                nodeCount += input.totalNodes();
-            }
-        }
-        return nodeCount;
     }
 
 }

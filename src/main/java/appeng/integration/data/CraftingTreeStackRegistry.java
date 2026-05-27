@@ -1,4 +1,4 @@
-package appeng.util.ctl;
+package appeng.integration.data;
 
 import appeng.api.stacks.GenericStack;
 import io.netty.buffer.ByteBuf;
@@ -9,8 +9,7 @@ import net.minecraft.network.PacketBuffer;
 import java.util.List;
 import java.util.Map;
 
-public class AEItemStackSet {
-
+public class CraftingTreeStackRegistry {
     private final Map<Entry, Entry> entries = new Object2ObjectOpenHashMap<>();
     private final List<Entry> entryList = new ObjectArrayList<>();
 
@@ -25,48 +24,40 @@ public class AEItemStackSet {
         return entry.id();
     }
 
-    protected void addInternal(GenericStack stack) {
-        Entry entry = new Entry(stack, entryList.size());
-        entryList.add(entry);
-        entries.put(entry, entry);
-    }
-
     public GenericStack get(int id) {
-        return new GenericStack(entryList.get(id).stack().what(), entryList.get(id).stack().amount());
+        Entry entry = entryList.get(id);
+        return new GenericStack(entry.stack().what(), entry.stack().amount());
     }
 
-    public void writeToBuffer(final ByteBuf buf) {
+    public void write(ByteBuf buf) {
         buf.writeInt(entryList.size());
         for (Entry entry : entryList) {
-            try {
-                GenericStack.writeBuffer(entry.stack, new PacketBuffer(buf));
-            } catch (Throwable ignored) {
-            }
+            GenericStack.writeBuffer(entry.stack, new PacketBuffer(buf));
         }
     }
 
-    public void fromBuffer(final ByteBuf buf) {
+    public void read(ByteBuf buf) {
         int size = buf.readInt();
         for (int i = 0; i < size; i++) {
             addInternal(GenericStack.readBuffer(new PacketBuffer(buf)));
         }
     }
 
-    private record Entry(GenericStack stack, int id) {
+    private void addInternal(GenericStack stack) {
+        Entry entry = new Entry(stack, entryList.size());
+        entryList.add(entry);
+        entries.put(entry, entry);
+    }
 
+    private record Entry(GenericStack stack, int id) {
         @Override
         public int hashCode() {
             return stack.hashCode();
         }
 
         @Override
-        public boolean equals(final Object obj) {
-            if (!(obj instanceof Entry entry)) {
-                return false;
-            }
-            return stack.equals(entry.stack);
+        public boolean equals(Object obj) {
+            return obj instanceof Entry entry && stack.equals(entry.stack);
         }
-
     }
-
 }

@@ -1,7 +1,7 @@
 package appeng.integration.modules.hei;
 
 import appeng.api.stacks.GenericStack;
-import appeng.client.ctl.handler.ClientTickHandler;
+import appeng.client.ClientTickHandler;
 import appeng.core.AELog;
 import mezz.jei.Internal;
 import mezz.jei.api.IJeiRuntime;

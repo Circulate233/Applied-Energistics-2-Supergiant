@@ -3,8 +3,6 @@ package appeng.integration.data;
 import appeng.api.stacks.GenericStack;
 import appeng.crafting.CraftingTreeNode;
 import appeng.crafting.CraftingTreeProcess;
-import appeng.util.ctl.AEItemStackSet;
-import appeng.util.ctl.ByteBufUtils;
 import io.netty.buffer.ByteBuf;
 
 import javax.annotation.Nonnull;
@@ -46,11 +44,11 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
         return new LiteCraftTreeNode(parent, new GenericStack(node.getWhat(), amount), inputs, node.getMissing());
     }
 
-    public static LiteCraftTreeNode fromBuffer(final ByteBuf buf, final AEItemStackSet stackSet, final LiteCraftTreeProc parent) {
-        int stackID = (int) ByteBufUtils.readVarLong(buf);
+    public static LiteCraftTreeNode fromBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet, final LiteCraftTreeProc parent) {
+        int stackID = (int) CraftingTreeByteBuf.readVarLong(buf);
         GenericStack output = stackSet.get(stackID);
 
-        long stackSize = ByteBufUtils.readVarLong(buf);
+        long stackSize = CraftingTreeByteBuf.readVarLong(buf);
         output = new GenericStack(output.what(), stackSize);
 
         int size = buf.readByte();
@@ -59,24 +57,24 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
             inputs.add(LiteCraftTreeProc.fromBuffer(buf, stackSet));
         }
 
-        long missing = ByteBufUtils.readVarLong(buf);
+        long missing = CraftingTreeByteBuf.readVarLong(buf);
         return new LiteCraftTreeNode(parent, output, inputs, missing);
     }
 
-    public void writeToBuffer(final ByteBuf buf, final AEItemStackSet stackSet) {
+    public void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet) {
         if (inputs.size() > Byte.MAX_VALUE) {
             throw new IllegalStateException("Too many inputs for a single node");
         }
 
         int stackID = stackSet.add(output);
-        ByteBufUtils.writeVarLong(buf, stackID);
+        CraftingTreeByteBuf.writeVarLong(buf, stackID);
 
         long stackSize = output.amount();
-        ByteBufUtils.writeVarLong(buf, stackSize);
+        CraftingTreeByteBuf.writeVarLong(buf, stackSize);
 
         buf.writeByte(inputs.size());
         inputs.forEach(input -> input.writeToBuffer(buf, stackSet));
-        ByteBufUtils.writeVarLong(buf, missing);
+        CraftingTreeByteBuf.writeVarLong(buf, missing);
     }
 
     public void sort() {
@@ -105,16 +103,6 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
         return recorder.getDepth();
     }
 
-    public int totalProcessors() {
-        int size = inputs.size();
-        for (final LiteCraftTreeProc input : inputs) {
-            for (final LiteCraftTreeNode node : input.inputs()) {
-                size += node.totalProcessors();
-            }
-        }
-        return size;
-    }
-
     public int getRenderExpandNodes() {
         int size = Math.max(inputs.size() - 1, 0);
         for (final LiteCraftTreeProc input : inputs) {
@@ -124,21 +112,6 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
             }
         }
         return size;
-    }
-
-    public int getLastNodeRenderExpandNodes() {
-        if (inputs.isEmpty()) {
-            return 0;
-        }
-        LiteCraftTreeProc proc = inputs.getLast();
-
-        List<LiteCraftTreeNode> subNodes = proc.inputs();
-        if (subNodes.isEmpty()) {
-            return 0;
-        }
-
-        LiteCraftTreeNode subNode = subNodes.get(subNodes.size() - 1);
-        return subNode.getRenderExpandNodes();
     }
 
     public LiteCraftTreeNode withMissingOnly() {
