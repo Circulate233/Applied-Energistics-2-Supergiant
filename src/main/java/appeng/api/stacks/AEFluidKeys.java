@@ -22,16 +22,14 @@ import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
 
 import java.util.Objects;
 
 final class AEFluidKeys extends AEKeyType {
     static final AEFluidKeys INSTANCE = new AEFluidKeys();
-    private static final ResourceLocation ID = AppEng.makeId("f");
 
     private AEFluidKeys() {
-        super(ID, AEFluidKey.class, GuiText.Fluids.text());
+        super(AppEng.makeId("f"), AEFluidKey.class, GuiText.Fluids.text());
     }
 
     @Override

@@ -22,7 +22,6 @@ import appeng.core.AppEng;
 import appeng.core.localization.GuiText;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.PacketBuffer;
-import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.oredict.OreDictionary;
 
 import java.util.Arrays;
@@ -31,10 +30,9 @@ import java.util.stream.Stream;
 
 final class AEItemKeys extends AEKeyType {
     static final AEItemKeys INSTANCE = new AEItemKeys();
-    private static final ResourceLocation ID = AppEng.makeId("i");
 
     private AEItemKeys() {
-        super(ID, AEItemKey.class, GuiText.Items.text());
+        super(AppEng.makeId("i"), AEItemKey.class, GuiText.Items.text());
     }
 
     @Override

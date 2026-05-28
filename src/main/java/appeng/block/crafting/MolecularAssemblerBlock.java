@@ -18,6 +18,7 @@
 
 package appeng.block.crafting;
 
+import appeng.api.implementations.items.ICraftingPatternQuickMoveHost;
 import appeng.block.AEBaseTileBlock;
 import appeng.container.GuiIds;
 import appeng.core.gui.GuiOpener;
@@ -34,7 +35,8 @@ import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
-public class MolecularAssemblerBlock extends AEBaseTileBlock<TileMolecularAssembler> {
+public class MolecularAssemblerBlock extends AEBaseTileBlock<TileMolecularAssembler>
+    implements ICraftingPatternQuickMoveHost {
     public static final PropertyBool POWERED = PropertyBool.create("powered");
 
     public MolecularAssemblerBlock() {

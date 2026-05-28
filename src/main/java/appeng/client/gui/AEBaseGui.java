@@ -1271,44 +1271,37 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
     }
 
     @Override
-    @Optional.Method(modid = "mousetweaks")
     public boolean MT_isMouseTweaksDisabled() {
         return false;
     }
 
     @Override
-    @Optional.Method(modid = "mousetweaks")
     public boolean MT_isWheelTweakDisabled() {
         return true;
     }
 
     @Override
-    @Optional.Method(modid = "mousetweaks")
     public Container MT_getContainer() {
-        return this.inventorySlots;
+        return getContainer();
     }
 
     @Override
-    @Optional.Method(modid = "mousetweaks")
     public Slot MT_getSlotUnderMouse() {
         return getSlotUnderMouse();
     }
 
     @Override
-    @Optional.Method(modid = "mousetweaks")
     public boolean MT_isCraftingOutput(Slot slot) {
         return slot instanceof OutputSlot
             || slot instanceof AppEngCraftingSlot;
     }
 
     @Override
-    @Optional.Method(modid = "mousetweaks")
     public boolean MT_isIgnored(Slot slot) {
         return slot instanceof FakeSlot || slot instanceof DisabledSlot;
     }
 
     @Override
-    @Optional.Method(modid = "mousetweaks")
     public boolean MT_disableRMBDraggingFunctionality() {
         if (this.dragSplitting && this.dragSplittingButton == 1) {
             this.dragSplitting = false;

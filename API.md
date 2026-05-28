@@ -402,6 +402,25 @@ To make an upgrade card available to every registered wireless terminal, call
 each terminal definition's own upgrade slot count. The wireless universal terminal receives the combined supported
 count for registered terminals.
 
+### Pattern Access Terminal Quick Move Targets
+
+The pattern access terminal can quick-move crafting patterns into compatible pattern providers.
+
+For crafting patterns, compatibility is declared through
+`appeng.api.implementations.items.ICraftingPatternQuickMoveHost`.
+
+Implement this marker interface on either:
+
+* an item, if the pattern provider group icon is a normal item
+* a block, if the pattern provider group icon is represented by an `ItemBlock`
+
+When AE2 evaluates a pattern provider group for crafting-pattern quick move, it first checks whether the group's icon
+item implements `ICraftingPatternQuickMoveHost`. If not, and the icon item is an `ItemBlock`, it checks whether the
+backing block implements the same interface.
+
+This allows addons to opt custom machines into the pattern access terminal's crafting-pattern quick-move behavior
+without hard-coding specific AE2 block ids.
+
 ## Porting from Older AE2 APIs
 
 This branch uses the key-based storage and crafting API. Older addons built around `IAEStack`, `IAEItemStack`,
@@ -438,6 +457,10 @@ your addon code.
 
 Craftable items are provided by `grid.getCraftingService().getCraftables()` and related crafting APIs. They are
 modeled by the crafting service instead of ordinary network storage.
+
+The crafting service also tracks exact encoded pattern definitions provided by the network. Use
+`ICraftingService.isKnownPattern(AEItemKey patternDefinition)` to check whether an encoded pattern item is already
+known to the grid.
 
 Mounting storage into the network storage has changed. Since storage is unified across key types, the storage service
 calls `mountInventories` on `IStorageProvider` services provided by grid nodes and allows each provider to mount

@@ -22,6 +22,7 @@ import appeng.api.config.Settings;
 import appeng.api.config.ShowPatternProviders;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
+import appeng.api.implementations.items.ICraftingPatternQuickMoveHost;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.stacks.AEItemKey;
@@ -33,7 +34,6 @@ import appeng.container.guisync.GuiSync;
 import appeng.container.guisync.ILinkStatusAwareContainer;
 import appeng.container.slot.RestrictedInputSlot;
 import appeng.core.AELog;
-import appeng.core.definitions.AEBlocks;
 import appeng.core.network.clientbound.ClearPatternAccessTerminalPacket;
 import appeng.core.network.clientbound.PatternAccessTerminalPacket;
 import appeng.core.network.clientbound.SetLinkStatusPacket;
@@ -48,16 +48,17 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongCollection;
-import it.unimi.dsi.fastutil.longs.LongIterator;
+import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
+import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -69,7 +70,7 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
     private static long inventorySerial = Long.MIN_VALUE;
 
     private final IPatternAccessTermContainerHost host;
-    private final Reference2ObjectMap<PatternContainer, ContainerTracker> diList = new Reference2ObjectOpenHashMap<>();
+    private final Reference2ObjectMap<PatternContainer, ContainerTracker> diList = new Reference2ObjectLinkedOpenHashMap<>();
     private final Long2ObjectOpenHashMap<ContainerTracker> byId = new Long2ObjectOpenHashMap<>();
     private final ReferenceSet<PatternContainer> pinnedHosts = new ReferenceOpenHashSet<>();
     @GuiSync(1)
@@ -298,7 +299,8 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
         }
     }
 
-    public void quickMovePattern(EntityPlayerMP player, int clickedSlot, LongCollection allowedPatternContainers) {
+    public void quickMovePattern(EntityPlayerMP player, int clickedSlot, LongList allowedPatternContainerIds,
+                                 LongList allowedPatternSlots) {
         if (clickedSlot < 0 || clickedSlot >= this.inventorySlots.size()) {
             return;
         }
@@ -309,41 +311,87 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
         }
 
         ItemStack sourceStack = sourceSlot.getStack();
-        if (sourceStack.getCount() != 1) {
-            return;
-        }
-
         Object pattern = PatternDetailsHelper.decodePattern(sourceStack, player.world);
         if (pattern == null) {
             return;
         }
-        boolean molecularAssemblerPattern = pattern instanceof IMolecularAssemblerSupportedPattern;
+        AEItemKey sourcePattern = AEItemKey.of(sourceStack);
+        if (sourcePattern == null) {
+            return;
+        }
 
-        List<ContainerTracker> targets = new ObjectArrayList<>();
-        LongIterator allowedIds = allowedPatternContainers.iterator();
-        while (allowedIds.hasNext()) {
-            long allowedId = allowedIds.nextLong();
-            ContainerTracker targetInventory = this.byId.get(allowedId);
-            if (targetInventory != null && isVisible(targetInventory.container)) {
-                AEItemKey icon = targetInventory.group.icon();
-                boolean molecularAssembler = icon != null && icon.is(AEBlocks.MOLECULAR_ASSEMBLER.item());
-                if (molecularAssemblerPattern == molecularAssembler) {
-                    targets.add(targetInventory);
+        boolean craftingPattern = pattern instanceof IMolecularAssemblerSupportedPattern;
+
+        List<QuickMoveTarget> targets = new ObjectArrayList<>();
+        if (craftingPattern) {
+            for (ContainerTracker targetInventory : this.diList.values()) {
+                if (!isVisible(targetInventory.container) || !acceptsCraftingPatterns(targetInventory.group.icon())) {
+                    continue;
+                }
+                for (int slot = 0; slot < targetInventory.server.size(); slot++) {
+                    targets.add(new QuickMoveTarget(targetInventory, slot));
+                }
+            }
+        } else {
+            int targetCount = Math.min(allowedPatternContainerIds.size(), allowedPatternSlots.size());
+            for (int i = 0; i < targetCount; i++) {
+                ContainerTracker targetInventory = this.byId.get(allowedPatternContainerIds.getLong(i));
+                if (targetInventory != null && isVisible(targetInventory.container)
+                    && !acceptsCraftingPatterns(targetInventory.group.icon())) {
+                    targets.add(new QuickMoveTarget(targetInventory, (int) allowedPatternSlots.getLong(i)));
                 }
             }
         }
 
-        if (targets.stream().map(target -> target.group).distinct().count() != 1) {
+        if (!craftingPattern && targets.stream().map(target -> target.container().group).distinct().count() != 1) {
             return;
         }
 
-        for (ContainerTracker target : targets) {
-            FilteredInternalInventory targetContainer = new FilteredInternalInventory(target.server, new PatternSlotFilter());
-            if (targetContainer.addItems(sourceStack).isEmpty()) {
-                sourceSlot.putStack(ItemStack.EMPTY);
-                return;
+        for (QuickMoveTarget target : targets) {
+            ContainerTracker container = target.container();
+            if (containsPattern(container, sourcePattern)) {
+                continue;
+            }
+
+            int slot = target.slot();
+            if (slot < 0 || slot >= container.server.size()) {
+                continue;
+            }
+
+            FilteredInternalInventory targetSlot = new FilteredInternalInventory(
+                container.server.getSlotInv(slot),
+                new PatternSlotFilter());
+            ItemStack movedPattern = sourceStack.copy();
+            movedPattern.setCount(1);
+            if (!targetSlot.addItems(movedPattern).isEmpty()) {
+                continue;
+            }
+
+            sourceSlot.decrStackSize(1);
+            return;
+        }
+    }
+
+    private boolean containsPattern(ContainerTracker container, AEItemKey pattern) {
+        for (ItemStack stack : container.server) {
+            if (pattern.matches(stack)) {
+                return true;
             }
         }
+        return false;
+    }
+
+    private boolean acceptsCraftingPatterns(@Nullable AEItemKey icon) {
+        if (icon == null) {
+            return false;
+        }
+
+        Item item = icon.getItem();
+        if (item instanceof ItemBlock itemBlock && itemBlock.getBlock() instanceof ICraftingPatternQuickMoveHost) {
+            return true;
+        }
+
+        return item instanceof ICraftingPatternQuickMoveHost;
     }
 
     private void sendFullUpdate(@Nullable IGrid grid) {
@@ -397,6 +445,9 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
         private final ReferenceSet<PatternContainer> visibleContainers = new ReferenceOpenHashSet<>();
         private int total;
         private boolean forceFullUpdate;
+    }
+
+    private record QuickMoveTarget(ContainerTracker container, int slot) {
     }
 
     private static final class ContainerTracker {

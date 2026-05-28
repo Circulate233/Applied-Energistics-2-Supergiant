@@ -28,7 +28,6 @@ public class TextComponentItemStack implements ICustomTextComponent {
     private final ItemStack itemStack;
     private final ObjectList<ITextComponent> siblings = new ObjectArrayList<>();
     private Style style;
-    private ITextComponent cache;
 
     public TextComponentItemStack() {
         this(ItemStack.EMPTY);
@@ -36,7 +35,7 @@ public class TextComponentItemStack implements ICustomTextComponent {
 
     private TextComponentItemStack(ItemStack itemStack) {
         this.itemStack = itemStack.copy();
-        this.style = resolve().getStyle().createDeepCopy();
+        this.style = new Style();
     }
 
     private TextComponentItemStack(ItemStack itemStack, @Nullable ITextComponent decorations) {
@@ -179,9 +178,9 @@ public class TextComponentItemStack implements ICustomTextComponent {
     }
 
     private ITextComponent resolve() {
-        if (cache == null) {
-            cache = itemStack.getTextComponent();
-        }
-        return cache;
+        var i = new TextComponentString(itemStack.getDisplayName());
+        i.setStyle(this.style);
+        return i;
     }
+
 }

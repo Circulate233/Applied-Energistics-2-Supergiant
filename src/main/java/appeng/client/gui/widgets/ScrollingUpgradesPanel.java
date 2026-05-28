@@ -75,6 +75,14 @@ final class ScrollingUpgradesPanel implements ICompositeWidget {
         }
     }
 
+    private static void enableSlots(List<Slot> slots) {
+        for (Slot slot : slots) {
+            if (slot instanceof AppEngSlot appEngSlot) {
+                appEngSlot.setSlotEnabled(true);
+            }
+        }
+    }
+
     private static boolean isSlotEnabled(Slot slot) {
         return !(slot instanceof AppEngSlot appEngSlot) || appEngSlot.isSlotEnabled();
     }
@@ -189,6 +197,7 @@ final class ScrollingUpgradesPanel implements ICompositeWidget {
     private List<Slot> getPanelSlots() {
         var visibleSlots = new ObjectArrayList<Slot>(this.leadingSlots.size() + this.slots.size());
         if (!this.hideLeadingSlots.getAsBoolean()) {
+            enableSlots(this.leadingSlots);
             for (Slot slot : this.leadingSlots) {
                 if (isSlotEnabled(slot)) {
                     visibleSlots.add(slot);

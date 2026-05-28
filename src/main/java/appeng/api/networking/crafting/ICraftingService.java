@@ -27,6 +27,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridService;
 import appeng.api.networking.security.IActionSource;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.storage.AEKeyFilter;
 import com.google.common.collect.ImmutableSet;
@@ -44,6 +45,12 @@ public interface ICraftingService extends IGridService {
      * @return an unmodifiable collection of crafting patterns for the item in question.
      */
     Collection<IPatternDetails> getCraftingFor(AEKey whatToCraft);
+
+    /**
+     * @return true if this exact encoded pattern is already provided by this crafting network.
+     */
+    @SuppressWarnings("unused")
+    boolean isKnownPattern(AEItemKey patternDefinition);
 
     /**
      * @return true if the grid knows how to craft the given key

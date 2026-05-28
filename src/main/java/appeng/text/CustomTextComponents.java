@@ -1,14 +1,14 @@
 package appeng.text;
 
 import com.google.gson.JsonObject;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenHashMap;
 import net.minecraft.network.PacketBuffer;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 
 public final class CustomTextComponents {
-    private static final Map<String, Entry> ENTRIES = new LinkedHashMap<>();
+    private static final Map<String, Entry> ENTRIES = new Object2ObjectLinkedOpenHashMap<>();
 
     static {
         TextComponentItemStack.bootstrap();

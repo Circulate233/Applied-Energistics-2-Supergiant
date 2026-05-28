@@ -4,6 +4,7 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingProvider;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.AEKeyFilter;
@@ -43,6 +44,7 @@ public class NetworkCraftingProviders {
     private final ObjectList<ProviderState> globalProviders = new ObjectArrayList<>();
     private final Object2ObjectMap<IPatternDetails, CraftingProviderList> craftingMethods = new Object2ObjectOpenHashMap<>();
     private final Object2ObjectMap<AEKey, PatternsForKey> craftableItems = new Object2ObjectOpenHashMap<>();
+    private final Object2IntOpenHashMap<AEItemKey> knownPatternDefinitions = new Object2IntOpenHashMap<>();
     /**
      * Used for looking up craftable alternatives using fuzzy search (i.e. ignore NBT).
      */
@@ -51,12 +53,12 @@ public class NetworkCraftingProviders {
 
     private final Set<AEKey> craftableKeys = Collections.unmodifiableSet(craftableItems.keySet());
     private final Set<AEKey> emittableKeys = Collections.unmodifiableSet(emitableItems.keySet());
-
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
     private long nextProviderOrder = 0;
 
     public NetworkCraftingProviders() {
         this.emitableItems.defaultReturnValue(0);
+        this.knownPatternDefinitions.defaultReturnValue(0);
     }
 
     public void addProvider(IGridNode node) {
@@ -133,6 +135,10 @@ public class NetworkCraftingProviders {
 
     public Set<AEKey> getEmittableKeys() {
         return emittableKeys;
+    }
+
+    public boolean isKnownPattern(AEItemKey patternDefinition) {
+        return knownPatternDefinitions.containsKey(patternDefinition);
     }
 
     public Collection<IPatternDetails> getCraftingFor(AEKey whatToCraft) {
@@ -218,6 +224,8 @@ public class NetworkCraftingProviders {
                 methods.emitableItems.merge(emitable, 1, Integer::sum);
             }
             for (var pattern : patterns) {
+                methods.knownPatternDefinitions.merge(pattern.getDefinition(), 1, Integer::sum);
+
                 // output -> pattern (for simulation)
                 var primaryOutput = pattern.getPrimaryOutput();
 
@@ -238,6 +246,9 @@ public class NetworkCraftingProviders {
                 methods.emitableItems.compute(emitable, (ignored, cnt) -> cnt == null || cnt <= 1 ? null : cnt - 1);
             }
             for (var pattern : patterns) {
+                methods.knownPatternDefinitions.compute(pattern.getDefinition(),
+                    (ignored, cnt) -> cnt == null || cnt <= 1 ? null : cnt - 1);
+
                 var primaryOutput = pattern.getPrimaryOutput();
 
                 methods.craftableItemsList.remove(primaryOutput.what(), 1);

@@ -39,6 +39,7 @@ import appeng.api.networking.energy.IEnergyService;
 import appeng.api.networking.events.GridCraftingCpuChange;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.networking.storage.IStorageService;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.storage.AEKeyFilter;
@@ -300,6 +301,11 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     @Override
     public Collection<IPatternDetails> getCraftingFor(AEKey whatToCraft) {
         return this.craftingProviders.getCraftingFor(whatToCraft);
+    }
+
+    @Override
+    public boolean isKnownPattern(AEItemKey patternDefinition) {
+        return this.craftingProviders.isKnownPattern(patternDefinition);
     }
 
     @Override

@@ -53,8 +53,9 @@ import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.items.tools.powered.WirelessUniversalTerminalItem;
 import com.google.common.collect.HashMultimap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongLinkedOpenHashSet;
+import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
@@ -459,14 +460,44 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
     }
 
     private void sendQuickMovePacket(Slot clickedSlot) {
-        var visiblePatternContainers = new LongLinkedOpenHashSet();
-        for (Row row : this.rows) {
-            if (row instanceof SlotsRow slotsRow) {
-                visiblePatternContainers.add(slotsRow.container().getServerId());
+        LongList visiblePatternContainerIds = new LongArrayList();
+        LongList visiblePatternSlots = new LongArrayList();
+        int scroll = this.scrollbar.getCurrentScroll();
+        for (int i = 0; i < this.visibleRows; i++) {
+            if (scroll + i >= this.rows.size()) {
+                break;
+            }
+
+            Row row = this.rows.get(scroll + i);
+            if (row instanceof SlotsRow(PatternContainerEntry container1, int offset, int count)) {
+                int end = offset + count;
+                for (int slot = offset; slot < end; slot++) {
+                    visiblePatternContainerIds.add(container1.getServerId());
+                    visiblePatternSlots.add(slot);
+                }
             }
         }
 
-        InitNetwork.sendToServer(new QuickMovePatternPacket(this.container.windowId, clickedSlot.slotNumber, visiblePatternContainers));
+        InitNetwork.sendToServer(new QuickMovePatternPacket(
+            this.container.windowId,
+            clickedSlot.slotNumber,
+            visiblePatternContainerIds,
+            visiblePatternSlots));
+    }
+
+    @Override
+    public Slot MT_getSlotUnderMouse() {
+        Slot slot = super.MT_getSlotUnderMouse();
+        if (slot instanceof GuiPatternSlot patternSlot && !isVisiblePatternSlot(patternSlot)) {
+            return null;
+        }
+        return slot;
+    }
+
+    @Override
+    public boolean MT_isIgnored(Slot slot) {
+        return super.MT_isIgnored(slot)
+            || slot instanceof GuiPatternSlot patternSlot && !isVisiblePatternSlot(patternSlot);
     }
 
     @Override
@@ -620,6 +651,38 @@ public class GuiPatternAccessTerm<C extends ContainerPatternAccessTerm> extends 
         }
 
         this.lastScroll = scroll;
+    }
+
+    private boolean isVisiblePatternSlot(GuiPatternSlot slot) {
+        if (!this.container.isClientSideSlot(slot)) {
+            return false;
+        }
+
+        int x = slot.xPos - GUI_PADDING_X;
+        int y = slot.yPos - GUI_HEADER_HEIGHT - 1;
+        if (x < 0 || y < 0 || x % SLOT_SIZE != 0 || y % ROW_HEIGHT != 0) {
+            return false;
+        }
+
+        int column = x / SLOT_SIZE;
+        int visibleRow = y / ROW_HEIGHT;
+        if (column < 0 || column >= COLUMNS || visibleRow < 0 || visibleRow >= this.visibleRows) {
+            return false;
+        }
+
+        int rowIndex = this.scrollbar.getCurrentScroll() + visibleRow;
+        if (rowIndex < 0 || rowIndex >= this.rows.size()) {
+            return false;
+        }
+
+        Row row = this.rows.get(rowIndex);
+        if (!(row instanceof SlotsRow(PatternContainerEntry container1, int offset, int slots))) {
+            return false;
+        }
+
+        return slot.getMachineInv() == container1
+            && slot.getSlotIndex() >= offset
+            && slot.getSlotIndex() < offset + slots;
     }
 
     private void clearPatternSlots() {
