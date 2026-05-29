@@ -18,7 +18,7 @@
     "search_settings_title": {
       "position": {
         "left": 8,
-        "top": 110
+        "top": 90
       },
       "text": {
         "translate": "gui.ae2.SearchSettingsTitle"
@@ -48,37 +48,37 @@
     },
     "notifyForFinishedCraftingJobsCheckbox": {
       "left": 10,
-      "top": 50,
+      "top": 45,
       "width": 180
     },
     "clearGridOnCloseCheckbox": {
       "left": 10,
-      "top": 82,
+      "top": 65,
       "width": 180
     },
     "pickBlockCheckbox": {
       "left": 10,
-      "top": 72,
+      "top": 25,
       "width": 180
     },
     "craftIfMissingCheckbox": {
       "left": 10,
-      "top": 88,
+      "top": 45,
       "width": 180
     },
     "restockCheckbox": {
       "left": 10,
-      "top": 104,
+      "top": 65,
       "width": 180
     },
     "magnetCheckbox": {
       "left": 10,
-      "top": 120,
+      "top": 85,
       "width": 85
     },
     "pickupToMECheckbox": {
       "left": 100,
-      "top": 120,
+      "top": 85,
       "width": 90
     },
     "magnetSettingsButton": {
@@ -89,27 +89,27 @@
     },
     "useInternalSearchRadio": {
       "left": 10,
-      "top": 124,
+      "top": 105,
       "width": 75
     },
     "useExternalSearchRadio": {
       "left": 95,
-      "top": 124,
+      "top": 105,
       "width": 75
     },
     "rememberCheckbox": {
       "left": 10,
-      "top": 160,
+      "top": 125,
       "width": 150
     },
     "autoFocusCheckbox": {
       "left": 10,
-      "top": 176,
+      "top": 145,
       "width": 150
     },
     "syncWithExternalCheckbox": {
       "left": 10,
-      "top": 192,
+      "top": 165,
       "width": 150
     },
     "clearExternalCheckbox": {
