@@ -15,7 +15,7 @@ import java.util.Collections;
 import java.util.function.Function;
 
 public class WrappedGenericStackModel implements BasicUnbakedModel {
-    private static final ResourceLocation PARTICLE = AppEng.makeId("blocks/white");
+    private static final ResourceLocation PARTICLE = AppEng.makeId("block/white");
 
     @Override
     public Collection<ResourceLocation> getTextures() {

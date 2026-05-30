@@ -70,7 +70,7 @@ public class CraftingCubeModel implements IModel {
     }
 
     private static ResourceLocation texture(String name) {
-        return new ResourceLocation(AppEng.MOD_ID, "blocks/crafting/" + name);
+        return new ResourceLocation(AppEng.MOD_ID, "block/crafting/" + name);
     }
 
     @Override
