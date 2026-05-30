@@ -11,6 +11,7 @@ import appeng.client.gui.me.common.GuiMEStorage;
 import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.widgets.ActionButton;
 import appeng.client.gui.widgets.IconButton;
+import appeng.client.gui.widgets.PatternModifierPanelWidget;
 import appeng.client.gui.widgets.ServerSettingToggleButton;
 import appeng.client.gui.widgets.SettingToggleButton;
 import appeng.client.gui.widgets.TabButton;
@@ -41,6 +42,7 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
     private final Map<EncodingMode, EncodingModePanel> modePanels = new EnumMap<>(EncodingMode.class);
     private final Map<EncodingMode, TabButton> modeTabButtons = new EnumMap<>(EncodingMode.class);
     private final SettingToggleButton<YesNo> autoFillPatternsButton;
+    private final PatternModifierPanelWidget patternModifierPanel;
 
     public GuiPatternEncodingTerm(ContainerPatternEncodingTerm container, InventoryPlayer playerInventory,
                                   @Nullable ITextComponent title, GuiStyle style) {
@@ -62,6 +64,8 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
                 }
             });
         }
+        this.patternModifierPanel = new PatternModifierPanelWidget(this, new EncodingTerminalPanelHost());
+        this.patternModifierPanel.addButtons();
     }
 
     private static ITextComponent resolveTitle(ContainerPatternEncodingTerm container, @Nullable ITextComponent title) {
@@ -108,6 +112,13 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
                 panel.setVisible(selected);
             }
         }
+        this.patternModifierPanel.update();
+    }
+
+    @Override
+    public void drawBG(int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
+        super.drawBG(offsetX, offsetY, mouseX, mouseY, partialTicks);
+        this.patternModifierPanel.drawBackground();
     }
 
     @Override
@@ -173,5 +184,27 @@ public class GuiPatternEncodingTerm extends GuiMEStorage<ContainerPatternEncodin
         }
 
         super.renderHoveredToolTip(mouseX, mouseY);
+    }
+
+    private final class EncodingTerminalPanelHost implements PatternModifierPanelWidget.PanelHost {
+        @Override
+        public boolean isPatternModifierPanelAvailable() {
+            return container.isPatternModifierPanelAvailable();
+        }
+
+        @Override
+        public void updatePatternModifierPanelVisibleSlots(boolean visible) {
+            container.updatePatternModifierPanelVisibleSlots(visible);
+        }
+
+        @Override
+        public void clearPatternModifierPanel() {
+            container.getPatternModifierPanel().clearPatterns();
+        }
+
+        @Override
+        public void modifyPatternModifierPanelAmounts(int factor, boolean divide) {
+            container.getPatternModifierPanel().modifyAmounts(factor, divide);
+        }
     }
 }

@@ -65,7 +65,6 @@ import net.minecraftforge.fml.common.registry.GameRegistry;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import java.io.File;
 import java.util.Objects;
 
 /**
@@ -100,7 +99,7 @@ public final class AppEngBase implements AppEng {
 
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
-        AEConfig.init(new File(event.getModConfigurationDirectory(), "ae2.cfg"));
+        AEConfig.init();
         LOGGER.info("{} preInit", Tags.MOD_NAME);
         initializeCommonBootstrap();
         runtime().preInit(event);
@@ -161,6 +160,7 @@ public final class AppEngBase implements AppEng {
         }
 
         MinecraftForge.EVENT_BUS.register(this);
+        MinecraftForge.EVENT_BUS.register(AEConfig.instance());
         Capabilities.register();
         MinecraftForge.EVENT_BUS.register(new SkyStoneBreakSpeed());
         MinecraftForge.EVENT_BUS.register(new CableBusLeftClickHook());

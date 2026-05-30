@@ -28,6 +28,8 @@ import net.minecraft.world.WorldServer;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.gen.structure.StructureBoundingBox;
 
+import java.util.Random;
+
 public class MeteoriteStructurePiece {
     private final PlacedMeteoriteSettings settings;
     private final StructureBoundingBox bounds;
@@ -85,7 +87,7 @@ public class MeteoriteStructurePiece {
         return bounds.intersectsWith(chunkBounds);
     }
 
-    public void postProcess(World world, java.util.Random rand, StructureBoundingBox chunkBounds) {
+    public void postProcess(World world, Random rand, StructureBoundingBox chunkBounds) {
         MeteoritePlacer.place(world, settings, chunkBounds, rand);
         updateCompass(world, chunkBounds);
     }

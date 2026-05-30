@@ -1,0 +1,29 @@
+{
+  "type": "ae2:crystal_assembler",
+  "input_items": [
+    {
+      "ingredient": {
+        "item": "ae2:machine_frame"
+      }
+    },
+    {
+      "ingredient": {
+        "item": "ae2:ingredient_buffer"
+      }
+    },
+    {
+      "ingredient": {
+        "item": "ae2:formation_core"
+      }
+    },
+    {
+      "ingredient": {
+        "item": "ae2:annihilation_core"
+      }
+    }
+  ],
+  "output": {
+    "item": "ae2:caner",
+    "count": 1
+  }
+}

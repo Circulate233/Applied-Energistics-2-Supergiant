@@ -28,15 +28,15 @@ import net.minecraftforge.common.capabilities.CapabilityInject;
 
 public final class AECapabilities {
     @CapabilityInject(MEStorage.class)
-    public static final Capability<MEStorage> ME_STORAGE = null;
+    public static Capability<MEStorage> ME_STORAGE;
     @CapabilityInject(ICraftingMachine.class)
-    public static final Capability<ICraftingMachine> CRAFTING_MACHINE = null;
+    public static Capability<ICraftingMachine> CRAFTING_MACHINE;
     @CapabilityInject(GenericInternalInventory.class)
-    public static final Capability<GenericInternalInventory> GENERIC_INTERNAL_INV = null;
+    public static Capability<GenericInternalInventory> GENERIC_INTERNAL_INV;
     @CapabilityInject(ICrankable.class)
-    public static final Capability<ICrankable> CRANKABLE = null;
+    public static Capability<ICrankable> CRANKABLE;
     @CapabilityInject(IInWorldGridNodeHost.class)
-    public static Capability<IInWorldGridNodeHost> IN_WORLD_GRID_NODE_HOST = null;
+    public static Capability<IInWorldGridNodeHost> IN_WORLD_GRID_NODE_HOST;
 
     private AECapabilities() {
     }

@@ -49,11 +49,13 @@ import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.RayTraceResult;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 
 @SuppressWarnings("deprecation")
@@ -94,7 +96,7 @@ public abstract class AEBaseBlock extends Block implements IOrientableBlock {
     protected final BlockStateContainer createBlockState(IProperty<?>... additionalProperties) {
         ObjectSet<IProperty<?>> properties = new ObjectLinkedOpenHashSet<>(
             getOrientationStrategy().getProperties());
-        java.util.Collections.addAll(properties, additionalProperties);
+        Collections.addAll(properties, additionalProperties);
         return new BlockStateContainer(this, properties.toArray(new IProperty<?>[0]));
     }
 
@@ -121,12 +123,12 @@ public abstract class AEBaseBlock extends Block implements IOrientableBlock {
     }
 
     @Override
-    public boolean isOpaqueCube(net.minecraft.block.state.IBlockState state) {
+    public boolean isOpaqueCube(IBlockState state) {
         return this.isOpaque() && this.isFullSize();
     }
 
     @Override
-    public boolean isFullCube(net.minecraft.block.state.IBlockState state) {
+    public boolean isFullCube(IBlockState state) {
         return this.isFullSize();
     }
 
@@ -160,20 +162,20 @@ public abstract class AEBaseBlock extends Block implements IOrientableBlock {
     }
 
     @Override
-    public AxisAlignedBB getBoundingBox(IBlockState state, net.minecraft.world.IBlockAccess source, BlockPos pos) {
+    public AxisAlignedBB getBoundingBox(IBlockState state, IBlockAccess source, BlockPos pos) {
         return this.boundingBox;
     }
 
     @Override
     public void addCollisionBoxToList(IBlockState state, World world, BlockPos pos, AxisAlignedBB bb,
-                                      java.util.List<AxisAlignedBB> out, Entity entity, boolean isActualState) {
+                                      List<AxisAlignedBB> out, Entity entity, boolean isActualState) {
         ICustomCollision collisionHandler = getCustomCollision(world, pos);
         if (collisionHandler == null || bb == null) {
             super.addCollisionBoxToList(state, world, pos, bb, out, entity, isActualState);
             return;
         }
 
-        java.util.List<AxisAlignedBB> boxes = new ObjectArrayList<>();
+        List<AxisAlignedBB> boxes = new ObjectArrayList<>();
         collisionHandler.addCollidingBlockToList(world, pos, bb, boxes, entity);
         for (AxisAlignedBB box : boxes) {
             AxisAlignedBB offset = box.offset(pos);

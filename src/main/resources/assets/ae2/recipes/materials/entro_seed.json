@@ -1,0 +1,44 @@
+{
+  "type": "forge:ore_shapeless",
+  "ingredients": [
+    {
+      "type": "forge:ore_dict",
+      "ore": "sand"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustEnderPearl"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustEnderPearl"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustEnderPearl"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustRedstone"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustRedstone"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustGlowstone"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustGlowstone"
+    },
+    {
+      "item": "ae2:sky_dust"
+    }
+  ],
+  "result": {
+    "item": "ae2:entro_seed",
+    "count": 2
+  }
+}

@@ -21,6 +21,7 @@ package appeng.me.cells;
 import appeng.api.config.Actionable;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKey2LongMap;
 import appeng.api.stacks.AEKeyTypes;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
@@ -31,7 +32,6 @@ import appeng.api.storage.cells.StorageCell;
 import appeng.core.definitions.AEItems;
 import appeng.text.TextComponentItemStack;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.item.ItemStack;
@@ -53,7 +53,7 @@ public class BasicCellInventory implements StorageCell {
     private final ItemStack itemStack;
     private final IBasicCellItem cellType;
     private final ISaveProvider saveProvider;
-    private final Object2LongMap<AEKey> cellItems = new Object2LongOpenHashMap<>();
+    private final AEKey2LongMap cellItems = new AEKey2LongMap.OpenHashMap();
     private long storedItemCount;
     private long storedItems;
     private boolean persisted = true;
@@ -170,7 +170,7 @@ public class BasicCellInventory implements StorageCell {
 
         long inserted = Math.min(amount, remainingItemCount);
         if (mode == Actionable.MODULATE && inserted > 0) {
-            cellItems.put(what, currentAmount + inserted);
+            cellItems.addTo(what, inserted);
             storedItemCount += inserted;
             if (currentAmount <= 0) {
                 storedItems++;

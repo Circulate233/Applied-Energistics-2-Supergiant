@@ -35,6 +35,10 @@ import java.util.Map;
 @SuppressWarnings("unused")
 public final class AEItemIds {
     public static final ResourceLocation NETWORK_TOOL = id("network_tool");
+    public static final ResourceLocation ME_PACKING_TAPE = id("me_packing_tape");
+    public static final ResourceLocation PACKAGE = id("package");
+    public static final ResourceLocation CONFIG_MODIFIER = id("config_modifier");
+    public static final ResourceLocation PATTERN_MODIFIER = id("pattern_modifier");
     public static final ResourceLocation VIEW_CELL = id("view_cell");
     public static final ResourceLocation MEMORY_CARD = id("memory_card");
     public static final ResourceLocation DEBUG_CARD = id("debug_card");
@@ -199,11 +203,17 @@ public final class AEItemIds {
     public static final ResourceLocation CERTUS_QUARTZ_CRYSTAL = id("certus_quartz_crystal");
     public static final ResourceLocation CERTUS_QUARTZ_CRYSTAL_CHARGED = id("charged_certus_quartz_crystal");
     public static final ResourceLocation CERTUS_QUARTZ_DUST = id("certus_quartz_dust");
+    public static final ResourceLocation QUARTZ_BLEND = id("quartz_blend");
     public static final ResourceLocation SILICON = id("silicon");
     public static final ResourceLocation MATTER_BALL = id("matter_ball");
     public static final ResourceLocation FLUIX_CRYSTAL = id("fluix_crystal");
     public static final ResourceLocation FLUIX_DUST = id("fluix_dust");
     public static final ResourceLocation FLUIX_PEARL = id("fluix_pearl");
+    public static final ResourceLocation ENTRO_CRYSTAL = id("entro_crystal");
+    public static final ResourceLocation ENTRO_SEED = id("entro_seed");
+    public static final ResourceLocation ENTRO_DUST = id("entro_dust");
+    public static final ResourceLocation ENTRO_INGOT = id("entro_ingot");
+    public static final ResourceLocation ENTRO_SHARD = id("entro_shard");
     public static final ResourceLocation PURIFIED_CERTUS_QUARTZ_CRYSTAL = id("purified_certus_quartz_crystal");
     public static final ResourceLocation PURIFIED_NETHER_QUARTZ_CRYSTAL = id("purified_nether_quartz_crystal");
     public static final ResourceLocation PURIFIED_FLUIX_CRYSTAL = id("purified_fluix_crystal");
@@ -213,12 +223,15 @@ public final class AEItemIds {
     public static final ResourceLocation CALCULATION_PROCESSOR_PRINT = id("printed_calculation_processor");
     public static final ResourceLocation ENGINEERING_PROCESSOR_PRINT = id("printed_engineering_processor");
     public static final ResourceLocation LOGIC_PROCESSOR_PRINT = id("printed_logic_processor");
+    public static final ResourceLocation CONCURRENT_PROCESSOR_PRINT = id("concurrent_processor_print");
     public static final ResourceLocation SILICON_PRESS = id("silicon_press");
     public static final ResourceLocation SILICON_PRINT = id("printed_silicon");
     public static final ResourceLocation NAME_PRESS = id("name_press");
+    public static final ResourceLocation CONCURRENT_PROCESSOR_PRESS = id("concurrent_processor_press");
     public static final ResourceLocation LOGIC_PROCESSOR = id("logic_processor");
     public static final ResourceLocation CALCULATION_PROCESSOR = id("calculation_processor");
     public static final ResourceLocation ENGINEERING_PROCESSOR = id("engineering_processor");
+    public static final ResourceLocation CONCURRENT_PROCESSOR = id("concurrent_processor");
     public static final ResourceLocation BASIC_CARD = id("basic_card");
     public static final ResourceLocation REDSTONE_CARD = id("redstone_card");
     public static final ResourceLocation CAPACITY_CARD = id("capacity_card");
@@ -229,6 +242,7 @@ public final class AEItemIds {
     public static final ResourceLocation INVERTER_CARD = id("inverter_card");
     public static final ResourceLocation CRAFTING_CARD = id("crafting_card");
     public static final ResourceLocation PSEUDO_CRAFTING_CARD = id("pseudo_crafting_card");
+    public static final ResourceLocation PATTERN_EXPANSION_CARD = id("pattern_expansion_card");
     public static final ResourceLocation ENERGY_CARD = id("energy_card");
     public static final ResourceLocation EQUAL_DISTRIBUTION_CARD = id("equal_distribution_card");
     public static final ResourceLocation STICKY_CARD = id("sticky_card");

@@ -1,0 +1,21 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "LCE"
+  ],
+  "key": {
+    "C": {
+      "item": "ae2:logic_processor"
+    },
+    "E": {
+      "item": "ae2:export_bus"
+    },
+    "L": {
+      "item": "ae2:level_emitter"
+    }
+  },
+  "result": {
+    "item": "ae2:threshold_export_bus",
+    "count": 1
+  }
+}

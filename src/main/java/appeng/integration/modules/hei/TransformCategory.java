@@ -14,7 +14,6 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fluids.Fluid;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Arrays;
 import java.util.List;
 
 @ParametersAreNonnullByDefault
@@ -105,7 +104,7 @@ class TransformCategory implements IRecipeCategory<TransformRecipeWrapper> {
             itemStacks.init(catalystSlot, true, layout.catalystX(), layout.yOffset());
             itemStacks.setBackground(catalystSlot, this.slotDrawable);
             itemStacks.set(catalystSlot,
-                Arrays.asList(AEBlocks.TINY_TNT.stack(), new ItemStack(net.minecraft.init.Blocks.TNT)));
+                List.of(AEBlocks.TINY_TNT.stack(), new ItemStack(net.minecraft.init.Blocks.TNT)));
         }
 
         itemStacks.init(200, false, layout.outputX(), layout.yOffset());

@@ -1,0 +1,22 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "GPG",
+    " L "
+  ],
+  "key": {
+    "G": {
+      "type": "forge:ore_dict",
+      "ore": "dyeGreen"
+    },
+    "P": {
+      "item": "ae2:blank_pattern"
+    },
+    "L": {
+      "item": "ae2:logic_processor"
+    }
+  },
+  "result": {
+    "item": "ae2:pattern_modifier"
+  }
+}

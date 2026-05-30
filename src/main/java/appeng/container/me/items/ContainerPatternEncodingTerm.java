@@ -11,6 +11,7 @@ import appeng.api.storage.StorageHelper;
 import appeng.container.GuiIds;
 import appeng.container.SlotSemantics;
 import appeng.container.guisync.GuiSync;
+import appeng.container.implementations.PatternModifierPanel;
 import appeng.container.me.common.ContainerMEStorage;
 import appeng.container.slot.FakeSlot;
 import appeng.container.slot.PatternTermSlot;
@@ -38,7 +39,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Arrays;
 
-public class ContainerPatternEncodingTerm extends ContainerMEStorage {
+public class ContainerPatternEncodingTerm extends ContainerMEStorage implements PatternModifierPanel.Host {
     private static final int CRAFTING_GRID_WIDTH = 3;
     private static final int CRAFTING_GRID_HEIGHT = 3;
     private static final int CRAFTING_GRID_SLOTS = CRAFTING_GRID_WIDTH * CRAFTING_GRID_HEIGHT;
@@ -67,6 +68,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
     private final RestrictedInputSlot encodedPatternSlot;
     private final ConfigInventory encodedInputsInv;
     private final ConfigInventory encodedOutputsInv;
+    private final PatternModifierPanel patternModifierPanel;
     @GuiSync(97)
     public EncodingMode mode;
     @GuiSync(96)
@@ -75,6 +77,8 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
     public boolean substituteFluids;
     @GuiSync(94)
     public YesNo autoFillPatterns = YesNo.NO;
+    @GuiSync(93)
+    public boolean patternModifierPanelAvailable;
     @Nullable
     private IRecipe currentRecipe;
     private boolean clearOnClose;
@@ -126,6 +130,8 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
         registerClientAction(ACTION_SET_SUBSTITUTION, Boolean.class, this::changeSubstitution);
         registerClientAction(ACTION_SET_FLUID_SUBSTITUTION, Boolean.class, this::changeFluidSubstitution);
         registerClientAction(ACTION_CYCLE_PROCESSING_OUTPUT, this::cycleProcessingOutput);
+        this.patternModifierPanel = new PatternModifierPanel(this);
+        this.patternModifierPanelAvailable = this.patternModifierPanel.isAvailable();
 
         updateSlotVisibility();
         getAndUpdateOutput();
@@ -141,6 +147,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
             this.substitute = this.encodingLogic.isSubstitution();
             this.substituteFluids = this.encodingLogic.isFluidSubstitution();
             this.autoFillPatterns = getHost().getConfigManager().getSetting(Settings.PATTERN_AUTO_FILL);
+            this.patternModifierPanelAvailable = this.patternModifierPanel.isAvailable();
         }
     }
 
@@ -196,6 +203,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
         for (FakeSlot slot : this.processingOutputSlots) {
             slot.setActive(processing);
         }
+        this.patternModifierPanel.updateSlotState(this.patternModifierPanelAvailable);
     }
 
     private ItemStack getAndUpdateOutput() {
@@ -286,15 +294,26 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
         }
 
         if (encodedOutput.isEmpty()) {
-            ItemStack blankPattern = this.blankPatternSlot.getStack().copy();
-            if (!AEItems.BLANK_PATTERN.is(blankPattern)) {
+            if (!consumeBlankPatternForEncoding()) {
                 return;
             }
-            blankPattern.shrink(1);
-            this.blankPatternSlot.putStack(blankPattern);
         }
 
-        this.encodedPatternSlot.putStack(encodedPattern);
+        ItemStack remaining = this.patternModifierPanel.insertPattern(encodedPattern.copy(), false);
+        if (remaining.isEmpty()) {
+            return;
+        }
+        this.encodedPatternSlot.putStack(remaining);
+    }
+
+    private boolean consumeBlankPatternForEncoding() {
+        ItemStack blankPattern = this.blankPatternSlot.getStack().copy();
+        if (AEItems.BLANK_PATTERN.is(blankPattern)) {
+            blankPattern.shrink(1);
+            this.blankPatternSlot.putStack(blankPattern);
+            return true;
+        }
+        return this.patternModifierPanel.consumeBlankPattern();
     }
 
     private void tryAutoFillBlankPatterns() {
@@ -506,6 +525,33 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage {
 
     public YesNo getAutoFillPatterns() {
         return this.autoFillPatterns;
+    }
+
+    public boolean isPatternModifierPanelAvailable() {
+        return this.patternModifierPanelAvailable;
+    }
+
+    public PatternModifierPanel getPatternModifierPanel() {
+        return this.patternModifierPanel;
+    }
+
+    @Override
+    public void registerPatternModifierPanelAction(String action, Runnable runnable) {
+        registerClientAction(action, runnable);
+    }
+
+    @Override
+    public void sendPatternModifierPanelAction(String action) {
+        sendClientAction(action);
+    }
+
+    @Override
+    public void lockPatternModifierPlayerInventorySlot(int slot) {
+        lockPlayerInventorySlot(slot);
+    }
+
+    public void updatePatternModifierPanelVisibleSlots(boolean visible) {
+        this.patternModifierPanel.updateSlotState(visible && this.patternModifierPanelAvailable);
     }
 
     private void changeFluidSubstitution(boolean substituteFluids) {

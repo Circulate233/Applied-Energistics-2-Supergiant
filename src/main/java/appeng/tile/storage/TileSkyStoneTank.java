@@ -24,10 +24,12 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraftforge.common.capabilities.Capability;
+import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidTank;
 import net.minecraftforge.fluids.FluidUtil;
 import net.minecraftforge.fluids.capability.CapabilityFluidHandler;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fml.common.network.ByteBufUtils;
 
 import javax.annotation.Nullable;
 
@@ -35,7 +37,7 @@ public class TileSkyStoneTank extends AEBaseTile {
 
     public static final int BUCKET_CAPACITY = 16;
 
-    private final FluidTank tank = new FluidTank(net.minecraftforge.fluids.Fluid.BUCKET_VOLUME * BUCKET_CAPACITY) {
+    private final FluidTank tank = new FluidTank(Fluid.BUCKET_VOLUME * BUCKET_CAPACITY) {
         @Override
         protected void onContentsChanged() {
             TileSkyStoneTank.this.markForUpdate();
@@ -75,7 +77,7 @@ public class TileSkyStoneTank extends AEBaseTile {
     protected boolean readFromStream(ByteBuf data) {
         super.readFromStream(data);
         try {
-            NBTTagCompound tag = net.minecraftforge.fml.common.network.ByteBufUtils.readTag(data);
+            NBTTagCompound tag = ByteBufUtils.readTag(data);
             this.tank.readFromNBT(tag == null ? new NBTTagCompound() : tag);
             return true;
         } catch (Exception e) {
@@ -88,7 +90,7 @@ public class TileSkyStoneTank extends AEBaseTile {
         super.writeToStream(data);
         NBTTagCompound tag = new NBTTagCompound();
         this.tank.writeToNBT(tag);
-        net.minecraftforge.fml.common.network.ByteBufUtils.writeTag(data, tag);
+        ByteBufUtils.writeTag(data, tag);
     }
 
     @Override

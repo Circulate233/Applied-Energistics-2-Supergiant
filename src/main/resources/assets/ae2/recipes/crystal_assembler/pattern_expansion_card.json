@@ -1,0 +1,24 @@
+{
+  "type": "ae2:crystal_assembler",
+  "input_items": [
+    {
+      "ingredient": {
+        "item": "ae2:advanced_card"
+      }
+    },
+    {
+      "ingredient": {
+        "item": "ae2:concurrent_processor"
+      }
+    },
+    {
+      "ingredient": {
+        "item": "ae2:pattern_provider"
+      }
+    }
+  ],
+  "output": {
+    "item": "ae2:pattern_expansion_card",
+    "count": 1
+  }
+}

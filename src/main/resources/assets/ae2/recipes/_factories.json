@@ -7,6 +7,7 @@
     "quartz_cutting": "appeng.recipes.serializers.QuartzCuttingRecipeFactory",
     "charger": "appeng.recipes.serializers.ChargerRecipeFactory",
     "inscriber": "appeng.recipes.serializers.InscriberRecipeFactory",
+    "crystal_assembler": "appeng.recipes.serializers.CrystalAssemblerRecipeFactory",
     "matter_cannon": "appeng.recipes.serializers.MatterCannonAmmoRecipeFactory",
     "storage_cell_disassembly": "appeng.recipes.serializers.StorageCellDisassemblyRecipeFactory",
     "transform": "appeng.recipes.serializers.TransformRecipeFactory",

@@ -32,6 +32,7 @@ import com.google.common.base.Preconditions;
 import net.minecraft.item.ItemStack;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Implement this on any item to register a "basic cell", which is a cell that works similarly to AE2's own item and
@@ -146,7 +147,7 @@ public interface IBasicCellItem extends ICellWorkbenchItem, IStackTooltipDataPro
     }
 
     @Override
-    default java.util.Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack is) {
+    default Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack is) {
         Preconditions.checkArgument(is.getItem() == this);
         return BasicCellHandler.INSTANCE.getTooltipData(is);
     }

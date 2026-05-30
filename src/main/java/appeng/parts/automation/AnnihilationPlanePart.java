@@ -20,7 +20,11 @@ package appeng.parts.automation;
 
 import appeng.api.behaviors.PickupStrategy;
 import appeng.api.config.Actionable;
-import appeng.api.networking.GridFlags;
+import appeng.api.config.FuzzyMode;
+import appeng.api.config.IncludeExclude;
+import appeng.api.config.Setting;
+import appeng.api.config.Settings;
+import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridNode;
 import appeng.api.networking.IGridNodeListener;
 import appeng.api.networking.security.IActionSource;
@@ -32,15 +36,22 @@ import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.storage.StorageHelper;
 import appeng.api.util.AECableType;
+import appeng.api.util.IConfigManager;
+import appeng.api.util.IConfigManagerBuilder;
+import appeng.container.GuiIds;
 import appeng.core.AEConfig;
 import appeng.core.definitions.AEItems;
+import appeng.core.gui.GuiOpener;
 import appeng.core.settings.TickRates;
+import appeng.helpers.IConfigInvHost;
 import appeng.items.parts.PartModels;
 import appeng.me.helpers.MachineSource;
-import appeng.parts.AEBasePart;
+import appeng.util.ConfigInventory;
 import appeng.util.SettingsFrom;
+import appeng.util.prioritylist.IPartitionList;
 import it.unimi.dsi.fastutil.objects.Object2IntLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntMaps;
@@ -54,15 +65,18 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
+import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.WorldServer;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
-public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
+public class AnnihilationPlanePart extends UpgradeablePart implements IGridTickable, IConfigInvHost {
 
     private static final String VANILLA_ENCHANTMENTS_TAG = "ench";
     private static final String PART_ENCHANTMENTS_TAG = "enchantments";
@@ -70,16 +84,27 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
         "part/annihilation_plane_on");
     private final IActionSource actionSource = new MachineSource(this);
     private final PlaneConnectionHelper connectionHelper = new PlaneConnectionHelper(this);
+    private IPartitionList filter;    private final ConfigInventory config = ConfigInventory.configTypes(63)
+                                                          .supportedTypes(AEKeyType.items(), AEKeyType.fluids())
+                                                          .changeListener(this::updateFilter)
+                                                          .build();
     @Nullable
     protected List<PickupStrategy> pickupStrategies;
     private Object2IntMap<Enchantment> enchantments = new Object2IntLinkedOpenHashMap<>();
     private ContinuousGeneration continuousGeneration;
     private int continuousGenerationTicks;
+    private IncludeExclude listMode = IncludeExclude.WHITELIST;
+
+    static boolean shouldInsertWithFilter(boolean hasFilterEntries, boolean matchesFilter, boolean inverted) {
+        if (!hasFilterEntries) {
+            return true;
+        }
+        return inverted != matchesFilter;
+    }
 
     public AnnihilationPlanePart(IPartItem<?> partItem) {
         super(partItem);
         getMainNode().addService(IGridTickable.class, this);
-        getMainNode().setFlags(GridFlags.REQUIRE_CHANNEL);
     }
 
     @PartModels
@@ -109,6 +134,61 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
         return new Object2IntLinkedOpenHashMap<>();
     }
 
+    static int getActiveConfigSlots(int capacityCards) {
+        return Math.min(63, 18 + Math.max(0, capacityCards) * 9);
+    }
+
+    @Override
+    protected void registerSettings(IConfigManagerBuilder builder) {
+        super.registerSettings(builder);
+        builder.registerSetting(Settings.FUZZY_MODE, FuzzyMode.IGNORE_ALL);
+    }
+
+    @Override
+    protected int getUpgradeSlots() {
+        return 5;
+    }
+
+    @Override
+    public void upgradesChanged() {
+        this.updateFilter();
+    }
+
+    @Override
+    protected void onSettingChanged(IConfigManager manager, Setting<?> setting) {
+        this.updateFilter();
+    }
+
+    private void updateFilter() {
+        var builder = IPartitionList.builder();
+        int slotsToUse = getActiveConfigSlots(getInstalledUpgrades(AEItems.CAPACITY_CARD));
+        for (int slot = 0; slot < this.config.size() && slot < slotsToUse; slot++) {
+            builder.add(this.config.getKey(slot));
+        }
+        if (isUpgradedWith(AEItems.FUZZY_CARD)) {
+            builder.fuzzyMode(getConfigManager().getSetting(Settings.FUZZY_MODE));
+        }
+        this.filter = builder.build();
+        this.listMode = isUpgradedWith(AEItems.INVERTER_CARD) ? IncludeExclude.BLACKLIST : IncludeExclude.WHITELIST;
+        this.refresh();
+    }
+
+    private IPartitionList getFilter() {
+        if (this.filter == null) {
+            updateFilter();
+        }
+        return this.filter;
+    }
+
+    @Override
+    public void readFromNBT(NBTTagCompound data) {
+        super.readFromNBT(data);
+
+        this.enchantments = readEnchantmentsFromTag(data);
+        this.config.readFromChildTag(data, "config");
+        this.updateFilter();
+    }
+
     @Override
     public void addToWorld() {
         super.addToWorld();
@@ -125,19 +205,13 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
     }
 
     @Override
-    public void readFromNBT(NBTTagCompound data) {
-        super.readFromNBT(data);
-
-        this.enchantments = readEnchantmentsFromTag(data);
-    }
-
-    @Override
     public void writeToNBT(NBTTagCompound data) {
         super.writeToNBT(data);
 
         if (!this.enchantments.isEmpty()) {
             data.setTag(PART_ENCHANTMENTS_TAG, writeEnchantments(this.enchantments));
         }
+        this.config.writeToChildTag(data, "config");
     }
 
     @Override
@@ -147,6 +221,15 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
             this.enchantments = readEnchantmentsFromTag(data);
         }
         this.pickupStrategies = null;
+        this.updateFilter();
+    }
+
+    @Override
+    public boolean onUseWithoutItem(EntityPlayer player, Vec3d pos) {
+        if (!isClientSide()) {
+            GuiOpener.openPartGui(player, GuiIds.GuiKey.ANNIHILATION_PLANE, this);
+        }
+        return true;
     }
 
     @Override
@@ -158,8 +241,12 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
         }
     }
 
-    public Object2IntMap<Enchantment> getEnchantments() {
-        return Object2IntMaps.unmodifiable(this.enchantments);
+    @Override
+    public boolean onUseItemOn(ItemStack heldItem, EntityPlayer player, EnumHand hand, Vec3d pos) {
+        if (super.onUseItemOn(heldItem, player, hand, pos)) {
+            return true;
+        }
+        return this.onUseWithoutItem(player, pos);
     }
 
     protected List<PickupStrategy> getPickupStrategies() {
@@ -176,47 +263,15 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
             TileEntity self = this.getHost().getTileEntity();
             BlockPos pos = self.getPos().offset(partSide);
             EnumFacing side = partSide.getOpposite();
-            java.util.UUID owner = node.getOwningPlayerProfileId();
+            UUID owner = node.getOwningPlayerProfileId();
             this.pickupStrategies = StackWorldBehaviors.createPickupStrategies((WorldServer) self.getWorld(),
                 pos, side, self, this.enchantments, owner);
         }
         return this.pickupStrategies;
     }
 
-    @Override
-    public void getBoxes(IPartCollisionHelper bch) {
-        if (bch.isBBCollision()) {
-            bch.addBox(0, 0, 14, 16, 16, 15.5);
-            return;
-        }
-
-        this.connectionHelper.getBoxes(bch);
-    }
-
-    public PlaneConnections getConnections() {
-        return this.connectionHelper.getConnections();
-    }
-
-    @Override
-    public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
-        if (pos.offset(this.getSide()).equals(neighbor) && !isClientSide()) {
-            this.refresh();
-        }
-    }
-
-    @Override
-    public void onUpdateShape(EnumFacing side) {
-        EnumFacing ourSide = getSide();
-        if (ourSide == null) {
-            return;
-        }
-        if (side == ourSide) {
-            if (!isClientSide()) {
-                this.refresh();
-            }
-        } else if (ourSide.getAxis() != side.getAxis()) {
-            this.connectionHelper.updateConnections();
-        }
+    public Object2IntMap<Enchantment> getEnchantments() {
+        return Object2IntMaps.unmodifiable(this.enchantments);
     }
 
     @Override
@@ -225,7 +280,7 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
             return;
         }
 
-        appeng.api.networking.IGrid grid = getMainNode().getGrid();
+        IGrid grid = getMainNode().getGrid();
         if (grid == null) {
             return;
         }
@@ -275,22 +330,39 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
     }
 
     @Override
-    public float getCableConnectionLength(AECableType cable) {
-        return 1;
+    public void getBoxes(IPartCollisionHelper bch) {
+        if (bch.isBBCollision()) {
+            bch.addBox(0, 0, 14, 16, 16, 15.5);
+            return;
+        }
+
+        this.connectionHelper.getBoxes(bch);
+    }
+
+    public PlaneConnections getConnections() {
+        return this.connectionHelper.getConnections();
     }
 
     @Override
-    protected void onMainNodeStateChanged(IGridNodeListener.State reason) {
-        super.onMainNodeStateChanged(reason);
-
-        if (getMainNode().hasGridBooted()) {
+    public void onNeighborChanged(IBlockAccess level, BlockPos pos, BlockPos neighbor) {
+        if (pos.offset(this.getSide()).equals(neighbor) && !isClientSide()) {
             this.refresh();
         }
     }
 
     @Override
-    public TickingRequest getTickingRequest(IGridNode node) {
-        return new TickingRequest(TickRates.AnnihilationPlane, false);
+    public void onUpdateShape(EnumFacing side) {
+        EnumFacing ourSide = getSide();
+        if (ourSide == null) {
+            return;
+        }
+        if (side == ourSide) {
+            if (!isClientSide()) {
+                this.refresh();
+            }
+        } else if (ourSide.getAxis() != side.getAxis()) {
+            this.connectionHelper.updateConnections();
+        }
     }
 
     @Override
@@ -299,7 +371,7 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
             return TickRateModulation.SLEEP;
         }
 
-        appeng.api.networking.IGrid grid = node.grid();
+        IGrid grid = node.grid();
 
         if (this.continuousGeneration != null) {
             this.continuousGenerationTicks += ticksSinceLastCall;
@@ -330,6 +402,41 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
         return TickRateModulation.SLEEP;
     }
 
+    @Override
+    public float getCableConnectionLength(AECableType cable) {
+        return 1;
+    }
+
+    @Override
+    protected void onMainNodeStateChanged(IGridNodeListener.State reason) {
+        super.onMainNodeStateChanged(reason);
+
+        if (getMainNode().hasGridBooted()) {
+            this.refresh();
+        }
+    }
+
+    @Override
+    public TickingRequest getTickingRequest(IGridNode node) {
+        return new TickingRequest(TickRates.AnnihilationPlane, false);
+    }
+
+    private long insertIntoGrid(AEKey what, long amount, Actionable mode) {
+        IGrid grid = getMainNode().getGrid();
+        if (grid == null) {
+            return 0;
+        }
+        if (!this.getFilter().matchesFilter(what, this.listMode)) {
+            return 0;
+        }
+        long inserted = StorageHelper.poweredInsert(grid.getEnergyService(), grid.getStorageService().getInventory(),
+            what, amount, this.actionSource, mode);
+        if (inserted < amount && isUpgradedWith(AEItems.VOID_CARD)) {
+            return amount;
+        }
+        return inserted;
+    }
+
     private void refresh() {
         for (PickupStrategy pickupStrategy : getPickupStrategies()) {
             pickupStrategy.reset();
@@ -338,14 +445,12 @@ public class AnnihilationPlanePart extends AEBasePart implements IGridTickable {
         getMainNode().ifPresent((g, n) -> g.getTickManager().alertDevice(n));
     }
 
-    private long insertIntoGrid(AEKey what, long amount, Actionable mode) {
-        appeng.api.networking.IGrid grid = getMainNode().getGrid();
-        if (grid == null) {
-            return 0;
-        }
-        return StorageHelper.poweredInsert(grid.getEnergyService(), grid.getStorageService().getInventory(),
-            what, amount, this.actionSource, mode);
+    @Override
+    public ConfigInventory getConfig() {
+        return this.config;
     }
+
+
 
     @Override
     public IPartModel getStaticModels() {

@@ -7,18 +7,18 @@
   ],
   "background": {
     "texture": "guis/interface.png",
-    "srcRect": [0, 0, 176, 207]
+    "srcRect": [0, 0, 176, 253]
   },
   "slots": {
     "CONFIG": {
       "left": 8,
       "top": 53,
-      "grid": "HORIZONTAL"
+      "grid": "BREAK_AFTER_9COLS"
     },
     "STORAGE": {
       "left": 8,
-      "top": 71,
-      "grid": "HORIZONTAL"
+      "top": 113,
+      "grid": "BREAK_AFTER_9COLS"
     }
   },
   "text": {
@@ -33,7 +33,7 @@
     },
     "interface_config": {
       "text": {
-        "translate": "gui.ae2.Config"
+        "translate": "gui.ae2.InterfaceConfigPage"
       },
       "position": {
         "left": 8,
@@ -46,13 +46,25 @@
       },
       "position": {
         "left": 8,
-        "top": 91
+        "top": 155
       }
     }
   },
   "widgets": {
     "openPriority": {
       "left": 152,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "previousPage": {
+      "left": 116,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "nextPage": {
+      "left": 134,
       "top": -5,
       "width": 20,
       "height": 20
@@ -108,6 +120,60 @@
     "amtButton9": {
       "left": 152,
       "top": 35,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton10": {
+      "left": 8,
+      "top": 95,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton11": {
+      "left": 26,
+      "top": 95,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton12": {
+      "left": 44,
+      "top": 95,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton13": {
+      "left": 62,
+      "top": 95,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton14": {
+      "left": 80,
+      "top": 95,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton15": {
+      "left": 98,
+      "top": 95,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton16": {
+      "left": 116,
+      "top": 95,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton17": {
+      "left": 134,
+      "top": 95,
+      "width": 16,
+      "height": 16
+    },
+    "amtButton18": {
+      "left": 152,
+      "top": 95,
       "width": 16,
       "height": 16
     }

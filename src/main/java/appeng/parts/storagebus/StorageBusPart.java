@@ -100,7 +100,7 @@ public class StorageBusPart extends UpgradeablePart
     private static StatBase recursiveNetworkingStat;
 
     protected final IActionSource source;
-    private final StorageBusInventory handler = new StorageBusInventory(NullInventory.of());
+    protected final StorageBusInventory handler = createHandler();
     private final PartAdjacentApi<MEStorage> adjacentStorageAccessor;
     @Nullable
     private ITextComponent handlerDescription;    private final ConfigInventory config = ConfigInventory.configTypes(63)
@@ -163,7 +163,7 @@ public class StorageBusPart extends UpgradeablePart
         }
     }
 
-    private void remountStorage() {
+    protected void remountStorage() {
         IStorageProvider.requestUpdate(getMainNode());
     }
 
@@ -179,7 +179,7 @@ public class StorageBusPart extends UpgradeablePart
         this.onConfigurationChanged();
     }
 
-    private void scheduleUpdate() {
+    protected void scheduleUpdate() {
         if (isClientSide()) {
             return;
         }
@@ -285,6 +285,10 @@ public class StorageBusPart extends UpgradeablePart
         return this.handler.getDelegate();
     }
 
+    protected StorageBusInventory createHandler() {
+        return new StorageBusInventory(NullInventory.of());
+    }
+
     private boolean hasRegisteredCellToNetwork() {
         return getMainNode().isOnline() && !(this.handler.getDelegate() instanceof NullInventory);
     }
@@ -307,7 +311,7 @@ public class StorageBusPart extends UpgradeablePart
         this.scheduleUpdate();
     }
 
-    private void updateTarget(boolean forceFullUpdate) {
+    protected void updateTarget(boolean forceFullUpdate) {
         if (isClientSide()) {
             return;
         }
@@ -385,11 +389,11 @@ public class StorageBusPart extends UpgradeablePart
         }
     }
 
-    private boolean isExtractableOnly() {
+    protected boolean isExtractableOnly() {
         return this.getConfigManager().getSetting(Settings.STORAGE_FILTER) == StorageFilter.EXTRACTABLE_ONLY;
     }
 
-    private IPartitionList createFilter() {
+    protected IPartitionList createFilter() {
         KeyCounter filterKeys = new KeyCounter();
         FuzzyMode fuzzyMode = isUpgradedWith(AEItems.FUZZY_CARD)
             ? this.getConfigManager().getSetting(Settings.FUZZY_MODE)
@@ -426,7 +430,7 @@ public class StorageBusPart extends UpgradeablePart
         getMainNode().ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
     }
 
-    void clearCachedExternalStorageStrategies() {
+    protected void clearCachedExternalStorageStrategies() {
         this.externalStorageStrategies = null;
     }
 
@@ -517,8 +521,8 @@ public class StorageBusPart extends UpgradeablePart
         NO_UPDATE
     }
 
-    private static class StorageBusInventory extends MEInventoryHandler {
-        StorageBusInventory(MEStorage inventory) {
+    protected static class StorageBusInventory extends MEInventoryHandler {
+        protected StorageBusInventory(MEStorage inventory) {
             super(inventory);
         }
 

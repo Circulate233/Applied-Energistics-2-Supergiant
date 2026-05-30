@@ -6,6 +6,7 @@ import appeng.recipes.transform.TransformCircumstance;
 import appeng.recipes.transform.TransformRecipe;
 import com.google.common.base.Splitter;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
 import mezz.jei.api.ingredients.IIngredients;
 import mezz.jei.api.ingredients.VanillaTypes;
@@ -17,6 +18,7 @@ import net.minecraftforge.fluids.Fluid;
 import net.minecraftforge.fluids.FluidStack;
 
 import javax.annotation.ParametersAreNonnullByDefault;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -32,10 +34,10 @@ class TransformRecipeWrapper implements IRecipeWrapper {
 
     TransformRecipeWrapper(TransformRecipe recipe) {
         this.recipe = recipe;
-        it.unimi.dsi.fastutil.objects.ObjectList<List<ItemStack>> inputLists = new ObjectArrayList<>();
+        ObjectList<List<ItemStack>> inputLists = new ObjectArrayList<>();
         for (var ingredient : this.recipe.getIngredients()) {
             ItemStack[] stacks = ingredient.getMatchingStacks();
-            inputLists.add(stacks.length == 0 ? ObjectLists.singleton(ItemStack.EMPTY) : java.util.Arrays.asList(stacks));
+            inputLists.add(stacks.length == 0 ? ObjectLists.singleton(ItemStack.EMPTY) : Arrays.asList(stacks));
         }
         this.inputs = ObjectLists.unmodifiable(inputLists);
         this.outputs = ObjectLists.singleton(this.recipe.getResultItem());

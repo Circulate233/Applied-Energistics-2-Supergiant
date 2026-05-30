@@ -1,0 +1,98 @@
+{
+  "$schema": "schema.json",
+  "includes": [
+    "common/common.json",
+    "common/player_inventory.json",
+    "common/toolbox.json"
+  ],
+  "background": {
+    "texture": "guis/od_storage_bus.png",
+    "srcRect": [
+      0,
+      0,
+      176,
+      209
+    ]
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "gui.ae2.ODStorageBus"
+      },
+      "position": {
+        "left": 8,
+        "top": 4
+      }
+    },
+    "whitelist": {
+      "text": {
+        "translate": "gui.ae2.ODFilterWhite"
+      },
+      "position": {
+        "left": 8,
+        "top": 54
+      },
+      "align": "LEFT"
+    },
+    "blacklist": {
+      "text": {
+        "translate": "gui.ae2.ODFilterBlack"
+      },
+      "position": {
+        "right": 8,
+        "top": 56
+      },
+      "align": "RIGHT"
+    },
+    "tooltip_left": {
+      "text": {
+        "translate": "gui.ae2.ODFilterDesc1"
+      },
+      "position": {
+        "left": 8,
+        "top": 94
+      },
+      "align": "LEFT"
+    },
+    "tooltip_right": {
+      "text": {
+        "translate": "gui.ae2.ODFilterDesc2"
+      },
+      "position": {
+        "right": 8,
+        "top": 94
+      },
+      "align": "RIGHT"
+    },
+    "tooltip_bottom": {
+      "text": {
+        "translate": "gui.ae2.ODFilterDesc3"
+      },
+      "position": {
+        "left": 8,
+        "top": 104
+      },
+      "align": "LEFT"
+    }
+  },
+  "widgets": {
+    "whiteExpression": {
+      "left": 8,
+      "top": 26,
+      "width": 160,
+      "height": 26
+    },
+    "blackExpression": {
+      "left": 8,
+      "top": 66,
+      "width": 160,
+      "height": 26
+    },
+    "openPriority": {
+      "left": 152,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    }
+  }
+}

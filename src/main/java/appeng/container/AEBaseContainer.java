@@ -79,6 +79,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
+import javax.annotation.Nonnull;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -277,15 +278,17 @@ public abstract class AEBaseContainer extends Container {
     }
 
     public void removeClientSideSlot(Slot slot) {
-        if (this.inventorySlots.get(slot.slotNumber) != slot) {
-            throw new IllegalStateException("Trying to remove slot which isn't currently in the container");
-        }
         if (!this.clientSideSlots.remove(slot)) {
             throw new IllegalStateException("Trying to remove slot which isn't a client-side slot");
         }
 
-        this.inventorySlots.remove(slot.slotNumber);
-        this.inventoryItemStacks.remove(slot.slotNumber);
+        int slotIndex = this.inventorySlots.indexOf(slot);
+        if (slotIndex < 0) {
+            throw new IllegalStateException("Trying to remove slot which isn't currently in the container");
+        }
+
+        this.inventorySlots.remove(slotIndex);
+        this.inventoryItemStacks.remove(slotIndex);
 
         SlotSemantic semantic = this.semanticBySlot.remove(slot);
         if (semantic != null) {
@@ -298,7 +301,7 @@ public abstract class AEBaseContainer extends Container {
             }
         }
 
-        for (int i = slot.slotNumber; i < this.inventorySlots.size(); i++) {
+        for (int i = slotIndex; i < this.inventorySlots.size(); i++) {
             this.inventorySlots.get(i).slotNumber = i;
         }
     }
@@ -327,6 +330,10 @@ public abstract class AEBaseContainer extends Container {
 
     @Override
     public ItemStack slotClick(int slotId, int dragType, ClickType clickTypeIn, EntityPlayer player) {
+        if (isClickOnLockedPlayerInventorySlot(slotId, clickTypeIn, dragType)) {
+            return ItemStack.EMPTY;
+        }
+
         int offhandInventorySlot = getOffhandPlayerInventorySlot();
         if (isPlayerInventorySlotLocked(offhandInventorySlot)
             && isSwapClickOnPlayerInventorySlot(clickTypeIn, dragType, offhandInventorySlot)) {
@@ -367,6 +374,10 @@ public abstract class AEBaseContainer extends Container {
             setValidContainer(false);
             return false;
         }
+        return canInteractiveDistance(player, tileEntityHost);
+    }
+
+    protected boolean canInteractiveDistance(@Nonnull EntityPlayer player, @Nonnull TileEntity tileEntityHost) {
         return player.getDistanceSq(tileEntityHost.getPos()) <= 64.0D;
     }
 
@@ -381,7 +392,7 @@ public abstract class AEBaseContainer extends Container {
         }
 
         Slot clickSlot = inventorySlots.get(index);
-        if (clickSlot == null || !clickSlot.canTakeStack(player)) {
+        if (clickSlot == null || !clickSlot.canTakeStack(player) || isLockedPlayerInventorySlot(clickSlot)) {
             return ItemStack.EMPTY;
         }
 
@@ -487,7 +498,25 @@ public abstract class AEBaseContainer extends Container {
         return isPlayerSideSlot(candidateSlot) != fromPlayerSide
             && !(candidateSlot instanceof FakeSlot)
             && !(candidateSlot instanceof CraftingMatrixSlot)
+            && !isLockedPlayerInventorySlot(candidateSlot)
             && candidateSlot.isItemValid(stackToMove);
+    }
+
+    private boolean isClickOnLockedPlayerInventorySlot(int slotId, ClickType clickType, int swapTargetSlot) {
+        if (slotId >= 0 && slotId < this.inventorySlots.size()) {
+            Slot slot = this.inventorySlots.get(slotId);
+            if (isLockedPlayerInventorySlot(slot)) {
+                return true;
+            }
+        }
+        if (clickType == ClickType.SWAP) {
+            return isPlayerInventorySlotLocked(swapTargetSlot);
+        }
+        return false;
+    }
+
+    private boolean isLockedPlayerInventorySlot(@Nullable Slot slot) {
+        return slot != null && slot.inventory == this.playerInventory && isPlayerInventorySlotLocked(slot.getSlotIndex());
     }
 
     private ItemStack insertIntoSlot(Slot destination, ItemStack stackToMove) {

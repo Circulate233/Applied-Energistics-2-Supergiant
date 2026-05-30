@@ -1,0 +1,26 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    " C ",
+    "RBR",
+    " K "
+  ],
+  "key": {
+    "B": {
+      "item": "ae2:storage_bus"
+    },
+    "C": {
+      "item": "ae2:calculation_processor"
+    },
+    "K": {
+      "item": "minecraft:book"
+    },
+    "R": {
+      "item": "minecraft:redstone"
+    }
+  },
+  "result": {
+    "item": "ae2:mod_storage_bus",
+    "count": 1
+  }
+}

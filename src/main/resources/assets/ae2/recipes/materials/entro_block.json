@@ -1,0 +1,17 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "CC",
+    "CC"
+  ],
+  "key": {
+    "C": {
+      "type": "forge:ore_dict",
+      "ore": "gemEntro"
+    }
+  },
+  "result": {
+    "item": "ae2:entro_block",
+    "count": 1
+  }
+}

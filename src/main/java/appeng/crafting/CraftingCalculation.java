@@ -30,6 +30,7 @@ import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.core.AEConfig;
 import appeng.core.AELog;
+import appeng.crafting.execution.InputTemplate;
 import appeng.crafting.inv.ChildCraftingSimulationState;
 import appeng.crafting.inv.CraftingSimulationState;
 import appeng.crafting.inv.NetworkCraftingSimulationState;
@@ -62,6 +63,8 @@ public class CraftingCalculation {
     private final List<CraftingTreeProcess> processStack = new ObjectArrayList<>();
     private final List<TimingFrame> timingStack = new ObjectArrayList<>();
     private final Map<AEKey, Collection<IPatternDetails>> patternCache = new HashMap<>();
+    private final Map<RecursiveNetKey, RecursiveNet> recursiveNetCache = new HashMap<>();
+    private final Map<IPatternDetails.IInput, List<InputTemplate>> validTemplateCache = new HashMap<>();
     private final List<ICraftingProvider> temporaryProviders;
     // The initially requested amount of "output", may be reduced depending on the strategy used
     private final long requestedAmount;
@@ -174,6 +177,16 @@ public class CraftingCalculation {
         });
     }
 
+    List<InputTemplate> getCachedValidTemplates(IPatternDetails.IInput input, Iterable<InputTemplate> templates) {
+        return this.validTemplateCache.computeIfAbsent(input, ignored -> {
+            var collected = new ObjectArrayList<InputTemplate>();
+            for (var template : templates) {
+                collected.add(template);
+            }
+            return List.copyOf(collected);
+        });
+    }
+
     public ICraftingPlan run() {
         try {
             startPerformanceListener();
@@ -222,28 +235,29 @@ public class CraftingCalculation {
                     return craftLessPlan;
                 }
 
-                return runCraftAttempt(false, requestedAmount, requestedAmount, true);
+                return runCraftAttempt(requestedAmount, requestedAmount);
             }
 
             // Missing items no longer prevent submitting a player-requested plan.
-            return runCraftAttempt(false, requestedAmount, requestedAmount, true);
+            return runCraftAttempt(requestedAmount, requestedAmount);
         } finally {
             finishPerformanceListener(System.nanoTime() - calculationStart);
         }
     }
 
-    private CraftingPlan runCraftAttempt(boolean simulate, long productionAmount, long finalAmount, boolean allowMissing)
+    private CraftingPlan runCraftAttempt(long productionAmount, long finalAmount)
         throws InterruptedException {
-        this.simulate = simulate;
-        this.allowMissing = allowMissing;
+        this.simulate = false;
+        this.allowMissing = true;
         this.missing.clear();
+        this.recursiveNetCache.clear();
+        this.validTemplateCache.clear();
         this.intermediateFinalOutputAmount = 0;
         this.recursiveMissingSeedSuppression = 0;
         this.tree.resetPossible();
 
         final Stopwatch timer = Stopwatch.createStarted();
-        final String attemptName = "attempt amount=%d final=%d simulate=%s allowMissing=%s".formatted(productionAmount,
-            finalAmount, simulate, allowMissing);
+        final String attemptName = "attempt amount=%d final=%d".formatted(productionAmount, finalAmount);
         final long attemptStart = System.nanoTime();
 
         ChildCraftingSimulationState craftingInventory = new ChildCraftingSimulationState(networkInv);
@@ -251,11 +265,12 @@ public class CraftingCalculation {
 
         // Do the crafting. Throws in case of failure.
         try {
-            timedCrafting("tree-request " + attemptName, () -> {
-                this.tree.request(craftingInventory, productionAmount, null);
-                return null;
-            });
+            runTimedCrafting("tree-request " + attemptName,
+                () -> this.tree.request(craftingInventory, productionAmount, null));
         } catch (CraftBranchFailure failure) {
+            if (failure.hasExplicitMessageKey()) {
+                throw new CraftingCalculationFailure(failure.getLocalizedMessageKey());
+            }
             if (AELog.isCraftingLogEnabled()) {
                 this.attempts.add(new CraftAttempt(productionAmount + " failed", timer));
             }
@@ -269,8 +284,7 @@ public class CraftingCalculation {
         var plan = timed("build-plan " + attemptName,
             () -> CraftingSimulationState.buildCraftingPlan(craftingInventory, this, finalAmount));
         if (AELog.isCraftingLogEnabled()) {
-            String type = simulate ? "simulated" : "succeeded";
-            this.attempts.add(new CraftAttempt("%d %s (%d bytes)".formatted(productionAmount, type, plan.bytes()),
+            this.attempts.add(new CraftAttempt("%d succeeded (%d bytes)".formatted(productionAmount, plan.bytes()),
                 timer));
         }
         recordPerformanceStage(attemptName + " completed", System.nanoTime() - attemptStart);
@@ -282,6 +296,8 @@ public class CraftingCalculation {
         this.simulate = false;
         this.allowMissing = false;
         this.missing.clear();
+        this.recursiveNetCache.clear();
+        this.validTemplateCache.clear();
         this.intermediateFinalOutputAmount = 0;
         this.tree.resetPossible();
 
@@ -439,7 +455,7 @@ public class CraftingCalculation {
     }
 
     boolean resolveRecursiveRequest(AEKey what, CraftingSimulationState inv, long amount) {
-        var resolution = getRecursiveResolution(what, inv);
+        var resolution = getRecursiveResolution(what);
         if (resolution == null) {
             return false;
         }
@@ -464,22 +480,50 @@ public class CraftingCalculation {
         return false;
     }
 
-    boolean canResolveRecursiveRequest(AEKey what, CraftingSimulationState inv) {
-        return getRecursiveResolution(what, inv) != null;
+    boolean canResolveRecursiveRequest(AEKey what) {
+        return getRecursiveResolution(what) != null;
     }
 
-    private RecursiveResolution getRecursiveResolution(AEKey what, CraftingSimulationState inv) {
-        int requestIndex = -1;
-        for (int i = this.requestStack.size() - 1; i >= 0; i--) {
-            if (this.requestStack.get(i).equals(what)) {
-                requestIndex = i;
-                break;
-            }
+    private RecursiveResolution getRecursiveResolution(AEKey what) {
+        var recursiveNet = getRecursiveNet(what);
+        if (recursiveNet == null || !recursiveNet.canResolve()) {
+            return null;
         }
+
+        var seed = getRecursiveSeed(recursiveNet.netByKey(), recursiveNet.requestIndex());
+        if (seed != null) {
+            return new RecursiveResolution(seed, false, recursiveNet.netByKey());
+        }
+
+        if (canUseMissingItems() && this.recursiveMissingSeedSuppression == 0
+            && addMissingRecursiveSeeds(recursiveNet.netByKey(), recursiveNet.requestIndex())) {
+            return new RecursiveResolution(null, true, recursiveNet.netByKey());
+        }
+
+        return null;
+    }
+
+    private RecursiveNet getRecursiveNet(AEKey what) {
+        int requestIndex = findRecursiveRequestIndex(what);
         if (requestIndex < 0) {
             return null;
         }
 
+        var cacheKey = new RecursiveNetKey(what, requestIndex, this.processStack.size());
+        return this.recursiveNetCache.computeIfAbsent(cacheKey, ignored -> computeRecursiveNet(what, requestIndex));
+    }
+
+    private int findRecursiveRequestIndex(AEKey what) {
+        for (int i = this.requestStack.size() - 1; i >= 0; i--) {
+            if (this.requestStack.get(i).equals(what)) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private RecursiveNet computeRecursiveNet(AEKey what, int requestIndex) {
+        recordPerformanceCount("recursive-net-analysis", 1);
         var netByKey = new KeyCounter();
         var includedPatterns = new HashSet<IPatternDetails>();
         for (int i = requestIndex; i < this.processStack.size(); i++) {
@@ -491,31 +535,17 @@ public class CraftingCalculation {
         expandRecursiveNetClosure(netByKey, includedPatterns);
 
         boolean hasPositiveNet = false;
+        boolean hasNegativeNet = false;
         for (var entry : netByKey) {
             long net = entry.getLongValue();
             if (net < 0) {
-                return null;
-            }
-            if (net > 0) {
+                hasNegativeNet = true;
+            } else if (net > 0) {
                 hasPositiveNet = true;
             }
         }
 
-        if (!hasPositiveNet || netByKey.get(what) < 0) {
-            return null;
-        }
-
-        var seed = getRecursiveSeed(netByKey, requestIndex);
-        if (seed != null) {
-            return new RecursiveResolution(seed, false, netByKey);
-        }
-
-        if (canUseMissingItems() && this.recursiveMissingSeedSuppression == 0
-            && addMissingRecursiveSeeds(netByKey, requestIndex)) {
-            return new RecursiveResolution(null, true, netByKey);
-        }
-
-        return null;
+        return new RecursiveNet(requestIndex, netByKey, hasPositiveNet && !hasNegativeNet && netByKey.get(what) >= 0);
     }
 
     long getExpandedPatternNetOutput(IPatternDetails pattern, AEKey what) {
@@ -891,15 +921,16 @@ public class CraftingCalculation {
         }
     }
 
-    <T> T timedCrafting(String name, CraftingSupplier<T> supplier)
+    void runTimedCrafting(String name, CraftingRunnable runnable)
         throws InterruptedException, CraftBranchFailure {
         if (!this.performanceListener.isEnabled()) {
-            return supplier.get();
+            runnable.run();
+            return;
         }
         long start = System.nanoTime();
         this.timingStack.add(new TimingFrame());
         try {
-            return supplier.get();
+            runnable.run();
         } finally {
             long total = System.nanoTime() - start;
             var frame = this.timingStack.removeLast();
@@ -917,14 +948,20 @@ public class CraftingCalculation {
     }
 
     @FunctionalInterface
-    interface CraftingSupplier<T> {
-        T get() throws InterruptedException, CraftBranchFailure;
+    interface CraftingRunnable {
+        void run() throws InterruptedException, CraftBranchFailure;
     }
 
     private record CraftAttempt(String description, Stopwatch stopwatch) {
     }
 
     private record RecursiveSeed(AEKey what, long amount) {
+    }
+
+    private record RecursiveNetKey(AEKey what, int requestIndex, int processDepth) {
+    }
+
+    private record RecursiveNet(int requestIndex, KeyCounter netByKey, boolean canResolve) {
     }
 
     private record RecursiveResolution(RecursiveSeed seed, boolean missingSeeds, KeyCounter netByKey) {

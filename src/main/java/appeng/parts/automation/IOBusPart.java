@@ -239,7 +239,7 @@ public abstract class IOBusPart extends UpgradeablePart implements IGridTickable
      * Currently this tests if the chunk for the target is actually loaded, and if the main node has it's channel and
      * power requirements fulfilled.
      *
-     * @return true, if the the bus should do its work.
+     * @return true, if the bus should do its work.
      */
     protected final boolean canDoBusWork() {
         if (!getMainNode().isActive()) {

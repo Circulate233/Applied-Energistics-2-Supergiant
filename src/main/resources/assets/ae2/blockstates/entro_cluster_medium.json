@@ -1,0 +1,30 @@
+{
+  "variants": {
+    "facing=down": {
+      "model": "ae2:entro_cluster_medium",
+      "x": 180
+    },
+    "facing=up": {
+      "model": "ae2:entro_cluster_medium"
+    },
+    "facing=north": {
+      "model": "ae2:entro_cluster_medium",
+      "x": 90
+    },
+    "facing=south": {
+      "model": "ae2:entro_cluster_medium",
+      "x": 90,
+      "y": 180
+    },
+    "facing=west": {
+      "model": "ae2:entro_cluster_medium",
+      "x": 90,
+      "y": 270
+    },
+    "facing=east": {
+      "model": "ae2:entro_cluster_medium",
+      "x": 90,
+      "y": 90
+    }
+  }
+}

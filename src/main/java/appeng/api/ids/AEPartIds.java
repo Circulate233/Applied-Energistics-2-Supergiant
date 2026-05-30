@@ -234,8 +234,16 @@ public final class AEPartIds {
     public static final ResourceLocation STORAGE_BUS = id("storage_bus");
     public static final ResourceLocation IMPORT_BUS = id("import_bus");
     public static final ResourceLocation EXPORT_BUS = id("export_bus");
+    public static final ResourceLocation OD_STORAGE_BUS = id("od_storage_bus");
+    public static final ResourceLocation OD_EXPORT_BUS = id("od_export_bus");
+    public static final ResourceLocation MOD_STORAGE_BUS = id("mod_storage_bus");
+    public static final ResourceLocation MOD_EXPORT_BUS = id("mod_export_bus");
+    public static final ResourceLocation PRECISE_STORAGE_BUS = id("precise_storage_bus");
+    public static final ResourceLocation PRECISE_EXPORT_BUS = id("precise_export_bus");
+    public static final ResourceLocation THRESHOLD_EXPORT_BUS = id("threshold_export_bus");
     public static final ResourceLocation LEVEL_EMITTER = id("level_emitter");
     public static final ResourceLocation ENERGY_LEVEL_EMITTER = id("energy_level_emitter");
+    public static final ResourceLocation THRESHOLD_LEVEL_EMITTER = id("threshold_level_emitter");
     public static final ResourceLocation PATTERN_PROVIDER = id("cable_pattern_provider");
     public static final ResourceLocation INTERFACE = id("cable_interface");
     public static final ResourceLocation CONVERSION_MONITOR = id("conversion_monitor");

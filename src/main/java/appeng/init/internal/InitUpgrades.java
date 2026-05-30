@@ -20,6 +20,7 @@ package appeng.init.internal;
 
 import appeng.api.implementations.items.WirelessTerminalUpgradeHelper;
 import appeng.api.upgrades.Upgrades;
+import appeng.core.AEConfig;
 import appeng.core.definitions.AEBlocks;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.AEParts;
@@ -35,6 +36,8 @@ public final class InitUpgrades {
     public static void init() {
         String interfaceGroup = GuiText.Interface.getTranslationKey();
         String itemIoBusGroup = GuiText.IOBuses.getTranslationKey();
+        String patternProviderGroup = GuiText.CraftingInterface.getTranslationKey();
+        String storageBusGroup = "gui.ae2.StorageBus";
         String storageCellGroup = GuiText.StorageCells.getTranslationKey();
         String portableCellGroup = GuiText.PortableCells.getTranslationKey();
         Upgrades.add(AEItems.FUZZY_CARD.item(), AEItems.VIEW_CELL.item(), 1);
@@ -44,17 +47,25 @@ public final class InitUpgrades {
         Upgrades.add(AEItems.CRAFTING_CARD.item(), AEBlocks.INTERFACE.item(), 1, interfaceGroup);
         Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.INTERFACE.item(), 1, interfaceGroup);
         Upgrades.add(AEItems.FUZZY_CARD.item(), AEBlocks.INTERFACE.item(), 1, interfaceGroup);
-        Upgrades.add(AEItems.PSEUDO_CRAFTING_CARD.item(), AEParts.PATTERN_PROVIDER.item(), 1);
-        Upgrades.add(AEItems.PSEUDO_CRAFTING_CARD.item(), AEBlocks.PATTERN_PROVIDER.item(), 1);
+        Upgrades.add(AEItems.PSEUDO_CRAFTING_CARD.item(), AEParts.PATTERN_PROVIDER.item(), 1, patternProviderGroup);
+        Upgrades.add(AEItems.PSEUDO_CRAFTING_CARD.item(), AEBlocks.PATTERN_PROVIDER.item(), 1, patternProviderGroup);
+        int patternExpansionCards = AEConfig.instance().getPatternProviderExpansionCardLimit();
+        Upgrades.add(AEItems.PATTERN_EXPANSION_CARD.item(), AEParts.PATTERN_PROVIDER.item(), patternExpansionCards,
+            patternProviderGroup);
+        Upgrades.add(AEItems.PATTERN_EXPANSION_CARD.item(), AEBlocks.PATTERN_PROVIDER.item(), patternExpansionCards,
+            patternProviderGroup);
 
         Upgrades.add(AEItems.SPEED_CARD.item(), AEBlocks.MOLECULAR_ASSEMBLER.item(), 5);
         Upgrades.add(AEItems.SPEED_CARD.item(), AEBlocks.INSCRIBER.item(), 4);
+        Upgrades.add(AEItems.SPEED_CARD.item(), AEBlocks.CRYSTAL_ASSEMBLER.item(), 4);
 
         Upgrades.add(AEItems.SPEED_CARD.item(), AEBlocks.IO_PORT.item(), 3);
         Upgrades.add(AEItems.REDSTONE_CARD.item(), AEBlocks.IO_PORT.item(), 1);
 
         Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.LEVEL_EMITTER.item(), 1);
         Upgrades.add(AEItems.CRAFTING_CARD.item(), AEParts.LEVEL_EMITTER.item(), 1);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.THRESHOLD_LEVEL_EMITTER.item(), 1);
+        Upgrades.add(AEItems.CRAFTING_CARD.item(), AEParts.THRESHOLD_LEVEL_EMITTER.item(), 1);
 
         Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.IMPORT_BUS.item(), 1, itemIoBusGroup);
         Upgrades.add(AEItems.REDSTONE_CARD.item(), AEParts.IMPORT_BUS.item(), 1, itemIoBusGroup);
@@ -67,6 +78,17 @@ public final class InitUpgrades {
         Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.EXPORT_BUS.item(), 5, itemIoBusGroup);
         Upgrades.add(AEItems.SPEED_CARD.item(), AEParts.EXPORT_BUS.item(), 4, itemIoBusGroup);
         Upgrades.add(AEItems.CRAFTING_CARD.item(), AEParts.EXPORT_BUS.item(), 1, itemIoBusGroup);
+        for (var exportBus : List.of(
+            AEParts.OD_EXPORT_BUS,
+            AEParts.MOD_EXPORT_BUS,
+            AEParts.PRECISE_EXPORT_BUS,
+            AEParts.THRESHOLD_EXPORT_BUS)) {
+            Upgrades.add(AEItems.FUZZY_CARD.item(), exportBus.item(), 1, itemIoBusGroup);
+            Upgrades.add(AEItems.REDSTONE_CARD.item(), exportBus.item(), 1, itemIoBusGroup);
+            Upgrades.add(AEItems.CAPACITY_CARD.item(), exportBus.item(), 5, itemIoBusGroup);
+            Upgrades.add(AEItems.SPEED_CARD.item(), exportBus.item(), 4, itemIoBusGroup);
+            Upgrades.add(AEItems.CRAFTING_CARD.item(), exportBus.item(), 1, itemIoBusGroup);
+        }
 
         for (var itemCell : List.of(
             AEItems.ITEM_CELL_1K,
@@ -127,15 +149,29 @@ public final class InitUpgrades {
         WirelessTerminalUpgradeHelper.addUpgradeToAllTerminals(AEItems.QUANTUM_BRIDGE_CARD.item(), 1);
         WirelessTerminalUpgradeHelper.addUpgradeToAllTerminals(AEItems.MAGNET_CARD.item(), 1);
 
-        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.STORAGE_BUS.item(), 1);
-        Upgrades.add(AEItems.INVERTER_CARD.item(), AEParts.STORAGE_BUS.item(), 1);
-        Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.STORAGE_BUS.item(), 5);
-        Upgrades.add(AEItems.VOID_CARD.item(), AEParts.STORAGE_BUS.item(), 1);
-        Upgrades.add(AEItems.STICKY_CARD.item(), AEParts.STORAGE_BUS.item(), 1);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.STORAGE_BUS.item(), 1, storageBusGroup);
+        Upgrades.add(AEItems.INVERTER_CARD.item(), AEParts.STORAGE_BUS.item(), 1, storageBusGroup);
+        Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.STORAGE_BUS.item(), 5, storageBusGroup);
+        Upgrades.add(AEItems.VOID_CARD.item(), AEParts.STORAGE_BUS.item(), 1, storageBusGroup);
+        Upgrades.add(AEItems.STICKY_CARD.item(), AEParts.STORAGE_BUS.item(), 1, storageBusGroup);
+        for (var storageBus : List.of(
+            AEParts.OD_STORAGE_BUS,
+            AEParts.MOD_STORAGE_BUS,
+            AEParts.PRECISE_STORAGE_BUS)) {
+            Upgrades.add(AEItems.FUZZY_CARD.item(), storageBus.item(), 1, storageBusGroup);
+            Upgrades.add(AEItems.INVERTER_CARD.item(), storageBus.item(), 1, storageBusGroup);
+            Upgrades.add(AEItems.CAPACITY_CARD.item(), storageBus.item(), 5, storageBusGroup);
+            Upgrades.add(AEItems.VOID_CARD.item(), storageBus.item(), 1, storageBusGroup);
+            Upgrades.add(AEItems.STICKY_CARD.item(), storageBus.item(), 1, storageBusGroup);
+        }
 
         Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.FORMATION_PLANE.item(), 1);
         Upgrades.add(AEItems.INVERTER_CARD.item(), AEParts.FORMATION_PLANE.item(), 1);
         Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.FORMATION_PLANE.item(), 5);
+        Upgrades.add(AEItems.FUZZY_CARD.item(), AEParts.ANNIHILATION_PLANE.item(), 1);
+        Upgrades.add(AEItems.INVERTER_CARD.item(), AEParts.ANNIHILATION_PLANE.item(), 1);
+        Upgrades.add(AEItems.CAPACITY_CARD.item(), AEParts.ANNIHILATION_PLANE.item(), 5);
+        Upgrades.add(AEItems.VOID_CARD.item(), AEParts.ANNIHILATION_PLANE.item(), 1);
 
         Upgrades.add(AEItems.ENERGY_CARD.item(), AEItems.COLOR_APPLICATOR.item(), 2);
         Upgrades.add(AEItems.EQUAL_DISTRIBUTION_CARD.item(), AEItems.COLOR_APPLICATOR.item(), 1);

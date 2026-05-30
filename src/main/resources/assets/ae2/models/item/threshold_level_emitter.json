@@ -1,0 +1,6 @@
+{
+  "parent": "ae2:item/level_emitter",
+  "textures": {
+    "emitter": "ae2:part/threshold_emitter"
+  }
+}

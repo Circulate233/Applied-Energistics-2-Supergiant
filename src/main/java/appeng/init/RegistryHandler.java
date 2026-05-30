@@ -51,6 +51,12 @@ public final class RegistryHandler {
         OreDictionary.registerOre("gemFluix", AEItems.FLUIX_CRYSTAL.stack());
         OreDictionary.registerOre("dustFluix", AEItems.FLUIX_DUST.stack());
         OreDictionary.registerOre("pearlFluix", AEItems.FLUIX_PEARL.stack());
+        OreDictionary.registerOre("gemEntro", AEItems.ENTRO_CRYSTAL.stack());
+        OreDictionary.registerOre("crystalEntro", AEItems.ENTRO_CRYSTAL.stack());
+        OreDictionary.registerOre("dustEntro", AEItems.ENTRO_DUST.stack());
+        OreDictionary.registerOre("ingotEntro", AEItems.ENTRO_INGOT.stack());
+        OreDictionary.registerOre("ingotInfusedEntro", AEItems.ENTRO_INGOT.stack());
+        OreDictionary.registerOre("blockEntro", AEBlocks.ENTRO_BLOCK.stack());
         OreDictionary.registerOre("dustSkyStone", AEItems.SKY_DUST.stack());
         OreDictionary.registerOre("itemQuartzWrench", AEItems.CERTUS_QUARTZ_WRENCH.stack());
         OreDictionary.registerOre("itemQuartzWrench", AEItems.NETHER_QUARTZ_WRENCH.stack());

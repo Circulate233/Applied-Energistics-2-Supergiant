@@ -9,17 +9,18 @@ import appeng.client.gui.style.GuiStyle;
 import appeng.client.gui.style.GuiStyleManager;
 import appeng.client.gui.widgets.NumberEntryWidget;
 import appeng.client.gui.widgets.TabButton;
+import appeng.container.AEBaseContainer;
 import appeng.container.SlotSemantics;
-import appeng.container.me.items.ContainerPatternEncodingTerm;
 import appeng.core.localization.GuiText;
 import appeng.text.TextComponentItemStack;
 import com.google.common.primitives.Longs;
 import net.minecraft.inventory.Slot;
+import net.minecraft.util.text.ITextComponent;
 
 import java.util.function.Consumer;
 
-public class GuiSetProcessingPatternAmount extends AEBaseGui<ContainerPatternEncodingTerm> {
-    private final GuiPatternEncodingTerm parent;
+public class GuiSetProcessingPatternAmount extends AEBaseGui<AEBaseContainer> {
+    private final AEBaseGui<?> parent;
     private final GenericStack currentStack;
     private final Consumer<GenericStack> setter;
     private final NumberEntryWidget amount;
@@ -27,6 +28,12 @@ public class GuiSetProcessingPatternAmount extends AEBaseGui<ContainerPatternEnc
 
     public GuiSetProcessingPatternAmount(GuiPatternEncodingTerm parent, GenericStack currentStack,
                                          Consumer<GenericStack> setter) {
+        this(parent, currentStack, setter,
+            TextComponentItemStack.of(parent.getContainer().getHost().getMainContainerIcon()));
+    }
+
+    public GuiSetProcessingPatternAmount(AEBaseGui<?> parent, GenericStack currentStack,
+                                         Consumer<GenericStack> setter, ITextComponent parentIconTooltip) {
         super(parent.getContainer(), parent.getContainer().getPlayerInventory(),
             GuiStyleManager.loadStyleDoc("/screens/set_processing_pattern_amount.json"));
         this.parent = parent;
@@ -34,8 +41,7 @@ public class GuiSetProcessingPatternAmount extends AEBaseGui<ContainerPatternEnc
         this.setter = setter;
 
         widgets.addButton("save", GuiText.Set.text(), this::confirm);
-        widgets.add("back", new TabButton(Icon.BACK,
-            TextComponentItemStack.of(parent.getContainer().getHost().getMainContainerIcon()), this::returnToParent));
+        widgets.add("back", new TabButton(Icon.BACK, parentIconTooltip, this::returnToParent));
 
         this.amount = widgets.addNumberEntryWidget("amountToStock", NumberEntryType.of(currentStack.what()));
         this.amount.setLongValue(currentStack.amount());
@@ -83,4 +89,5 @@ public class GuiSetProcessingPatternAmount extends AEBaseGui<ContainerPatternEnc
         removeDisplaySlot();
         super.onGuiClosed();
     }
+
 }

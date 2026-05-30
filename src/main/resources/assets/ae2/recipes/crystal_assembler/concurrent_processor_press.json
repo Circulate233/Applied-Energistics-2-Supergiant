@@ -1,0 +1,26 @@
+{
+  "type": "ae2:crystal_assembler",
+  "input_items": [
+    {
+      "amount": 3,
+      "ingredient": {
+        "item": "minecraft:ender_eye"
+      }
+    },
+    {
+      "amount": 4,
+      "ingredient": {
+        "item": "ae2:entro_crystal"
+      }
+    },
+    {
+      "ingredient": {
+        "item": "ae2:silicon_press"
+      }
+    }
+  ],
+  "output": {
+    "item": "ae2:concurrent_processor_press",
+    "count": 1
+  }
+}

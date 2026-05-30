@@ -31,6 +31,7 @@ import net.minecraft.item.ItemStack;
 import javax.annotation.Nullable;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Cell handler for creative storage cells (both fluid and item), which do not allow item insertion.
@@ -53,10 +54,10 @@ public class CreativeCellHandler implements ICellHandler {
     }
 
     @Nullable
-    public java.util.Optional<StorageCellTooltipComponent> getTooltipData(ItemStack stack) {
+    public Optional<StorageCellTooltipComponent> getTooltipData(ItemStack stack) {
         var handler = getCellInventory(stack, null);
         if (handler == null || !(stack.getItem() instanceof CreativeCellItem cellItem)) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
 
         List<GenericStack> content;
@@ -76,7 +77,7 @@ public class CreativeCellHandler implements ICellHandler {
             hasMoreContent = false;
         }
 
-        return java.util.Optional.of(
+        return Optional.of(
             new StorageCellTooltipComponent(Collections.emptyList(), content, hasMoreContent, false));
     }
 }

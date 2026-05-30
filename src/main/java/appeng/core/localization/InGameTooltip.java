@@ -46,6 +46,8 @@ public enum InGameTooltip implements LocalizationEnum {
     P2PInputOneOutput,
     P2POutput,
     P2PUnlinked,
+    PackagedDevice,
+    PackagedDeviceInvalid,
     ErrorNestedP2PTunnel,
     ErrorTooManyChannels,
     CraftingLockedByRedstoneSignal,

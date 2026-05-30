@@ -2,9 +2,11 @@ package appeng.hotkeys;
 
 import appeng.api.features.HotkeyAction;
 import appeng.api.implementations.items.WirelessTerminalDefinition;
+import appeng.container.GuiIds;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEItems;
 import appeng.core.definitions.ItemDefinition;
+import appeng.core.gui.GuiOpener;
 import appeng.items.tools.powered.AbstractPortableCell;
 import appeng.items.tools.powered.WirelessTerminalRegistry;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -15,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import static appeng.api.features.HotkeyAction.PATTERN_MODIFIER;
 import static appeng.api.features.HotkeyAction.PORTABLE_FLUID_CELL;
 import static appeng.api.features.HotkeyAction.PORTABLE_ITEM_CELL;
 
@@ -50,6 +53,9 @@ public final class HotkeyActions {
         register(new RestockHotkeyAction(), WIRELESS_RESTOCK);
         register(new StowHotkeyAction(), WIRELESS_STOW);
         register(new MagnetHotkeyAction(), WIRELESS_MAGNET);
+        register(Objects.requireNonNull(AEItems.PATTERN_MODIFIER.item()),
+            (player, locator) -> GuiOpener.openItemGui(player, GuiIds.GuiKey.PATTERN_MODIFIER, locator),
+            PATTERN_MODIFIER);
     }
 
     public static void registerPortableCell(ItemDefinition<? extends AbstractPortableCell> cell, String id) {

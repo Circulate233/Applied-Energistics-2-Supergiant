@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 
 public class CableBusBakedModel implements IBakedModel {
@@ -37,13 +38,13 @@ public class CableBusBakedModel implements IBakedModel {
     private final LoadingCache<CableBusRenderState, List<BakedQuad>> cableModelCache;
     private final CableBuilder cableBuilder;
     private final FacadeBuilder facadeBuilder;
-    private final java.util.Map<ResourceLocation, IBakedModel> partModels;
+    private final Map<ResourceLocation, IBakedModel> partModels;
     private final TextureAtlasSprite particleTexture;
     private final TextureMap textureMap = Minecraft.getMinecraft().getTextureMapBlocks();
     private final CableBusRenderState defaultRenderState = new CableBusRenderState();
 
     CableBusBakedModel(CableBuilder cableBuilder, FacadeBuilder facadeBuilder,
-                       java.util.Map<ResourceLocation, IBakedModel> partModels, TextureAtlasSprite particleTexture) {
+                       Map<ResourceLocation, IBakedModel> partModels, TextureAtlasSprite particleTexture) {
         this.cableBuilder = cableBuilder;
         this.facadeBuilder = facadeBuilder;
         this.partModels = partModels;

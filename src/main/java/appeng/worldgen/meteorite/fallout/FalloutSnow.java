@@ -24,13 +24,15 @@ import net.minecraft.init.Blocks;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
+import java.util.Random;
+
 public class FalloutSnow extends FalloutCopy {
     private static final float SNOW_THRESHOLD = 0.7f;
     private static final float ICE_THRESHOLD = 0.5f;
     private final MeteoriteBlockPutter putter;
 
     public FalloutSnow(World world, BlockPos pos, MeteoriteBlockPutter putter, IBlockState skyStone,
-                       java.util.Random random) {
+                       Random random) {
         super(world, pos, putter, skyStone, random);
         this.putter = putter;
     }

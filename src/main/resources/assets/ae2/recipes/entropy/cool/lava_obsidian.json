@@ -3,7 +3,10 @@
   "mode": "cool",
   "input": {
     "block": {
-      "id": "minecraft:lava"
+      "id": "minecraft:lava",
+      "properties": {
+        "level": "0"
+      }
     }
   },
   "output": {

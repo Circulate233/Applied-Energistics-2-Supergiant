@@ -5,18 +5,10 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.math.RayTraceResult;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-public final class BaublesItemLocator implements ItemGuiHostLocator {
-    private final int baubleSlot;
-    @Nullable
-    private final RayTraceResult hitResult;
-
-    public BaublesItemLocator(int baubleSlot, @Nullable RayTraceResult hitResult) {
-        this.baubleSlot = baubleSlot;
-        this.hitResult = hitResult;
-    }
-
+public record BaublesItemLocator(int baubleSlot, @Nullable RayTraceResult hitResult) implements ItemGuiHostLocator {
     public static BaublesItemLocator readFromPacket(PacketBuffer buf) {
         return new BaublesItemLocator(buf.readInt(), readHitResult(buf));
     }
@@ -56,6 +48,7 @@ public final class BaublesItemLocator implements ItemGuiHostLocator {
     }
 
     @Override
+    @NotNull
     public String toString() {
         StringBuilder result = new StringBuilder();
         result.append("bauble slot ").append(baubleSlot);
@@ -71,4 +64,3 @@ public final class BaublesItemLocator implements ItemGuiHostLocator {
         return hitResult;
     }
 }
-

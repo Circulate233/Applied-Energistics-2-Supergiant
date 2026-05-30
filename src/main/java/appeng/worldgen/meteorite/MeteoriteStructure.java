@@ -27,9 +27,11 @@ import net.minecraft.world.biome.Biome;
 import net.minecraftforge.common.BiomeDictionary;
 import net.minecraftforge.common.BiomeDictionary.Type;
 
+import java.util.Random;
+
 public class MeteoriteStructure {
 
-    public static boolean trySpawn(World world, int chunkX, int chunkZ, java.util.Random random,
+    public static boolean trySpawn(World world, int chunkX, int chunkZ, Random random,
                                    MeteoritesWorldData worldData) {
         if (!isDimensionAllowed(world)) {
             return false;
@@ -42,7 +44,7 @@ public class MeteoriteStructure {
         return forceSpawn(world, chunkX, chunkZ, random, worldData);
     }
 
-    public static boolean forceSpawn(World world, int chunkX, int chunkZ, java.util.Random random,
+    public static boolean forceSpawn(World world, int chunkX, int chunkZ, Random random,
                                      MeteoritesWorldData worldData) {
         if (!isDimensionAllowed(world)) {
             return false;
@@ -68,9 +70,9 @@ public class MeteoriteStructure {
         return true;
     }
 
-    private static java.util.Random createChunkRandom(World world, int chunkX, int chunkZ) {
+    private static Random createChunkRandom(World world, int chunkX, int chunkZ) {
         long seed = world.getSeed() ^ ((long) chunkX * 341873128712L) ^ ((long) chunkZ * 132897987541L);
-        return new java.util.Random(seed);
+        return new Random(seed);
     }
 
     public static boolean isDimensionAllowed(World world) {
@@ -104,7 +106,7 @@ public class MeteoriteStructure {
         return false;
     }
 
-    private static CraterType determineCraterType(BlockPos pos, Biome biome, java.util.Random random) {
+    private static CraterType determineCraterType(BlockPos pos, Biome biome, Random random) {
         float temp = biome.getDefaultTemperature();
         if (BiomeDictionary.hasType(biome, Type.OCEAN)) {
             return CraterType.NONE;

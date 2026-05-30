@@ -21,6 +21,7 @@ import net.minecraftforge.client.model.PerspectiveMapWrapper;
 import net.minecraftforge.common.model.IModelState;
 
 import java.util.Collections;
+import java.util.Optional;
 
 @SuppressWarnings("deprecation")
 class WrappedGenericStackBakedModel extends BakedItemModel {
@@ -59,7 +60,7 @@ class WrappedGenericStackBakedModel extends BakedItemModel {
                 if (key instanceof AEFluidKey fluidKey) {
                     TextureAtlasSprite sprite = FluidBlitter.getStillSprite(fluidKey.toStack(1));
                     return new BakedItemModel(
-                        ItemLayerModel.getQuadsForSprite(0, sprite, format, state.apply(java.util.Optional.empty())),
+                        ItemLayerModel.getQuadsForSprite(0, sprite, format, state.apply(Optional.empty())),
                         sprite,
                         PerspectiveMapWrapper.getTransforms(state),
                         ItemOverrideList.NONE,

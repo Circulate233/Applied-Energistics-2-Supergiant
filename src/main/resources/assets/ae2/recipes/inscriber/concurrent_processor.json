@@ -1,0 +1,20 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "bottom": {
+      "item": "ae2:printed_silicon"
+    },
+    "middle": {
+      "type": "forge:ore_dict",
+      "ore": "dustRedstone"
+    },
+    "top": {
+      "item": "ae2:concurrent_processor_print"
+    }
+  },
+  "mode": "press",
+  "result": {
+    "id": "ae2:concurrent_processor",
+    "count": 1
+  }
+}

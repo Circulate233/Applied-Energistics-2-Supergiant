@@ -1,0 +1,25 @@
+{
+  "type": "ae2:transform",
+  "ingredients": [
+    {
+      "type": "forge:ore_dict",
+      "ore": "dustEntro"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "ingotGold"
+    },
+    {
+      "type": "forge:ore_dict",
+      "ore": "gemLapis"
+    }
+  ],
+  "result": {
+    "id": "ae2:entro_ingot",
+    "count": 1
+  },
+  "circumstance": {
+    "type": "fluid",
+    "fluid": "water"
+  }
+}

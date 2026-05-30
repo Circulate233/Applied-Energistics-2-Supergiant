@@ -334,11 +334,24 @@ public class EntropyManipulatorItem extends AEBasePoweredItem implements IBlockT
     }
 
     @Nullable
+    private static RayTraceResult selectNearestTarget(Vec3d from, @Nullable RayTraceResult blockHit,
+                                                      @Nullable RayTraceResult liquidHit) {
+        if (blockHit == null) {
+            return liquidHit;
+        }
+        if (liquidHit == null) {
+            return blockHit;
+        }
+        return from.squareDistanceTo(liquidHit.hitVec) < from.squareDistanceTo(blockHit.hitVec) ? liquidHit : blockHit;
+    }
+
+    @Nullable
     private RayTraceResult rayTraceTarget(World world, EntityPlayer player) {
         Vec3d from = new Vec3d(player.posX, player.posY + player.getEyeHeight(), player.posZ);
         Vec3d look = player.getLookVec();
         Vec3d to = from.add(look.x * 5.0D, look.y * 5.0D, look.z * 5.0D);
         RayTraceResult hit = world.rayTraceBlocks(from, to, true);
-        return hit != null ? hit : findLiquidTargetAlongRay(world, from, to);
+        RayTraceResult liquidHit = findLiquidTargetAlongRay(world, from, to);
+        return selectNearestTarget(from, hit, liquidHit);
     }
 }

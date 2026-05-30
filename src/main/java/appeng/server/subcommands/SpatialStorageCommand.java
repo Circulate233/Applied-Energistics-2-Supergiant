@@ -9,6 +9,7 @@ import appeng.spatial.SpatialStorageDimensionIds;
 import appeng.spatial.SpatialStoragePlot;
 import appeng.spatial.SpatialStoragePlotManager;
 import appeng.spatial.TransitionInfo;
+import com.mojang.authlib.GameProfile;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.command.CommandBase;
@@ -28,6 +29,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 public class SpatialStorageCommand implements ISubCommand {
 
@@ -107,9 +109,9 @@ public class SpatialStorageCommand implements ISubCommand {
             return PlayerMessages.PlayerConnected.text(connectedPlayer.getGameProfile().getName());
         }
 
-        java.util.UUID profileId = IPlayerRegistry.getMapping(server).getProfileId(ownerId);
+        UUID profileId = IPlayerRegistry.getMapping(server).getProfileId(ownerId);
         if (profileId != null) {
-            com.mojang.authlib.GameProfile cachedProfile = server.getPlayerProfileCache().getProfileByUUID(profileId);
+            GameProfile cachedProfile = server.getPlayerProfileCache().getProfileByUUID(profileId);
             if (cachedProfile != null) {
                 return PlayerMessages.PlayerDisconnected.text(cachedProfile.getName());
             }

@@ -37,6 +37,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
 import java.util.Collections;
+import java.util.List;
 
 @SuppressWarnings("deprecation")
 public class SkyChestBlock extends AEBaseTileBlock<TileSkyChest> implements ICustomCollision {
@@ -89,7 +90,7 @@ public class SkyChestBlock extends AEBaseTileBlock<TileSkyChest> implements ICus
     }
 
     @Override
-    public void addCollidingBlockToList(World world, BlockPos pos, AxisAlignedBB bb, java.util.List<AxisAlignedBB> out,
+    public void addCollidingBlockToList(World world, BlockPos pos, AxisAlignedBB bb, List<AxisAlignedBB> out,
                                         Entity entity) {
         out.add(computeAABB(world, pos));
     }

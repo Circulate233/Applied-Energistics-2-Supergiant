@@ -32,6 +32,8 @@ dependencies {
         compileOnly "com.cleanroommc:lwjglx:1.0.0"
     }
 
+    //crt
+    compileOnly 'CraftTweaker2:CraftTweaker2-MC1120-Main:1.12-4.1.20.711'
     // HEI
     modImplementation "curse.maven:had-enough-items-557549:7938914"
     // The One Probe

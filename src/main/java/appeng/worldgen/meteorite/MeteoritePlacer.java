@@ -36,7 +36,10 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraft.world.gen.structure.StructureBoundingBox;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 public final class MeteoritePlacer {
     private final IBlockState skyStone;
@@ -44,7 +47,7 @@ public final class MeteoritePlacer {
     private final List<IBlockState> quartzBuds;
     private final MeteoriteBlockPutter putter = new MeteoriteBlockPutter();
     private final World level;
-    private final java.util.Random random;
+    private final Random random;
     private final Fallout type;
     private final BlockPos pos;
     private final int x;
@@ -60,7 +63,7 @@ public final class MeteoritePlacer {
     private final StructureBoundingBox boundingBox;
 
     private MeteoritePlacer(World level, PlacedMeteoriteSettings settings, StructureBoundingBox boundingBox,
-                            java.util.Random random) {
+                            Random random) {
         this.boundingBox = boundingBox;
         this.level = level;
         this.random = random;
@@ -79,7 +82,7 @@ public final class MeteoritePlacer {
         this.crater = realCrater * realCrater;
 
         this.quartzBlocks = getQuartzBudList();
-        this.quartzBuds = java.util.Arrays.asList(
+        this.quartzBuds = Arrays.asList(
             AEBlocks.SMALL_QUARTZ_BUD.block().getDefaultState(),
             AEBlocks.MEDIUM_QUARTZ_BUD.block().getDefaultState(),
             AEBlocks.LARGE_QUARTZ_BUD.block().getDefaultState());
@@ -92,16 +95,16 @@ public final class MeteoritePlacer {
     }
 
     public static void place(World world, PlacedMeteoriteSettings settings, StructureBoundingBox boundingBox,
-                             java.util.Random random) {
+                             Random random) {
         MeteoritePlacer placer = new MeteoritePlacer(world, settings, boundingBox, random);
         placer.place();
     }
 
     private List<IBlockState> getQuartzBudList() {
         if (AEConfig.instance().isSpawnFlawlessOnlyEnabled()) {
-            return java.util.Collections.singletonList(AEBlocks.FLAWLESS_BUDDING_QUARTZ.block().getDefaultState());
+            return Collections.singletonList(AEBlocks.FLAWLESS_BUDDING_QUARTZ.block().getDefaultState());
         }
-        return java.util.Arrays.asList(
+        return Arrays.asList(
             AEBlocks.QUARTZ_BLOCK.block().getDefaultState(),
             AEBlocks.DAMAGED_BUDDING_QUARTZ.block().getDefaultState(),
             AEBlocks.CHIPPED_BUDDING_QUARTZ.block().getDefaultState(),

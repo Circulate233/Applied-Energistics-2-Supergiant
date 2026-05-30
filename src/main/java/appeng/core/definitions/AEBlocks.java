@@ -27,12 +27,18 @@ import appeng.block.crafting.MolecularAssemblerBlock;
 import appeng.block.crafting.PatternProviderBlock;
 import appeng.block.misc.AEDecorativeBlock;
 import appeng.block.misc.BuddingCertusQuartzBlock;
+import appeng.block.misc.CanerBlock;
 import appeng.block.misc.CellWorkbenchBlock;
 import appeng.block.misc.CertusQuartzClusterBlock;
 import appeng.block.misc.ChargerBlock;
 import appeng.block.misc.CondenserBlock;
 import appeng.block.misc.CrankBlock;
+import appeng.block.misc.CrystalAssemblerBlock;
+import appeng.block.misc.CrystalFixerBlock;
+import appeng.block.misc.EntroBuddingBlock;
+import appeng.block.misc.EntroClusterBlock;
 import appeng.block.misc.GrowthAcceleratorBlock;
+import appeng.block.misc.IngredientBufferBlock;
 import appeng.block.misc.InscriberBlock;
 import appeng.block.misc.InterfaceBlock;
 import appeng.block.misc.LightDetectorBlock;
@@ -150,6 +156,12 @@ public final class AEBlocks {
     public static final BlockDefinition<AEDecorativeBlock> FLUIX_BLOCK = new BlockDefinition<>(
         AEBlockIds.FLUIX_BLOCK,
         new AEDecorativeBlock(Material.ROCK, 1.5F, 6.0F));
+    public static final BlockDefinition<AEDecorativeBlock> ENTRO_BLOCK = new BlockDefinition<>(
+        AEBlockIds.ENTRO_BLOCK,
+        new AEDecorativeBlock(Material.ROCK, 1.5F, 6.0F));
+    public static final BlockDefinition<AEDecorativeBlock> MACHINE_FRAME = new BlockDefinition<>(
+        AEBlockIds.MACHINE_FRAME,
+        new AEDecorativeBlock(Material.ROCK, 1.5F, 6.0F));
     public static final BlockDefinition<QuartzGlassBlock> QUARTZ_GLASS = new BlockDefinition<>(
         AEBlockIds.QUARTZ_GLASS,
         new QuartzGlassBlock());
@@ -186,6 +198,30 @@ public final class AEBlocks {
     public static final BlockDefinition<CertusQuartzClusterBlock> QUARTZ_CLUSTER = new BlockDefinition<>(
         AEBlockIds.QUARTZ_CLUSTER,
         new CertusQuartzClusterBlock(3, 7, 0.5F));
+    public static final BlockDefinition<EntroBuddingBlock> ENTRO_BUDDING_FULLY = new BlockDefinition<>(
+        AEBlockIds.ENTRO_BUDDING_FULLY,
+        new EntroBuddingBlock(EntroBuddingBlock.Stage.FULLY));
+    public static final BlockDefinition<EntroBuddingBlock> ENTRO_BUDDING_MOSTLY = new BlockDefinition<>(
+        AEBlockIds.ENTRO_BUDDING_MOSTLY,
+        new EntroBuddingBlock(EntroBuddingBlock.Stage.MOSTLY));
+    public static final BlockDefinition<EntroBuddingBlock> ENTRO_BUDDING_HALF = new BlockDefinition<>(
+        AEBlockIds.ENTRO_BUDDING_HALF,
+        new EntroBuddingBlock(EntroBuddingBlock.Stage.HALF));
+    public static final BlockDefinition<EntroBuddingBlock> ENTRO_BUDDING_HARDLY = new BlockDefinition<>(
+        AEBlockIds.ENTRO_BUDDING_HARDLY,
+        new EntroBuddingBlock(EntroBuddingBlock.Stage.HARDLY));
+    public static final BlockDefinition<EntroClusterBlock> ENTRO_CLUSTER_SMALL = new BlockDefinition<>(
+        AEBlockIds.ENTRO_CLUSTER_SMALL,
+        new EntroClusterBlock(4, 3, 0.0625F, false));
+    public static final BlockDefinition<EntroClusterBlock> ENTRO_CLUSTER_MEDIUM = new BlockDefinition<>(
+        AEBlockIds.ENTRO_CLUSTER_MEDIUM,
+        new EntroClusterBlock(4, 4, 0.125F, false));
+    public static final BlockDefinition<EntroClusterBlock> ENTRO_CLUSTER_LARGE = new BlockDefinition<>(
+        AEBlockIds.ENTRO_CLUSTER_LARGE,
+        new EntroClusterBlock(3, 5, 0.25F, false));
+    public static final BlockDefinition<EntroClusterBlock> ENTRO_CLUSTER = new BlockDefinition<>(
+        AEBlockIds.ENTRO_CLUSTER,
+        new EntroClusterBlock(3, 7, 0.5F, true));
     public static final BlockDefinition<AEDecorativeBlock> SKY_STONE_BLOCK = new BlockDefinition<>(
         AEBlockIds.SKY_STONE_BLOCK,
         new AEDecorativeBlock(Material.ROCK, 50.0F, 150.0F));
@@ -310,6 +346,18 @@ public final class AEBlocks {
         new GrowthAcceleratorBlock());
     public static final BlockDefinition<InscriberBlock> INSCRIBER = new BlockDefinition<>(AppEng.makeId("inscriber"),
         new InscriberBlock());
+    public static final BlockDefinition<CrystalAssemblerBlock> CRYSTAL_ASSEMBLER = new BlockDefinition<>(
+        AEBlockIds.CRYSTAL_ASSEMBLER,
+        new CrystalAssemblerBlock());
+    public static final BlockDefinition<CrystalFixerBlock> CRYSTAL_FIXER = new BlockDefinition<>(
+        AEBlockIds.CRYSTAL_FIXER,
+        new CrystalFixerBlock());
+    public static final BlockDefinition<IngredientBufferBlock> INGREDIENT_BUFFER = new BlockDefinition<>(
+        AEBlockIds.INGREDIENT_BUFFER,
+        new IngredientBufferBlock());
+    public static final BlockDefinition<CanerBlock> CANER = new BlockDefinition<>(
+        AEBlockIds.CANER,
+        new CanerBlock());
     public static final BlockDefinition<PatternProviderBlock> PATTERN_PROVIDER = new BlockDefinition<>(
         AppEng.makeId("pattern_provider"),
         new PatternProviderBlock());
@@ -450,6 +498,8 @@ public final class AEBlocks {
         QUARTZ_PILLAR,
         CHISELED_QUARTZ_BLOCK,
         FLUIX_BLOCK,
+        ENTRO_BLOCK,
+        MACHINE_FRAME,
         QUARTZ_GLASS,
         QUARTZ_VIBRANT_GLASS,
         QUARTZ_FIXTURE,
@@ -462,6 +512,14 @@ public final class AEBlocks {
         MEDIUM_QUARTZ_BUD,
         LARGE_QUARTZ_BUD,
         QUARTZ_CLUSTER,
+        ENTRO_BUDDING_FULLY,
+        ENTRO_BUDDING_MOSTLY,
+        ENTRO_BUDDING_HALF,
+        ENTRO_BUDDING_HARDLY,
+        ENTRO_CLUSTER_SMALL,
+        ENTRO_CLUSTER_MEDIUM,
+        ENTRO_CLUSTER_LARGE,
+        ENTRO_CLUSTER,
         SKY_STONE_BLOCK,
         SMOOTH_SKY_STONE_BLOCK,
         SKY_STONE_BRICK,
@@ -520,6 +578,10 @@ public final class AEBlocks {
         VIBRATION_CHAMBER,
         GROWTH_ACCELERATOR,
         INSCRIBER,
+        CRYSTAL_ASSEMBLER,
+        CRYSTAL_FIXER,
+        INGREDIENT_BUFFER,
+        CANER,
         PATTERN_PROVIDER,
         CRAFTING_UNIT,
         CRAFTING_ACCELERATOR,

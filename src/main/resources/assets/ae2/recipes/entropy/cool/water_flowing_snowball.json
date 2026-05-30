@@ -1,0 +1,22 @@
+{
+  "type": "ae2:entropy",
+  "mode": "cool",
+  "input": {
+    "block": {
+      "id": "minecraft:water",
+      "properties": {
+        "level": {
+          "min": "1",
+          "max": "15"
+        }
+      }
+    }
+  },
+  "output": {
+    "drops": [
+      {
+        "item": "minecraft:snowball"
+      }
+    ]
+  }
+}

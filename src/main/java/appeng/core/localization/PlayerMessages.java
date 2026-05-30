@@ -78,6 +78,8 @@ public enum PlayerMessages implements LocalizationEnum {
     SpatialPlotLastTime,
     SpatialStorageLevelUnavailable,
     CraftingJobError,
+    CraftingNoPlan,
+    CraftingNoNetOutput,
     CraftingTreeScreenshotFailed,
     CraftingTreeScreenshotNoData,
     CraftingTreeScreenshotSaved,
@@ -124,7 +126,8 @@ public enum PlayerMessages implements LocalizationEnum {
     MeteoriteSpawned,
     CubeGeneratorSpawningIn,
     CubeGeneratorSize,
-    CommandRequiresServerWorld;
+    CommandRequiresServerWorld,
+    ConfigModifierSuccess;
 
     private final String translationKey;
 

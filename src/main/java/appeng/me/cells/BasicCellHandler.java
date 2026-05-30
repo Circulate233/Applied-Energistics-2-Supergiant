@@ -32,6 +32,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 public class BasicCellHandler implements ICellHandler {
     public static final BasicCellHandler INSTANCE = new BasicCellHandler();
@@ -62,10 +63,10 @@ public class BasicCellHandler implements ICellHandler {
     }
 
     @Nullable
-    public java.util.Optional<StorageCellTooltipComponent> getTooltipData(ItemStack stack) {
+    public Optional<StorageCellTooltipComponent> getTooltipData(ItemStack stack) {
         var inventory = BasicCellInventory.createInventory(stack, null);
         if (inventory == null) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
 
         var upgrades = new ObjectArrayList<ItemStack>();
@@ -91,7 +92,7 @@ public class BasicCellHandler implements ICellHandler {
             content = new ObjectArrayList<>(content.subList(0, contentLimit));
         }
 
-        return java.util.Optional.of(new StorageCellTooltipComponent(upgrades, content, hasMoreContent, showAmounts));
+        return Optional.of(new StorageCellTooltipComponent(upgrades, content, hasMoreContent, showAmounts));
     }
 
     private void addPartitionInformation(ItemStack stack, ICellWorkbenchItem workbenchItem, List<String> lines) {

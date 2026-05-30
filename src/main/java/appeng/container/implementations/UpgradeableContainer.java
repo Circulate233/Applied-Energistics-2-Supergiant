@@ -127,8 +127,12 @@ public abstract class UpgradeableContainer<T extends IUpgradeableObject> extends
     }
 
     protected void loadSettingsFromHost(IConfigManager cm) {
-        this.setFuzzyMode(cm.getSetting(Settings.FUZZY_MODE));
-        this.setRedStoneMode(cm.getSetting(Settings.REDSTONE_CONTROLLED));
+        if (cm.hasSetting(Settings.FUZZY_MODE)) {
+            this.setFuzzyMode(cm.getSetting(Settings.FUZZY_MODE));
+        }
+        if (cm.hasSetting(Settings.REDSTONE_CONTROLLED)) {
+            this.setRedStoneMode(cm.getSetting(Settings.REDSTONE_CONTROLLED));
+        }
         if (cm.hasSetting(Settings.CRAFT_ONLY)) {
             this.setCraftingMode(cm.getSetting(Settings.CRAFT_ONLY));
         }

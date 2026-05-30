@@ -1,0 +1,37 @@
+{
+  "$schema": "schema.json",
+  "includes": [
+    "common/common.json",
+    "common/player_inventory.json"
+  ],
+  "background": {
+    "texture": "guis/caner.png",
+    "srcRect": [
+      0,
+      0,
+      176,
+      172
+    ]
+  },
+  "slots": {
+    "CANER_CONTENT": {
+      "left": 46,
+      "top": 37
+    },
+    "CANER_CONTAINER": {
+      "left": 109,
+      "top": 37
+    }
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "gui.ae2.caner"
+      },
+      "position": {
+        "left": 8,
+        "top": 6
+      }
+    }
+  }
+}

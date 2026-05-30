@@ -3,7 +3,10 @@
   "mode": "cool",
   "input": {
     "block": {
-      "id": "minecraft:water"
+      "id": "minecraft:water",
+      "properties": {
+        "level": "0"
+      }
     }
   },
   "output": {

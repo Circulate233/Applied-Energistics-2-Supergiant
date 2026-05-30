@@ -33,6 +33,14 @@ import appeng.parts.automation.ExportBusPart;
 import appeng.parts.automation.FormationPlanePart;
 import appeng.parts.automation.ImportBusPart;
 import appeng.parts.automation.StorageLevelEmitterPart;
+import appeng.parts.automation.ThresholdLevelEmitterPart;
+import appeng.parts.automation.special.ModExportBusPart;
+import appeng.parts.automation.special.ModStorageBusPart;
+import appeng.parts.automation.special.ODExportBusPart;
+import appeng.parts.automation.special.ODStorageBusPart;
+import appeng.parts.automation.special.PreciseExportBusPart;
+import appeng.parts.automation.special.PreciseStorageBusPart;
+import appeng.parts.automation.special.ThresholdExportBusPart;
 import appeng.parts.crafting.PatternProviderPart;
 import appeng.parts.encoding.PatternEncodingTerminalPart;
 import appeng.parts.misc.CableAnchorPart;
@@ -77,14 +85,19 @@ import java.util.function.Supplier;
 public final class AEParts {
     public static final List<ColoredItemDefinition<?>> COLORED_PARTS = new ObjectArrayList<>();
 
+    @SuppressWarnings("unused")
     public static final ColoredItemDefinition<ColoredPartItem<SmartCablePart>> SMART_CABLE = createColoredPart(
         AEPartIds.CABLE_SMART, SmartCablePart.class, SmartCablePart::new);
+    @SuppressWarnings("unused")
     public static final ColoredItemDefinition<ColoredPartItem<CoveredCablePart>> COVERED_CABLE = createColoredPart(
         AEPartIds.CABLE_COVERED, CoveredCablePart.class, CoveredCablePart::new);
+    @SuppressWarnings("unused")
     public static final ColoredItemDefinition<ColoredPartItem<GlassCablePart>> GLASS_CABLE = createColoredPart(
         AEPartIds.CABLE_GLASS, GlassCablePart.class, GlassCablePart::new);
+    @SuppressWarnings("unused")
     public static final ColoredItemDefinition<ColoredPartItem<CoveredDenseCablePart>> COVERED_DENSE_CABLE = createColoredPart(
         AEPartIds.CABLE_DENSE_COVERED, CoveredDenseCablePart.class, CoveredDenseCablePart::new);
+    @SuppressWarnings("unused")
     public static final ColoredItemDefinition<ColoredPartItem<SmartDenseCablePart>> SMART_DENSE_CABLE = createColoredPart(
         AEPartIds.CABLE_DENSE_SMART, SmartDenseCablePart.class, SmartDenseCablePart::new);
     public static final ItemDefinition<PartItem<StorageBusPart>> STORAGE_BUS = createPart(AEPartIds.STORAGE_BUS,
@@ -93,10 +106,26 @@ public final class AEParts {
         ImportBusPart.class, ImportBusPart::new);
     public static final ItemDefinition<PartItem<ExportBusPart>> EXPORT_BUS = createPart(AEPartIds.EXPORT_BUS,
         ExportBusPart.class, ExportBusPart::new);
+    public static final ItemDefinition<PartItem<ODStorageBusPart>> OD_STORAGE_BUS = createPart(
+        AEPartIds.OD_STORAGE_BUS, ODStorageBusPart.class, ODStorageBusPart::new);
+    public static final ItemDefinition<PartItem<ODExportBusPart>> OD_EXPORT_BUS = createPart(
+        AEPartIds.OD_EXPORT_BUS, ODExportBusPart.class, ODExportBusPart::new);
+    public static final ItemDefinition<PartItem<ModStorageBusPart>> MOD_STORAGE_BUS = createPart(
+        AEPartIds.MOD_STORAGE_BUS, ModStorageBusPart.class, ModStorageBusPart::new);
+    public static final ItemDefinition<PartItem<ModExportBusPart>> MOD_EXPORT_BUS = createPart(
+        AEPartIds.MOD_EXPORT_BUS, ModExportBusPart.class, ModExportBusPart::new);
+    public static final ItemDefinition<PartItem<PreciseStorageBusPart>> PRECISE_STORAGE_BUS = createPart(
+        AEPartIds.PRECISE_STORAGE_BUS, PreciseStorageBusPart.class, PreciseStorageBusPart::new);
+    public static final ItemDefinition<PartItem<PreciseExportBusPart>> PRECISE_EXPORT_BUS = createPart(
+        AEPartIds.PRECISE_EXPORT_BUS, PreciseExportBusPart.class, PreciseExportBusPart::new);
+    public static final ItemDefinition<PartItem<ThresholdExportBusPart>> THRESHOLD_EXPORT_BUS = createPart(
+        AEPartIds.THRESHOLD_EXPORT_BUS, ThresholdExportBusPart.class, ThresholdExportBusPart::new);
     public static final ItemDefinition<PartItem<StorageLevelEmitterPart>> LEVEL_EMITTER = createPart(
         AEPartIds.LEVEL_EMITTER, StorageLevelEmitterPart.class, StorageLevelEmitterPart::new);
     public static final ItemDefinition<PartItem<EnergyLevelEmitterPart>> ENERGY_LEVEL_EMITTER = createPart(
         AEPartIds.ENERGY_LEVEL_EMITTER, EnergyLevelEmitterPart.class, EnergyLevelEmitterPart::new);
+    public static final ItemDefinition<PartItem<ThresholdLevelEmitterPart>> THRESHOLD_LEVEL_EMITTER = createPart(
+        AEPartIds.THRESHOLD_LEVEL_EMITTER, ThresholdLevelEmitterPart.class, ThresholdLevelEmitterPart::new);
     public static final ItemDefinition<PartItem<AnnihilationPlanePart>> ANNIHILATION_PLANE = createCustomPartItem(
         AnnihilationPlanePartItem::new);
     public static final ItemDefinition<PartItem<FormationPlanePart>> FORMATION_PLANE = createPart(
@@ -150,8 +179,16 @@ public final class AEParts {
         STORAGE_BUS,
         IMPORT_BUS,
         EXPORT_BUS,
+        OD_STORAGE_BUS,
+        OD_EXPORT_BUS,
+        MOD_STORAGE_BUS,
+        MOD_EXPORT_BUS,
+        PRECISE_STORAGE_BUS,
+        PRECISE_EXPORT_BUS,
+        THRESHOLD_EXPORT_BUS,
         LEVEL_EMITTER,
         ENERGY_LEVEL_EMITTER,
+        THRESHOLD_LEVEL_EMITTER,
         ANNIHILATION_PLANE,
         FORMATION_PLANE,
         CRAFTING_TERMINAL,

@@ -80,7 +80,7 @@ public record EntropyRecipe(EntropyMode mode, Input input, Output output) {
                 }
                 Block fluidBlock = fluidInput.fluid.getBlock();
                 if (!fluidInput.properties.isEmpty()) {
-                    if (fluidBlock == null || blockState == null || blockState.getBlock() != fluidBlock) {
+                    if (fluidBlock == null || blockState == null) {
                         return false;
                     }
                     return PropertyUtils.doPropertiesMatch(fluidBlock, blockState, fluidInput.properties);

@@ -1,0 +1,12 @@
+{
+  "type": "minecraft:smelting",
+  "ingredient": {
+    "item": "ae2:quartz_blend"
+  },
+  "result": {
+    "item": "ae2:silicon",
+    "count": 4
+  },
+  "experience": 0.35,
+  "cookingtime": 200
+}

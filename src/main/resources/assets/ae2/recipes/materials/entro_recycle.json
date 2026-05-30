@@ -1,0 +1,17 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "SSS",
+    "S S",
+    "SSS"
+  ],
+  "key": {
+    "S": {
+      "item": "ae2:entro_shard"
+    }
+  },
+  "result": {
+    "item": "ae2:entro_crystal",
+    "count": 1
+  }
+}

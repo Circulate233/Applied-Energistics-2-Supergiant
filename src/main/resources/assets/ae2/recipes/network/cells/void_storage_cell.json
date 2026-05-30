@@ -1,24 +1,25 @@
 {
   "type": "forge:ore_shaped",
   "pattern": [
-    "aba",
+    "cec",
     "bdb",
-    "ccc"
+    "aaa"
   ],
   "key": {
     "a": {
-      "item": "ae2:quartz_glass"
+      "item": "minecraft:diamond"
     },
     "b": {
-      "type": "forge:ore_dict",
-      "ore": "dustRedstone"
+      "item": "ae2:void_card"
     },
     "c": {
-      "type": "forge:ore_dict",
-      "ore": "ingotIron"
+      "item": "ae2:quartz_glass"
     },
     "d": {
-      "item": "ae2:matter_ball"
+      "item": "ae2:cell_component_16k"
+    },
+    "e": {
+      "item": "ae2:condenser"
     }
   },
   "result": {

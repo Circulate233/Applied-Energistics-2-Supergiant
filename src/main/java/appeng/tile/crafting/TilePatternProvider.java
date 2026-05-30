@@ -25,9 +25,11 @@ import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
 import appeng.block.crafting.PatternProviderBlock;
 import appeng.block.crafting.PushDirection;
+import appeng.core.AEConfig;
 import appeng.core.definitions.AEBlocks;
 import appeng.helpers.externalstorage.GenericStackFluidStorage;
 import appeng.helpers.externalstorage.GenericStackItemStorage;
+import appeng.helpers.patternprovider.PatternProviderCapacity;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.items.tools.MemoryCardItem;
@@ -54,7 +56,8 @@ public class TilePatternProvider extends AENetworkedTile implements PatternProvi
     private static final String MEMORY_CARD_PUSH_DIRECTION = "pushDirection";
 
     private final PatternProviderLogic logic = new PatternProviderLogic(this.getMainNode(), this,
-        AEBlocks.PATTERN_PROVIDER.item(), 9);
+        AEBlocks.PATTERN_PROVIDER.item(),
+        PatternProviderCapacity.getMaxPatternSlots(AEConfig.instance().getPatternProviderExpansionCardLimit()));
     private final IItemHandler itemHandler = new GenericStackItemStorage(this.logic.getReturnInv());
     private final IFluidHandler fluidHandler = new GenericStackFluidStorage(this.logic.getReturnInv());
 

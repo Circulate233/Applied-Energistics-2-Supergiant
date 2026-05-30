@@ -23,6 +23,7 @@ import appeng.api.networking.IGridServiceProvider;
 import appeng.api.networking.storage.IStorageService;
 import appeng.api.networking.storage.IStorageWatcherNode;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKey2LongMap;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.storage.IStorageMounts;
 import appeng.api.storage.IStorageProvider;
@@ -34,8 +35,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.SetMultimap;
 import com.google.gson.stream.JsonWriter;
-import it.unimi.dsi.fastutil.objects.Object2LongMap;
-import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
@@ -53,7 +52,7 @@ public class StorageService implements IStorageService, IGridServiceProvider {
     private final InterestManager<StackWatcher<IStorageWatcherNode>> interestManager = new InterestManager<>(this.interests);
     private final NetworkStorage storage = new NetworkStorage();
     private final KeyCounter cachedAvailableStacks = new KeyCounter();
-    private final Object2LongMap<AEKey> cachedAvailableAmounts = new Object2LongOpenHashMap<>();
+    private final AEKey2LongMap cachedAvailableAmounts = new AEKey2LongMap.OpenHashMap();
     private final Reference2ObjectMap<IGridNode, StackWatcher<IStorageWatcherNode>> watchers =
         new Reference2ObjectOpenHashMap<>();
 

@@ -1,0 +1,15 @@
+{
+  "type": "ae2:quartz_cutting",
+  "ingredients": [
+    {
+      "tag": "ae2:knife"
+    },
+    {
+      "item": "ae2:entro_block"
+    }
+  ],
+  "result": {
+    "id": "ae2:concurrent_processor_print",
+    "count": 4
+  }
+}

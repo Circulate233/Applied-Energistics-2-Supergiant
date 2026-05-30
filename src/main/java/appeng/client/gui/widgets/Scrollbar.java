@@ -50,13 +50,13 @@ public class Scrollbar implements IScrollSource, ICompositeWidget {
         256,
         256);
     public static final Style BIG = Style.create(
-        AppEng.makeId("textures/gui/sprites/big_scroller.png"),
-        AppEng.makeId("textures/gui/sprites/big_scroller_disabled.png"),
+        AppEng.makeId("textures/guis/sprites/big_scroller.png"),
+        AppEng.makeId("textures/guis/sprites/big_scroller_disabled.png"),
         12,
         15);
     public static final Style SMALL = Style.create(
-        AppEng.makeId("textures/gui/sprites/small_scroller.png"),
-        AppEng.makeId("textures/gui/sprites/small_scroller_disabled.png"),
+        AppEng.makeId("textures/guis/sprites/small_scroller.png"),
+        AppEng.makeId("textures/guis/sprites/small_scroller_disabled.png"),
         7,
         15);
     private static final int MOUSE_BUTTON_LEFT = 0;

@@ -1,0 +1,26 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "FG ",
+    "PIP",
+    " GF"
+  ],
+  "key": {
+    "F": {
+      "item": "ae2:fluix_dust"
+    },
+    "G": {
+      "item": "minecraft:slime_ball"
+    },
+    "I": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "P": {
+      "item": "minecraft:paper"
+    }
+  },
+  "result": {
+    "item": "ae2:me_packing_tape"
+  }
+}

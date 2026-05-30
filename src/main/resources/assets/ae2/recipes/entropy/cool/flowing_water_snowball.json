@@ -3,7 +3,13 @@
   "mode": "cool",
   "input": {
     "block": {
-      "id": "minecraft:flowing_water"
+      "id": "minecraft:flowing_water",
+      "properties": {
+        "level": {
+          "min": "1",
+          "max": "15"
+        }
+      }
     }
   },
   "output": {

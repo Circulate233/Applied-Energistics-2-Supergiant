@@ -4,26 +4,41 @@ import appeng.api.implementations.guiobjects.IGuiItem;
 import appeng.api.implementations.guiobjects.IPortableTerminal;
 import appeng.api.implementations.guiobjects.ItemGuiHost;
 import appeng.api.storage.ITerminalHost;
+import appeng.client.gui.implementations.GuiAnnihilationPlane;
+import appeng.client.gui.implementations.GuiCaner;
 import appeng.client.gui.implementations.GuiCellWorkbench;
 import appeng.client.gui.implementations.GuiCondenser;
+import appeng.client.gui.implementations.GuiConfigModifier;
+import appeng.client.gui.implementations.GuiCrystalAssembler;
 import appeng.client.gui.implementations.GuiDrive;
 import appeng.client.gui.implementations.GuiEnergyLevelEmitter;
 import appeng.client.gui.implementations.GuiFormationPlane;
 import appeng.client.gui.implementations.GuiIOBus;
 import appeng.client.gui.implementations.GuiIOPort;
+import appeng.client.gui.implementations.GuiIngredientBuffer;
 import appeng.client.gui.implementations.GuiInscriber;
 import appeng.client.gui.implementations.GuiInterface;
 import appeng.client.gui.implementations.GuiMEChest;
+import appeng.client.gui.implementations.GuiModFilterBus;
+import appeng.client.gui.implementations.GuiModStorageBus;
 import appeng.client.gui.implementations.GuiMolecularAssembler;
+import appeng.client.gui.implementations.GuiODFilterBus;
+import appeng.client.gui.implementations.GuiODStorageBus;
+import appeng.client.gui.implementations.GuiPatternModifier;
 import appeng.client.gui.implementations.GuiPatternProvider;
+import appeng.client.gui.implementations.GuiPreciseStorageBus;
 import appeng.client.gui.implementations.GuiQNB;
 import appeng.client.gui.implementations.GuiQuartzKnife;
 import appeng.client.gui.implementations.GuiSkyChest;
 import appeng.client.gui.implementations.GuiSpatialAnchor;
 import appeng.client.gui.implementations.GuiSpatialIOPort;
+import appeng.client.gui.implementations.GuiSpecialPreciseExportBus;
 import appeng.client.gui.implementations.GuiStorageBus;
 import appeng.client.gui.implementations.GuiStorageLevelEmitter;
+import appeng.client.gui.implementations.GuiThresholdExportBus;
+import appeng.client.gui.implementations.GuiThresholdLevelEmitter;
 import appeng.client.gui.implementations.GuiVibrationChamber;
+import appeng.client.gui.implementations.GuiVoidCell;
 import appeng.client.gui.implementations.GuiWirelessAccessPoint;
 import appeng.client.gui.me.common.GuiMEStorage;
 import appeng.client.gui.me.crafting.GuiCraftingCPU;
@@ -37,23 +52,33 @@ import appeng.client.gui.networking.GuiControllerStatus;
 import appeng.client.gui.style.GuiStyleManager;
 import appeng.container.AEBaseContainer;
 import appeng.container.GuiIds;
+import appeng.container.implementations.ContainerAnnihilationPlane;
+import appeng.container.implementations.ContainerCaner;
 import appeng.container.implementations.ContainerCellWorkbench;
 import appeng.container.implementations.ContainerCondenser;
+import appeng.container.implementations.ContainerConfigModifier;
 import appeng.container.implementations.ContainerCraftConfirm;
 import appeng.container.implementations.ContainerCraftingCPU;
 import appeng.container.implementations.ContainerCraftingTree;
+import appeng.container.implementations.ContainerCrystalAssembler;
 import appeng.container.implementations.ContainerDrive;
 import appeng.container.implementations.ContainerEnergyLevelEmitter;
 import appeng.container.implementations.ContainerFormationPlane;
 import appeng.container.implementations.ContainerIOBus;
 import appeng.container.implementations.ContainerIOPort;
+import appeng.container.implementations.ContainerIngredientBuffer;
 import appeng.container.implementations.ContainerInscriber;
 import appeng.container.implementations.ContainerInterface;
 import appeng.container.implementations.ContainerMEChest;
+import appeng.container.implementations.ContainerModFilterBus;
+import appeng.container.implementations.ContainerModStorageBus;
 import appeng.container.implementations.ContainerMolecularAssembler;
 import appeng.container.implementations.ContainerNetworkStatus;
 import appeng.container.implementations.ContainerNetworkTool;
+import appeng.container.implementations.ContainerODFilterBus;
+import appeng.container.implementations.ContainerODStorageBus;
 import appeng.container.implementations.ContainerPatternAccessTerm;
+import appeng.container.implementations.ContainerPatternModifier;
 import appeng.container.implementations.ContainerPatternProvider;
 import appeng.container.implementations.ContainerQNB;
 import appeng.container.implementations.ContainerQuartzKnife;
@@ -62,7 +87,10 @@ import appeng.container.implementations.ContainerSpatialAnchor;
 import appeng.container.implementations.ContainerSpatialIOPort;
 import appeng.container.implementations.ContainerStorageBus;
 import appeng.container.implementations.ContainerStorageLevelEmitter;
+import appeng.container.implementations.ContainerThresholdExportBus;
+import appeng.container.implementations.ContainerThresholdLevelEmitter;
 import appeng.container.implementations.ContainerVibrationChamber;
+import appeng.container.implementations.ContainerVoidCell;
 import appeng.container.implementations.ContainerWirelessAccessPoint;
 import appeng.container.me.common.ContainerMEStorage;
 import appeng.container.me.items.ContainerBasicCellChest;
@@ -77,15 +105,27 @@ import appeng.core.gui.locator.PartLocator;
 import appeng.helpers.WirelessCraftingTerminalGuiHost;
 import appeng.helpers.WirelessPatternAccessTerminalGuiHost;
 import appeng.helpers.WirelessPatternEncodingTerminalGuiHost;
+import appeng.items.contents.ConfigModifierGuiHost;
 import appeng.items.contents.NetworkToolGuiHost;
+import appeng.items.contents.PatternModifierGuiHost;
+import appeng.items.contents.VoidCellGuiHost;
 import appeng.items.tools.powered.WirelessTerminalRegistry;
 import appeng.items.tools.powered.WirelessUniversalTerminalItem;
 import appeng.parts.AEBasePart;
+import appeng.parts.automation.AnnihilationPlanePart;
 import appeng.parts.automation.EnergyLevelEmitterPart;
-import appeng.parts.automation.ExportBusPart;
 import appeng.parts.automation.FormationPlanePart;
+import appeng.parts.automation.IOBusPart;
 import appeng.parts.automation.ImportBusPart;
 import appeng.parts.automation.StorageLevelEmitterPart;
+import appeng.parts.automation.ThresholdLevelEmitterPart;
+import appeng.parts.automation.special.ModExportBusPart;
+import appeng.parts.automation.special.ModStorageBusPart;
+import appeng.parts.automation.special.ODExportBusPart;
+import appeng.parts.automation.special.ODStorageBusPart;
+import appeng.parts.automation.special.PreciseExportBusPart;
+import appeng.parts.automation.special.PreciseStorageBusPart;
+import appeng.parts.automation.special.ThresholdExportBusPart;
 import appeng.parts.crafting.PatternProviderPart;
 import appeng.parts.encoding.PatternEncodingTerminalPart;
 import appeng.parts.misc.InterfacePart;
@@ -97,8 +137,11 @@ import appeng.tile.AEBaseTile;
 import appeng.tile.crafting.TileCraftingUnit;
 import appeng.tile.crafting.TileMolecularAssembler;
 import appeng.tile.crafting.TilePatternProvider;
+import appeng.tile.misc.TileCaner;
 import appeng.tile.misc.TileCellWorkbench;
 import appeng.tile.misc.TileCondenser;
+import appeng.tile.misc.TileCrystalAssembler;
+import appeng.tile.misc.TileIngredientBuffer;
 import appeng.tile.misc.TileInscriber;
 import appeng.tile.misc.TileInterface;
 import appeng.tile.misc.TileVibrationChamber;
@@ -128,8 +171,11 @@ public class AEGuiHandler implements IGuiHandler {
     private static boolean isItemGui(GuiIds.GuiKey bridge) {
         return bridge == GuiIds.GuiKey.QUARTZ_KNIFE
             || bridge == GuiIds.GuiKey.NETWORK_TOOL
+            || bridge == GuiIds.GuiKey.CONFIG_MODIFIER
+            || bridge == GuiIds.GuiKey.PATTERN_MODIFIER
             || bridge == GuiIds.GuiKey.NETWORK_STATUS
             || bridge == GuiIds.GuiKey.PORTABLE_ITEM_CELL
+            || bridge == GuiIds.GuiKey.VOID_CELL
             || bridge == GuiIds.GuiKey.PORTABLE_FLUID_CELL
             || bridge == GuiIds.GuiKey.WIRELESS_TERMINAL
             || bridge == GuiIds.GuiKey.WIRELESS_CRAFTING_TERMINAL
@@ -141,9 +187,18 @@ public class AEGuiHandler implements IGuiHandler {
         return bridge == GuiIds.GuiKey.IMPORT_BUS
             || bridge == GuiIds.GuiKey.EXPORT_BUS
             || bridge == GuiIds.GuiKey.STORAGE_BUS
+            || bridge == GuiIds.GuiKey.OD_EXPORT_BUS
+            || bridge == GuiIds.GuiKey.MOD_EXPORT_BUS
+            || bridge == GuiIds.GuiKey.PRECISE_EXPORT_BUS
+            || bridge == GuiIds.GuiKey.THRESHOLD_EXPORT_BUS
+            || bridge == GuiIds.GuiKey.OD_STORAGE_BUS
+            || bridge == GuiIds.GuiKey.MOD_STORAGE_BUS
+            || bridge == GuiIds.GuiKey.PRECISE_STORAGE_BUS
             || bridge == GuiIds.GuiKey.FORMATION_PLANE
+            || bridge == GuiIds.GuiKey.ANNIHILATION_PLANE
             || bridge == GuiIds.GuiKey.ENERGY_LEVEL_EMITTER
             || bridge == GuiIds.GuiKey.STORAGE_LEVEL_EMITTER
+            || bridge == GuiIds.GuiKey.THRESHOLD_LEVEL_EMITTER
             || bridge == GuiIds.GuiKey.ME_STORAGE_TERMINAL
             || bridge == GuiIds.GuiKey.CRAFTING_TERMINAL
             || bridge == GuiIds.GuiKey.PATTERN_ENCODING_TERMINAL
@@ -200,6 +255,16 @@ public class AEGuiHandler implements IGuiHandler {
         return null;
     }
 
+    private static net.minecraft.util.math.RayTraceResult unpackPatternModifierHitResult(int x, int y, int z) {
+        BlockPos pos = new BlockPos(x, y & 255, z);
+        int sideIndex = (y >> 16) & 0x7;
+        int hitX = (y >> 19) & 0xF;
+        int hitY = (y >> 23) & 0xF;
+        int hitZ = (y >> 27) & 0xF;
+        return GuiHostLocators.createItemUseHitResult(pos, net.minecraft.util.EnumFacing.VALUES[sideIndex],
+            hitX / 15.0f, hitY / 15.0f, hitZ / 15.0f);
+    }
+
     @Override
     public Object getServerGuiElement(int ID, EntityPlayer player, World world, int x, int y, int z) {
         GuiIds.GuiKey bridge = GuiIds.GuiKey.fromId(ID);
@@ -248,6 +313,23 @@ public class AEGuiHandler implements IGuiHandler {
             case INSCRIBER -> {
                 if (te instanceof TileInscriber) {
                     return initTileContainer(new ContainerInscriber(player.inventory, (TileInscriber) te), te, ID);
+                }
+            }
+            case CRYSTAL_ASSEMBLER -> {
+                if (te instanceof TileCrystalAssembler) {
+                    return initTileContainer(new ContainerCrystalAssembler(player.inventory,
+                        (TileCrystalAssembler) te), te, ID);
+                }
+            }
+            case INGREDIENT_BUFFER -> {
+                if (te instanceof TileIngredientBuffer) {
+                    return initTileContainer(new ContainerIngredientBuffer(player.inventory,
+                        (TileIngredientBuffer) te), te, ID);
+                }
+            }
+            case CANER -> {
+                if (te instanceof TileCaner) {
+                    return initTileContainer(new ContainerCaner(player.inventory, (TileCaner) te), te, ID);
                 }
             }
             case IO_PORT -> {
@@ -325,16 +407,48 @@ public class AEGuiHandler implements IGuiHandler {
                     host -> new ContainerIOBus(player.inventory, host));
             }
             case EXPORT_BUS -> {
-                return createPartContainer(player, partLocator(x, y, z), ID, ExportBusPart.class,
+                return createPartContainer(player, partLocator(x, y, z), ID, IOBusPart.class,
                     host -> new ContainerIOBus(player.inventory, host));
             }
             case STORAGE_BUS -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, StorageBusPart.class,
                     host -> new ContainerStorageBus(player.inventory, host));
             }
+            case OD_EXPORT_BUS -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, ODExportBusPart.class,
+                    host -> new ContainerODFilterBus<>(player.inventory, host));
+            }
+            case MOD_EXPORT_BUS -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, ModExportBusPart.class,
+                    host -> new ContainerModFilterBus<>(player.inventory, host));
+            }
+            case PRECISE_EXPORT_BUS -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, PreciseExportBusPart.class,
+                    host -> new ContainerIOBus(player.inventory, host));
+            }
+            case THRESHOLD_EXPORT_BUS -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, ThresholdExportBusPart.class,
+                    host -> new ContainerThresholdExportBus(player.inventory, host));
+            }
+            case OD_STORAGE_BUS -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, ODStorageBusPart.class,
+                    host -> new ContainerODStorageBus(player.inventory, host));
+            }
+            case MOD_STORAGE_BUS -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, ModStorageBusPart.class,
+                    host -> new ContainerModStorageBus(player.inventory, host));
+            }
+            case PRECISE_STORAGE_BUS -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, PreciseStorageBusPart.class,
+                    host -> new ContainerStorageBus(player.inventory, host));
+            }
             case FORMATION_PLANE -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, FormationPlanePart.class,
                     host -> new ContainerFormationPlane(player.inventory, host));
+            }
+            case ANNIHILATION_PLANE -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, AnnihilationPlanePart.class,
+                    host -> new ContainerAnnihilationPlane(player.inventory, host));
             }
             case ENERGY_LEVEL_EMITTER -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, EnergyLevelEmitterPart.class,
@@ -343,6 +457,10 @@ public class AEGuiHandler implements IGuiHandler {
             case STORAGE_LEVEL_EMITTER -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, StorageLevelEmitterPart.class,
                     host -> new ContainerStorageLevelEmitter(player.inventory, host));
+            }
+            case THRESHOLD_LEVEL_EMITTER -> {
+                return createPartContainer(player, partLocator(x, y, z), ID, ThresholdLevelEmitterPart.class,
+                    host -> new ContainerThresholdLevelEmitter(player.inventory, host));
             }
             case ME_STORAGE_TERMINAL -> {
                 return createPartContainer(player, partLocator(x, y, z), ID, ItemTerminalPart.class,
@@ -366,11 +484,20 @@ public class AEGuiHandler implements IGuiHandler {
             case NETWORK_TOOL -> {
                 return createNetworkToolContainer(player, x, ID);
             }
+            case CONFIG_MODIFIER -> {
+                return createConfigModifierContainer(player, x, ID);
+            }
+            case PATTERN_MODIFIER -> {
+                return createPatternModifierContainer(player, x, y, z, ID);
+            }
             case NETWORK_STATUS -> {
                 return createNetworkStatusContainer(player, y >> 8, new BlockPos(x, y & 255, z), ID);
             }
             case PORTABLE_ITEM_CELL -> {
                 return createPortableItemCellContainer(player, x, ID);
+            }
+            case VOID_CELL -> {
+                return createVoidCellContainer(player, x, ID);
             }
             case PORTABLE_FLUID_CELL -> {
                 return createPortableFluidCellContainer(player, x, ID);
@@ -389,6 +516,26 @@ public class AEGuiHandler implements IGuiHandler {
             }
         }
         return null;
+    }
+
+    private @Nullable ContainerQuartzKnife createQuartzKnifeContainer(EntityPlayer player, int slot, int guiId) {
+        ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
+        ItemGuiHost<?> host = createItemGuiHost(player, locator);
+        if (host == null) {
+            return null;
+        }
+
+        return initContainer(new ContainerQuartzKnife(player.inventory, host), locator, guiId);
+    }
+
+    private @Nullable ContainerNetworkTool createNetworkToolContainer(EntityPlayer player, int slot, int guiId) {
+        ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
+        NetworkToolGuiHost<?> host = createNetworkToolGuiHost(player, locator);
+        if (host == null) {
+            return null;
+        }
+
+        return initContainer(new ContainerNetworkTool(player.inventory, host), locator, guiId);
     }
 
     @Override
@@ -464,6 +611,33 @@ public class AEGuiHandler implements IGuiHandler {
                     return new GuiInscriber(container, player.inventory,
                         ((appeng.tile.AEBaseTile) te).getCustomName(),
                         GuiStyleManager.loadStyleDoc("/screens/inscriber.json"));
+                }
+            }
+            case CRYSTAL_ASSEMBLER -> {
+                if (te instanceof TileCrystalAssembler) {
+                    ContainerCrystalAssembler container = initTileContainer(new ContainerCrystalAssembler(
+                        player.inventory, (TileCrystalAssembler) te), te, ID);
+                    return new GuiCrystalAssembler(container, player.inventory,
+                        ((appeng.tile.AEBaseTile) te).getCustomName(),
+                        GuiStyleManager.loadStyleDoc("/screens/crystal_assembler.json"));
+                }
+            }
+            case INGREDIENT_BUFFER -> {
+                if (te instanceof TileIngredientBuffer) {
+                    ContainerIngredientBuffer container = initTileContainer(new ContainerIngredientBuffer(
+                        player.inventory, (TileIngredientBuffer) te), te, ID);
+                    return new GuiIngredientBuffer(container, player.inventory,
+                        ((appeng.tile.AEBaseTile) te).getCustomName(),
+                        GuiStyleManager.loadStyleDoc("/screens/ingredient_buffer.json"));
+                }
+            }
+            case CANER -> {
+                if (te instanceof TileCaner) {
+                    ContainerCaner container = initTileContainer(new ContainerCaner(player.inventory,
+                        (TileCaner) te), te, ID);
+                    return new GuiCaner(container, player.inventory,
+                        ((appeng.tile.AEBaseTile) te).getCustomName(),
+                        GuiStyleManager.loadStyleDoc("/screens/caner.json"));
                 }
             }
             case IO_PORT -> {
@@ -590,7 +764,7 @@ public class AEGuiHandler implements IGuiHandler {
             case EXPORT_BUS -> {
                 ContainerIOBus exportBusContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
-                    ExportBusPart.class, host -> new ContainerIOBus(player.inventory, host));
+                    IOBusPart.class, host -> new ContainerIOBus(player.inventory, host));
                 if (exportBusContainer != null) {
                     return new GuiIOBus(exportBusContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/export_bus.json"));
@@ -607,6 +781,48 @@ public class AEGuiHandler implements IGuiHandler {
                 }
                 return null;
             }
+            case OD_EXPORT_BUS -> {
+                ContainerODFilterBus<?> odContainer = createPartContainer(player, partLocator(x, y, z), ID,
+                    ODExportBusPart.class, host -> new ContainerODFilterBus<>(player.inventory, host));
+                return odContainer == null ? null : new GuiODFilterBus(odContainer, player.inventory, null,
+                    GuiStyleManager.loadStyleDoc("/screens/od_export_bus.json"));
+            }
+            case MOD_EXPORT_BUS -> {
+                ContainerModFilterBus<?> modContainer = createPartContainer(player, partLocator(x, y, z), ID,
+                    ModExportBusPart.class, host -> new ContainerModFilterBus<>(player.inventory, host));
+                return modContainer == null ? null : new GuiModFilterBus(modContainer, player.inventory, null,
+                    GuiStyleManager.loadStyleDoc("/screens/mod_export_bus.json"));
+            }
+            case PRECISE_EXPORT_BUS -> {
+                ContainerIOBus preciseContainer = createPartContainer(player, partLocator(x, y, z), ID,
+                    PreciseExportBusPart.class, host -> new ContainerIOBus(player.inventory, host));
+                return preciseContainer == null ? null : new GuiSpecialPreciseExportBus(preciseContainer,
+                    player.inventory, null, GuiStyleManager.loadStyleDoc("/screens/precise_export_bus.json"));
+            }
+            case THRESHOLD_EXPORT_BUS -> {
+                ContainerThresholdExportBus thresholdContainer = createPartContainer(player, partLocator(x, y, z), ID,
+                    ThresholdExportBusPart.class, host -> new ContainerThresholdExportBus(player.inventory, host));
+                return thresholdContainer == null ? null : new GuiThresholdExportBus(thresholdContainer,
+                    player.inventory, null, GuiStyleManager.loadStyleDoc("/screens/threshold_export_bus.json"));
+            }
+            case OD_STORAGE_BUS -> {
+                ContainerODStorageBus odContainer = createPartContainer(player, partLocator(x, y, z), ID,
+                    ODStorageBusPart.class, host -> new ContainerODStorageBus(player.inventory, host));
+                return odContainer == null ? null : new GuiODStorageBus(odContainer, player.inventory, null,
+                    GuiStyleManager.loadStyleDoc("/screens/od_storage_bus.json"));
+            }
+            case MOD_STORAGE_BUS -> {
+                ContainerModStorageBus modContainer = createPartContainer(player, partLocator(x, y, z), ID,
+                    ModStorageBusPart.class, host -> new ContainerModStorageBus(player.inventory, host));
+                return modContainer == null ? null : new GuiModStorageBus(modContainer, player.inventory, null,
+                    GuiStyleManager.loadStyleDoc("/screens/mod_storage_bus.json"));
+            }
+            case PRECISE_STORAGE_BUS -> {
+                ContainerStorageBus preciseStorageContainer = createPartContainer(player, partLocator(x, y, z), ID,
+                    PreciseStorageBusPart.class, host -> new ContainerStorageBus(player.inventory, host));
+                return preciseStorageContainer == null ? null : new GuiPreciseStorageBus(preciseStorageContainer,
+                    player.inventory, null, GuiStyleManager.loadStyleDoc("/screens/precise_storage_bus.json"));
+            }
             case FORMATION_PLANE -> {
                 ContainerFormationPlane formationPlaneContainer = createPartContainer(player,
                     partLocator(x, y, z), ID,
@@ -616,6 +832,12 @@ public class AEGuiHandler implements IGuiHandler {
                         GuiStyleManager.loadStyleDoc("/screens/formation_plane.json"));
                 }
                 return null;
+            }
+            case ANNIHILATION_PLANE -> {
+                ContainerAnnihilationPlane container = createPartContainer(player, partLocator(x, y, z), ID,
+                    AnnihilationPlanePart.class, host -> new ContainerAnnihilationPlane(player.inventory, host));
+                return container == null ? null : new GuiAnnihilationPlane(container, player.inventory, null,
+                    GuiStyleManager.loadStyleDoc("/screens/annihilation_plane.json"));
             }
             case ENERGY_LEVEL_EMITTER -> {
                 ContainerEnergyLevelEmitter energyLevelEmitterContainer = createPartContainer(player,
@@ -639,6 +861,14 @@ public class AEGuiHandler implements IGuiHandler {
                         GuiStyleManager.loadStyleDoc("/screens/level_emitter.json"));
                 }
                 return null;
+            }
+            case THRESHOLD_LEVEL_EMITTER -> {
+                ContainerThresholdLevelEmitter container = createPartContainer(player, partLocator(x, y, z), ID,
+                    ThresholdLevelEmitterPart.class,
+                    host -> new ContainerThresholdLevelEmitter(player.inventory, host, host.getConfig().getStack(0),
+                        host.getUpperValue(), host.getLowerValue()));
+                return container == null ? null : new GuiThresholdLevelEmitter(container, player.inventory, null,
+                    GuiStyleManager.loadStyleDoc("/screens/threshold_level_emitter.json"));
             }
             case ME_STORAGE_TERMINAL -> {
                 ContainerMEStorage storageTerminalContainer = createPartContainer(player,
@@ -699,6 +929,16 @@ public class AEGuiHandler implements IGuiHandler {
                 }
                 return null;
             }
+            case CONFIG_MODIFIER -> {
+                ContainerConfigModifier container = createConfigModifierContainer(player, x, ID);
+                return container == null ? null : new GuiConfigModifier(container, player.inventory,
+                    GuiStyleManager.loadStyleDoc("/screens/config_modifier.json"));
+            }
+            case PATTERN_MODIFIER -> {
+                ContainerPatternModifier container = createPatternModifierContainer(player, x, y, z, ID);
+                return container == null ? null : new GuiPatternModifier(container, player.inventory,
+                    GuiStyleManager.loadStyleDoc("/screens/pattern_modifier.json"));
+            }
             case NETWORK_STATUS -> {
                 ContainerNetworkStatus networkStatusContainer = createNetworkStatusContainer(player, y >> 8,
                     new BlockPos(x, y & 255, z), ID);
@@ -713,6 +953,14 @@ public class AEGuiHandler implements IGuiHandler {
                 if (portableItemCellContainer != null) {
                     return new GuiMEStorage<>(portableItemCellContainer, player.inventory, null,
                         GuiStyleManager.loadStyleDoc("/screens/terminals/portable_item_cell.json"));
+                }
+                return null;
+            }
+            case VOID_CELL -> {
+                ContainerVoidCell container = createVoidCellContainer(player, x, ID);
+                if (container != null) {
+                    return new GuiVoidCell(container, player.inventory, null,
+                        GuiStyleManager.loadStyleDoc("/screens/void_cell.json"));
                 }
                 return null;
             }
@@ -763,24 +1011,31 @@ public class AEGuiHandler implements IGuiHandler {
         return null;
     }
 
-    private @Nullable ContainerQuartzKnife createQuartzKnifeContainer(EntityPlayer player, int slot, int guiId) {
+    private @Nullable ContainerConfigModifier createConfigModifierContainer(EntityPlayer player, int slot, int guiId) {
         ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
-        ItemGuiHost<?> host = createItemGuiHost(player, locator);
-        if (host == null) {
+        ItemGuiHost<?> host = createItemGuiHost(player, locator, GuiIds.GuiKey.CONFIG_MODIFIER);
+        if (!(host instanceof ConfigModifierGuiHost configModifierHost)) {
             return null;
         }
 
-        return initContainer(new ContainerQuartzKnife(player.inventory, host), locator, guiId);
+        return initContainer(new ContainerConfigModifier(player.inventory, configModifierHost), locator, guiId);
     }
 
-    private @Nullable ContainerNetworkTool createNetworkToolContainer(EntityPlayer player, int slot, int guiId) {
-        ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
-        NetworkToolGuiHost<?> host = createNetworkToolGuiHost(player, locator);
-        if (host == null) {
+    private @Nullable ContainerPatternModifier createPatternModifierContainer(EntityPlayer player, int x, int y, int z,
+                                                                              int guiId) {
+        int encodedSlot = (y >> 8) & 0xFF;
+        ItemGuiHostLocator locator = x < 0 && y == 0 && z == 0
+            ? GuiHostLocators.forBaubleSlot(-x - 1)
+            : encodedSlot > 0
+              ? GuiHostLocators.forInventorySlot(encodedSlot - 1,
+            unpackPatternModifierHitResult(x, y, z))
+              : GuiHostLocators.forInventorySlot(x);
+        ItemGuiHost<?> host = createItemGuiHost(player, locator, GuiIds.GuiKey.PATTERN_MODIFIER);
+        if (!(host instanceof PatternModifierGuiHost patternModifierHost)) {
             return null;
         }
 
-        return initContainer(new ContainerNetworkTool(player.inventory, host), locator, guiId);
+        return initContainer(new ContainerPatternModifier(player.inventory, patternModifierHost), locator, guiId);
     }
 
     private @Nullable ContainerNetworkStatus createNetworkStatusContainer(EntityPlayer player, int slot, BlockPos pos, int guiId) {
@@ -803,6 +1058,16 @@ public class AEGuiHandler implements IGuiHandler {
 
         return initContainer(new ContainerMEStorage(GuiIds.GuiKey.PORTABLE_ITEM_CELL, player.inventory, host),
             locator, guiId);
+    }
+
+    private @Nullable ContainerVoidCell createVoidCellContainer(EntityPlayer player, int slot, int guiId) {
+        ItemGuiHostLocator locator = GuiHostLocators.forInventorySlot(slot);
+        ItemGuiHost<?> host = createItemGuiHost(player, locator, GuiIds.GuiKey.VOID_CELL);
+        if (!(host instanceof VoidCellGuiHost voidCellHost)) {
+            return null;
+        }
+
+        return initContainer(new ContainerVoidCell(player.inventory, voidCellHost), locator, guiId);
     }
 
     private @Nullable ContainerMEStorage createPortableFluidCellContainer(EntityPlayer player, int slot, int guiId) {
@@ -889,11 +1154,11 @@ public class AEGuiHandler implements IGuiHandler {
     private @Nullable ItemGuiHost<?> createItemGuiHost(EntityPlayer player, ItemGuiHostLocator locator,
                                                        GuiIds.GuiKey requestedGui) {
         Integer slot = locator.getPlayerInventorySlot();
-        if (slot == null || slot < 0 || slot >= player.inventory.getSizeInventory()) {
+        if (slot != null && (slot < 0 || slot >= player.inventory.getSizeInventory())) {
             return null;
         }
 
-        ItemStack stack = player.inventory.getStackInSlot(slot);
+        ItemStack stack = locator.locateItem(player);
         if (stack.isEmpty() || !(stack.getItem() instanceof IGuiItem guiItem)) {
             return null;
         }

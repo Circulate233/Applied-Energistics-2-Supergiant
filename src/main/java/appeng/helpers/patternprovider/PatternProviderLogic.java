@@ -30,6 +30,8 @@ import appeng.api.crafting.IPatternDetails.IInput;
 import appeng.api.crafting.PatternDetailsHelper;
 import appeng.api.implementations.blockentities.ICraftingMachine;
 import appeng.api.implementations.blockentities.PatternContainerGroup;
+import appeng.api.inventories.BaseInternalInventory;
+import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGrid;
 import appeng.api.networking.IGridConnection;
@@ -46,8 +48,9 @@ import appeng.api.stacks.AEKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.upgrades.IUpgradeInventory;
-import appeng.api.upgrades.UpgradeInventories;
+import appeng.api.upgrades.Upgrades;
 import appeng.api.util.IConfigManager;
+import appeng.core.AEConfig;
 import appeng.core.definitions.AEItems;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.PlayerMessages;
@@ -108,8 +111,10 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     private final IActionSource actionSource;
     private final IConfigManager configManager;
     private final AppEngInternalInventory patternInventory;
+    private final InternalInventory terminalPatternInventory = new ActivePatternInventory();
     private final IUpgradeInventory upgrades;
     private final ObjectList<IPatternDetails> patterns = new ObjectArrayList<>();
+    private final ObjectSet<AEItemKey> patternKeys = new ObjectOpenHashSet<>();
     private final ObjectSet<AEKey> patternInputs = new ObjectOpenHashSet<>();
     private final ObjectList<GenericStack> sendList = new ObjectArrayList<>();
     private final PatternProviderReturnInventory returnInv;
@@ -126,7 +131,8 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     private int lastSuccessfulPatternHash;
 
     public PatternProviderLogic(IManagedGridNode mainNode, PatternProviderLogicHost host) {
-        this(mainNode, host, host.getMainContainerIcon().getItem(), 9);
+        this(mainNode, host, host.getMainContainerIcon().getItem(),
+            PatternProviderCapacity.getMaxPatternSlots(AEConfig.instance().getPatternProviderExpansionCardLimit()));
     }
 
     public PatternProviderLogic(IManagedGridNode mainNode, PatternProviderLogicHost host, int patternInventorySize) {
@@ -151,7 +157,8 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
                                            .registerSetting(Settings.LOCK_CRAFTING_MODE, LockCraftingMode.NONE)
                                            .build();
         this.patternInventory = new AppEngInternalInventory(this, patternInventorySize, 1, new PatternInventoryFilter());
-        this.upgrades = UpgradeInventories.forMachine(machineType, 1, this::onUpgradesChanged);
+        this.upgrades = new PatternProviderUpgradeInventory(machineType,
+            1 + AEConfig.instance().getPatternProviderExpansionCardLimit());
         this.returnInv = new PatternProviderReturnInventory(() -> {
             this.mainNode.ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
             this.host.saveChanges();
@@ -200,7 +207,12 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
     private void onUpgradesChanged() {
         this.host.saveChanges();
+        this.updatePatterns();
         ICraftingProvider.requestUpdate(this.mainNode);
+    }
+
+    private boolean isPatternSlotOccupied(int slot) {
+        return slot >= 0 && slot < this.patternInventory.size() && !this.patternInventory.getStackInSlot(slot).isEmpty();
     }
 
     public void writeToNBT(NBTTagCompound tag) {
@@ -285,6 +297,10 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
     @Override
     public void onChangeInventory(AppEngInternalInventory inv, int slot) {
+        if (inv == this.upgrades) {
+            this.onUpgradesChanged();
+            return;
+        }
         this.host.saveChanges();
         this.updatePatterns();
     }
@@ -297,15 +313,21 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
     public void updatePatterns() {
         this.patterns.clear();
+        this.patternKeys.clear();
         this.patternInputs.clear();
 
-        for (ItemStack stack : this.patternInventory) {
+        for (int slot = 0; slot < this.getActivePatternSlots(); slot++) {
+            ItemStack stack = this.patternInventory.getStackInSlot(slot);
             IPatternDetails details = PatternDetailsHelper.decodePattern(stack, this.host.getTileEntity().getWorld());
             if (details == null) {
                 continue;
             }
 
             this.patterns.add(details);
+            AEItemKey patternKey = AEItemKey.of(stack);
+            if (patternKey != null) {
+                this.patternKeys.add(patternKey);
+            }
             this.patternInputs.addAll(getPatternInputs(details));
         }
 
@@ -629,6 +651,32 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         return this.patternInventory;
     }
 
+    public InternalInventory getTerminalPatternInv() {
+        return this.terminalPatternInventory;
+    }
+
+    public int getInstalledCapacityCards() {
+        return this.upgrades.getInstalledUpgrades(AEItems.PATTERN_EXPANSION_CARD.item());
+    }
+
+    public int getActivePatternSlots() {
+        return Math.min(this.patternInventory.size(),
+            PatternProviderCapacity.getActivePatternSlots(this.getInstalledCapacityCards(),
+                AEConfig.instance().getPatternProviderExpansionCardLimit()));
+    }
+
+    public boolean containsPattern(AEItemKey pattern) {
+        return this.patternKeys.contains(pattern);
+    }
+
+    public int getPatternPageCount() {
+        return PatternProviderCapacity.getPageCount(this.getActivePatternSlots());
+    }
+
+    public boolean isPatternSlotEnabled(int slot) {
+        return slot >= 0 && slot < this.getActivePatternSlots();
+    }
+
     public IUpgradeInventory getUpgrades() {
         return this.upgrades;
     }
@@ -706,7 +754,7 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
         clearPatternInventory(player);
 
-        AppEngInternalInventory desiredPatterns = new AppEngInternalInventory(this.patternInventory.size());
+        AppEngInternalInventory desiredPatterns = new AppEngInternalInventory(this.getActivePatternSlots());
         desiredPatterns.readFromNBT(input, MEMORY_CARD_PATTERNS);
 
         int blankPatternsAvailable = player.capabilities.isCreativeMode
@@ -726,7 +774,7 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
             ++blankPatternsUsed;
             if (blankPatternsAvailable >= blankPatternsUsed) {
-                if (!this.patternInventory.addItems(pattern.getDefinition().toStack()).isEmpty()) {
+                if (!this.terminalPatternInventory.addItems(pattern.getDefinition().toStack()).isEmpty()) {
                     blankPatternsUsed--;
                 }
             }
@@ -928,6 +976,126 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
                 return TickRateModulation.SLEEP;
             }
             return couldDoWork ? TickRateModulation.URGENT : TickRateModulation.SLOWER;
+        }
+    }
+
+    private class ActivePatternInventory extends BaseInternalInventory {
+        @Override
+        public int size() {
+            return getActivePatternSlots();
+        }
+
+        @Override
+        public ItemStack getStackInSlot(int slotIndex) {
+            if (!isPatternSlotEnabled(slotIndex)) {
+                return ItemStack.EMPTY;
+            }
+            return patternInventory.getStackInSlot(slotIndex);
+        }
+
+        @Override
+        public void setItemDirect(int slotIndex, ItemStack stack) {
+            if (isPatternSlotEnabled(slotIndex)) {
+                patternInventory.setItemDirect(slotIndex, stack);
+            }
+        }
+
+        @Override
+        public boolean isItemValid(int slot, ItemStack stack) {
+            return isPatternSlotEnabled(slot) && patternInventory.isItemValid(slot, stack);
+        }
+
+        @Override
+        public int getSlotLimit(int slot) {
+            return patternInventory.getSlotLimit(slot);
+        }
+
+        @Override
+        public ItemStack insertItem(int slot, ItemStack stack, boolean simulate) {
+            if (!isPatternSlotEnabled(slot)) {
+                return stack;
+            }
+            return patternInventory.insertItem(slot, stack, simulate);
+        }
+
+        @Override
+        public ItemStack extractItem(int slot, int amount, boolean simulate) {
+            if (!isPatternSlotEnabled(slot)) {
+                return ItemStack.EMPTY;
+            }
+            return patternInventory.extractItem(slot, amount, simulate);
+        }
+    }
+
+    private class PatternProviderUpgradeInventory extends AppEngInternalInventory implements IUpgradeInventory {
+        private final net.minecraft.item.Item item;
+
+        PatternProviderUpgradeInventory(net.minecraft.item.Item item, int slots) {
+            super(PatternProviderLogic.this, slots, 1);
+            this.item = item;
+            this.setFilter(new UpgradeInvFilter());
+        }
+
+        @Override
+        public net.minecraft.item.Item getUpgradableItem() {
+            return this.item;
+        }
+
+        @Override
+        public int getInstalledUpgrades(net.minecraft.item.Item upgradeCard) {
+            int installed = 0;
+            for (ItemStack stack : this) {
+                if (!stack.isEmpty() && stack.getItem() == upgradeCard) {
+                    installed++;
+                }
+            }
+            return Math.min(installed, this.getMaxInstalled(upgradeCard));
+        }
+
+        @Override
+        public int getMaxInstalled(net.minecraft.item.Item upgradeCard) {
+            return Upgrades.getMaxInstallable(upgradeCard, this.item);
+        }
+
+        @Override
+        public void setItemDirect(int slot, ItemStack stack) {
+            ItemStack previous = this.getStackInSlot(slot);
+            if (isPatternExpansionCard(previous) && !isPatternExpansionCard(stack)
+                && !PatternProviderCapacity.canRemoveCapacityCards(
+                this.getInstalledUpgrades(AEItems.PATTERN_EXPANSION_CARD.item()),
+                previous.getCount(),
+                AEConfig.instance().getPatternProviderExpansionCardLimit(),
+                PatternProviderLogic.this::isPatternSlotOccupied)) {
+                return;
+            }
+            super.setItemDirect(slot, stack);
+        }
+
+        private boolean isPatternExpansionCard(ItemStack stack) {
+            return !stack.isEmpty() && stack.getItem() == AEItems.PATTERN_EXPANSION_CARD.item();
+        }
+
+        private class UpgradeInvFilter implements IAEItemFilter {
+            @Override
+            public boolean allowExtract(InternalInventory inv, int slot, int amount) {
+                ItemStack stack = inv.getStackInSlot(slot);
+                if (!isPatternExpansionCard(stack)) {
+                    return true;
+                }
+
+                int removedCards = Math.min(amount, stack.getCount());
+                return PatternProviderCapacity.canRemoveCapacityCards(
+                    getInstalledCapacityCards(),
+                    removedCards,
+                    AEConfig.instance().getPatternProviderExpansionCardLimit(),
+                    PatternProviderLogic.this::isPatternSlotOccupied);
+            }
+
+            @Override
+            public boolean allowInsert(InternalInventory inv, int slot, ItemStack itemstack) {
+                var cardItem = itemstack.getItem();
+                return getInstalledUpgrades(cardItem) < getMaxInstalled(cardItem);
+            }
         }
     }
 }

@@ -10,7 +10,7 @@ import java.util.Comparator;
  * Custom extension to expose the increment function in a polymorphic way. We don't want to use
  * {@link Object2LongMap#mergeLong} because the fastutil maps don't override the naive implementation.
  */
-interface AEKey2LongMap extends Object2LongMap<AEKey> {
+public interface AEKey2LongMap extends Object2LongMap<AEKey> {
     /**
      * Adds an increment to value currently associated with a key.
      *

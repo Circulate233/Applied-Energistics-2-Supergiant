@@ -38,6 +38,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.IBlockAccess;
 import net.minecraft.world.World;
 
+import java.util.Locale;
 public class WirelessAccessPointBlock extends AEBaseTileBlock<TileWirelessAccessPoint> {
 
     public static final PropertyEnum<State> STATE = PropertyEnum.create("state", State.class);
@@ -176,10 +177,8 @@ public class WirelessAccessPointBlock extends AEBaseTileBlock<TileWirelessAccess
 
         @Override
         public String getName() {
-            return this.name().toLowerCase(java.util.Locale.ROOT);
+            return this.name().toLowerCase(Locale.ROOT);
         }
     }
 
 }
-
-

@@ -1,0 +1,6 @@
+{
+  "parent": "ae2:block/crystal_assembler_off",
+  "textures": {
+    "state": "ae2:block/crystal_assembler/on"
+  }
+}

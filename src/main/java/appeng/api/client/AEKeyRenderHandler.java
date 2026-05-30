@@ -42,7 +42,7 @@ public interface AEKeyRenderHandler<T extends AEKey> {
     ITextComponent getDisplayName(T stack);
 
     default List<ITextComponent> getTooltip(T stack) {
-        return java.util.Arrays.asList(
+        return List.of(
             getDisplayName(stack),
             new TextComponentString(stack.getModId()));
     }

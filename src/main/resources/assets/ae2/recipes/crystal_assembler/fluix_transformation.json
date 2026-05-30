@@ -1,0 +1,35 @@
+{
+  "type": "ae2:crystal_assembler",
+  "input_fluid": {
+    "amount": 100,
+    "ingredient": {
+      "fluid": "water"
+    }
+  },
+  "input_items": [
+    {
+      "amount": 4,
+      "ingredient": {
+        "item": "ae2:charged_certus_quartz_crystal"
+      }
+    },
+    {
+      "amount": 4,
+      "ingredient": {
+        "type": "forge:ore_dict",
+        "ore": "dustRedstone"
+      }
+    },
+    {
+      "amount": 4,
+      "ingredient": {
+        "type": "forge:ore_dict",
+        "ore": "gemQuartz"
+      }
+    }
+  ],
+  "output": {
+    "item": "ae2:fluix_crystal",
+    "count": 8
+  }
+}

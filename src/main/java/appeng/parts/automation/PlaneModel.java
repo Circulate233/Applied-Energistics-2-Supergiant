@@ -27,6 +27,7 @@ import net.minecraftforge.common.model.IModelState;
 import net.minecraftforge.common.model.TRSRTransformation;
 import org.jspecify.annotations.NonNull;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.function.Function;
@@ -53,7 +54,7 @@ public class PlaneModel implements IModel {
 
     @Override
     public Collection<ResourceLocation> getTextures() {
-        return java.util.Arrays.asList(this.frontTexture, this.sidesTexture, this.backTexture);
+        return Arrays.asList(this.frontTexture, this.sidesTexture, this.backTexture);
     }
 
     @Override

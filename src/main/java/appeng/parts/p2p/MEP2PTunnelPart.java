@@ -42,6 +42,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 
 import java.util.EnumSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -159,8 +160,8 @@ public class MEP2PTunnelPart extends P2PTunnelPart<MEP2PTunnelPart> implements I
             this.connections.clear();
         } else if (operation == ConnectionUpdate.CONNECT) {
             List<MEP2PTunnelPart> outputs = getOutputs();
-            java.util.Iterator<Map.Entry<MEP2PTunnelPart, IGridConnection>> it = this.connections.entrySet()
-                                                                                                 .iterator();
+            Iterator<Map.Entry<MEP2PTunnelPart, IGridConnection>> it = this.connections.entrySet()
+                                                                                       .iterator();
             while (it.hasNext()) {
                 Map.Entry<MEP2PTunnelPart, IGridConnection> entry = it.next();
                 MEP2PTunnelPart output = entry.getKey();

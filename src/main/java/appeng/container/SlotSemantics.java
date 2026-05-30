@@ -25,6 +25,8 @@ public final class SlotSemantics {
     public static final SlotSemantic STORAGE_CELL = register("STORAGE_CELL", false);
     public static final SlotSemantic MACHINE_INPUT = register("MACHINE_INPUT", false);
     public static final SlotSemantic MACHINE_OUTPUT = register("MACHINE_OUTPUT", false);
+    public static final SlotSemantic CANER_CONTENT = register("CANER_CONTENT", false);
+    public static final SlotSemantic CANER_CONTAINER = register("CANER_CONTAINER", false);
     public static final SlotSemantic INSCRIBER_PLATE_TOP = register("INSCRIBER_PLATE_TOP", false);
     public static final SlotSemantic INSCRIBER_PLATE_BOTTOM = register("INSCRIBER_PLATE_BOTTOM", false);
     public static final SlotSemantic MACHINE_CRAFTING_GRID = register("MACHINE_CRAFTING_GRID", false);

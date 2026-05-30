@@ -25,6 +25,7 @@ import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.ISubGuiHost;
+import appeng.api.upgrades.IUpgradeInventory;
 import appeng.api.upgrades.IUpgradeableObject;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
@@ -86,6 +87,11 @@ public interface PatternProviderLogicHost
     }
 
     @Override
+    default void openTerminalPatternContainerGui(EntityPlayer player) {
+        openGui(player, null, false);
+    }
+
+    @Override
     default void returnToMainContainer(EntityPlayer player, ISubGui subGui) {
         openGui(player, subGui.getLocator(), true);
     }
@@ -104,11 +110,16 @@ public interface PatternProviderLogicHost
 
     @Override
     default InternalInventory getTerminalPatternInventory() {
-        return getLogic().getPatternInv();
+        return getLogic().getTerminalPatternInv();
     }
 
     @Override
-    default appeng.api.upgrades.IUpgradeInventory getUpgrades() {
+    default boolean containsPattern(AEItemKey pattern) {
+        return getLogic().containsPattern(pattern);
+    }
+
+    @Override
+    default IUpgradeInventory getUpgrades() {
         return getLogic().getUpgrades();
     }
 

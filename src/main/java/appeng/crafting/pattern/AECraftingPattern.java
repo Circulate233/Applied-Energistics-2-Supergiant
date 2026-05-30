@@ -43,7 +43,6 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
     private final AEItemKey definition;
     private final boolean canSubstitute;
     private final boolean canSubstituteFluids;
-    private final World level;
     private final IRecipe recipe;
     private final List<GenericStack> sparseInputs;
     private final int[] sparseToCompressed = new int[9];
@@ -51,9 +50,8 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
     private final ItemStack output;
     private final List<GenericStack> outputsArray;
 
-    public AECraftingPattern(AEItemKey definition, World level) {
+    public AECraftingPattern(AEItemKey definition, World ignoredLevel) {
         this.definition = definition;
-        this.level = level;
         var encoded = getEncodedTag(definition);
         if (encoded == null) {
             throw new IllegalArgumentException("Given item does not encode a crafting pattern: " + definition);
@@ -110,8 +108,8 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         result.setTagInfo(ENCODED_CRAFTING_PATTERN, encoded);
     }
 
-    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World world,
-                                                                 @Nullable Exception cause, boolean flags) {
+    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World ignoredWorld,
+                                                                 @Nullable Exception ignoredCause, boolean flags) {
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_CRAFTS);
 
         var tag = stack.getTagCompound();
@@ -166,9 +164,9 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
 
     @Nullable
     private static NBTTagCompound getEncodedTag(AEItemKey definition) {
-        var stack = definition.getReadOnlyStack();
-        var tag = stack.getTagCompound();
-        if (tag == null) {
+        var stack = Objects.requireNonNull(definition.getReadOnlyStack());
+        NBTTagCompound tag = stack.getTagCompound();
+        if (tag == null || tag.isEmpty()) {
             return null;
         }
         return tag.hasKey(ENCODED_CRAFTING_PATTERN, 10) ? tag.getCompoundTag(ENCODED_CRAFTING_PATTERN) : null;
@@ -235,6 +233,10 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         return outputsArray;
     }
 
+    public IRecipe getRecipe() {
+        return recipe;
+    }
+
     private Ingredient getRecipeIngredient(int slot) {
         if (recipe instanceof IShapedRecipe shapedRecipe) {
             return getShapedRecipeIngredient(slot, shapedRecipe.getRecipeWidth());
@@ -243,6 +245,16 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
     }
 
     private Ingredient getShapedRecipeIngredient(int slot, int recipeWidth) {
+        int ingredientIndex = getShapedRecipeIngredientIndex(slot, recipeWidth);
+
+        NonNullList<Ingredient> ingredients = recipe.getIngredients();
+        if (ingredientIndex < 0 || ingredientIndex >= ingredients.size()) {
+            return Ingredient.EMPTY;
+        }
+        return ingredients.get(ingredientIndex);
+    }
+
+    private int getShapedRecipeIngredientIndex(int slot, int recipeWidth) {
         int topOffset = 0;
         if (sparseInputs.get(0) == null && sparseInputs.get(1) == null && sparseInputs.get(2) == null) {
             topOffset++;
@@ -260,13 +272,7 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
 
         int slotX = slot % CRAFTING_GRID_DIMENSION - leftOffset;
         int slotY = slot / CRAFTING_GRID_DIMENSION - topOffset;
-        int ingredientIndex = slotY * recipeWidth + slotX;
-
-        NonNullList<Ingredient> ingredients = recipe.getIngredients();
-        if (ingredientIndex < 0 || ingredientIndex >= ingredients.size()) {
-            return Ingredient.EMPTY;
-        }
-        return ingredients.get(ingredientIndex);
+        return slotY * recipeWidth + slotX;
     }
 
     private Ingredient getShapelessRecipeIngredient(int slot) {
@@ -419,7 +425,7 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         return result;
     }
 
-    private ItemStack getRecipeRemainder(int slot, AEItemKey key, World level) {
+    private ItemStack getRecipeRemainder(int slot, AEItemKey key) {
         var testFrame = makeCraftingInventory();
         testFrame.setInventorySlotContents(slot, key.toStack());
         var remainingItems = recipe.getRemainingItems(testFrame);
@@ -536,7 +542,7 @@ public class AECraftingPattern implements IPatternDetails, IMolecularAssemblerSu
         @Override
         public AEKey getRemainingKey(AEKey template) {
             if (template instanceof AEItemKey itemKey) {
-                return AEItemKey.of(getRecipeRemainder(slot, itemKey, AECraftingPattern.this.level));
+                return AEItemKey.of(getRecipeRemainder(slot, itemKey));
             }
             return null;
         }

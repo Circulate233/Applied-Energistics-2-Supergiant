@@ -52,10 +52,6 @@ public class MEInventoryHandler extends DelegatingMEInventory {
         this.allowInsertion = allowInsertion;
     }
 
-    protected IncludeExclude getWhitelist() {
-        return this.partitionListMode;
-    }
-
     public void setWhitelist(IncludeExclude myWhitelist) {
         this.partitionListMode = myWhitelist;
     }
@@ -148,13 +144,16 @@ public class MEInventoryHandler extends DelegatingMEInventory {
 
     @Override
     public boolean isStickyStorageFor(AEKey input, IActionSource source) {
-        if (!this.sticky || this.partitionListMode != IncludeExclude.WHITELIST) {
+        if (this.partitionListMode != IncludeExclude.WHITELIST) {
             return false;
         }
-        if (this.partitionList.isEmpty()) {
+        if (!this.partitionList.isEmpty()) {
+            return this.sticky && this.partitionList.isListed(input);
+        }
+        if (this.sticky) {
             return super.extract(input, 1, Actionable.SIMULATE, source) > 0;
         }
-        return this.partitionList.isListed(input);
+        return super.isStickyStorageFor(input, source);
     }
 
     protected boolean canExtract(AEKey request) {

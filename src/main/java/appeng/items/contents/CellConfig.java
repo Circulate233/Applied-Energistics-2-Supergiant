@@ -25,8 +25,10 @@ import appeng.util.ConfigInventory;
 import appeng.util.Platform;
 import com.google.common.base.Preconditions;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public final class CellConfig {
@@ -92,11 +94,11 @@ public final class CellConfig {
         private void save() {
             var tag = stack.getTagCompound();
             if (tag == null) {
-                tag = new net.minecraft.nbt.NBTTagCompound();
+                tag = new NBTTagCompound();
             }
 
             List<GenericStack> list = inv.toList();
-            if (list.stream().allMatch(java.util.Objects::isNull)) {
+            if (list.stream().allMatch(Objects::isNull)) {
                 tag.removeTag(STORAGE_CELL_CONFIG_INV);
             } else {
                 tag.setTag(STORAGE_CELL_CONFIG_INV, GenericStack.writeList(list));

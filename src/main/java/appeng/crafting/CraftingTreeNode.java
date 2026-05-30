@@ -23,6 +23,7 @@ import appeng.api.crafting.IPatternDetails;
 import appeng.api.networking.crafting.ICraftingService;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.KeyCounter;
+import appeng.core.localization.PlayerMessages;
 import appeng.crafting.execution.CraftingCpuHelper;
 import appeng.crafting.execution.InputTemplate;
 import appeng.crafting.inv.ChildCraftingSimulationState;
@@ -130,6 +131,7 @@ public class CraftingTreeNode {
     /**
      * Return true if adding this pattern as a child would not cause recursion.
      */
+    @SuppressWarnings("unused")
     boolean notRecursive(IPatternDetails details) {
         return true;
     }
@@ -158,6 +160,10 @@ public class CraftingTreeNode {
             if (this.job.cycleHasNetOutput(this.what) && this.job.canUseMissingItems()) {
                 job.addMissing(this.what, requestedAmount * this.amount);
                 return;
+            }
+            if (this.job.canUseMissingItems()) {
+                throw new CraftBranchFailure(this.what, requestedAmount * this.amount,
+                    PlayerMessages.CraftingNoNetOutput);
             }
             throw new CraftBranchFailure(this.what, requestedAmount * this.amount);
         }
@@ -274,10 +280,7 @@ public class CraftingTreeNode {
                 long intermediateFinalOutputMarker = this.job.getIntermediateFinalOutputMarker();
                 try {
                     this.job.pushMissingSuppression();
-                    this.job.timedCrafting("request-branch " + this.what, () -> {
-                        pro.request(child, times);
-                        return null;
-                    });
+                    this.job.runTimedCrafting("request-branch " + this.what, () -> pro.request(child, times));
                 } catch (CraftBranchFailure failure) {
                     this.job.restoreIntermediateFinalOutputMarker(intermediateFinalOutputMarker);
                     pro.possible = false;
@@ -323,10 +326,7 @@ public class CraftingTreeNode {
 
         while (totalRequestedItems > 0) {
             long times = getRequestedPatternTimes(pro, totalRequestedItems, craftedPerPattern, recursiveBatch);
-            this.job.timedCrafting("request-missing-branch " + this.what, () -> {
-                pro.request(inv, times);
-                return null;
-            });
+            this.job.runTimedCrafting("request-missing-branch " + this.what, () -> pro.request(inv, times));
 
             // by now we have succeeded, as request throws an exception in case of failure
             // check how much was actually produced
@@ -389,7 +389,7 @@ public class CraftingTreeNode {
         }
 
         if (this.job.isRequesting(this.what)) {
-            if (this.job.canResolveRecursiveRequest(this.what, inv)) {
+            if (this.job.canResolveRecursiveRequest(this.what)) {
                 long remainingAmount = maxAmount - available;
                 if (remainingAmount > 0) {
                     inv.insert(this.what, remainingAmount * this.amount, Actionable.MODULATE);
@@ -423,10 +423,7 @@ public class CraftingTreeNode {
             if (!pro.applyReusablePreview(inv, times)) {
                 try {
                     this.job.pushMissingSuppression();
-                    this.job.timedCrafting("request-input-branch " + this.what, () -> {
-                        pro.request(inv, times);
-                        return null;
-                    });
+                    this.job.runTimedCrafting("request-input-branch " + this.what, () -> pro.request(inv, times));
                 } catch (CraftBranchFailure ignored) {
                     continue;
                 } finally {
@@ -446,7 +443,7 @@ public class CraftingTreeNode {
     // Only item stacks are supported.
     private void addContainerItems(AEKey template, long multiplier,
                                    @Nullable KeyCounter outputList) {
-        if (outputList != null) {
+        if (outputList != null && this.parentInput != null) {
             var containerItem = parentInput.getRemainingKey(template);
             if (containerItem != null) {
                 outputList.add(containerItem, multiplier);
@@ -463,7 +460,8 @@ public class CraftingTreeNode {
         if (this.parentInput == null)
             return List.of(new InputTemplate(what, 1));
         long start = System.nanoTime();
-        var templates = CraftingCpuHelper.getValidItemTemplates(inv, this.parentInput, level);
+        var templates = this.job.getCachedValidTemplates(this.parentInput,
+            CraftingCpuHelper.getValidItemTemplates(inv, this.parentInput, level));
         this.job.recordPerformanceStage("fuzzy-templates " + this.what, System.nanoTime() - start);
         return templates;
     }

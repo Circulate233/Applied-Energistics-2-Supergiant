@@ -24,6 +24,8 @@ import appeng.api.networking.GridHelper;
 import appeng.api.networking.IInWorldGridNodeHost;
 import appeng.api.parts.IPartHost;
 import appeng.api.parts.SelectedPart;
+import appeng.api.stacks.AEItemKey;
+import appeng.api.stacks.GenericStack;
 import appeng.api.storage.cells.IStackTooltipDataProvider;
 import appeng.api.upgrades.Upgrades;
 import appeng.api.util.DimensionalBlockPos;
@@ -61,6 +63,7 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -240,13 +243,13 @@ public class NetworkToolItem extends AEBaseItem implements IGuiItem, IStackToolt
 
     @Override
     public Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack stack) {
-        var upgrades = new ObjectArrayList<appeng.api.stacks.GenericStack>();
+        var upgrades = new ObjectArrayList<GenericStack>();
         for (Object2IntMap.Entry<Item> entry : getSortedUpgradeEntries(stack)) {
-            upgrades.add(new appeng.api.stacks.GenericStack(appeng.api.stacks.AEItemKey.of(new ItemStack(entry.getKey())),
+            upgrades.add(new GenericStack(AEItemKey.of(new ItemStack(entry.getKey())),
                 entry.getIntValue()));
         }
         return upgrades.isEmpty() ? Optional.empty()
-            : Optional.of(new StorageCellTooltipComponent(java.util.Collections.emptyList(), upgrades,
+            : Optional.of(new StorageCellTooltipComponent(Collections.emptyList(), upgrades,
             false, true));
     }
 

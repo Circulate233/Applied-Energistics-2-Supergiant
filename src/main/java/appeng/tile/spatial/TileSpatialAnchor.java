@@ -50,6 +50,7 @@ import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.WorldServer;
 
+import javax.annotation.Nullable;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -350,7 +351,7 @@ public class TileSpatialAnchor extends AENetworkedTile
         return 0x80000000 | AEColor.TRANSPARENT.mediumVariant;
     }
 
-    @javax.annotation.Nullable
+    @Nullable
     private WorldServer getServerLevel() {
         return this.world instanceof WorldServer ? (WorldServer) this.world : null;
     }

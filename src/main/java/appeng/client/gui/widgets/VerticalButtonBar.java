@@ -34,7 +34,7 @@ import java.util.function.Consumer;
 
 public class VerticalButtonBar implements ICompositeWidget {
     private static final Blitter BACKGROUND = Blitter.texture(
-        AppEng.makeId("textures/gui/sprites/vertical_buttons_bg.png"), 21, 26);
+        AppEng.makeId("textures/guis/sprites/vertical_buttons_bg.png"), 21, 26);
     private static final int BACKGROUND_WIDTH = 21;
     private static final int BACKGROUND_HEIGHT = 26;
     private static final int BACKGROUND_TOP_BORDER = 2;
@@ -136,6 +136,19 @@ public class VerticalButtonBar implements ICompositeWidget {
                       BACKGROUND_BOTTOM_BORDER)
                   .dest(x, y + height - BACKGROUND_BOTTOM_BORDER, width, BACKGROUND_BOTTOM_BORDER)
                   .blit();
+    }
+
+    @Override
+    public void addExclusionZones(List<Rectangle> exclusionZones, Rectangle screenBounds) {
+        if (this.bounds.width <= 0 || this.bounds.height <= 0) {
+            return;
+        }
+
+        exclusionZones.add(new Rectangle(
+            screenBounds.x + this.bounds.x - 2,
+            screenBounds.y + this.bounds.y - 1,
+            this.bounds.width + 1,
+            this.bounds.height + 4));
     }
 
     @Nullable

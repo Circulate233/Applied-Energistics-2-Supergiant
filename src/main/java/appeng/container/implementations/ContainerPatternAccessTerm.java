@@ -25,6 +25,8 @@ import appeng.api.implementations.blockentities.PatternContainerGroup;
 import appeng.api.implementations.items.ICraftingPatternQuickMoveHost;
 import appeng.api.inventories.InternalInventory;
 import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridNode;
+import appeng.api.parts.IPartItem;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.storage.ILinkStatus;
 import appeng.api.storage.IPatternAccessTermContainerHost;
@@ -35,11 +37,13 @@ import appeng.container.guisync.ILinkStatusAwareContainer;
 import appeng.container.slot.RestrictedInputSlot;
 import appeng.core.AELog;
 import appeng.core.network.clientbound.ClearPatternAccessTerminalPacket;
+import appeng.core.network.clientbound.PatternAccessTerminalInfoPacket;
 import appeng.core.network.clientbound.PatternAccessTerminalPacket;
 import appeng.core.network.clientbound.SetLinkStatusPacket;
 import appeng.helpers.InventoryAction;
 import appeng.helpers.WirelessTerminalGuiHost;
 import appeng.helpers.patternprovider.PatternContainer;
+import appeng.parts.AEBasePart;
 import appeng.tile.crafting.IMolecularAssemblerSupportedPattern;
 import appeng.util.inv.AppEngInternalInventory;
 import appeng.util.inv.FilteredInternalInventory;
@@ -50,8 +54,8 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
-import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectLinkedOpenHashMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceSet;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -60,6 +64,9 @@ import net.minecraft.inventory.Slot;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.EnumFacing;
+import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -67,6 +74,7 @@ import java.util.Objects;
 
 public class ContainerPatternAccessTerm extends AEBaseContainer implements ILinkStatusAwareContainer {
 
+    private static final String ACTION_OPEN_PROVIDER = "openProvider";
     private static long inventorySerial = Long.MIN_VALUE;
 
     private final IPatternAccessTermContainerHost host;
@@ -80,6 +88,7 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
     public ContainerPatternAccessTerm(InventoryPlayer playerInventory, IPatternAccessTermContainerHost host) {
         super(playerInventory, host);
         this.host = host;
+        registerClientAction(ACTION_OPEN_PROVIDER, Long.class, this::openPatternProvider);
         if (host instanceof WirelessTerminalGuiHost<?> wirelessHost) {
             setupUpgrades(wirelessHost.getUpgrades());
             RestrictedInputSlot slot = new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.QE_SINGULARITY,
@@ -88,6 +97,18 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
             this.addSlot(slot, SlotSemantics.WIRELESS_SINGULARITY);
         }
         this.addPlayerInventorySlots(0, 0);
+    }
+
+    public void openPatternProvider(long inventoryId) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_OPEN_PROVIDER, inventoryId);
+            return;
+        }
+
+        ContainerTracker inv = this.byId.get(inventoryId);
+        if (inv != null) {
+            inv.container.openTerminalPatternContainerGui(getPlayer());
+        }
     }
 
     @Nullable
@@ -154,7 +175,7 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
 
     @Nullable
     private IGrid getGrid() {
-        appeng.api.networking.IGridNode node = this.host.getGridNode();
+        IGridNode node = this.host.getGridNode();
         if (node != null && node.isActive()) {
             return node.grid();
         }
@@ -207,7 +228,8 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
             }
 
             ContainerTracker tracker = this.diList.get(container);
-            if (tracker == null || !tracker.group.equals(container.getTerminalGroup())) {
+            if (tracker == null || tracker.server.size() != container.getTerminalPatternInventory().size()
+                || !tracker.group.equals(container.getTerminalGroup())) {
                 state.forceFullUpdate = true;
             }
 
@@ -373,12 +395,7 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
     }
 
     private boolean containsPattern(ContainerTracker container, AEItemKey pattern) {
-        for (ItemStack stack : container.server) {
-            if (pattern.matches(stack)) {
-                return true;
-            }
-        }
-        return false;
+        return container.container.containsPattern(pattern);
     }
 
     private boolean acceptsCraftingPatterns(@Nullable AEItemKey icon) {
@@ -388,6 +405,10 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
 
         Item item = icon.getItem();
         if (item instanceof ItemBlock itemBlock && itemBlock.getBlock() instanceof ICraftingPatternQuickMoveHost) {
+            return true;
+        }
+
+        if (item instanceof IPartItem<?> partItem && partItem instanceof ICraftingPatternQuickMoveHost) {
             return true;
         }
 
@@ -421,6 +442,10 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
         for (ContainerTracker inv : this.diList.values()) {
             this.byId.put(inv.serverId, inv);
             sendPacketToClient(inv.createFullPacket());
+            PatternAccessTerminalInfoPacket infoPacket = inv.createInfoPacket();
+            if (infoPacket != null) {
+                sendPacketToClient(infoPacket);
+            }
         }
     }
 
@@ -510,6 +535,32 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
         }
 
         @Nullable
+        private static ProviderLocation resolveLocation(PatternContainer container) {
+            if (container instanceof TileEntity tile) {
+                if (tile.getWorld() == null) {
+                    return null;
+                }
+                return new ProviderLocation(tile.getWorld().provider.getDimension(), tile.getPos(), null);
+            }
+            if (container instanceof AEBasePart part && part.getTileEntity() != null
+                && part.getTileEntity().getWorld() != null) {
+                TileEntity tile = part.getTileEntity();
+                return new ProviderLocation(tile.getWorld().provider.getDimension(), tile.getPos(), part.getSide());
+            }
+            return null;
+        }
+
+        @Nullable
+        private PatternAccessTerminalInfoPacket createInfoPacket() {
+            ProviderLocation location = resolveLocation(this.container);
+            if (location == null) {
+                return null;
+            }
+            return new PatternAccessTerminalInfoPacket(this.serverId, location.dimensionId(), location.pos(),
+                location.face());
+        }
+
+        @Nullable
         private IntList detectChangedSlots() {
             IntList changedSlots = null;
             for (int i = 0; i < this.server.size(); i++) {
@@ -522,6 +573,9 @@ public class ContainerPatternAccessTerm extends AEBaseContainer implements ILink
             }
             return changedSlots;
         }
+    }
+
+    private record ProviderLocation(int dimensionId, BlockPos pos, @Nullable EnumFacing face) {
     }
 
     private static final class PatternSlotFilter implements IAEItemFilter {

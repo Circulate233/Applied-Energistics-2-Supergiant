@@ -19,6 +19,7 @@
 package appeng.client.gui.me.common;
 
 import appeng.api.behaviors.ContainerItemStrategies;
+import appeng.api.behaviors.EmptyingAction;
 import appeng.api.client.AEKeyRendering;
 import appeng.api.config.ActionItems;
 import appeng.api.config.Settings;
@@ -77,6 +78,7 @@ import it.unimi.dsi.fastutil.objects.ObjectLists;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Slot;
@@ -344,8 +346,9 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
         InitNetwork.sendToServer(SwitchGuisPacket.openSubGui(GuiIds.GuiKey.CRAFTING_STATUS));
     }
 
-    private void toggleTerminalStyle(SettingToggleButton<appeng.api.config.TerminalStyle> button, boolean backwards) {
-        appeng.api.config.TerminalStyle nextValue = button.getNextValue(backwards);
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void toggleTerminalStyle(SettingToggleButton button, boolean backwards) {
+        var nextValue = (appeng.api.config.TerminalStyle) button.getNextValue(backwards);
         button.set(nextValue);
         AEConfig.instance().setTerminalStyle(nextValue);
         rememberedSearch = this.searchField.getText();
@@ -486,7 +489,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
                 continue;
             }
 
-            net.minecraft.client.renderer.texture.TextureAtlasSprite sprite = this.mc.getTextureMapBlocks().getAtlasSprite(
+            TextureAtlasSprite sprite = this.mc.getTextureMapBlocks().getAtlasSprite(
                 AppEng.makeId("block/molecular_assembler_lights").toString());
             if (sprite != null && sprite != this.mc.getTextureMapBlocks().getMissingSprite()) {
                 Blitter.sprite(sprite, 2, 2, Math.max(0, sprite.getIconWidth() - 4),
@@ -628,7 +631,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
         }
 
         if (mouseButton == 1 && !this.playerInventory.getItemStack().isEmpty()) {
-            appeng.api.behaviors.EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(this.playerInventory.getItemStack());
+            EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(this.playerInventory.getItemStack());
             if (emptyingAction != null && this.container.isKeyVisible(emptyingAction.what())) {
                 this.container.handleInteraction(-1,
                     clickType == ClickType.QUICK_MOVE ? InventoryAction.EMPTY_ENTIRE_ITEM
@@ -725,7 +728,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
         if (hoveredSlot instanceof RepoSlot repoSlot) {
             ItemStack carried = this.playerInventory.getItemStack();
             if (!carried.isEmpty()) {
-                appeng.api.behaviors.EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(carried);
+                EmptyingAction emptyingAction = ContainerItemStrategies.getEmptyingAction(carried);
                 if (emptyingAction != null && this.container.isKeyVisible(emptyingAction.what())) {
                     drawTooltipWithHeader(mouseX, mouseY,
                         Tooltips.getEmptyingTooltip(ButtonToolTips.StoreAction, carried, emptyingAction));

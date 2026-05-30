@@ -19,9 +19,30 @@
 package appeng.crafting;
 
 import appeng.api.stacks.AEKey;
+import appeng.core.localization.PlayerMessages;
+
+import org.jetbrains.annotations.Nullable;
 
 public class CraftBranchFailure extends Exception {
+    @Nullable
+    private final PlayerMessages messageKey;
+
     public CraftBranchFailure(AEKey what, long howMany) {
         super("Failed: " + what + " x " + howMany);
+        this.messageKey = null;
     }
+
+    public CraftBranchFailure(AEKey what, long howMany, PlayerMessages messageKey) {
+        super("Failed: " + what + " x " + howMany + " (" + messageKey.getTranslationKey() + ")");
+        this.messageKey = messageKey;
+    }
+
+    public PlayerMessages getLocalizedMessageKey() {
+        return this.messageKey != null ? this.messageKey : PlayerMessages.CraftingNoPlan;
+    }
+
+    public boolean hasExplicitMessageKey() {
+        return this.messageKey != null;
+    }
+
 }

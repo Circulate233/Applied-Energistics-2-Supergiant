@@ -1,0 +1,13 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "item": "ae2:entro_crystal"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "id": "ae2:entro_dust",
+    "count": 1
+  }
+}

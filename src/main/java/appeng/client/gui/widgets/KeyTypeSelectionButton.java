@@ -13,6 +13,7 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.function.Supplier;
@@ -90,8 +91,8 @@ public class KeyTypeSelectionButton extends IconButton {
     }
 
     @Override
-    public java.util.List<ITextComponent> getTooltipMessage() {
-        return java.util.List.of(title, descriptionSupplier.get());
+    public List<ITextComponent> getTooltipMessage() {
+        return List.of(title, descriptionSupplier.get());
     }
 
     @Override

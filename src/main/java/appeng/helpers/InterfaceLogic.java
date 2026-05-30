@@ -54,6 +54,8 @@ import java.util.OptionalInt;
 
 public class InterfaceLogic implements ICraftingForceStartRequester, IUpgradeableObject,
     IConfigurableObject {
+    public static final int SLOTS_PER_PAGE = 18;
+
     protected final InterfaceLogicHost host;
     protected final IManagedGridNode mainNode;
     protected final IActionSource actionSource;
@@ -71,7 +73,11 @@ public class InterfaceLogic implements ICraftingForceStartRequester, IUpgradeabl
     private boolean hasConfig;
 
     public InterfaceLogic(IManagedGridNode gridNode, InterfaceLogicHost host, Item machineType) {
-        this(gridNode, host, machineType, 9);
+        this(gridNode, host, machineType, AEConfig.instance().getInterfacePageLimit() * SLOTS_PER_PAGE);
+    }
+
+    public int getPageCount() {
+        return Math.max(1, (this.config.size() + SLOTS_PER_PAGE - 1) / SLOTS_PER_PAGE);
     }
 
     public InterfaceLogic(IManagedGridNode gridNode, InterfaceLogicHost host, Item machineType, int slots) {

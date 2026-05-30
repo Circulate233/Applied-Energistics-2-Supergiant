@@ -37,7 +37,6 @@ import net.minecraft.item.ItemStack;
 import net.minecraftforge.oredict.OreDictionary;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import java.util.Arrays;
 import java.util.List;
 
 @JEIPlugin
@@ -69,6 +68,24 @@ public class HeiPlugin implements IModPlugin {
         registry.addRecipeCatalyst(AEBlocks.CRANK.stack(), ChargerRecipeCategory.UID);
     }
 
+    private static void registerCrystalAssemblerRecipes(IModRegistry registry) {
+        List<CrystalAssemblerRecipeWrapper> recipes = new ObjectArrayList<>();
+        for (var recipe : AERecipeTypes.CRYSTAL_ASSEMBLER.getRecipes()) {
+            recipes.add(new CrystalAssemblerRecipeWrapper(recipe));
+        }
+        registry.addRecipes(recipes, CrystalAssemblerRecipeCategory.UID);
+        registry.addRecipeCatalyst(AEBlocks.CRYSTAL_ASSEMBLER.stack(), CrystalAssemblerRecipeCategory.UID);
+    }
+
+    private static void registerCrystalFixerRecipes(IModRegistry registry) {
+        List<CrystalFixerRecipeWrapper> recipes = new ObjectArrayList<>();
+        for (var recipe : AERecipeTypes.CRYSTAL_FIXER.getRecipes()) {
+            recipes.add(new CrystalFixerRecipeWrapper(recipe));
+        }
+        registry.addRecipes(recipes, CrystalFixerRecipeCategory.UID);
+        registry.addRecipeCatalyst(AEBlocks.CRYSTAL_FIXER.stack(), CrystalFixerRecipeCategory.UID);
+    }
+
     private static void registerCondenserRecipes(IModRegistry registry) {
         List<ItemStack> viableComponents = new ObjectArrayList<>();
         addViableComponent(viableComponents, AEItems.CELL_COMPONENT_1K.stack());
@@ -77,7 +94,7 @@ public class HeiPlugin implements IModPlugin {
         addViableComponent(viableComponents, AEItems.CELL_COMPONENT_64K.stack());
         addViableComponent(viableComponents, AEItems.CELL_COMPONENT_256K.stack());
 
-        registry.addRecipes(Arrays.asList(
+        registry.addRecipes(List.of(
             new CondenserOutputWrapper(CondenserOutput.MATTER_BALLS, AEItems.MATTER_BALL.stack(), viableComponents,
                 new IconDrawable(Icon.CONDENSER_OUTPUT_MATTER_BALL)),
             new CondenserOutputWrapper(CondenserOutput.SINGULARITY, AEItems.SINGULARITY.stack(), viableComponents,
@@ -174,6 +191,7 @@ public class HeiPlugin implements IModPlugin {
         addItemToBlacklist(blacklist, AEItems.CRAFTING_PATTERN.stack());
         addItemToBlacklist(blacklist, AEItems.PROCESSING_PATTERN.stack());
         addItemToBlacklist(blacklist, AEItems.FACADE.stack());
+        addItemToBlacklist(blacklist, AEItems.PACKAGE.stack());
         addItemToBlacklist(blacklist, AEBlocks.CABLE_BUS.stack());
         addItemToBlacklist(blacklist, AEBlocks.MATRIX_FRAME.stack());
         addItemToBlacklist(blacklist, AEBlocks.PAINT.stack());
@@ -234,6 +252,8 @@ public class HeiPlugin implements IModPlugin {
         registry.addRecipeCategories(
             new ChargerRecipeCategory(registry.getJeiHelpers().getGuiHelper()),
             new InscriberRecipeCategory(registry.getJeiHelpers().getGuiHelper()),
+            new CrystalAssemblerRecipeCategory(registry.getJeiHelpers().getGuiHelper()),
+            new CrystalFixerRecipeCategory(registry.getJeiHelpers().getGuiHelper()),
             new CondenserCategory(registry.getJeiHelpers().getGuiHelper()),
             new TransformCategory(registry.getJeiHelpers().getGuiHelper()),
             new EntropyRecipeCategory(registry.getJeiHelpers().getGuiHelper()),
@@ -247,6 +267,8 @@ public class HeiPlugin implements IModPlugin {
 
         registerInscriberRecipes(registry);
         registerChargerRecipes(registry);
+        registerCrystalAssemblerRecipes(registry);
+        registerCrystalFixerRecipes(registry);
         registerCondenserRecipes(registry);
         registerTransformRecipes(registry);
         registerEntropyRecipes(registry);

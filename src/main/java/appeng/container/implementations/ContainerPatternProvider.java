@@ -5,6 +5,7 @@ import appeng.api.config.LockCraftingMode;
 import appeng.api.config.PatternProviderBlockingType;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
+import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.GenericStack;
 import appeng.api.util.IConfigManager;
 import appeng.api.util.IConfigurableObject;
@@ -13,16 +14,31 @@ import appeng.container.SlotSemantics;
 import appeng.container.guisync.GuiSync;
 import appeng.container.slot.AppEngSlot;
 import appeng.container.slot.RestrictedInputSlot;
+import appeng.helpers.patternprovider.PatternProviderCapacity;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.helpers.patternprovider.PatternProviderReturnInventory;
 import appeng.util.ConfigGuiInventory;
 import appeng.util.inv.AppEngInternalInventory;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.shorts.ShortSet;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.Slot;
+import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
+import org.jspecify.annotations.NonNull;
 
-public class ContainerPatternProvider extends AEBaseContainer implements IConfigurableObject {
+import java.util.List;
 
+public class ContainerPatternProvider extends AEBaseContainer
+    implements IConfigurableObject, PatternModifierPanel.Host {
+
+    public static final String ACTION_SET_PAGE = "setPage";
     private final PatternProviderLogic logic;
+    @GuiSync(12)
+    public final boolean remote;
+    private final List<AppEngSlot> patternSlots = new ObjectArrayList<>();
 
     @GuiSync(3)
     public BlockingMode blockingMode = BlockingMode.NO;
@@ -36,15 +52,28 @@ public class ContainerPatternProvider extends AEBaseContainer implements IConfig
     public GenericStack unlockStack;
     @GuiSync(8)
     public PatternProviderBlockingType blockingType = PatternProviderBlockingType.NORMAL;
+    private final PatternModifierPanel patternModifierPanel;
+    @GuiSync(9)
+    public int activePatternSlots = 9;
+    @GuiSync(10)
+    public int currentPage;
+    @GuiSync(11)
+    public int pageCount = 1;
+    @GuiSync(13)
+    public boolean patternModifierPanelAvailable;
 
     public ContainerPatternProvider(InventoryPlayer playerInventory, PatternProviderLogicHost host) {
         super(playerInventory, host);
         this.logic = host.getLogic();
+        this.remote = playerInventory.player.openContainer instanceof ContainerPatternAccessTerm;
+        this.registerClientAction(ACTION_SET_PAGE, Integer.class, this::setPage);
 
         AppEngInternalInventory patternInventory = this.logic.getPatternInv();
         for (int index = 0; index < patternInventory.size(); index++) {
-            this.addSlot(new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.PROVIDER_PATTERN,
-                patternInventory, index), SlotSemantics.ENCODED_PATTERN);
+            AppEngSlot slot = new RestrictedInputSlot(RestrictedInputSlot.PlacableItemType.PROVIDER_PATTERN,
+                patternInventory, index);
+            this.patternSlots.add(slot);
+            this.addSlot(slot, SlotSemantics.ENCODED_PATTERN);
         }
 
         this.setupUpgrades(this.logic.getUpgrades());
@@ -55,7 +84,14 @@ public class ContainerPatternProvider extends AEBaseContainer implements IConfig
             this.addSlot(new AppEngSlot(returnInventory, index), SlotSemantics.STORAGE);
         }
 
-        this.addPlayerInventorySlots(8, 133);
+        this.addPlayerInventorySlots(8, 163);
+        this.patternModifierPanel = new PatternModifierPanel(this);
+        this.patternModifierPanelAvailable = this.patternModifierPanel.isAvailable();
+        this.updatePatternSlotState();
+    }
+
+    protected boolean canInteractiveDistance(@NonNull EntityPlayer player, @NonNull TileEntity tileEntityHost) {
+        return remote ? tileEntityHost.hasWorld() && tileEntityHost.getWorld().isBlockLoaded(tileEntityHost.getPos()) : super.canInteractiveDistance(player, tileEntityHost);
     }
 
     @Override
@@ -67,9 +103,35 @@ public class ContainerPatternProvider extends AEBaseContainer implements IConfig
             this.lockCraftingMode = this.logic.getConfigManager().getSetting(Settings.LOCK_CRAFTING_MODE);
             this.craftingLockedReason = this.logic.getCraftingLockedReason();
             this.unlockStack = this.logic.getUnlockStack();
+            this.activePatternSlots = this.logic.getActivePatternSlots();
+            this.pageCount = this.logic.getPatternPageCount();
+            this.currentPage = Math.min(this.currentPage, this.pageCount - 1);
+            this.patternModifierPanelAvailable = this.patternModifierPanel.isAvailable();
         }
 
+        this.updatePatternSlotState();
         super.broadcastChanges();
+    }
+
+    @Override
+    public void onClientDataSync(ShortSet updatedFields) {
+        super.onClientDataSync(updatedFields);
+        this.updatePatternSlotState();
+    }
+
+    @Override
+    public boolean isValidForSlot(Slot slot, ItemStack stack) {
+        return !(slot instanceof AppEngSlot appEngSlot && this.patternSlots.contains(appEngSlot))
+            || isPatternSlotVisible(appEngSlot);
+    }
+
+    @Override
+    protected boolean isValidQuickMoveDestination(Slot candidateSlot, ItemStack stackToMove, boolean fromPlayerSide) {
+        if (fromPlayerSide && candidateSlot instanceof AppEngSlot appEngSlot && this.patternSlots.contains(appEngSlot)
+            && hasSamePattern(stackToMove)) {
+            return false;
+        }
+        return super.isValidQuickMoveDestination(candidateSlot, stackToMove, fromPlayerSide);
     }
 
     @Override
@@ -103,5 +165,69 @@ public class ContainerPatternProvider extends AEBaseContainer implements IConfig
 
     public GenericStack getUnlockStack() {
         return this.unlockStack;
+    }
+
+    public int getCurrentPage() {
+        return this.currentPage;
+    }
+
+    public int getPageCount() {
+        return this.pageCount;
+    }
+
+    public boolean isPatternModifierPanelAvailable() {
+        return this.patternModifierPanelAvailable;
+    }
+
+    public PatternModifierPanel getPatternModifierPanel() {
+        return this.patternModifierPanel;
+    }
+
+    @Override
+    public void registerPatternModifierPanelAction(String action, Runnable runnable) {
+        registerClientAction(action, runnable);
+    }
+
+    @Override
+    public void sendPatternModifierPanelAction(String action) {
+        sendClientAction(action);
+    }
+
+    @Override
+    public void lockPatternModifierPlayerInventorySlot(int slot) {
+        lockPlayerInventorySlot(slot);
+    }
+
+    public void setPage(int page) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_PAGE, page);
+            return;
+        }
+        this.currentPage = Math.clamp(page, 0, this.logic.getPatternPageCount() - 1);
+        this.updatePatternSlotState();
+        this.detectAndSendChanges();
+    }
+
+    private void updatePatternSlotState() {
+        for (AppEngSlot slot : this.patternSlots) {
+            boolean enabled = isPatternSlotVisible(slot);
+            slot.setSlotEnabled(enabled);
+            slot.setActive(enabled);
+        }
+        this.patternModifierPanel.updateSlotState(this.patternModifierPanelAvailable);
+    }
+
+    public void updatePatternModifierPanelVisibleSlots(boolean visible) {
+        this.patternModifierPanel.updateSlotState(visible && this.patternModifierPanelAvailable);
+    }
+
+    private boolean isPatternSlotVisible(AppEngSlot slot) {
+        return slot.getSlotIndex() < this.activePatternSlots
+            && PatternProviderCapacity.isPatternSlotOnPage(slot.getSlotIndex(), this.currentPage);
+    }
+
+    private boolean hasSamePattern(ItemStack stack) {
+        AEItemKey pattern = AEItemKey.of(stack);
+        return pattern != null && this.logic.containsPattern(pattern);
     }
 }

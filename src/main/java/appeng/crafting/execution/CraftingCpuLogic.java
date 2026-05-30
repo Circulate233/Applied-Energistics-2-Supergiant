@@ -52,6 +52,7 @@ import net.minecraftforge.common.util.Constants;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -688,7 +689,7 @@ public class CraftingCpuLogic {
             return;
         }
         var server = level.getMinecraftServer();
-        var finalOutput = java.util.Objects.requireNonNull(job.finalOutput);
+        var finalOutput = Objects.requireNonNull(job.finalOutput);
         if (server == null) {
             return;
         }

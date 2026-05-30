@@ -39,6 +39,8 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.property.ExtendedBlockState;
 import net.minecraftforge.common.property.IUnlistedProperty;
 
+import java.util.Arrays;
+
 public class MEChestBlock extends AEBaseTileBlock<TileMEChest> {
     public static final PropertyBool LIGHTS_ON = PropertyBool.create("lights_on");
 
@@ -55,7 +57,7 @@ public class MEChestBlock extends AEBaseTileBlock<TileMEChest> {
     @Override
     protected BlockStateContainer createBlockState() {
         var properties = getOrientationStrategy().getProperties().toArray(new IProperty<?>[0]);
-        IProperty<?>[] listedProperties = java.util.Arrays.copyOf(properties, properties.length + 1);
+        IProperty<?>[] listedProperties = Arrays.copyOf(properties, properties.length + 1);
         listedProperties[properties.length] = LIGHTS_ON;
         return new ExtendedBlockState(this, listedProperties, new IUnlistedProperty<?>[]{FORWARD, UP});
     }

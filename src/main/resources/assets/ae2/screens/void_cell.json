@@ -1,0 +1,33 @@
+{
+  "$schema": "schema.json",
+  "includes": ["common/common.json"],
+  "background": {
+    "texture": "guis/void_cell.png",
+    "srcRect": [0, 0, 121, 60]
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "gui.ae2.VoidCell"
+      },
+      "position": {
+        "left": 5,
+        "top": 6
+      }
+    }
+  },
+  "widgets": {
+    "trash": {
+      "left": 22,
+      "top": 20
+    },
+    "matterBalls": {
+      "left": 54,
+      "top": 20
+    },
+    "singularity": {
+      "left": 84,
+      "top": 20
+    }
+  }
+}

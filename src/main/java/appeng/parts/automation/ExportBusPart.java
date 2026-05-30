@@ -178,7 +178,7 @@ public class ExportBusPart extends IOBusPart implements ICraftingForceStartReque
         return context.hasDoneWork();
     }
 
-    private void attemptCrafting(StackTransferContext context, ICraftingService cg, int slotToExport, AEKey what) {
+    protected void attemptCrafting(StackTransferContext context, ICraftingService cg, int slotToExport, AEKey what) {
         // don't bother crafting / checking or result, if target cannot accept at least 1 of requested item
         var maxAmount = context.getOperationsRemaining() * what.getAmountPerOperation();
         var amount = getExportStrategy().push(what, maxAmount, Actionable.SIMULATE);
@@ -204,7 +204,7 @@ public class ExportBusPart extends IOBusPart implements ICraftingForceStartReque
     }
 
     @NotNull
-    private StackTransferContext createTransferContext(IStorageService storageService, IEnergyService energyService) {
+    protected StackTransferContext createTransferContext(IStorageService storageService, IEnergyService energyService) {
         return new StackTransferContextImpl(
             storageService,
             energyService,
@@ -246,11 +246,11 @@ public class ExportBusPart extends IOBusPart implements ICraftingForceStartReque
         }
     }
 
-    private boolean craftOnly() {
+    protected boolean craftOnly() {
         return isCraftingEnabled() && this.getConfigManager().getSetting(Settings.CRAFT_ONLY) == YesNo.YES;
     }
 
-    private boolean isCraftingEnabled() {
+    protected boolean isCraftingEnabled() {
         return isUpgradedWith(AEItems.CRAFTING_CARD);
     }
 

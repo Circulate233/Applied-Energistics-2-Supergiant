@@ -2,6 +2,7 @@ package appeng.core.gui;
 
 import appeng.container.GuiIds;
 import appeng.core.AppEngBase;
+import appeng.core.gui.locator.BaublesItemLocator;
 import appeng.core.gui.locator.ItemGuiHostLocator;
 import appeng.parts.AEBasePart;
 import net.minecraft.entity.player.EntityPlayer;
@@ -46,10 +47,13 @@ public final class GuiOpener {
                                       boolean returnedFromSubScreen) {
         Integer slot = locator.getPlayerInventorySlot();
         if (slot == null) {
+            if (key == GuiIds.GuiKey.PATTERN_MODIFIER && locator instanceof BaublesItemLocator baublesLocator) {
+                player.openGui(AppEngBase.instance(), GuiIds.getGuiId(key, returnedFromSubScreen), player.world,
+                    encodeBaublesPatternModifierLocator(baublesLocator), 0, 0);
+                return true;
+            }
             return false;
-        }
-
-        if (key == GuiIds.GuiKey.NETWORK_STATUS) {
+        } else if (key == GuiIds.GuiKey.NETWORK_STATUS) {
             RayTraceResult hitResult = locator.hitResult();
             if (hitResult == null || hitResult.getBlockPos() == null) {
                 return false;
@@ -58,17 +62,45 @@ public final class GuiOpener {
             return true;
         }
 
+        if (key == GuiIds.GuiKey.PATTERN_MODIFIER) {
+            RayTraceResult hitResult = locator.hitResult();
+            if (hitResult != null && hitResult.getBlockPos() != null) {
+                BlockPos pos = hitResult.getBlockPos();
+                int packedHit = packHitResult(slot, hitResult);
+                player.openGui(AppEngBase.instance(), GuiIds.getGuiId(key, returnedFromSubScreen), player.world,
+                    pos.getX(), packedHit | (pos.getY() & 255), pos.getZ());
+                return true;
+            }
+        }
+
         player.openGui(AppEngBase.instance(), GuiIds.getGuiId(key, returnedFromSubScreen), player.world, slot, 0, 0);
         return true;
     }
 
-    public static void openItemGui(EntityPlayer player, GuiIds.GuiKey key, int slot, BlockPos pos) {
-        openItemGui(player, key, slot, pos, false);
+    private static int encodeBaublesPatternModifierLocator(BaublesItemLocator locator) {
+        return -1 - locator.baubleSlot();
     }
 
     public static void openItemGui(EntityPlayer player, GuiIds.GuiKey key, int slot, BlockPos pos,
                                    boolean returnedFromSubScreen) {
         player.openGui(AppEngBase.instance(), GuiIds.getGuiId(key, returnedFromSubScreen), player.world, pos.getX(),
             (slot << 8) | (pos.getY() & 255), pos.getZ());
+    }
+
+    private static int packHitResult(int slot, RayTraceResult hitResult) {
+        BlockPos pos = hitResult.getBlockPos();
+        int side = hitResult.sideHit == null ? 0 : hitResult.sideHit.ordinal();
+        int hitX = packHitCoordinate(hitResult.hitVec.x - pos.getX());
+        int hitY = packHitCoordinate(hitResult.hitVec.y - pos.getY());
+        int hitZ = packHitCoordinate(hitResult.hitVec.z - pos.getZ());
+        return ((slot + 1) & 0xFF) << 8
+            | (side & 0x7) << 16
+            | (hitX & 0xF) << 19
+            | (hitY & 0xF) << 23
+            | (hitZ & 0xF) << 27;
+    }
+
+    private static int packHitCoordinate(double coordinate) {
+        return Math.clamp((int) Math.round(coordinate * 15.0), 0, 15);
     }
 }

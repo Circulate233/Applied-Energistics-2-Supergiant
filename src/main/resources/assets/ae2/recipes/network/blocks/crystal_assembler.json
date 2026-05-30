@@ -1,0 +1,30 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    " T ",
+    "LML",
+    "CKC"
+  ],
+  "key": {
+    "T": {
+      "item": "ae2:crafting_terminal"
+    },
+    "L": {
+      "item": "ae2:logic_processor"
+    },
+    "M": {
+      "item": "ae2:molecular_assembler"
+    },
+    "C": {
+      "type": "forge:ore_dict",
+      "ore": "crystalFluix"
+    },
+    "K": {
+      "item": "ae2:sky_stone_tank"
+    }
+  },
+  "result": {
+    "item": "ae2:crystal_assembler",
+    "count": 1
+  }
+}

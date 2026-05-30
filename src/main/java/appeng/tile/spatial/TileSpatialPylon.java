@@ -29,13 +29,16 @@ import appeng.me.cluster.implementations.SpatialPylonCluster;
 import appeng.tile.grid.AENetworkedTile;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
@@ -64,7 +67,7 @@ public class TileSpatialPylon extends AENetworkedTile implements IAEMultiBlock<S
         if (this.world == null) {
             return ItemStack.EMPTY;
         }
-        net.minecraft.block.Block block = this.world.getBlockState(this.pos).getBlock();
+        Block block = this.world.getBlockState(this.pos).getBlock();
         Item item = Item.getItemFromBlock(block);
         return item == null ? ItemStack.EMPTY : new ItemStack(block);
     }
@@ -246,11 +249,11 @@ public class TileSpatialPylon extends AENetworkedTile implements IAEMultiBlock<S
 
     private Iterator<IGridNode> getMultiblockNodes() {
         if (this.cluster == null) {
-            return java.util.Collections.emptyIterator();
+            return Collections.emptyIterator();
         }
 
         List<IGridNode> nodes = new ObjectArrayList<>();
-        Iterator<? extends net.minecraft.tileentity.TileEntity> iterator = this.cluster.getBlockEntities();
+        Iterator<? extends TileEntity> iterator = this.cluster.getBlockEntities();
         while (iterator.hasNext()) {
             IGridNode node = ((TileSpatialPylon) iterator.next()).getGridNode();
             if (node != null) {

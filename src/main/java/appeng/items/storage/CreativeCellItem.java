@@ -40,6 +40,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.fluids.Fluid;
 
 import java.util.List;
+import java.util.Optional;
 
 public class CreativeCellItem extends AEBaseItem implements ICellWorkbenchItem, IStackTooltipDataProvider {
     public CreativeCellItem() {
@@ -85,7 +86,7 @@ public class CreativeCellItem extends AEBaseItem implements ICellWorkbenchItem, 
     }
 
     @Override
-    public java.util.Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack stack) {
+    public Optional<StorageCellTooltipComponent> getStackTooltipData(ItemStack stack) {
         return CreativeCellHandler.INSTANCE.getTooltipData(stack);
     }
 
@@ -110,7 +111,6 @@ public class CreativeCellItem extends AEBaseItem implements ICellWorkbenchItem, 
         }
     }
 }
-
 
 
 

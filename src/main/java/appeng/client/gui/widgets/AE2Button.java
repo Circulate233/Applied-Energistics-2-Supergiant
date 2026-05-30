@@ -168,7 +168,7 @@ public class AE2Button extends GuiButton {
         this.forceHighlighted = forceHighlighted;
     }
 
-    private Blitter getButtonBlitter() {
+    protected Blitter getButtonBlitter() {
         if (!this.enabled) {
             return this.forceHighlighted
                 ? Blitter.texture(BUTTON_HIGHLIGHTED, 200, 20)

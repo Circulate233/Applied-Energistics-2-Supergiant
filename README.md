@@ -19,25 +19,20 @@ The upstream repository remains the original AE2 project and the primary referen
 
 ## Building
 
-Use the Gradle wrapper from the repository root.
+Build this workspace through IDEA MCP only.
 
-```sh
-./gradlew build
-```
-
-On Windows:
-
-```bat
-gradlew.bat build
-```
-
-The build output is written to `build/libs`.
+Do not run Gradle in this repository. This branch combines multiple migration layers and Gradle-side resolution is intentionally avoided to prevent toolchain and dependency conflicts.
 
 ## Integrated
 
 * [Lapis256/AE2ToggleableViewCell](https://github.com/Lapis256/AE2ToggleableViewCell/tree/1.21.1): integrated the toggleable view cell feature with partial code reuse under the MIT License.
 * [Mari023/AE2WirelessTerminalLibrary](https://github.com/Mari023/AE2WirelessTerminalLibrary): integrated AE2WTL wireless terminal behavior with partial code reuse under the MIT License; textures follow upstream notices.
 * [NovaEngineering-Source/AE2CT-Legacy](https://github.com/NovaEngineering-Source/AE2CT-Legacy): integrated AE2CT-Legacy under the LGPL-3.0 Licenses.
+* [GlodBlock/ExtendedAE](https://github.com/GlodBlock/ExtendedAE): ported selected EAE machines, tools, recipes, GUIs, and resources into the `ae2` namespace under the LGPL-3.0 License.
+
+### EAE Integration Scope
+
+This branch integrates selected ExtendedAE behavior directly into AE2 rather than exposing `extendedae:*` registry entries. The migrated scope includes the Entro material chain, crystal assembler/fixer, ingredient buffer, caner, machine frame, concurrent processor, pattern expansion card, pattern modifier, threshold level emitter, packing tape/package, config modifier, smart annihilation plane behavior, extended interface and pattern-provider capacities, pattern access terminal improvements, void cell GUI/effects, quartz blend recipes, HEI recipe views, and related models, textures, screens, recipes, and localization.
 
 ## License
 
@@ -48,7 +43,7 @@ The build output is written to `build/libs`.
   * (c) 2013 - 2020 AlgorithmX2 et al
   * [![License](https://img.shields.io/badge/License-LGPLv3-blue.svg?style=flat-square)](LICENSE)
 * Textures and Models
-  * (c) 2020, [Ridanisaurus Rid](https://github.com/Ridanisaurus/), (c) 2013 - 2020 AlgorithmX2 et al
+  * (c) 2020, [Ridanisaurus Rid](https://github.com/Ridanisaurus/), © 2013 - 2020 AlgorithmX2 et al
   * [![License](https://img.shields.io/badge/License-CC%20BY--NC--SA%203.0-yellow.svg?style=flat-square)](https://creativecommons.org/licenses/by-nc-sa/3.0/)
 * Text and Translations
   * [![License](https://img.shields.io/badge/License-No%20Restriction-green.svg?style=flat-square)](https://creativecommons.org/publicdomain/zero/1.0/)

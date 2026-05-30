@@ -1,0 +1,12 @@
+{
+  "type": "ae2:crystal_fixer",
+  "chance": 7000,
+  "fuel": {
+    "ingredient": {
+      "type": "forge:ore_dict",
+      "ore": "dustEnderPearl"
+    }
+  },
+  "input": "ae2:entro_budding_hardly",
+  "output": "ae2:entro_budding_half"
+}

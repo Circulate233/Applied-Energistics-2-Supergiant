@@ -21,6 +21,7 @@ import appeng.core.network.clientbound.MatterCannonPacket;
 import appeng.core.network.clientbound.MockExplosionPacket;
 import appeng.core.network.clientbound.NetworkStatusPacket;
 import appeng.core.network.clientbound.OpenGuiPacket;
+import appeng.core.network.clientbound.PatternAccessTerminalInfoPacket;
 import appeng.core.network.clientbound.PatternAccessTerminalPacket;
 import appeng.core.network.clientbound.RestorePreviousGuiPacket;
 import appeng.core.network.clientbound.SetLinkStatusPacket;
@@ -89,6 +90,7 @@ public final class InitNetwork {
         registerClientbound(AppEngPayloadHandler.Client.class, NetworkStatusPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, OpenGuiPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, PatternAccessTerminalPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, PatternAccessTerminalInfoPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, RestorePreviousGuiPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, SetLinkStatusPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, CraftingTreeDataPacket.class);

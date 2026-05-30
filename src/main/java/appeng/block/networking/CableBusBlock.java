@@ -64,6 +64,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nullable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -211,12 +212,12 @@ public class CableBusBlock extends AEBaseTileBlock<TileCableBus> implements ICus
     private List<TextureAtlasSprite> getParticleTextures(World world, BlockPos pos) {
         TileCableBus tile = getTileEntity(world, pos);
         if (tile == null) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
 
         IBakedModel model = Minecraft.getMinecraft().getBlockRendererDispatcher().getModelForState(getDefaultState());
         if (!(model instanceof CableBusBakedModel cableBusModel)) {
-            return java.util.Collections.emptyList();
+            return Collections.emptyList();
         }
         return cableBusModel.getParticleTextures(tile.getRenderState());
     }
@@ -419,7 +420,7 @@ public class CableBusBlock extends AEBaseTileBlock<TileCableBus> implements ICus
     public Iterable<AxisAlignedBB> getSelectedBoundingBoxesFromPool(World world, BlockPos pos, Entity entity,
                                                                     boolean hitFluids) {
         TileCableBus tile = getTileEntity(world, pos);
-        return tile == null ? java.util.Collections.emptyList() : tile.getCableBus().getBoxes(true, entity, true);
+        return tile == null ? Collections.emptyList() : tile.getCableBus().getBoxes(true, entity, true);
     }
 
     @Override

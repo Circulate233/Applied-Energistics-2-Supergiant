@@ -45,6 +45,14 @@ public final class AEBlockIds {
     public static final ResourceLocation MEDIUM_QUARTZ_BUD = id("medium_quartz_bud");
     public static final ResourceLocation LARGE_QUARTZ_BUD = id("large_quartz_bud");
     public static final ResourceLocation QUARTZ_CLUSTER = id("quartz_cluster");
+    public static final ResourceLocation ENTRO_BUDDING_FULLY = id("entro_budding_fully");
+    public static final ResourceLocation ENTRO_BUDDING_MOSTLY = id("entro_budding_mostly");
+    public static final ResourceLocation ENTRO_BUDDING_HALF = id("entro_budding_half");
+    public static final ResourceLocation ENTRO_BUDDING_HARDLY = id("entro_budding_hardly");
+    public static final ResourceLocation ENTRO_CLUSTER_SMALL = id("entro_cluster_small");
+    public static final ResourceLocation ENTRO_CLUSTER_MEDIUM = id("entro_cluster_medium");
+    public static final ResourceLocation ENTRO_CLUSTER_LARGE = id("entro_cluster_large");
+    public static final ResourceLocation ENTRO_CLUSTER = id("entro_cluster");
 
     public static final ResourceLocation MYSTERIOUS_CUBE = id("mysterious_cube");
     public static final ResourceLocation NOT_SO_MYSTERIOUS_CUBE = id("not_so_mysterious_cube");
@@ -63,6 +71,10 @@ public final class AEBlockIds {
     /// ME NETWORK
     ///
     public static final ResourceLocation INSCRIBER = id("inscriber");
+    public static final ResourceLocation CRYSTAL_ASSEMBLER = id("crystal_assembler");
+    public static final ResourceLocation CRYSTAL_FIXER = id("crystal_fixer");
+    public static final ResourceLocation INGREDIENT_BUFFER = id("ingredient_buffer");
+    public static final ResourceLocation CANER = id("caner");
     public static final ResourceLocation WIRELESS_ACCESS_POINT = id("wireless_access_point");
     public static final ResourceLocation CHARGER = id("charger");
     public static final ResourceLocation QUANTUM_RING = id("quantum_ring");
@@ -117,6 +129,8 @@ public final class AEBlockIds {
     public static final ResourceLocation QUARTZ_PILLAR = id("quartz_pillar");
     public static final ResourceLocation CHISELED_QUARTZ_BLOCK = id("chiseled_quartz_block");
     public static final ResourceLocation FLUIX_BLOCK = id("fluix_block");
+    public static final ResourceLocation ENTRO_BLOCK = id("entro_block");
+    public static final ResourceLocation MACHINE_FRAME = id("machine_frame");
     public static final ResourceLocation SKY_STONE_BLOCK = id("sky_stone_block");
     public static final ResourceLocation SMOOTH_SKY_STONE_BLOCK = id("smooth_sky_stone_block");
     public static final ResourceLocation SKY_STONE_BRICK = id("sky_stone_brick");

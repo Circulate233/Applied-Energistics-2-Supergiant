@@ -191,7 +191,16 @@ final class ScrollingUpgradesPanel implements ICompositeWidget {
 
     @Override
     public boolean onMouseWheel(Point mousePos, double delta) {
-        return this.scrollbar.isVisible() && this.scrollbar.onMouseWheel(mousePos, delta);
+        if (!this.scrollbar.isVisible() || !mousePos.isIn(getBounds())) {
+            return false;
+        }
+
+        return this.scrollbar.onMouseWheel(mousePos, delta);
+    }
+
+    @Override
+    public boolean wantsAllMouseWheelEvents() {
+        return this.scrollbar.isVisible();
     }
 
     private List<Slot> getPanelSlots() {

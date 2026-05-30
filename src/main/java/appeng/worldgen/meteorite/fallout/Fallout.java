@@ -23,12 +23,14 @@ import net.minecraft.init.Blocks;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 
+import java.util.Random;
+
 public class Fallout {
     protected final MeteoriteBlockPutter putter;
     protected final IBlockState skyStone;
-    protected final java.util.Random random;
+    protected final Random random;
 
-    public Fallout(MeteoriteBlockPutter putter, IBlockState skyStone, java.util.Random random) {
+    public Fallout(MeteoriteBlockPutter putter, IBlockState skyStone, Random random) {
         this.putter = putter;
         this.skyStone = skyStone;
         this.random = random;

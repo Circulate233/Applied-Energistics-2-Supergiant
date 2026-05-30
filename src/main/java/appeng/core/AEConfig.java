@@ -24,87 +24,77 @@ import appeng.api.config.TerminalStyle;
 import appeng.api.networking.pathing.ChannelMode;
 import appeng.api.stacks.AEFluidKey;
 import appeng.core.settings.TickRates;
-import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Config;
+import net.minecraftforge.common.config.ConfigManager;
+import net.minecraftforge.fml.client.event.ConfigChangedEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 
-import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 
+@Config(modid = Tags.MOD_ID, name = Tags.MOD_ID, category = "")
 public final class AEConfig {
+
+    @Config.Name("general")
+    public static final General GENERAL = new General();
+
+    @Config.Name("debug")
+    public static final Debug DEBUG = new Debug();
+
+    @Config.Name("battery")
+    public static final Battery BATTERY = new Battery();
+
+    @Config.Name("condenser")
+    public static final Condenser CONDENSER = new Condenser();
+
+    @Config.Name("automation")
+    public static final Automation AUTOMATION = new Automation();
+
+    @Config.Name("crafting")
+    public static final Crafting CRAFTING = new Crafting();
+
+    @Config.Name("craftingCPU")
+    public static final CraftingCPU CRAFTING_CPU = new CraftingCPU();
+
+    @Config.Name("tooltip")
+    public static final Tooltip TOOLTIP = new Tooltip();
+
+    @Config.Name("wireless")
+    public static final Wireless WIRELESS = new Wireless();
+
+    @Config.Name("powerRatios")
+    public static final PowerRatios POWER_RATIOS = new PowerRatios();
+
+    @Config.Name("spatial")
+    public static final Spatial SPATIAL = new Spatial();
+
+    @Config.Name("vibrationChamber")
+    public static final VibrationChamber VIBRATION_CHAMBER = new VibrationChamber();
+
+    @Config.Name("client")
+    public static final Client CLIENT = new Client();
+
+    @Config.Name("terminals")
+    public static final Terminals TERMINALS = new Terminals();
+
+    @Config.Name("search")
+    public static final Search SEARCH = new Search();
+
+    @Config.Name("worldGen")
+    public static final WorldGen WORLD_GEN = new WorldGen();
+
+    @Config.Name("tick_rates")
+    public static final TickRateConfig TICK_RATES = new TickRateConfig();
 
     private static AEConfig INSTANCE;
 
-    private final Configuration configuration;
-
-    private boolean debugLogging;
-    private boolean debugToolsEnabled;
-    private boolean blockUpdateLog;
-    private boolean chunkLoggerTrace;
-    private boolean debugEnergy;
-    private boolean craftingPerformanceLog;
-    private boolean showDebugGuiOverlays;
-    private boolean useLargeFonts;
-    private boolean annihilationPlaneSkyDustGeneration = true;
-    private boolean notifyForFinishedCraftingJobs = true;
-    private TerminalStyle terminalStyle = TerminalStyle.SMALL;
-    private boolean pinAutoCraftedItems = true;
-    private boolean clearGridOnClose;
-    private int terminalMargin = 25;
-    private boolean searchModNameInTooltips;
-    private boolean useExternalSearch;
-    private boolean clearExternalSearchOnOpen = true;
-    private boolean syncWithExternalSearch = true;
-    private boolean rememberLastSearch = true;
-    private boolean autoFocusSearch;
-    private String[] patternImportPriorityOrder = new String[0];
-    private boolean spawnPressesInMeteoritesEnabled = true;
-    private boolean spawnFlawlessOnly;
-    private int[] meteoriteDimensionWhitelist = new int[]{0};
-    private int spatialDimensionId = -256;
-    private int craftingCalculationTimePerTick = 5;
-    private int formationPlaneEntityLimit = 128;
-    private int interfaceItemSlotCapacityStacks = 512;
-    private int interfaceFluidSlotCapacityBuckets = 512;
-    private int growthAcceleratorSpeed = 10;
-    private boolean tooltipShowCellUpgrades = true;
-    private boolean tooltipShowCellContent = true;
-    private int tooltipMaxCellContentShown = 5;
-    private int wirelessTerminalBattery = 1600000;
-    private int portableCellBattery = 20000;
-    private int colorApplicatorBattery = 20000;
-    private int chargedStaffBattery = 8000;
-    private int matterCannonBattery = 200000;
-    private int entropyManipulatorBattery = 100000;
-    private int condenserMatterBallsPower = 256;
-    private int condenserSingularityPower = 256000;
-    private double wirelessBaseCost = 8.0;
-    private double wirelessCostMultiplier = 1.0;
-    private double wirelessBaseRange = 16.0;
-    private double wirelessBoosterRangeMultiplier = 1.0;
-    private double wirelessBoosterExp = 1.5;
-    private double wirelessHighWirelessCount = 64.0;
-    private double wirelessTerminalDrainMultiplier = 1.0;
-    private double p2pTunnelEnergyTax = 0.025;
-    private double p2pTunnelTransportTax = 0.025;
-    private double spatialPowerExponent = 1.35;
-    private double spatialPowerMultiplier = 1250.0;
-    private double vibrationChamberBaseEnergyPerFuelTick = 5.0;
-    private int vibrationChamberMinEnergyPerGameTick = 4;
-    private int vibrationChamberMaxEnergyPerGameTick = 40;
-    private boolean matterCannonBlockDamage = true;
-    private boolean tinyTntBlockDamage = true;
-    private boolean enableEffects = true;
-    private boolean placementPreviewEnabled = true;
-    private PowerUnit selectedPowerUnit = PowerUnit.AE;
-    private ChannelMode channelMode = ChannelMode.DEFAULT;
-
-    private AEConfig(File file) {
-        this.configuration = new Configuration(file);
-        this.load();
+    private AEConfig() {
     }
 
-    public static synchronized void init(File file) {
-        INSTANCE = new AEConfig(file);
+    public static synchronized void init() {
+        ConfigManager.sync(Tags.MOD_ID, Config.Type.INSTANCE);
+        INSTANCE = new AEConfig();
+        INSTANCE.applyRuntimeValues();
     }
 
     public static AEConfig instance() {
@@ -114,221 +104,51 @@ public final class AEConfig {
         return INSTANCE;
     }
 
-    private void load() {
-        this.configuration.load();
-        this.debugLogging = this.configuration.getBoolean("debugLogging", "general", false,
-            "Enables extra AE2 bootstrap logging.");
-        this.debugToolsEnabled = this.configuration.getBoolean("debugTools", "general", false,
-            "Enable unsupported AE2 debug tools.");
-        this.blockUpdateLog = this.configuration.getBoolean("blockUpdateLog", "general", false,
-            "Enable logging for block updates.");
-        this.chunkLoggerTrace = this.configuration.getBoolean("chunkLoggerTrace", "debug", false,
-            "Enable stack trace logging for the chunk loading debug command.");
-        this.debugEnergy = this.configuration.getBoolean("debugEnergy", "debug", false,
-            "Treat every energy grid as if it had a creative energy cell.");
-        this.craftingPerformanceLog = this.configuration.getBoolean("craftingPerformanceLog", "debug", false,
-            "Enable server-side autocrafting performance timing logs.");
-        String channelModeName = this.configuration.getString("channels", "general", ChannelMode.DEFAULT.name(),
-            "Changes the channel capacity that cables provide in AE2.");
-        try {
-            this.channelMode = ChannelMode.valueOf(channelModeName);
-        } catch (IllegalArgumentException ignored) {
-            this.channelMode = ChannelMode.DEFAULT;
-            this.configuration.get("general", "channels", ChannelMode.DEFAULT.name()).set(ChannelMode.DEFAULT.name());
+    @SubscribeEvent
+    public void onConfigChanged(ConfigChangedEvent.OnConfigChangedEvent event) {
+        if (!Tags.MOD_ID.equals(event.getModID())) {
+            return;
         }
-        this.colorApplicatorBattery = this.configuration.getInt("colorApplicator", "battery",
-            this.colorApplicatorBattery, 1, Integer.MAX_VALUE,
-            "Maximum AE stored by the Color Applicator.");
-        this.chargedStaffBattery = this.configuration.getInt("chargedStaff", "battery",
-            this.chargedStaffBattery, 1, Integer.MAX_VALUE,
-            "Maximum AE stored by the Charged Staff.");
-        this.matterCannonBattery = this.configuration.getInt("matterCannon", "battery",
-            this.matterCannonBattery, 1, Integer.MAX_VALUE,
-            "Maximum AE stored by the Matter Cannon.");
-        this.entropyManipulatorBattery = this.configuration.getInt("entropyManipulator", "battery",
-            this.entropyManipulatorBattery, 1, Integer.MAX_VALUE,
-            "Maximum AE stored by the Entropy Manipulator.");
-        this.condenserMatterBallsPower = this.configuration.getInt("matterBalls", "condenser",
-            this.condenserMatterBallsPower, 1, Integer.MAX_VALUE, "");
-        this.condenserSingularityPower = this.configuration.getInt("singularity", "condenser",
-            this.condenserSingularityPower, 1, Integer.MAX_VALUE, "");
-        this.wirelessTerminalBattery = this.configuration.getInt("wirelessTerminal", "battery",
-            this.wirelessTerminalBattery, 1, Integer.MAX_VALUE,
-            "Maximum AE stored by wireless terminals.");
-        this.portableCellBattery = this.configuration.getInt("portableCell", "battery",
-            this.portableCellBattery, 1, Integer.MAX_VALUE,
-            "Maximum AE stored by portable cells.");
-        this.formationPlaneEntityLimit = this.configuration.getInt("formationPlaneEntityLimit", "automation",
-            this.formationPlaneEntityLimit, 1, Integer.MAX_VALUE, "");
-        this.interfaceItemSlotCapacityStacks = this.configuration.getInt("interfaceItemSlotCapacityStacks", "automation",
-            this.interfaceItemSlotCapacityStacks, 1, Integer.MAX_VALUE,
-            "Maximum number of items a single ME Interface stocking slot can hold.");
-        this.interfaceFluidSlotCapacityBuckets = this.configuration.getInt("interfaceFluidSlotCapacityBuckets",
-            "automation", this.interfaceFluidSlotCapacityBuckets, 1, Integer.MAX_VALUE,
-            "Maximum number of fluid buckets a single ME Interface stocking slot can hold.");
-        this.growthAcceleratorSpeed = this.configuration.getInt("growthAccelerator", "crafting",
-            this.growthAcceleratorSpeed, 1, 100,
-            "Number of ticks between two crystal growth accelerator ticks");
-        this.craftingCalculationTimePerTick = this.configuration.getInt("craftingCalculationTimePerTick",
-            "craftingCPU", this.craftingCalculationTimePerTick, 1, Integer.MAX_VALUE, "");
-        this.tooltipShowCellUpgrades = this.configuration.getBoolean("showCellUpgrades", "tooltip",
-            this.tooltipShowCellUpgrades, "Show storage cell upgrades in extended tooltips.");
-        this.tooltipShowCellContent = this.configuration.getBoolean("showCellContent", "tooltip",
-            this.tooltipShowCellContent, "Show storage cell contents in extended tooltips.");
-        this.tooltipMaxCellContentShown = this.configuration.getInt("maxCellContentShown", "tooltip",
-            this.tooltipMaxCellContentShown, 1, 32, "Maximum number of storage cell entries shown in tooltips.");
-        this.wirelessBaseCost = this.configuration.getFloat("wirelessBaseCost", "wireless",
-            (float) this.wirelessBaseCost, 0.0f, Float.MAX_VALUE,
-            "Base AE drain for wireless access points.");
-        this.wirelessCostMultiplier = this.configuration.getFloat("wirelessCostMultiplier", "wireless",
-            (float) this.wirelessCostMultiplier, 0.0f, Float.MAX_VALUE,
-            "Additional drain multiplier for wireless access points.");
-        this.wirelessBaseRange = this.configuration.getFloat("wirelessBaseRange", "wireless",
-            (float) this.wirelessBaseRange, 0.0f, Float.MAX_VALUE,
-            "Base wireless access point range in blocks.");
-        this.wirelessBoosterRangeMultiplier = this.configuration.getFloat("wirelessBoosterRangeMultiplier", "wireless",
-            (float) this.wirelessBoosterRangeMultiplier, 0.0f, Float.MAX_VALUE,
-            "Range multiplier contributed by each wireless booster.");
-        this.wirelessBoosterExp = this.configuration.getFloat("wirelessBoosterExp", "wireless",
-            (float) this.wirelessBoosterExp, 0.0f, Float.MAX_VALUE,
-            "Exponent applied to the installed wireless boosters when calculating range.");
-        this.wirelessHighWirelessCount = this.configuration.getFloat("wirelessHighWirelessCount", "wireless",
-            (float) this.wirelessHighWirelessCount, 1.0f, Float.MAX_VALUE,
-            "Booster scaling factor used when calculating wireless access point drain.");
-        this.wirelessTerminalDrainMultiplier = this.configuration.getFloat("wirelessTerminalDrainMultiplier",
-            "wireless", (float) this.wirelessTerminalDrainMultiplier, 0.0f, Float.MAX_VALUE,
-            "Energy drain per block for wireless terminals.");
-        this.p2pTunnelEnergyTax = this.configuration.getFloat("p2pTunnelEnergyTax", "powerRatios",
-            (float) this.p2pTunnelEnergyTax, 0.0f, 1.0f,
-            "The cost to transport energy through an energy P2P tunnel expressed as a factor of the transported energy.");
-        this.p2pTunnelTransportTax = this.configuration.getFloat("p2pTunnelTransportTax", "powerRatios",
-            (float) this.p2pTunnelTransportTax, 0.0f, 1.0f,
-            "The cost to transport items/fluids/etc. through P2P tunnels, expressed in AE energy per equivalent I/O bus operation.");
-        this.spatialPowerMultiplier = this.configuration.getFloat("spatialPowerMultiplier", "spatial",
-            (float) this.spatialPowerMultiplier, 0.0f, Float.MAX_VALUE, "");
-        this.spatialPowerExponent = this.configuration.getFloat("spatialPowerExponent", "spatial",
-            (float) this.spatialPowerExponent, 0.0f, Float.MAX_VALUE, "");
-        this.vibrationChamberBaseEnergyPerFuelTick = this.configuration.getFloat("baseEnergyPerFuelTick", "vibrationChamber",
-            (float) this.vibrationChamberBaseEnergyPerFuelTick, 0.1f, 1000.0f,
-            "AE energy produced per fuel burn tick (reminder: coal = 1600, block of coal = 16000, lava bucket = 20000 burn ticks)");
-        this.vibrationChamberMinEnergyPerGameTick = this.configuration.getInt("minEnergyPerGameTick", "vibrationChamber",
-            this.vibrationChamberMinEnergyPerGameTick, 0, 1000,
-            "Minimum amount of AE/t the vibration chamber can slow down to when energy is being wasted.");
-        this.vibrationChamberMaxEnergyPerGameTick = this.configuration.getInt("baseMaxEnergyPerGameTick", "vibrationChamber",
-            this.vibrationChamberMaxEnergyPerGameTick, 1, 1000,
-            "Maximum amount of AE/t the vibration chamber can speed up to when generated energy is being fully consumed.");
-        this.annihilationPlaneSkyDustGeneration = this.configuration.getBoolean("annihilationPlaneSkyDustGeneration",
-            "automation", this.annihilationPlaneSkyDustGeneration,
-            "If enabled, an annihilation placed face up at the maximum world height will generate sky stone passively.");
-        this.matterCannonBlockDamage = this.configuration.getBoolean("matterCannonBlockDamage", "automation",
-            this.matterCannonBlockDamage, "Allow the Matter Cannon to break blocks.");
-        this.tinyTntBlockDamage = this.configuration.getBoolean("tinyTntBlockDamage", "general",
-            this.tinyTntBlockDamage, "Enables the ability of Tiny TNT to break blocks.");
-        this.enableEffects = this.configuration.getBoolean("enableEffects", "client",
-            this.enableEffects, "Enable AE2 particle and lightning effects.");
-        this.placementPreviewEnabled = this.configuration.getBoolean("placementPreviewEnabled", "client",
-            this.placementPreviewEnabled, "Show part and facade placement previews.");
-        this.showDebugGuiOverlays = this.configuration.getBoolean("showDebugGuiOverlays", "client",
-            this.showDebugGuiOverlays, "Show debugging GUI overlays.");
-        this.useLargeFonts = this.configuration.getBoolean("useTerminalUseLargeFont", "client",
-            this.useLargeFonts, "Use larger numbers in terminals.");
-        CondenserOutput.MATTER_BALLS.requiredPower = this.condenserMatterBallsPower;
-        CondenserOutput.SINGULARITY.requiredPower = this.condenserSingularityPower;
-        this.notifyForFinishedCraftingJobs = this.configuration.getBoolean("notifyForFinishedCraftingJobs", "client",
-            this.notifyForFinishedCraftingJobs, "Show toast when long-running crafting jobs finish.");
-        String terminalStyleName = this.configuration.getString("terminalStyle", "terminals", TerminalStyle.SMALL.name(),
-            "Size of ME terminal GUIs");
-        try {
-            this.terminalStyle = TerminalStyle.valueOf(terminalStyleName);
-        } catch (IllegalArgumentException ignored) {
-            this.terminalStyle = TerminalStyle.SMALL;
-            this.configuration.get("terminals", "terminalStyle", TerminalStyle.SMALL.name())
-                              .set(TerminalStyle.SMALL.name());
-        }
-        this.pinAutoCraftedItems = this.configuration.getBoolean("pinAutoCraftedItems", "client",
-            this.pinAutoCraftedItems, "Pin items that the player auto-crafts to the top of the terminal");
-        this.clearGridOnClose = this.configuration.getBoolean("clearGridOnClose", "client",
-            this.clearGridOnClose, "Automatically clear the crafting grid when closing the terminal");
-        this.terminalMargin = this.configuration.getInt("terminalMargin", "terminals", this.terminalMargin, 0,
-            Integer.MAX_VALUE, "The vertical margin to apply when sizing terminals.");
-        this.searchModNameInTooltips = this.configuration.getBoolean("searchModNameInTooltips", "search",
-            this.searchModNameInTooltips, "Should the mod name be included when searching in tooltips.");
-        this.useExternalSearch = this.configuration.getBoolean("useExternalSearch", "search", this.useExternalSearch,
-            "Replaces AEs own search with an external item list search");
-        this.clearExternalSearchOnOpen = this.configuration.getBoolean("clearExternalSearchOnOpen", "search",
-            this.clearExternalSearchOnOpen,
-            "When using useExternalSearch, clears the search when the terminal opens");
-        this.syncWithExternalSearch = this.configuration.getBoolean("syncWithExternalSearch", "search",
-            this.syncWithExternalSearch,
-            "Automatically sync the AE search text with an external search while the terminal is open");
-        this.rememberLastSearch = this.configuration.getBoolean("rememberLastSearch", "search",
-            this.rememberLastSearch,
-            "Remembers the last search term and restores it when the terminal opens");
-        this.autoFocusSearch = this.configuration.getBoolean("autoFocusSearch", "search", this.autoFocusSearch,
-            "Automatically focuses the search field when the terminal opens");
-        this.patternImportPriorityOrder = this.configuration.getStringList("patternImportPriorityOrder", "client",
-            this.patternImportPriorityOrder,
-            "Client-side order used when selecting HEI/JEI ingredient variants for the pattern encoding terminal.");
-        this.spawnPressesInMeteoritesEnabled = this.configuration.getBoolean("spawnPressesInMeteoritesEnabled",
-            "worldGen", this.spawnPressesInMeteoritesEnabled,
-            "Spawn mysterious cubes inside meteorites.");
-        this.spawnFlawlessOnly = this.configuration.getBoolean("spawnFlawlessOnly", "worldGen",
-            this.spawnFlawlessOnly, "Spawn only flawless budding quartz in meteorites.");
-        this.meteoriteDimensionWhitelist = this.configuration
-            .get("worldGen", "meteoriteDimensionWhitelist", this.meteoriteDimensionWhitelist,
-                "Dimensions that may generate meteorites.")
-            .getIntList();
-        this.spatialDimensionId = this.configuration.getInt("spatialDimensionId", "worldGen",
-            this.spatialDimensionId, Integer.MIN_VALUE, Integer.MAX_VALUE,
-            "Dimension id for the spatial storage dimension.");
-        String selectedPowerUnitName = this.configuration.getString("powerUnit", "client", PowerUnit.AE.name(),
-            "Unit of power shown in AE UIs");
-        try {
-            this.selectedPowerUnit = PowerUnit.valueOf(selectedPowerUnitName);
-        } catch (IllegalArgumentException ignored) {
-            this.selectedPowerUnit = PowerUnit.AE;
-            this.configuration.get("client", "powerUnit", PowerUnit.AE.name()).set(PowerUnit.AE.name());
-        }
+
+        ConfigManager.sync(Tags.MOD_ID, Config.Type.INSTANCE);
+        this.applyRuntimeValues();
+    }
+
+    private void applyRuntimeValues() {
+        CondenserOutput.MATTER_BALLS.requiredPower = CONDENSER.matterBallsPower;
+        CondenserOutput.SINGULARITY.requiredPower = CONDENSER.singularityPower;
 
         for (TickRates tickRate : TickRates.values()) {
-            String category = "tick_rates." + tickRate.name();
-            tickRate.setMin(this.configuration.getInt("min", category, tickRate.getDefaultMin(), 1, Integer.MAX_VALUE,
-                "Minimum ticks between work cycles."));
-            tickRate.setMax(this.configuration.getInt("max", category, tickRate.getDefaultMax(), tickRate.getMin(),
-                Integer.MAX_VALUE, "Maximum ticks between work cycles."));
-        }
-
-        if (this.configuration.hasChanged()) {
-            this.configuration.save();
+            TickRateRange range = TICK_RATES.get(tickRate);
+            tickRate.setMin(Math.max(1, range.min));
+            tickRate.setMax(Math.max(tickRate.getMin(), range.max));
         }
     }
 
+    @SuppressWarnings("unused")
     public boolean isDebugLoggingEnabled() {
-        return this.debugLogging;
+        return GENERAL.debugLogging;
     }
 
     public boolean isBlockUpdateLogEnabled() {
-        return this.blockUpdateLog;
+        return GENERAL.blockUpdateLog;
     }
 
     public boolean isChunkLoggerTraceEnabled() {
-        return this.chunkLoggerTrace;
+        return DEBUG.chunkLoggerTrace;
     }
 
     public boolean isDebugEnergyEnabled() {
-        return this.debugEnergy;
+        return DEBUG.debugEnergy;
     }
 
     public void setDebugEnergyEnabled(boolean enabled) {
-        if (enabled != this.debugEnergy) {
-            this.debugEnergy = enabled;
-            this.configuration.get("debug", "debugEnergy", false).set(enabled);
-            this.configuration.save();
-        }
+        DEBUG.debugEnergy = enabled;
+        this.save();
     }
 
     public boolean isCraftingPerformanceLogEnabled() {
-        return this.craftingPerformanceLog;
+        return DEBUG.craftingPerformanceLog;
     }
 
     public double getGridEnergyStoragePerNode() {
@@ -340,287 +160,261 @@ public final class AEConfig {
     }
 
     public int getColorApplicatorBattery() {
-        return this.colorApplicatorBattery;
+        return BATTERY.colorApplicator;
     }
 
     public int getChargedStaffBattery() {
-        return this.chargedStaffBattery;
+        return BATTERY.chargedStaff;
     }
 
     public int getMatterCannonBattery() {
-        return this.matterCannonBattery;
+        return BATTERY.matterCannon;
     }
 
     public int getEntropyManipulatorBattery() {
-        return this.entropyManipulatorBattery;
+        return BATTERY.entropyManipulator;
     }
 
     public int getWirelessTerminalBattery() {
-        return this.wirelessTerminalBattery;
+        return BATTERY.wirelessTerminal;
     }
 
     public int getPortableCellBattery() {
-        return this.portableCellBattery;
+        return BATTERY.portableCell;
     }
 
     public int getFormationPlaneEntityLimit() {
-        return this.formationPlaneEntityLimit;
+        return AUTOMATION.formationPlaneEntityLimit;
     }
 
     public long getInterfaceItemSlotCapacity() {
-        return this.interfaceItemSlotCapacityStacks;
+        return AUTOMATION.interfaceItemSlotCapacityStacks;
     }
 
     public long getInterfaceFluidSlotCapacity() {
-        return (long) this.interfaceFluidSlotCapacityBuckets * AEFluidKey.AMOUNT_BUCKET;
+        return (long) AUTOMATION.interfaceFluidSlotCapacityBuckets * AEFluidKey.AMOUNT_BUCKET;
+    }
+
+    public int getInterfacePageLimit() {
+        return Math.max(1, AUTOMATION.meInterfacePageLimit);
+    }
+
+    public int getPatternProviderExpansionCardLimit() {
+        return Math.max(0, AUTOMATION.patternProviderExpansionCardLimit);
     }
 
     public int getGrowthAcceleratorSpeed() {
-        return this.growthAcceleratorSpeed;
+        return CRAFTING.growthAccelerator;
     }
 
     public double getP2PTunnelEnergyTax() {
-        return this.p2pTunnelEnergyTax;
+        return POWER_RATIOS.p2pTunnelEnergyTax;
     }
 
     public double getP2PTunnelTransportTax() {
-        return this.p2pTunnelTransportTax;
+        return POWER_RATIOS.p2pTunnelTransportTax;
     }
 
     public int getCraftingCalculationTimePerTick() {
-        return this.craftingCalculationTimePerTick;
+        return CRAFTING_CPU.craftingCalculationTimePerTick;
     }
 
+    @SuppressWarnings("unused")
     public boolean isTooltipShowCellUpgrades() {
-        return this.tooltipShowCellUpgrades;
+        return TOOLTIP.showCellUpgrades;
     }
 
     public boolean isTooltipShowCellContent() {
-        return this.tooltipShowCellContent;
+        return TOOLTIP.showCellContent;
     }
 
     public int getTooltipMaxCellContentShown() {
-        return this.tooltipMaxCellContentShown;
+        return TOOLTIP.maxCellContentShown;
     }
 
     public boolean isAnnihilationPlaneSkyDustGenerationEnabled() {
-        return this.annihilationPlaneSkyDustGeneration;
+        return AUTOMATION.annihilationPlaneSkyDustGeneration;
     }
 
     public boolean isMatterCanonBlockDamageEnabled() {
-        return this.matterCannonBlockDamage;
+        return AUTOMATION.matterCannonBlockDamage;
     }
 
     public boolean isTinyTntBlockDamageEnabled() {
-        return this.tinyTntBlockDamage;
+        return GENERAL.tinyTntBlockDamage;
     }
 
     public boolean isEnableEffects() {
-        return this.enableEffects;
+        return CLIENT.enableEffects;
     }
 
     public boolean isPlacementPreviewEnabled() {
-        return this.placementPreviewEnabled;
+        return CLIENT.placementPreviewEnabled;
     }
 
     public boolean isShowDebugGuiOverlays() {
-        return this.showDebugGuiOverlays;
+        return CLIENT.showDebugGuiOverlays;
     }
 
     public void setShowDebugGuiOverlays(boolean enabled) {
-        if (enabled != this.showDebugGuiOverlays) {
-            this.showDebugGuiOverlays = enabled;
-            this.configuration.get("client", "showDebugGuiOverlays", false).set(enabled);
-            this.configuration.save();
-        }
+        CLIENT.showDebugGuiOverlays = enabled;
+        this.save();
     }
 
     public boolean isUseLargeFonts() {
-        return this.useLargeFonts;
+        return CLIENT.useLargeFonts;
     }
 
     public PowerUnit getSelectedEnergyUnit() {
-        return this.selectedPowerUnit;
+        return CLIENT.powerUnit == null ? PowerUnit.AE : CLIENT.powerUnit;
     }
 
     public void setSelectedEnergyUnit(PowerUnit selectedPowerUnit) {
-        this.selectedPowerUnit = selectedPowerUnit == null ? PowerUnit.AE : selectedPowerUnit;
-        this.configuration.get("client", "powerUnit", PowerUnit.AE.name()).set(this.selectedPowerUnit.name());
-        this.configuration.save();
+        CLIENT.powerUnit = selectedPowerUnit == null ? PowerUnit.AE : selectedPowerUnit;
+        this.save();
     }
 
     public ChannelMode getChannelMode() {
-        return this.channelMode;
+        return GENERAL.channels == null ? ChannelMode.DEFAULT : GENERAL.channels;
     }
 
     public void setChannelMode(ChannelMode channelMode) {
-        this.channelMode = channelMode == null ? ChannelMode.DEFAULT : channelMode;
-        this.configuration.get("general", "channels", ChannelMode.DEFAULT.name()).set(this.channelMode.name());
-        this.configuration.save();
+        GENERAL.channels = channelMode == null ? ChannelMode.DEFAULT : channelMode;
+        this.save();
     }
 
     public double getSpatialPowerExponent() {
-        return this.spatialPowerExponent;
+        return SPATIAL.spatialPowerExponent;
     }
 
     public double getSpatialPowerMultiplier() {
-        return this.spatialPowerMultiplier;
+        return SPATIAL.spatialPowerMultiplier;
     }
 
     public double getVibrationChamberBaseEnergyPerFuelTick() {
-        return this.vibrationChamberBaseEnergyPerFuelTick;
+        return VIBRATION_CHAMBER.baseEnergyPerFuelTick;
     }
 
     public int getVibrationChamberMinEnergyPerGameTick() {
-        return this.vibrationChamberMinEnergyPerGameTick;
+        return VIBRATION_CHAMBER.minEnergyPerGameTick;
     }
 
     public int getVibrationChamberMaxEnergyPerGameTick() {
-        return this.vibrationChamberMaxEnergyPerGameTick;
+        return VIBRATION_CHAMBER.baseMaxEnergyPerGameTick;
     }
 
     public double wireless_getDrainRate(double range) {
-        return this.wirelessTerminalDrainMultiplier * range;
+        return WIRELESS.wirelessTerminalDrainMultiplier * range;
     }
 
     public double wireless_getMaxRange(int boosters) {
-        return this.wirelessBaseRange
-            + this.wirelessBoosterRangeMultiplier * Math.pow(boosters, this.wirelessBoosterExp);
+        return WIRELESS.wirelessBaseRange
+            + WIRELESS.wirelessBoosterRangeMultiplier * Math.pow(boosters, WIRELESS.wirelessBoosterExp);
     }
 
     public double wireless_getPowerDrain(int boosters) {
-        return this.wirelessBaseCost
-            + this.wirelessCostMultiplier
-            * Math.pow(boosters, 1 + boosters / this.wirelessHighWirelessCount);
+        return WIRELESS.wirelessBaseCost
+            + WIRELESS.wirelessCostMultiplier
+            * Math.pow(boosters, 1 + boosters / WIRELESS.wirelessHighWirelessCount);
     }
 
     public boolean isPinAutoCraftedItems() {
-        return this.pinAutoCraftedItems;
+        return CLIENT.pinAutoCraftedItems;
     }
 
     public void setPinAutoCraftedItems(boolean enabled) {
-        if (enabled != this.pinAutoCraftedItems) {
-            this.pinAutoCraftedItems = enabled;
-            this.configuration.get("client", "pinAutoCraftedItems", true).set(enabled);
-            this.configuration.save();
-        }
+        CLIENT.pinAutoCraftedItems = enabled;
+        this.save();
     }
 
     public TerminalStyle getTerminalStyle() {
-        return this.terminalStyle;
+        return TERMINALS.terminalStyle == null ? TerminalStyle.SMALL : TERMINALS.terminalStyle;
     }
 
     public void setTerminalStyle(TerminalStyle terminalStyle) {
-        TerminalStyle nextStyle = terminalStyle == null ? TerminalStyle.SMALL : terminalStyle;
-        if (nextStyle != this.terminalStyle) {
-            this.terminalStyle = nextStyle;
-            this.configuration.get("terminals", "terminalStyle", TerminalStyle.SMALL.name()).set(nextStyle.name());
-            this.configuration.save();
-        }
+        TERMINALS.terminalStyle = terminalStyle == null ? TerminalStyle.SMALL : terminalStyle;
+        this.save();
     }
 
     public boolean isClearGridOnClose() {
-        return this.clearGridOnClose;
+        return CLIENT.clearGridOnClose;
     }
 
     public void setClearGridOnClose(boolean enabled) {
-        if (enabled != this.clearGridOnClose) {
-            this.clearGridOnClose = enabled;
-            this.configuration.get("client", "clearGridOnClose", false).set(enabled);
-            this.configuration.save();
-        }
+        CLIENT.clearGridOnClose = enabled;
+        this.save();
     }
 
     public int getTerminalMargin() {
-        return this.terminalMargin;
+        return TERMINALS.terminalMargin;
     }
 
     public boolean isNotifyForFinishedCraftingJobs() {
-        return this.notifyForFinishedCraftingJobs;
+        return CLIENT.notifyForFinishedCraftingJobs;
     }
 
     public void setNotifyForFinishedCraftingJobs(boolean enabled) {
-        if (enabled != this.notifyForFinishedCraftingJobs) {
-            this.notifyForFinishedCraftingJobs = enabled;
-            this.configuration.get("client", "notifyForFinishedCraftingJobs", true).set(enabled);
-            this.configuration.save();
-        }
+        CLIENT.notifyForFinishedCraftingJobs = enabled;
+        this.save();
     }
 
     public boolean isUseExternalSearch() {
-        return this.useExternalSearch;
+        return SEARCH.useExternalSearch;
     }
 
     public void setUseExternalSearch(boolean enabled) {
-        if (enabled != this.useExternalSearch) {
-            this.useExternalSearch = enabled;
-            this.configuration.get("search", "useExternalSearch", false).set(enabled);
-            this.configuration.save();
-        }
+        SEARCH.useExternalSearch = enabled;
+        this.save();
     }
 
     public boolean isSearchModNameInTooltips() {
-        return this.searchModNameInTooltips;
+        return SEARCH.searchModNameInTooltips;
     }
 
+    @SuppressWarnings("unused")
     public void setSearchModNameInTooltips(boolean enabled) {
-        if (enabled != this.searchModNameInTooltips) {
-            this.searchModNameInTooltips = enabled;
-            this.configuration.get("search", "searchModNameInTooltips", false).set(enabled);
-            this.configuration.save();
-        }
+        SEARCH.searchModNameInTooltips = enabled;
+        this.save();
     }
 
     public boolean isClearExternalSearchOnOpen() {
-        return this.clearExternalSearchOnOpen;
+        return SEARCH.clearExternalSearchOnOpen;
     }
 
     public void setClearExternalSearchOnOpen(boolean enabled) {
-        if (enabled != this.clearExternalSearchOnOpen) {
-            this.clearExternalSearchOnOpen = enabled;
-            this.configuration.get("search", "clearExternalSearchOnOpen", true).set(enabled);
-            this.configuration.save();
-        }
+        SEARCH.clearExternalSearchOnOpen = enabled;
+        this.save();
     }
 
     public boolean isSyncWithExternalSearch() {
-        return this.syncWithExternalSearch;
+        return SEARCH.syncWithExternalSearch;
     }
 
     public void setSyncWithExternalSearch(boolean enabled) {
-        if (enabled != this.syncWithExternalSearch) {
-            this.syncWithExternalSearch = enabled;
-            this.configuration.get("search", "syncWithExternalSearch", true).set(enabled);
-            this.configuration.save();
-        }
+        SEARCH.syncWithExternalSearch = enabled;
+        this.save();
     }
 
     public boolean isRememberLastSearch() {
-        return this.rememberLastSearch;
+        return SEARCH.rememberLastSearch;
     }
 
     public void setRememberLastSearch(boolean enabled) {
-        if (enabled != this.rememberLastSearch) {
-            this.rememberLastSearch = enabled;
-            this.configuration.get("search", "rememberLastSearch", true).set(enabled);
-            this.configuration.save();
-        }
+        SEARCH.rememberLastSearch = enabled;
+        this.save();
     }
 
     public boolean isAutoFocusSearch() {
-        return this.autoFocusSearch;
+        return SEARCH.autoFocusSearch;
     }
 
     public void setAutoFocusSearch(boolean enabled) {
-        if (enabled != this.autoFocusSearch) {
-            this.autoFocusSearch = enabled;
-            this.configuration.get("search", "autoFocusSearch", false).set(enabled);
-            this.configuration.save();
-        }
+        SEARCH.autoFocusSearch = enabled;
+        this.save();
     }
 
     public String[] getPatternImportPriorityOrder() {
-        return this.patternImportPriorityOrder.clone();
+        return CLIENT.patternImportPriorityOrder.clone();
     }
 
     public void setPatternImportPriorityOrder(List<String> order) {
@@ -629,36 +423,416 @@ public final class AEConfig {
 
     public void setPatternImportPriorityOrder(String[] order) {
         String[] nextOrder = order == null ? new String[0] : order.clone();
-        if (!Arrays.equals(nextOrder, this.patternImportPriorityOrder)) {
-            this.patternImportPriorityOrder = nextOrder;
-            this.configuration.get("client", "patternImportPriorityOrder", new String[0]).set(nextOrder);
-            this.configuration.save();
+        if (!Arrays.equals(nextOrder, CLIENT.patternImportPriorityOrder)) {
+            CLIENT.patternImportPriorityOrder = nextOrder;
+            this.save();
         }
     }
 
     public boolean isDebugToolsEnabled() {
-        return this.debugToolsEnabled;
+        return GENERAL.debugTools;
     }
 
     public boolean isSpawnPressesInMeteoritesEnabled() {
-        return this.spawnPressesInMeteoritesEnabled;
+        return WORLD_GEN.spawnPressesInMeteoritesEnabled;
     }
 
     public boolean isSpawnFlawlessOnlyEnabled() {
-        return this.spawnFlawlessOnly;
+        return WORLD_GEN.spawnFlawlessOnly;
     }
 
     public int[] getMeteoriteDimensionWhitelist() {
-        return this.meteoriteDimensionWhitelist.clone();
+        return WORLD_GEN.meteoriteDimensionWhitelist.clone();
     }
 
     public int getSpatialDimensionId() {
-        return this.spatialDimensionId;
+        return WORLD_GEN.spatialDimensionId;
     }
 
     public void save() {
-        if (this.configuration.hasChanged()) {
-            this.configuration.save();
+        ConfigManager.sync(Tags.MOD_ID, Config.Type.INSTANCE);
+        this.applyRuntimeValues();
+    }
+
+    public static final class General {
+        @Config.Name("tinyTntBlockDamage")
+        @Config.Comment("Enables the ability of Tiny TNT to break blocks.")
+        public final boolean tinyTntBlockDamage = true;
+        @Config.Name("debugLogging")
+        @Config.Comment("Enables extra AE2 bootstrap logging.")
+        public boolean debugLogging;
+        @Config.Name("debugTools")
+        @Config.Comment("Enable unsupported AE2 debug tools.")
+        public boolean debugTools;
+        @Config.Name("blockUpdateLog")
+        @Config.Comment("Enable logging for block updates.")
+        public boolean blockUpdateLog;
+        @Config.Name("channels")
+        @Config.Comment("Changes the channel capacity that cables provide in AE2.")
+        public ChannelMode channels = ChannelMode.DEFAULT;
+    }
+
+    public static final class Debug {
+        @Config.Name("chunkLoggerTrace")
+        @Config.Comment("Enable stack trace logging for the chunk loading debug command.")
+        public boolean chunkLoggerTrace;
+
+        @Config.Name("debugEnergy")
+        @Config.Comment("Treat every energy grid as if it had a creative energy cell.")
+        public boolean debugEnergy;
+
+        @Config.Name("craftingPerformanceLog")
+        @Config.Comment("Enable server-side autocrafting performance timing logs.")
+        public boolean craftingPerformanceLog;
+    }
+
+    public static final class Battery {
+        @Config.Name("colorApplicator")
+        @Config.Comment("Maximum AE stored by the Color Applicator.")
+        @Config.RangeInt(min = 1)
+        public final int colorApplicator = 20000;
+
+        @Config.Name("chargedStaff")
+        @Config.Comment("Maximum AE stored by the Charged Staff.")
+        @Config.RangeInt(min = 1)
+        public final int chargedStaff = 8000;
+
+        @Config.Name("matterCannon")
+        @Config.Comment("Maximum AE stored by the Matter Cannon.")
+        @Config.RangeInt(min = 1)
+        public final int matterCannon = 200000;
+
+        @Config.Name("entropyManipulator")
+        @Config.Comment("Maximum AE stored by the Entropy Manipulator.")
+        @Config.RangeInt(min = 1)
+        public final int entropyManipulator = 100000;
+
+        @Config.Name("wirelessTerminal")
+        @Config.Comment("Maximum AE stored by wireless terminals.")
+        @Config.RangeInt(min = 1)
+        public final int wirelessTerminal = 1600000;
+
+        @Config.Name("portableCell")
+        @Config.Comment("Maximum AE stored by portable cells.")
+        @Config.RangeInt(min = 1)
+        public final int portableCell = 20000;
+    }
+
+    public static final class Condenser {
+        @Config.Name("matterBalls")
+        @Config.RangeInt(min = 1)
+        public final int matterBallsPower = 256;
+
+        @Config.Name("singularity")
+        @Config.RangeInt(min = 1)
+        public final int singularityPower = 256000;
+    }
+
+    public static final class Automation {
+        @Config.Name("formationPlaneEntityLimit")
+        @Config.RangeInt(min = 1)
+        public final int formationPlaneEntityLimit = 128;
+
+        @Config.Name("interfaceItemSlotCapacityStacks")
+        @Config.Comment("Maximum number of items a single ME Interface stocking slot can hold.")
+        @Config.RangeInt(min = 1)
+        public final int interfaceItemSlotCapacityStacks = 1024;
+
+        @Config.Name("interfaceFluidSlotCapacityBuckets")
+        @Config.Comment("Maximum number of fluid buckets a single ME Interface stocking slot can hold.")
+        @Config.RangeInt(min = 1)
+        public final int interfaceFluidSlotCapacityBuckets = 256;
+
+        @Config.Name("MEInterfacePageLimit")
+        @Config.Comment("Maximum number of 18-slot ME Interface pages.")
+        @Config.RangeInt(min = 1)
+        @Config.RequiresWorldRestart
+        @Config.RequiresMcRestart
+        public final int meInterfacePageLimit = 1;
+
+        @Config.Name("PatternProviderExpansionCardLimit")
+        @Config.Comment("Maximum number of Pattern Expansion Cards that can be installed in one Pattern Provider.")
+        @Config.RangeInt(min = 0)
+        @Config.RequiresWorldRestart
+        @Config.RequiresMcRestart
+        public final int patternProviderExpansionCardLimit = 3;
+
+        @Config.Name("annihilationPlaneSkyDustGeneration")
+        @Config.Comment("If enabled, an annihilation placed face up at the maximum world height will generate sky stone passively.")
+        public final boolean annihilationPlaneSkyDustGeneration = true;
+
+        @Config.Name("matterCannonBlockDamage")
+        @Config.Comment("Allow the Matter Cannon to break blocks.")
+        public final boolean matterCannonBlockDamage = true;
+    }
+
+    public static final class Crafting {
+        @Config.Name("growthAccelerator")
+        @Config.Comment("Number of ticks between two crystal growth accelerator ticks.")
+        @Config.RangeInt(min = 1, max = 100)
+        public final int growthAccelerator = 10;
+    }
+
+    public static final class CraftingCPU {
+        @Config.Name("craftingCalculationTimePerTick")
+        @Config.RangeInt(min = 1)
+        public final int craftingCalculationTimePerTick = 5;
+    }
+
+    public static final class Tooltip {
+        @Config.Name("showCellUpgrades")
+        @Config.Comment("Show storage cell upgrades in extended tooltips.")
+        public final boolean showCellUpgrades = true;
+
+        @Config.Name("showCellContent")
+        @Config.Comment("Show storage cell contents in extended tooltips.")
+        public final boolean showCellContent = true;
+
+        @Config.Name("maxCellContentShown")
+        @Config.Comment("Maximum number of storage cell entries shown in tooltips.")
+        @Config.RangeInt(min = 1, max = 32)
+        public final int maxCellContentShown = 5;
+    }
+
+    public static final class Wireless {
+        @Config.Name("wirelessBaseCost")
+        @Config.Comment("Base AE drain for wireless access points.")
+        @Config.RangeDouble(min = 0.0D)
+        public final double wirelessBaseCost = 8.0D;
+
+        @Config.Name("wirelessCostMultiplier")
+        @Config.Comment("Additional drain multiplier for wireless access points.")
+        @Config.RangeDouble(min = 0.0D)
+        public final double wirelessCostMultiplier = 1.0D;
+
+        @Config.Name("wirelessBaseRange")
+        @Config.Comment("Base wireless access point range in blocks.")
+        @Config.RangeDouble(min = 0.0D)
+        public final double wirelessBaseRange = 16.0D;
+
+        @Config.Name("wirelessBoosterRangeMultiplier")
+        @Config.Comment("Range multiplier contributed by each wireless booster.")
+        @Config.RangeDouble(min = 0.0D)
+        public final double wirelessBoosterRangeMultiplier = 1.0D;
+
+        @Config.Name("wirelessBoosterExp")
+        @Config.Comment("Exponent applied to the installed wireless boosters when calculating range.")
+        @Config.RangeDouble(min = 0.0D)
+        public final double wirelessBoosterExp = 1.5D;
+
+        @Config.Name("wirelessHighWirelessCount")
+        @Config.Comment("Booster scaling factor used when calculating wireless access point drain.")
+        @Config.RangeDouble(min = 1.0D)
+        public final double wirelessHighWirelessCount = 64.0D;
+
+        @Config.Name("wirelessTerminalDrainMultiplier")
+        @Config.Comment("Energy drain per block for wireless terminals.")
+        @Config.RangeDouble(min = 0.0D)
+        public final double wirelessTerminalDrainMultiplier = 1.0D;
+    }
+
+    public static final class PowerRatios {
+        @Config.Name("p2pTunnelEnergyTax")
+        @Config.Comment("The cost to transport energy through an energy P2P tunnel expressed as a factor of the transported energy.")
+        @Config.RangeDouble(min = 0.0D, max = 1.0D)
+        public final double p2pTunnelEnergyTax = 0.025D;
+
+        @Config.Name("p2pTunnelTransportTax")
+        @Config.Comment("The cost to transport items/fluids/etc. through P2P tunnels, expressed in AE energy per equivalent I/O bus operation.")
+        @Config.RangeDouble(min = 0.0D, max = 1.0D)
+        public final double p2pTunnelTransportTax = 0.025D;
+    }
+
+    public static final class Spatial {
+        @Config.Name("spatialPowerExponent")
+        @Config.RangeDouble(min = 0.0D)
+        public final double spatialPowerExponent = 1.35D;
+
+        @Config.Name("spatialPowerMultiplier")
+        @Config.RangeDouble(min = 0.0D)
+        public final double spatialPowerMultiplier = 1250.0D;
+    }
+
+    public static final class VibrationChamber {
+        @Config.Name("baseEnergyPerFuelTick")
+        @Config.Comment("AE energy produced per fuel burn tick.")
+        @Config.RangeDouble(min = 0.1D, max = 1000.0D)
+        public final double baseEnergyPerFuelTick = 5.0D;
+
+        @Config.Name("minEnergyPerGameTick")
+        @Config.Comment("Minimum amount of AE/t the vibration chamber can slow down to when energy is being wasted.")
+        @Config.RangeInt(min = 0, max = 1000)
+        public final int minEnergyPerGameTick = 4;
+
+        @Config.Name("baseMaxEnergyPerGameTick")
+        @Config.Comment("Maximum amount of AE/t the vibration chamber can speed up to when generated energy is being fully consumed.")
+        @Config.RangeInt(min = 1, max = 1000)
+        public final int baseMaxEnergyPerGameTick = 40;
+    }
+
+    public static final class Client {
+        @Config.Name("enableEffects")
+        @Config.Comment("Enable AE2 particle and lightning effects.")
+        public final boolean enableEffects = true;
+
+        @Config.Name("placementPreviewEnabled")
+        @Config.Comment("Show part and facade placement previews.")
+        public final boolean placementPreviewEnabled = true;
+
+        @Config.Name("showDebugGuiOverlays")
+        @Config.Comment("Show debugging GUI overlays.")
+        public boolean showDebugGuiOverlays;
+
+        @Config.Name("useTerminalUseLargeFont")
+        @Config.Comment("Use larger numbers in terminals.")
+        public boolean useLargeFonts;
+
+        @Config.Name("notifyForFinishedCraftingJobs")
+        @Config.Comment("Show toast when long-running crafting jobs finish.")
+        public boolean notifyForFinishedCraftingJobs = true;
+
+        @Config.Name("pinAutoCraftedItems")
+        @Config.Comment("Pin items that the player auto-crafts to the top of the terminal.")
+        public boolean pinAutoCraftedItems = true;
+
+        @Config.Name("clearGridOnClose")
+        @Config.Comment("Automatically clear the crafting grid when closing the terminal.")
+        public boolean clearGridOnClose;
+
+        @Config.Name("powerUnit")
+        @Config.Comment("Unit of power shown in AE UIs.")
+        public PowerUnit powerUnit = PowerUnit.AE;
+
+        @Config.Name("patternImportPriorityOrder")
+        @Config.Comment("Client-side order used when selecting HEI/JEI ingredient variants for the pattern encoding terminal.")
+        public String[] patternImportPriorityOrder = new String[0];
+    }
+
+    public static final class Terminals {
+        @Config.Name("terminalMargin")
+        @Config.Comment("The vertical margin to apply when sizing terminals.")
+        @Config.RangeInt(min = 0)
+        public final int terminalMargin = 25;
+        @Config.Name("terminalStyle")
+        @Config.Comment("Size of ME terminal GUIs.")
+        public TerminalStyle terminalStyle = TerminalStyle.SMALL;
+    }
+
+    public static final class Search {
+        @Config.Name("searchModNameInTooltips")
+        @Config.Comment("Should the mod name be included when searching in tooltips.")
+        public boolean searchModNameInTooltips;
+
+        @Config.Name("useExternalSearch")
+        @Config.Comment("Replaces AEs own search with an external item list search.")
+        public boolean useExternalSearch;
+
+        @Config.Name("clearExternalSearchOnOpen")
+        @Config.Comment("When using useExternalSearch, clears the search when the terminal opens.")
+        public boolean clearExternalSearchOnOpen = true;
+
+        @Config.Name("syncWithExternalSearch")
+        @Config.Comment("Automatically sync the AE search text with an external search while the terminal is open.")
+        public boolean syncWithExternalSearch = true;
+
+        @Config.Name("rememberLastSearch")
+        @Config.Comment("Remembers the last search term and restores it when the terminal opens.")
+        public boolean rememberLastSearch = true;
+
+        @Config.Name("autoFocusSearch")
+        @Config.Comment("Automatically focuses the search field when the terminal opens.")
+        public boolean autoFocusSearch;
+    }
+
+    public static final class WorldGen {
+        @Config.Name("spawnPressesInMeteoritesEnabled")
+        @Config.Comment("Spawn mysterious cubes inside meteorites.")
+        public final boolean spawnPressesInMeteoritesEnabled = true;
+        @Config.Name("meteoriteDimensionWhitelist")
+        @Config.Comment("Dimensions that may generate meteorites.")
+        public final int[] meteoriteDimensionWhitelist = new int[]{0};
+        @Config.Name("spatialDimensionId")
+        @Config.Comment("Dimension id for the spatial storage dimension.")
+        @Config.RangeInt()
+        public final int spatialDimensionId = -256;
+        @Config.Name("spawnFlawlessOnly")
+        @Config.Comment("Spawn only flawless budding quartz in meteorites.")
+        public boolean spawnFlawlessOnly;
+    }
+
+    public static final class TickRateConfig {
+        @Config.Name("Interface")
+        public final TickRateRange interfaceRate = new TickRateRange(TickRates.Interface);
+
+        @Config.Name("ImportBus")
+        public final TickRateRange importBus = new TickRateRange(TickRates.ImportBus);
+
+        @Config.Name("ExportBus")
+        public final TickRateRange exportBus = new TickRateRange(TickRates.ExportBus);
+
+        @Config.Name("FormationPlane")
+        public final TickRateRange formationPlane = new TickRateRange(TickRates.FormationPlane);
+
+        @Config.Name("AnnihilationPlane")
+        public final TickRateRange annihilationPlane = new TickRateRange(TickRates.AnnihilationPlane);
+
+        @Config.Name("METunnel")
+        public final TickRateRange meTunnel = new TickRateRange(TickRates.METunnel);
+
+        @Config.Name("Inscriber")
+        public final TickRateRange inscriber = new TickRateRange(TickRates.Inscriber);
+
+        @Config.Name("Charger")
+        public final TickRateRange charger = new TickRateRange(TickRates.Charger);
+
+        @Config.Name("IOPort")
+        public final TickRateRange ioPort = new TickRateRange(TickRates.IOPort);
+
+        @Config.Name("VibrationChamber")
+        public final TickRateRange vibrationChamber = new TickRateRange(TickRates.VibrationChamber);
+
+        @Config.Name("StorageBus")
+        public final TickRateRange storageBus = new TickRateRange(TickRates.StorageBus);
+
+        @Config.Name("ItemTunnel")
+        public final TickRateRange itemTunnel = new TickRateRange(TickRates.ItemTunnel);
+
+        @Config.Name("LightTunnel")
+        public final TickRateRange lightTunnel = new TickRateRange(TickRates.LightTunnel);
+
+        private TickRateRange get(TickRates tickRate) {
+            return switch (tickRate) {
+                case Interface -> this.interfaceRate;
+                case ImportBus -> this.importBus;
+                case ExportBus -> this.exportBus;
+                case FormationPlane -> this.formationPlane;
+                case AnnihilationPlane -> this.annihilationPlane;
+                case METunnel -> this.meTunnel;
+                case Inscriber -> this.inscriber;
+                case Charger -> this.charger;
+                case IOPort -> this.ioPort;
+                case VibrationChamber -> this.vibrationChamber;
+                case StorageBus -> this.storageBus;
+                case ItemTunnel -> this.itemTunnel;
+                case LightTunnel -> this.lightTunnel;
+            };
+        }
+    }
+
+    public static final class TickRateRange {
+        @Config.Name("min")
+        @Config.Comment("Minimum ticks between work cycles.")
+        @Config.RangeInt(min = 1)
+        public final int min;
+
+        @Config.Name("max")
+        @Config.Comment("Maximum ticks between work cycles.")
+        @Config.RangeInt(min = 1)
+        public final int max;
+
+        private TickRateRange(TickRates tickRate) {
+            this.min = tickRate.getDefaultMin();
+            this.max = tickRate.getDefaultMax();
         }
     }
 }

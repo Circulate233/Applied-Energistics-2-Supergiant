@@ -48,6 +48,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.List;
@@ -410,7 +411,7 @@ public class TileCraftingUnit extends AENetworkedTile
 
     private Iterator<IGridNode> getMultiblockNodes() {
         if (this.getCluster() == null) {
-            return java.util.Collections.emptyIterator();
+            return Collections.emptyIterator();
         }
 
         List<IGridNode> nodes = new ObjectArrayList<>();

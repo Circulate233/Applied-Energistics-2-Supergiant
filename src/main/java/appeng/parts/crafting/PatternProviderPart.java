@@ -24,9 +24,11 @@ import appeng.api.parts.IPartItem;
 import appeng.api.parts.IPartModel;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.util.AECableType;
+import appeng.core.AEConfig;
 import appeng.core.AppEng;
 import appeng.core.definitions.AEParts;
 import appeng.core.gui.locator.GuiHostLocators;
+import appeng.helpers.patternprovider.PatternProviderCapacity;
 import appeng.helpers.patternprovider.PatternProviderLogic;
 import appeng.helpers.patternprovider.PatternProviderLogicHost;
 import appeng.items.parts.PartModels;
@@ -70,7 +72,8 @@ public class PatternProviderPart extends AEBasePart implements PatternProviderLo
     }
 
     protected PatternProviderLogic createLogic() {
-        return new PatternProviderLogic(this.getMainNode(), this, AEParts.PATTERN_PROVIDER.item(), 9);
+        return new PatternProviderLogic(this.getMainNode(), this, AEParts.PATTERN_PROVIDER.item(),
+            PatternProviderCapacity.getMaxPatternSlots(AEConfig.instance().getPatternProviderExpansionCardLimit()));
     }
 
     @Override

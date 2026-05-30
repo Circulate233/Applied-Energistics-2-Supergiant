@@ -1,0 +1,73 @@
+{
+  "$schema": "schema.json",
+  "includes": [
+    "common/common.json",
+    "common/player_inventory.json",
+    "common/toolbox.json"
+  ],
+  "background": {
+    "texture": "guis/threshold_level_emitter.png",
+    "srcRect": [0, 0, 176, 186]
+  },
+  "slots": {
+    "CONFIG": {
+      "left": 137,
+      "top": 47
+    }
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "gui.ae2.ThresholdLevelEmitter"
+      },
+      "position": {
+        "left": 8,
+        "top": 6
+      }
+    },
+    "upper_text": {
+      "text": {
+        "translate": "gui.ae2.ThresholdLevelEmitterUpper"
+      },
+      "position": {
+        "left": 20,
+        "top": 23
+      }
+    },
+    "lower_text": {
+      "text": {
+        "translate": "gui.ae2.ThresholdLevelEmitterLower"
+      },
+      "position": {
+        "left": 20,
+        "top": 58
+      }
+    }
+  },
+  "widgets": {
+    "upperLevel": {
+      "left": 20,
+      "top": 17,
+      "width": 138,
+      "height": 62
+    },
+    "upperLevelInput": {
+      "left": 20,
+      "top": 34,
+      "width": 83,
+      "height": 12
+    },
+    "lowerLevel": {
+      "left": 20,
+      "top": 17,
+      "width": 138,
+      "height": 62
+    },
+    "lowerLevelInput": {
+      "left": 20,
+      "top": 69,
+      "width": 83,
+      "height": 12
+    }
+  }
+}

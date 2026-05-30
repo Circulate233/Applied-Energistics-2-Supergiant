@@ -1,0 +1,16 @@
+{
+  "type": "ae2:inscriber",
+  "ingredients": {
+    "middle": {
+      "item": "ae2:entro_crystal"
+    },
+    "top": {
+      "item": "ae2:concurrent_processor_press"
+    }
+  },
+  "mode": "inscribe",
+  "result": {
+    "id": "ae2:concurrent_processor_print",
+    "count": 1
+  }
+}

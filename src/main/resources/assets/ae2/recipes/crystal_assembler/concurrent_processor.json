@@ -1,0 +1,28 @@
+{
+  "type": "ae2:crystal_assembler",
+  "input_items": [
+    {
+      "amount": 4,
+      "ingredient": {
+        "item": "ae2:concurrent_processor_print"
+      }
+    },
+    {
+      "amount": 4,
+      "ingredient": {
+        "item": "ae2:printed_silicon"
+      }
+    },
+    {
+      "amount": 4,
+      "ingredient": {
+        "type": "forge:ore_dict",
+        "ore": "dustRedstone"
+      }
+    }
+  ],
+  "output": {
+    "item": "ae2:concurrent_processor",
+    "count": 4
+  }
+}

@@ -1,0 +1,159 @@
+{
+  "$schema": "schema.json",
+  "includes": [
+    "common/common.json",
+    "common/player_inventory.json"
+  ],
+  "background": {
+    "texture": "guis/pattern_editor_1.png",
+    "srcRect": [0, 0, 176, 212]
+  },
+  "slots": {
+    "ENCODED_PATTERN": {
+      "left": 8,
+      "top": 61,
+      "grid": "BREAK_AFTER_9COLS"
+    },
+    "PATTERN_MODIFIER_TARGET": {
+      "left": 58,
+      "top": 38,
+      "grid": "HORIZONTAL"
+    },
+    "PATTERN_MODIFIER_CLONE": {
+      "left": 102,
+      "top": 38,
+      "grid": "HORIZONTAL"
+    },
+    "PATTERN_MODIFIER_BLANKS": {
+      "left": 53,
+      "top": 75,
+      "grid": "HORIZONTAL"
+    },
+    "PATTERN_MODIFIER_REPLACE_TARGET": {
+      "left": 8,
+      "top": 28,
+      "grid": "HORIZONTAL"
+    },
+    "PATTERN_MODIFIER_REPLACE_WITH": {
+      "left": 62,
+      "top": 28,
+      "grid": "HORIZONTAL"
+    }
+  },
+  "widgets": {
+    "mode": {
+      "left": -18,
+      "top": 7,
+      "width": 18,
+      "height": 20
+    },
+    "inventory": {
+      "left": -18,
+      "top": 29,
+      "width": 18,
+      "height": 20
+    },
+    "previousProviderPage": {
+      "left": 116,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "nextProviderPage": {
+      "left": 134,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "replace": {
+      "left": 123,
+      "top": 26,
+      "width": 46,
+      "height": 20
+    },
+    "clone": {
+      "left": 80,
+      "top": 36,
+      "width": 18,
+      "height": 20
+    },
+    "clear": {
+      "left": 133,
+      "top": 26,
+      "width": 36,
+      "height": 20
+    },
+    "amount_0": {
+      "left": 7,
+      "top": 16,
+      "width": 23,
+      "height": 20
+    },
+    "amount_1": {
+      "left": 37,
+      "top": 16,
+      "width": 23,
+      "height": 20
+    },
+    "amount_2": {
+      "left": 67,
+      "top": 16,
+      "width": 23,
+      "height": 20
+    },
+    "amount_3": {
+      "left": 97,
+      "top": 16,
+      "width": 23,
+      "height": 20
+    },
+    "amount_4": {
+      "left": 7,
+      "top": 38,
+      "width": 23,
+      "height": 20
+    },
+    "amount_5": {
+      "left": 37,
+      "top": 38,
+      "width": 23,
+      "height": 20
+    },
+    "amount_6": {
+      "left": 67,
+      "top": 38,
+      "width": 23,
+      "height": 20
+    },
+    "amount_7": {
+      "left": 97,
+      "top": 38,
+      "width": 23,
+      "height": 20
+    },
+    "property_0": {
+      "left": 116,
+      "top": 16,
+      "width": 23,
+      "height": 20
+    },
+    "property_1": {
+      "left": 146,
+      "top": 16,
+      "width": 23,
+      "height": 20
+    },
+    "property_2": {
+      "left": 116,
+      "top": 38,
+      "width": 23,
+      "height": 20
+    },
+    "property_3": {
+      "left": 146,
+      "top": 38,
+      "width": 23,
+      "height": 20
+    }
+  }
+}

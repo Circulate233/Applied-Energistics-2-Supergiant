@@ -38,6 +38,7 @@ import appeng.items.materials.MaterialItem;
 import appeng.items.materials.NamePressItem;
 import appeng.items.materials.QuantumEntangledSingularityItem;
 import appeng.items.materials.StorageComponentItem;
+import appeng.items.misc.EntroSeedItem;
 import appeng.items.misc.MeteoriteCompassItem;
 import appeng.items.misc.MissingContentItem;
 import appeng.items.misc.PaintBallItem;
@@ -49,8 +50,12 @@ import appeng.items.storage.SpatialStorageCellItem;
 import appeng.items.storage.StorageTier;
 import appeng.items.storage.ViewCellItem;
 import appeng.items.storage.VoidCellItem;
+import appeng.items.tools.ConfigModifierItem;
+import appeng.items.tools.MEPackageItem;
+import appeng.items.tools.MEPackingTapeItem;
 import appeng.items.tools.MemoryCardItem;
 import appeng.items.tools.NetworkToolItem;
+import appeng.items.tools.PatternModifierItem;
 import appeng.items.tools.fluix.FluixAxeItem;
 import appeng.items.tools.fluix.FluixHoeItem;
 import appeng.items.tools.fluix.FluixPickaxeItem;
@@ -76,8 +81,10 @@ import appeng.items.tools.quartz.QuartzToolType;
 import appeng.items.tools.quartz.QuartzWrenchItem;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.event.RegistryEvent;
 
+import java.util.Map;
 import java.util.function.IntSupplier;
 
 /**
@@ -106,6 +113,8 @@ public final class AEItems {
         AEItemIds.CERTUS_QUARTZ_CRYSTAL_CHARGED, new MaterialItem());
     public static final ItemDefinition<MaterialItem> CERTUS_QUARTZ_DUST = new ItemDefinition<>(
         AEItemIds.CERTUS_QUARTZ_DUST, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> QUARTZ_BLEND = new ItemDefinition<>(AEItemIds.QUARTZ_BLEND,
+        new MaterialItem());
     public static final ItemDefinition<MaterialItem> SILICON = new ItemDefinition<>(AEItemIds.SILICON,
         new MaterialItem());
     public static final ItemDefinition<MaterialItem> MATTER_BALL = new ItemDefinition<>(AEItemIds.MATTER_BALL,
@@ -115,6 +124,16 @@ public final class AEItems {
     public static final ItemDefinition<MaterialItem> FLUIX_DUST = new ItemDefinition<>(AEItemIds.FLUIX_DUST,
         new MaterialItem());
     public static final ItemDefinition<MaterialItem> FLUIX_PEARL = new ItemDefinition<>(AEItemIds.FLUIX_PEARL,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> ENTRO_CRYSTAL = new ItemDefinition<>(AEItemIds.ENTRO_CRYSTAL,
+        new MaterialItem());
+    public static final ItemDefinition<EntroSeedItem> ENTRO_SEED = new ItemDefinition<>(AEItemIds.ENTRO_SEED,
+        new EntroSeedItem());
+    public static final ItemDefinition<MaterialItem> ENTRO_DUST = new ItemDefinition<>(AEItemIds.ENTRO_DUST,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> ENTRO_INGOT = new ItemDefinition<>(AEItemIds.ENTRO_INGOT,
+        new MaterialItem());
+    public static final ItemDefinition<MaterialItem> ENTRO_SHARD = new ItemDefinition<>(AEItemIds.ENTRO_SHARD,
         new MaterialItem());
     public static final ItemDefinition<QuartzAxeItem> CERTUS_QUARTZ_AXE = new ItemDefinition<>(
         AEItemIds.CERTUS_QUARTZ_AXE, new QuartzAxeItem(QuartzToolType.CERTUS));
@@ -166,16 +185,22 @@ public final class AEItems {
         AEItemIds.ENGINEERING_PROCESSOR_PRINT, new MaterialItem());
     public static final ItemDefinition<MaterialItem> LOGIC_PROCESSOR_PRINT = new ItemDefinition<>(
         AEItemIds.LOGIC_PROCESSOR_PRINT, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> CONCURRENT_PROCESSOR_PRINT = new ItemDefinition<>(
+        AEItemIds.CONCURRENT_PROCESSOR_PRINT, new MaterialItem());
     public static final ItemDefinition<MaterialItem> SILICON_PRESS = new ItemDefinition<>(AEItemIds.SILICON_PRESS,
         new MaterialItem());
     public static final ItemDefinition<MaterialItem> SILICON_PRINT = new ItemDefinition<>(AEItemIds.SILICON_PRINT,
         new MaterialItem());
+    public static final ItemDefinition<MaterialItem> CONCURRENT_PROCESSOR_PRESS = new ItemDefinition<>(
+        AEItemIds.CONCURRENT_PROCESSOR_PRESS, new MaterialItem());
     public static final ItemDefinition<MaterialItem> LOGIC_PROCESSOR = new ItemDefinition<>(AEItemIds.LOGIC_PROCESSOR,
         new MaterialItem());
     public static final ItemDefinition<MaterialItem> CALCULATION_PROCESSOR = new ItemDefinition<>(
         AEItemIds.CALCULATION_PROCESSOR, new MaterialItem());
     public static final ItemDefinition<MaterialItem> ENGINEERING_PROCESSOR = new ItemDefinition<>(
         AEItemIds.ENGINEERING_PROCESSOR, new MaterialItem());
+    public static final ItemDefinition<MaterialItem> CONCURRENT_PROCESSOR = new ItemDefinition<>(
+        AEItemIds.CONCURRENT_PROCESSOR, new MaterialItem());
     public static final ItemDefinition<MaterialItem> BASIC_CARD = new ItemDefinition<>(AEItemIds.BASIC_CARD,
         new MaterialItem());
     public static final ItemDefinition<Item> REDSTONE_CARD = new ItemDefinition<>(AEItemIds.REDSTONE_CARD,
@@ -196,6 +221,8 @@ public final class AEItems {
         Upgrades.createUpgradeCardItem());
     public static final ItemDefinition<Item> PSEUDO_CRAFTING_CARD = new ItemDefinition<>(AEItemIds.PSEUDO_CRAFTING_CARD,
         Upgrades.createUpgradeCardItem());
+    public static final ItemDefinition<Item> PATTERN_EXPANSION_CARD = new ItemDefinition<>(
+        AEItemIds.PATTERN_EXPANSION_CARD, Upgrades.createUpgradeCardItem());
     public static final ItemDefinition<Item> EQUAL_DISTRIBUTION_CARD = new ItemDefinition<>(
         AEItemIds.EQUAL_DISTRIBUTION_CARD, Upgrades.createUpgradeCardItem());
     public static final ItemDefinition<Item> STICKY_CARD = new ItemDefinition<>(AEItemIds.STICKY_CARD,
@@ -341,6 +368,14 @@ public final class AEItems {
         AEItemIds.ENTROPY_MANIPULATOR, new EntropyManipulatorItem());
     public static final ItemDefinition<NetworkToolItem> NETWORK_TOOL = new ItemDefinition<>(AEItemIds.NETWORK_TOOL,
         new NetworkToolItem());
+    public static final ItemDefinition<MEPackingTapeItem> ME_PACKING_TAPE = new ItemDefinition<>(
+        AEItemIds.ME_PACKING_TAPE, new MEPackingTapeItem());
+    public static final ItemDefinition<MEPackageItem> PACKAGE = new ItemDefinition<>(AEItemIds.PACKAGE,
+        new MEPackageItem(), DebugCreativeTab.INSTANCE);
+    public static final ItemDefinition<ConfigModifierItem> CONFIG_MODIFIER = new ItemDefinition<>(
+        AEItemIds.CONFIG_MODIFIER, new ConfigModifierItem());
+    public static final ItemDefinition<PatternModifierItem> PATTERN_MODIFIER = new ItemDefinition<>(
+        AEItemIds.PATTERN_MODIFIER, new PatternModifierItem());
     public static final ItemDefinition<MemoryCardItem> MEMORY_CARD = new ItemDefinition<>(AEItemIds.MEMORY_CARD,
         new MemoryCardItem());
     public static final ItemDefinition<DebugCardItem> DEBUG_CARD = new ItemDefinition<>(AEItemIds.DEBUG_CARD,
@@ -367,11 +402,17 @@ public final class AEItems {
         CERTUS_QUARTZ_CRYSTAL,
         CERTUS_QUARTZ_CRYSTAL_CHARGED,
         CERTUS_QUARTZ_DUST,
+        QUARTZ_BLEND,
         SILICON,
         MATTER_BALL,
         FLUIX_CRYSTAL,
         FLUIX_DUST,
         FLUIX_PEARL,
+        ENTRO_CRYSTAL,
+        ENTRO_SEED,
+        ENTRO_DUST,
+        ENTRO_INGOT,
+        ENTRO_SHARD,
         CERTUS_QUARTZ_AXE,
         CERTUS_QUARTZ_HOE,
         CERTUS_QUARTZ_SHOVEL,
@@ -397,12 +438,15 @@ public final class AEItems {
         CALCULATION_PROCESSOR_PRINT,
         ENGINEERING_PROCESSOR_PRINT,
         LOGIC_PROCESSOR_PRINT,
+        CONCURRENT_PROCESSOR_PRINT,
         SILICON_PRESS,
         SILICON_PRINT,
         NAME_PRESS,
+        CONCURRENT_PROCESSOR_PRESS,
         LOGIC_PROCESSOR,
         CALCULATION_PROCESSOR,
         ENGINEERING_PROCESSOR,
+        CONCURRENT_PROCESSOR,
         BASIC_CARD,
         REDSTONE_CARD,
         CAPACITY_CARD,
@@ -413,6 +457,7 @@ public final class AEItems {
         INVERTER_CARD,
         CRAFTING_CARD,
         PSEUDO_CRAFTING_CARD,
+        PATTERN_EXPANSION_CARD,
         EQUAL_DISTRIBUTION_CARD,
         STICKY_CARD,
         ENERGY_CARD,
@@ -473,6 +518,10 @@ public final class AEItems {
         MATTER_CANNON,
         ENTROPY_MANIPULATOR,
         NETWORK_TOOL,
+        ME_PACKING_TAPE,
+        PACKAGE,
+        CONFIG_MODIFIER,
+        PATTERN_MODIFIER,
         MEMORY_CARD,
         DEBUG_CARD,
         DEBUG_ERASER,
@@ -520,9 +569,9 @@ public final class AEItems {
     }
 
     private static ColoredItemDefinition<PaintBallItem> createColoredPaintBalls(
-        java.util.Map<AEColor, net.minecraft.util.ResourceLocation> ids, boolean lumen) {
+        Map<AEColor, ResourceLocation> ids, boolean lumen) {
         ColoredItemDefinition<PaintBallItem> definition = new ColoredItemDefinition<>();
-        for (java.util.Map.Entry<AEColor, net.minecraft.util.ResourceLocation> entry : ids.entrySet()) {
+        for (Map.Entry<AEColor, ResourceLocation> entry : ids.entrySet()) {
             definition.add(entry.getKey(), entry.getValue(), new ItemDefinition<>(entry.getValue(),
                 new PaintBallItem(entry.getKey(), lumen)));
         }

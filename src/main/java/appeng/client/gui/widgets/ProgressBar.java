@@ -27,7 +27,6 @@ import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
 
 import java.awt.Rectangle;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -102,7 +101,7 @@ public class ProgressBar extends GuiButton implements ITooltip {
         }
 
         ITextComponent result = this.titleName != null ? this.titleName : new TextComponentString("");
-        return Arrays.asList(
+        return List.of(
             result,
             new TextComponentString(this.source.getCurrentProgress() + " ")
                 .appendSibling(GuiText.Of.text())

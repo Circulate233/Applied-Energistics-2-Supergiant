@@ -48,6 +48,7 @@ import appeng.core.gui.locator.GuiHostLocator;
 import appeng.core.localization.PlayerMessages;
 import appeng.core.network.clientbound.CraftConfirmPlanPacket;
 import appeng.core.network.serverbound.SwitchGuisPacket;
+import appeng.crafting.CraftingCalculationFailure;
 import appeng.crafting.TemporaryPseudoCraftingProvider;
 import appeng.crafting.execution.CraftingSubmitResult;
 import appeng.me.helpers.PlayerSource;
@@ -64,6 +65,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 
 public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
@@ -178,7 +180,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         }
     }
 
-    static boolean canUseCpuForRequest(ICraftingCPU cpu, @Nullable CraftingPlanSummary plan, boolean playerRequest) {
+    static boolean canUseCpuForRequest(ICraftingCPU cpu, boolean playerRequest) {
         return switch (cpu.getSelectionMode()) {
             case ANY -> true;
             case PLAYER_ONLY -> playerRequest;
@@ -239,6 +241,14 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         }
     }
 
+    private static ITextComponent getCraftingErrorText(Throwable error) {
+        Throwable cause = error instanceof ExecutionException && error.getCause() != null ? error.getCause() : error;
+        if (cause instanceof CraftingCalculationFailure calculationFailure) {
+            return calculationFailure.getLocalizedMessageComponent();
+        }
+        return PlayerMessages.CraftingNoPlan.text();
+    }
+
     @Override
     public void broadcastChanges() {
         if (isClientSide()) {
@@ -259,8 +269,8 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                 this.result = this.job.get();
                 if (this.result == null) {
                     this.getPlayerInventory().player.sendMessage(PlayerMessages.CraftingJobError.text(
-                        "Crafting calculation returned no plan."));
-                    AELog.warn("Crafting calculation returned no plan.");
+                        PlayerMessages.CraftingNoPlan.text()));
+                    AELog.warn(PlayerMessages.CraftingNoPlan.getTranslationKey());
                     this.setValidContainer(false);
                     this.job = null;
                     return;
@@ -278,7 +288,8 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                 this.plan = CraftingPlanSummary.fromJob(this.getGrid(), this.getActionSrc(), this.result);
                 sendPacketToClient(new CraftConfirmPlanPacket(this.plan));
             } catch (Throwable e) {
-                this.getPlayerInventory().player.sendMessage(PlayerMessages.CraftingJobError.text(e.toString()));
+                ITextComponent error = getCraftingErrorText(e);
+                this.getPlayerInventory().player.sendMessage(PlayerMessages.CraftingJobError.text(error));
                 AELog.warn("Failed to start crafting job.", e);
                 this.setValidContainer(false);
                 this.result = null;
@@ -296,7 +307,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
     }
 
     private boolean cpuMatches(ICraftingCPU cpu) {
-        if (!canUseCpuForRequest(cpu, this.plan, getPlayer() != null)) {
+        if (!canUseCpuForRequest(cpu, getPlayer() != null)) {
             return false;
         }
         if (this.plan == null) {
@@ -331,17 +342,17 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                 this.getActionSrc(), forceStart);
             this.setAutoStart(false);
             if (submitResult.successful()) {
+                boolean hasQueuedJobs = this.autoCraftingQueue != null && !this.autoCraftingQueue.isEmpty();
+                EntityPlayer player = getPlayer();
                 if (this.temporaryPseudoProvider != null) {
                     this.temporaryPseudoProvider = null;
                 }
-                if (this.autoCraftingQueue != null && !this.autoCraftingQueue.isEmpty()) {
-                    EntityPlayer player = getPlayer();
+                if (hasQueuedJobs) {
                     if (player instanceof EntityPlayerMP serverPlayer) {
                         ContainerCraftConfirm.openWithCraftingList(getActionHost(), serverPlayer, getLocator(),
                             this.autoCraftingQueue, getReturnToContainerOverride());
                     }
                 } else {
-                    EntityPlayer player = getPlayer();
                     if (!(player instanceof EntityPlayerMP serverPlayer)
                         || !SwitchGuisPacket.restoreExternalGui(serverPlayer)) {
                         this.host.returnToMainContainer(player, this);

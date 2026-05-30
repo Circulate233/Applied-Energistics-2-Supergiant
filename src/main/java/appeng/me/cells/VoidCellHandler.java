@@ -12,8 +12,9 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 public class VoidCellHandler implements ICellHandler {
     public static final VoidCellHandler INSTANCE = new VoidCellHandler();
@@ -27,14 +28,14 @@ public class VoidCellHandler implements ICellHandler {
     @Override
     public VoidCellInventory getCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
         if (isCell(stack)) {
-            return new VoidCellInventory(stack);
+            return new VoidCellInventory(stack, host);
         }
         return null;
     }
 
-    public java.util.Optional<StorageCellTooltipComponent> getTooltipData(ItemStack stack) {
+    public Optional<StorageCellTooltipComponent> getTooltipData(ItemStack stack) {
         if (!(stack.getItem() instanceof ICellWorkbenchItem workbenchItem)) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
 
         var upgrades = new ObjectArrayList<ItemStack>();
@@ -44,9 +45,22 @@ public class VoidCellHandler implements ICellHandler {
             }
         }
 
-        List<GenericStack> content = Collections.emptyList();
-        boolean hasMoreContent = false;
-        return java.util.Optional.of(new StorageCellTooltipComponent(upgrades, content, hasMoreContent, false));
+        var content = new ObjectArrayList<GenericStack>();
+        var inventory = getCellInventory(stack, null);
+        if (inventory != null) {
+            for (var entry : inventory.getAvailableStacks()) {
+                content.add(new GenericStack(entry.getKey(), entry.getLongValue()));
+            }
+            content.sort(Comparator.comparingLong(GenericStack::amount).reversed()
+                                   .thenComparing(entry -> entry.what().getDisplayName().getFormattedText()));
+        }
+
+        int contentLimit = Math.min(content.size(), 5);
+        boolean hasMoreContent = content.size() > contentLimit;
+        if (content.size() > contentLimit) {
+            content = new ObjectArrayList<>(content.subList(0, contentLimit));
+        }
+        return Optional.of(new StorageCellTooltipComponent(upgrades, content, hasMoreContent, true));
     }
 
     public void addPartitionInformation(ItemStack stack, List<String> lines) {

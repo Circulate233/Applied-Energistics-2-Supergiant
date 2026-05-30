@@ -5,6 +5,8 @@ import appeng.recipes.entropy.EntropyRecipe;
 import appeng.recipes.game.CraftingUnitTransformRecipe;
 import appeng.recipes.game.StorageCellDisassemblyRecipe;
 import appeng.recipes.handlers.ChargerRecipe;
+import appeng.recipes.handlers.CrystalAssemblerRecipe;
+import appeng.recipes.handlers.CrystalFixerRecipe;
 import appeng.recipes.handlers.InscriberRecipe;
 import appeng.recipes.mattercannon.MatterCannonAmmo;
 import appeng.recipes.transform.TransformLogic;
@@ -14,6 +16,10 @@ import appeng.recipes.types.AERecipeType;
 public final class AERecipeTypes {
     public static final AERecipeType<ChargerRecipe> CHARGER = new AERecipeType<>(AppEng.makeId("charger"));
     public static final AERecipeType<InscriberRecipe> INSCRIBER = new AERecipeType<>(AppEng.makeId("inscriber"));
+    public static final AERecipeType<CrystalAssemblerRecipe> CRYSTAL_ASSEMBLER = new AERecipeType<>(
+        AppEng.makeId("crystal_assembler"));
+    public static final AERecipeType<CrystalFixerRecipe> CRYSTAL_FIXER = new AERecipeType<>(
+        AppEng.makeId("crystal_fixer"));
     public static final AERecipeType<MatterCannonAmmo> MATTER_CANNON_AMMO = new AERecipeType<>(
         AppEng.makeId("matter_cannon"));
     public static final AERecipeType<TransformRecipe> TRANSFORM = new AERecipeType<>(AppEng.makeId("transform"));
@@ -27,6 +33,8 @@ public final class AERecipeTypes {
     public static void clear() {
         CHARGER.clear();
         INSCRIBER.clear();
+        CRYSTAL_ASSEMBLER.clear();
+        CRYSTAL_FIXER.clear();
         MATTER_CANNON_AMMO.clear();
         TRANSFORM.clear();
         TransformLogic.clearCache();

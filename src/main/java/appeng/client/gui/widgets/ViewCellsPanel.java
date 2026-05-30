@@ -26,6 +26,7 @@ import appeng.client.gui.Tooltip;
 import appeng.client.gui.style.Blitter;
 import appeng.container.slot.AppEngSlot;
 import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiButton;
 import net.minecraft.inventory.Slot;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
@@ -82,7 +83,7 @@ public final class ViewCellsPanel implements ICompositeWidget {
     }
 
     @Override
-    public void populateScreen(Consumer<net.minecraft.client.gui.GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
+    public void populateScreen(Consumer<GuiButton> addWidget, Rectangle bounds, AEBaseGui<?> screen) {
         this.screenOrigin = Point.fromTopLeft(bounds);
     }
 
@@ -135,11 +136,14 @@ public final class ViewCellsPanel implements ICompositeWidget {
 
     @Override
     public void addExclusionZones(List<Rectangle> exclusionZones, Rectangle screenBounds) {
-        exclusionZones.add(Rects.expand(new Rectangle(
-            screenBounds.x + this.x,
-            screenBounds.y + this.y,
-            PANEL_WIDTH,
-            PANEL_TOP_HEIGHT + getSlotCount() * PANEL_ROW_HEIGHT + PANEL_BOTTOM_HEIGHT), 2));
+        Rectangle bounds = getBounds();
+        if (bounds.width > 0 && bounds.height > 0) {
+            exclusionZones.add(Rects.expand(new Rectangle(
+                screenBounds.x + bounds.x,
+                screenBounds.y + bounds.y,
+                bounds.width,
+                bounds.height), 2));
+        }
     }
 
     @Nullable

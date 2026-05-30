@@ -15,6 +15,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 
+import java.util.Arrays;
 import java.util.PrimitiveIterator;
 
 final class WirelessUniversalTerminalUpgradeInventory extends AppEngInternalInventory
@@ -95,7 +96,7 @@ final class WirelessUniversalTerminalUpgradeInventory extends AppEngInternalInve
                 perTerminalMax[count++] = Upgrades.getMaxInstallable(upgradeCard, definition.item());
             }
         }
-        return combineMaxInstalled(upgradeCard, java.util.Arrays.stream(perTerminalMax, 0, count).iterator());
+        return combineMaxInstalled(upgradeCard, Arrays.stream(perTerminalMax, 0, count).iterator());
     }
 
     @Override

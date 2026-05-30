@@ -35,6 +35,7 @@ import net.minecraftforge.common.model.TRSRTransformation;
 import javax.annotation.Nonnull;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 
 public class DriveModel implements BasicUnbakedModel {
@@ -67,7 +68,7 @@ public class DriveModel implements BasicUnbakedModel {
                                                               .bake(state, format, bakedTextureGetter);
             cellModels.put(Items.AIR,
                 ModelLoaderRegistry.getModel(MODEL_CELL_EMPTY).bake(state, format, bakedTextureGetter));
-            TRSRTransformation transform = state.apply(java.util.Optional.empty())
+            TRSRTransformation transform = state.apply(Optional.empty())
                                                 .orElse(TRSRTransformation.identity());
             return new DriveBakedModel(baseModel, cellModels, defaultCellModel, transform);
         } catch (Exception e) {

@@ -1,0 +1,24 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "IKI",
+    "G G",
+    "IKI"
+  ],
+  "key": {
+    "G": {
+      "item": "ae2:quartz_glass"
+    },
+    "I": {
+      "type": "forge:ore_dict",
+      "ore": "ingotIron"
+    },
+    "K": {
+      "item": "ae2:cell_component_1k"
+    }
+  },
+  "result": {
+    "item": "ae2:ingredient_buffer",
+    "count": 1
+  }
+}

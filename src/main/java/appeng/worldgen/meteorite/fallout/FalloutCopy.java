@@ -27,6 +27,8 @@ import net.minecraft.world.biome.Biome;
 import net.minecraftforge.common.BiomeDictionary;
 import net.minecraftforge.common.BiomeDictionary.Type;
 
+import java.util.Random;
+
 public class FalloutCopy extends Fallout {
     private static final float SPECIFIED_BLOCK_THRESHOLD = 0.9f;
     private static final float AIR_BLOCK_THRESHOLD = 0.8f;
@@ -36,7 +38,7 @@ public class FalloutCopy extends Fallout {
     private final MeteoriteBlockPutter putter;
 
     public FalloutCopy(World world, BlockPos pos, MeteoriteBlockPutter putter, IBlockState skyStone,
-                       java.util.Random random) {
+                       Random random) {
         super(putter, skyStone, random);
         this.putter = putter;
         Biome biome = world.getBiome(pos);

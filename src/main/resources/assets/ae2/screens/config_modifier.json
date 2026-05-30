@@ -1,0 +1,35 @@
+{
+  "$schema": "schema.json",
+  "includes": [
+    "common/common.json"
+  ],
+  "background": {
+    "texture": "guis/config_modifier.png",
+    "srcRect": [0, 0, 191, 60]
+  },
+  "text": {
+    "dialog_title": {
+      "text": {
+        "translate": "gui.ae2.ConfigModifier"
+      },
+      "position": {
+        "left": 5,
+        "top": 6
+      }
+    }
+  },
+  "widgets": {
+    "mode": {
+      "left": 12,
+      "top": 22,
+      "width": 50,
+      "height": 20
+    },
+    "data_input": {
+      "left": 72,
+      "top": 26,
+      "width": 100,
+      "height": 12
+    }
+  }
+}

@@ -5,6 +5,8 @@ import appeng.recipes.entropy.EntropyRecipeSerializer;
 import appeng.recipes.game.CraftingUnitTransformRecipeSerializer;
 import appeng.recipes.game.StorageCellDisassemblyRecipeSerializer;
 import appeng.recipes.handlers.ChargerRecipeSerializer;
+import appeng.recipes.handlers.CrystalAssemblerRecipeSerializer;
+import appeng.recipes.handlers.CrystalFixerRecipeSerializer;
 import appeng.recipes.handlers.InscriberRecipeSerializer;
 import appeng.recipes.mattercannon.MatterCannonAmmoSerializer;
 import appeng.recipes.transform.TransformRecipeSerializer;
@@ -21,6 +23,8 @@ public final class AERecipeSerializers {
     static {
         register(AppEng.makeId("charger"), new ChargerRecipeSerializer());
         register(AppEng.makeId("inscriber"), new InscriberRecipeSerializer());
+        register(AppEng.makeId("crystal_assembler"), new CrystalAssemblerRecipeSerializer());
+        register(AppEng.makeId("crystal_fixer"), new CrystalFixerRecipeSerializer());
         register(AppEng.makeId("matter_cannon"), new MatterCannonAmmoSerializer());
         register(AppEng.makeId("transform"), new TransformRecipeSerializer());
         register(AppEng.makeId("cell_disassembly"), new StorageCellDisassemblyRecipeSerializer());

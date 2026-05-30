@@ -1,0 +1,18 @@
+{
+  "type": "forge:ore_shaped",
+  "pattern": [
+    "PBP"
+  ],
+  "key": {
+    "B": {
+      "item": "ae2:storage_bus"
+    },
+    "P": {
+      "item": "ae2:calculation_processor"
+    }
+  },
+  "result": {
+    "item": "ae2:precise_storage_bus",
+    "count": 1
+  }
+}
