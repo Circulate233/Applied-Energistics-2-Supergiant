@@ -21,11 +21,10 @@ package appeng.client.gui;
 import appeng.client.gui.style.Blitter;
 import appeng.client.gui.style.IconAtlas;
 import appeng.core.AppEng;
-import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import net.minecraft.util.ResourceLocation;
 
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -102,6 +101,16 @@ public final class Icon {
     public static final Icon PATTERN_TERMINAL_VISIBLE = registerBuiltin("pattern_terminal_visible", 16, 16);
     public static final Icon PATTERN_TERMINAL_ALL = registerBuiltin("pattern_terminal_all", 16, 16);
     public static final Icon PATTERN_TERMINAL_NOT_FULL = registerBuiltin("pattern_terminal_not_full", 16, 16);
+    public static final Icon PATTERN_PROVIDER_INSERTION_DEFAULT = registerBuiltin(
+        "pattern_provider_insertion_default", 16, 16);
+    public static final Icon PATTERN_PROVIDER_INSERTION_PREFER_EMPTY = registerBuiltin(
+        "pattern_provider_insertion_prefer_empty", 16, 16);
+    public static final Icon PATTERN_PROVIDER_INSERTION_EMPTY_ONLY = registerBuiltin(
+        "pattern_provider_insertion_empty_only", 16, 16);
+    public static final Icon PATTERN_PROVIDER_OUTPUT_SIDE_SINGLE = registerBuiltin(
+        "pattern_provider_output_side_single", 16, 16);
+    public static final Icon PATTERN_PROVIDER_OUTPUT_SIDE_SPLIT_BY_INGREDIENTS_TYPE = registerBuiltin(
+        "pattern_provider_output_side_split_by_ingredients_type", 16, 16);
     public static final Icon BACKGROUND_TRASH = registerBuiltin("background_trash", 16, 16);
 
     public static final Icon FUZZY_PERCENT_25 = registerBuiltin("fuzzy_percent_25", 16, 16);
@@ -188,6 +197,13 @@ public final class Icon {
     public static final Icon S_MACHINE = registerBuiltin("s_machine", 10, 10);
 
     public static final Icon CTL_CRAFT_TREE = registerBuiltin("craft_tree", 16, 16);
+    public static final Icon CRAFTING_TREE_BRANCHES_ALL = registerBuiltin("crafting_tree_branches_all", 16, 16);
+    public static final Icon CRAFTING_TREE_BRANCHES_FAILED = registerBuiltin("crafting_tree_branches_failed", 16, 16);
+    public static final Icon CRAFTING_TREE_SCREENSHOT = registerBuiltin("crafting_tree_screenshot", 16, 16);
+    public static final Icon CRAFTING_TREE_NODE_SELECTED = registerBuiltin("crafting_tree_node_selected", 20, 20);
+    public static final Icon CRAFTING_TREE_NODE_NORMAL = registerBuiltin("crafting_tree_node_normal", 20, 20);
+    public static final Icon CRAFTING_TREE_NODE_MISSING = registerBuiltin("crafting_tree_node_missing", 20, 20);
+    public static final Icon CRAFTING_TREE_MISSING_OVERLAY = registerBuiltin("crafting_tree_missing_overlay", 20, 20);
 
     public final int width;
     public final int height;
@@ -204,11 +220,11 @@ public final class Icon {
     }
 
     private static Icon registerBuiltin(String name, int width, int height) {
-        return register(AppEng.makeId(name), AppEng.makeId("textures/guis/states/" + name + ".png"), width, height);
+        return register(AppEng.makeId(name), AppEng.makeId("textures/guis/icons/" + name + ".png"), width, height);
     }
 
     public static Icon register(ResourceLocation id, int width, int height) {
-        return register(id, new ResourceLocation(id.getNamespace(), "textures/guis/states/" + id.getPath() + ".png"), width, height);
+        return register(id, new ResourceLocation(id.getNamespace(), "textures/guis/icons/" + id.getPath() + ".png"), width, height);
     }
 
     public static synchronized Icon register(ResourceLocation id, ResourceLocation texture, int width, int height) {
@@ -224,7 +240,7 @@ public final class Icon {
     }
 
     public static synchronized List<Icon> getRegisteredIcons() {
-        return Collections.unmodifiableList(new ObjectArrayList<>(registeredIcons));
+        return ImmutableList.copyOf(registeredIcons);
     }
 
     public ResourceLocation id() {

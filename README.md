@@ -30,10 +30,6 @@ Do not run Gradle in this repository. This branch combines multiple migration la
 * [NovaEngineering-Source/AE2CT-Legacy](https://github.com/NovaEngineering-Source/AE2CT-Legacy): integrated AE2CT-Legacy under the LGPL-3.0 Licenses.
 * [GlodBlock/ExtendedAE](https://github.com/GlodBlock/ExtendedAE): ported selected EAE machines, tools, recipes, GUIs, and resources into the `ae2` namespace under the LGPL-3.0 License.
 
-### EAE Integration Scope
-
-This branch integrates selected ExtendedAE behavior directly into AE2 rather than exposing `extendedae:*` registry entries. The migrated scope includes the Entro material chain, crystal assembler/fixer, ingredient buffer, caner, machine frame, concurrent processor, pattern expansion card, pattern modifier, threshold level emitter, packing tape/package, config modifier, smart annihilation plane behavior, extended interface and pattern-provider capacities, pattern access terminal improvements, void cell GUI/effects, quartz blend recipes, HEI recipe views, and related models, textures, screens, recipes, and localization.
-
 ## License
 
 * Applied Energistics 2 API

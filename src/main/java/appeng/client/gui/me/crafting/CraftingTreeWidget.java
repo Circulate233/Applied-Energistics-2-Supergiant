@@ -3,10 +3,10 @@ package appeng.client.gui.me.crafting;
 import appeng.api.stacks.AmountFormat;
 import appeng.api.stacks.GenericStack;
 import appeng.client.Point;
+import appeng.client.gui.Icon;
 import appeng.client.gui.ICompositeWidget;
 import appeng.client.gui.Tooltip;
 import appeng.client.gui.me.common.StackSizeRenderer;
-import appeng.core.AppEng;
 import appeng.core.localization.ButtonToolTips;
 import appeng.core.localization.GuiText;
 import appeng.core.localization.Tooltips;
@@ -18,7 +18,6 @@ import mezz.jei.api.recipe.IFocus;
 import mezz.jei.config.KeyBindings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.client.gui.ScaledResolution;
 import net.minecraft.client.gui.inventory.GuiContainer;
@@ -26,7 +25,6 @@ import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.RenderHelper;
 import net.minecraft.item.ItemStack;
-import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
@@ -44,7 +42,6 @@ import java.nio.IntBuffer;
 import java.util.List;
 
 public class CraftingTreeWidget implements ICompositeWidget {
-    private static final ResourceLocation TEXTURE = AppEng.makeId("textures/guis/ctl/guicraftingtree.png");
     private static final int SCREENSHOT_TILE_SIZE = 2048;
 
     private static final int LINE_WIDTH = 1;
@@ -110,13 +107,12 @@ public class CraftingTreeWidget implements ICompositeWidget {
         return false;
     }
 
-    private static void drawTexturedRect(int x, int y, int textureX, int textureY) {
+    private static void drawIcon(int x, int y, Icon icon) {
         GlStateManager.enableTexture2D();
         GlStateManager.enableBlend();
         GlStateManager.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-        Minecraft.getMinecraft().getTextureManager().bindTexture(TEXTURE);
-        Gui.drawModalRectWithCustomSizedTexture(x, y, textureX, textureY, NODE_WIDTH, NODE_HEIGHT, 256, 256);
+        icon.getBlitter().dest(x, y).blit();
     }
 
     private static void renderLine(Point pos, int width, int height, int color) {
@@ -931,11 +927,11 @@ public class CraftingTreeWidget implements ICompositeWidget {
         private void renderBackground(Point position) {
             GlStateManager.enableBlend();
             GlStateManager.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
-            int textureY = LiteCraftTreeNode.isMissing(node) ? 236 : 216;
-            drawTexturedRect(position.x(), position.y() + LINE_HEIGHT, 0, textureY);
-            if (selected) {
-                drawTexturedRect(position.x(), position.y() + LINE_HEIGHT, 0, 196);
-            }
+            Icon background = selected ? Icon.CRAFTING_TREE_NODE_SELECTED :
+                (LiteCraftTreeNode.isMissing(node)
+                 ? Icon.CRAFTING_TREE_NODE_MISSING
+                 : Icon.CRAFTING_TREE_NODE_NORMAL);
+            drawIcon(position.x(), position.y() + LINE_HEIGHT, background);
         }
 
         private void renderMissingOverlay(Point position) {
@@ -944,7 +940,7 @@ public class CraftingTreeWidget implements ICompositeWidget {
                 GlStateManager.enableBlend();
                 GlStateManager.blendFunc(GlStateManager.SourceFactor.SRC_ALPHA, GlStateManager.DestFactor.ONE_MINUS_SRC_ALPHA);
                 GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-                drawTexturedRect(position.x(), position.y() + LINE_HEIGHT, 40, 216);
+                drawIcon(position.x(), position.y() + LINE_HEIGHT, Icon.CRAFTING_TREE_MISSING_OVERLAY);
                 GlStateManager.enableDepth();
             }
         }

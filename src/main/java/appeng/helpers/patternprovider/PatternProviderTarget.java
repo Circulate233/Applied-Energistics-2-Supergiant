@@ -21,6 +21,7 @@ package appeng.helpers.patternprovider;
 import appeng.api.AECapabilities;
 import appeng.api.behaviors.ExternalStorageStrategy;
 import appeng.api.config.Actionable;
+import appeng.api.config.PatternProviderInsertionMode;
 import appeng.api.networking.security.IActionSource;
 import appeng.api.stacks.AEKey;
 import appeng.api.stacks.AEKeyType;
@@ -82,6 +83,11 @@ public interface PatternProviderTarget {
         return new PatternProviderTarget() {
             @Override
             public long insert(AEKey what, long amount, Actionable type) {
+                return insert(what, amount, type, PatternProviderInsertionMode.DEFAULT);
+            }
+
+            @Override
+            public long insert(AEKey what, long amount, Actionable type, PatternProviderInsertionMode insertionMode) {
                 return storage.insert(what, amount, type, src);
             }
 
@@ -103,6 +109,8 @@ public interface PatternProviderTarget {
     }
 
     long insert(AEKey what, long amount, Actionable type);
+
+    long insert(AEKey what, long amount, Actionable type, PatternProviderInsertionMode insertionMode);
 
     boolean containsPatternInput(Set<AEKey> patternInputs);
 

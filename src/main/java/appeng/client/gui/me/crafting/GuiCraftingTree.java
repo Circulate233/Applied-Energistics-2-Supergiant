@@ -1,6 +1,7 @@
 package appeng.client.gui.me.crafting;
 
 import appeng.client.gui.AEBaseGui;
+import appeng.client.gui.Icon;
 import appeng.client.gui.style.Blitter;
 import appeng.container.implementations.ContainerCraftingTree;
 import appeng.core.AELog;
@@ -26,6 +27,15 @@ import java.time.format.DateTimeFormatter;
 
 public class GuiCraftingTree extends AEBaseGui<ContainerCraftingTree> {
     private static final DateTimeFormatter SCREENSHOT_TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
+    private static final String BACKGROUND_TEXTURE = "guis/crafting_tree.png";
+    private static final int BACKGROUND_TEXTURE_WIDTH = 256;
+    private static final int BACKGROUND_TEXTURE_HEIGHT = 256;
+    private static final int BACKGROUND_LEFT_BORDER = 7;
+    private static final int BACKGROUND_RIGHT_BORDER = 7;
+    private static final int BACKGROUND_TOP_BORDER = 25;
+    private static final int BACKGROUND_BOTTOM_BORDER = 9;
+    private static final double BACKGROUND_MIN_SCREEN_WIDTH_FACTOR = 1.5;
+    private static final double BACKGROUND_MIN_SCREEN_HEIGHT_FACTOR = 1.5;
 
     private static final BackgroundSize[] BACKGROUNDS = {
         new BackgroundSize(256, 256),
@@ -48,15 +58,15 @@ public class GuiCraftingTree extends AEBaseGui<ContainerCraftingTree> {
         this.ySize = background.height();
 
         widgets.add("tree", tree);
-        this.screenshot = new CraftingTreeButton(0, 232,
+        this.screenshot = new CraftingTreeButton(Icon.CRAFTING_TREE_SCREENSHOT,
             GuiText.CraftingTreeScreenshot.text(),
             this::saveScreenshot);
         widgets.add("screenshot", screenshot);
-        this.missingOnly = new CraftingTreeButton(60, 160,
+        this.missingOnly = new CraftingTreeButton(Icon.CRAFTING_TREE_BRANCHES_FAILED,
             GuiText.CraftingTreeMissingOnly.text(),
             () -> setMissingOnly(!tree.isMissingOnly()));
         widgets.add("missingOnly", missingOnly);
-        this.back = new CraftingTreeButton(100, 232,
+        this.back = new CraftingTreeButton(Icon.BACK,
             GuiText.CraftingTreeBack.text(),
             () -> InitNetwork.sendToServer(new SwitchCraftingTreePacket()));
         widgets.add("back", back);
@@ -81,7 +91,8 @@ public class GuiCraftingTree extends AEBaseGui<ContainerCraftingTree> {
     private static BackgroundSize getLargestBackground(int screenWidth, int screenHeight) {
         for (int i = BACKGROUNDS.length - 1; i >= 0; i--) {
             BackgroundSize background = BACKGROUNDS[i];
-            if (screenWidth >= background.width() * 1.25 && screenHeight >= background.height()) {
+            if (screenWidth >= background.width() * BACKGROUND_MIN_SCREEN_WIDTH_FACTOR
+                && screenHeight >= background.height() * BACKGROUND_MIN_SCREEN_HEIGHT_FACTOR) {
                 return background;
             }
         }
@@ -100,11 +111,54 @@ public class GuiCraftingTree extends AEBaseGui<ContainerCraftingTree> {
     @Override
     public void drawBG(int offsetX, int offsetY, int mouseX, int mouseY, float partialTicks) {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-        Blitter.texture(background.texture(), background.width(), background.height())
-               .src(0, 0, background.width(), background.height())
-               .dest(offsetX, offsetY, background.width(), background.height())
-               .blit();
+        drawBackgroundTexture(offsetX, offsetY, background.width(), background.height());
         fontRenderer.drawString(GuiText.CraftingTreeTitle.getLocal(), offsetX + 6, offsetY + 9, 0x404040);
+    }
+
+    private static void drawBackgroundTexture(int x, int y, int width, int height) {
+        int sourceCenterWidth = BACKGROUND_TEXTURE_WIDTH - BACKGROUND_LEFT_BORDER - BACKGROUND_RIGHT_BORDER;
+        int sourceCenterHeight = BACKGROUND_TEXTURE_HEIGHT - BACKGROUND_TOP_BORDER - BACKGROUND_BOTTOM_BORDER;
+        int targetCenterWidth = width - BACKGROUND_LEFT_BORDER - BACKGROUND_RIGHT_BORDER;
+        int targetCenterHeight = height - BACKGROUND_TOP_BORDER - BACKGROUND_BOTTOM_BORDER;
+        int sourceRightX = BACKGROUND_TEXTURE_WIDTH - BACKGROUND_RIGHT_BORDER;
+        int sourceBottomY = BACKGROUND_TEXTURE_HEIGHT - BACKGROUND_BOTTOM_BORDER;
+        int targetRightX = x + width - BACKGROUND_RIGHT_BORDER;
+        int targetBottomY = y + height - BACKGROUND_BOTTOM_BORDER;
+
+        drawBackgroundPart(0, 0, BACKGROUND_LEFT_BORDER, BACKGROUND_TOP_BORDER,
+            x, y, BACKGROUND_LEFT_BORDER, BACKGROUND_TOP_BORDER);
+        drawBackgroundPart(BACKGROUND_LEFT_BORDER, 0, sourceCenterWidth, BACKGROUND_TOP_BORDER,
+            x + BACKGROUND_LEFT_BORDER, y, targetCenterWidth, BACKGROUND_TOP_BORDER);
+        drawBackgroundPart(sourceRightX, 0, BACKGROUND_RIGHT_BORDER, BACKGROUND_TOP_BORDER,
+            targetRightX, y, BACKGROUND_RIGHT_BORDER, BACKGROUND_TOP_BORDER);
+
+        drawBackgroundPart(0, BACKGROUND_TOP_BORDER, BACKGROUND_LEFT_BORDER, sourceCenterHeight,
+            x, y + BACKGROUND_TOP_BORDER, BACKGROUND_LEFT_BORDER, targetCenterHeight);
+        drawBackgroundPart(BACKGROUND_LEFT_BORDER, BACKGROUND_TOP_BORDER, sourceCenterWidth, sourceCenterHeight,
+            x + BACKGROUND_LEFT_BORDER, y + BACKGROUND_TOP_BORDER, targetCenterWidth, targetCenterHeight);
+        drawBackgroundPart(sourceRightX, BACKGROUND_TOP_BORDER, BACKGROUND_RIGHT_BORDER, sourceCenterHeight,
+            targetRightX, y + BACKGROUND_TOP_BORDER, BACKGROUND_RIGHT_BORDER, targetCenterHeight);
+
+        drawBackgroundPart(0, sourceBottomY, BACKGROUND_LEFT_BORDER, BACKGROUND_BOTTOM_BORDER,
+            x, targetBottomY, BACKGROUND_LEFT_BORDER, BACKGROUND_BOTTOM_BORDER);
+        drawBackgroundPart(BACKGROUND_LEFT_BORDER, sourceBottomY, sourceCenterWidth, BACKGROUND_BOTTOM_BORDER,
+            x + BACKGROUND_LEFT_BORDER, targetBottomY, targetCenterWidth, BACKGROUND_BOTTOM_BORDER);
+        drawBackgroundPart(sourceRightX, sourceBottomY, BACKGROUND_RIGHT_BORDER, BACKGROUND_BOTTOM_BORDER,
+            targetRightX, targetBottomY, BACKGROUND_RIGHT_BORDER, BACKGROUND_BOTTOM_BORDER);
+    }
+
+    private static void drawBackgroundPart(int sourceX, int sourceY, int sourceWidth, int sourceHeight,
+                                           int targetX, int targetY, int targetWidth, int targetHeight) {
+        for (int y = 0; y < targetHeight; y += sourceHeight) {
+            int height = Math.min(sourceHeight, targetHeight - y);
+            for (int x = 0; x < targetWidth; x += sourceWidth) {
+                int width = Math.min(sourceWidth, targetWidth - x);
+                Blitter.texture(BACKGROUND_TEXTURE, BACKGROUND_TEXTURE_WIDTH, BACKGROUND_TEXTURE_HEIGHT)
+                       .src(sourceX, sourceY, width, height)
+                       .dest(targetX + x, targetY + y, width, height)
+                       .blit();
+            }
+        }
     }
 
     public void onDataUpdate(LiteCraftTreeNode root) {
@@ -156,7 +210,9 @@ public class GuiCraftingTree extends AEBaseGui<ContainerCraftingTree> {
         this.missingOnly.setTooltip(active
             ? GuiText.CraftingTreeDefault.text()
             : GuiText.CraftingTreeMissingOnly.text());
-        this.missingOnly.setActive(active);
+        this.missingOnly.setIcon(active
+            ? Icon.CRAFTING_TREE_BRANCHES_ALL
+            : Icon.CRAFTING_TREE_BRANCHES_FAILED);
         this.missingOnly.enabled = tree.hasMissingItems();
         this.screenshot.enabled = tree.hasTree();
     }
@@ -174,18 +230,12 @@ public class GuiCraftingTree extends AEBaseGui<ContainerCraftingTree> {
             if (button == target) {
                 button.x = guiLeft + x;
                 button.y = guiTop + 3;
-                button.width = 24;
-                button.height = 20;
                 return;
             }
         }
     }
 
     private record BackgroundSize(int width, int height) {
-        private String texture() {
-            return "guis/ctl/guicraftingtree_" + width + "x" + height + ".png";
-        }
-
         private int internalWidth() {
             return width - 14;
         }

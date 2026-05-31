@@ -28,6 +28,8 @@ import appeng.api.config.FuzzyMode;
 import appeng.api.config.InscriberInputCapacity;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.config.OperationMode;
+import appeng.api.config.PatternProviderInsertionMode;
+import appeng.api.config.PatternProviderOutputSideMode;
 import appeng.api.config.PowerUnit;
 import appeng.api.config.RedstoneMode;
 import appeng.api.config.RelativeDirection;
@@ -220,6 +222,29 @@ public class SettingToggleButton<T extends Enum<T>> extends IconButton {
                 ButtonToolTips.InterfaceBlockingMode, ButtonToolTips.NonBlocking);
             registerApp(Icon.BLOCKING_MODE_STRONG, Settings.BLOCKING_MODE, BlockingMode.STRONG,
                 ButtonToolTips.InterfaceBlockingMode, ButtonToolTips.StrongBlocking);
+
+            registerApp(Icon.PATTERN_PROVIDER_INSERTION_DEFAULT, Settings.PATTERN_PROVIDER_INSERTION_MODE,
+                PatternProviderInsertionMode.DEFAULT,
+                ButtonToolTips.PatternProviderInsertionModeDefault,
+                ButtonToolTips.PatternProviderInsertionModeDefaultDescription.text());
+            registerApp(Icon.PATTERN_PROVIDER_INSERTION_PREFER_EMPTY, Settings.PATTERN_PROVIDER_INSERTION_MODE,
+                PatternProviderInsertionMode.PREFER_EMPTY,
+                ButtonToolTips.PatternProviderInsertionModePreferEmpty,
+                ButtonToolTips.PatternProviderInsertionModePreferEmptyDescription.text());
+            registerApp(Icon.PATTERN_PROVIDER_INSERTION_EMPTY_ONLY, Settings.PATTERN_PROVIDER_INSERTION_MODE,
+                PatternProviderInsertionMode.EMPTY_ONLY,
+                ButtonToolTips.PatternProviderInsertionModeEmptyOnly,
+                ButtonToolTips.PatternProviderInsertionModeEmptyOnlyDescription.text());
+
+            registerApp(Icon.PATTERN_PROVIDER_OUTPUT_SIDE_SINGLE, Settings.PATTERN_PROVIDER_OUTPUT_SIDE_MODE,
+                PatternProviderOutputSideMode.SINGLE_SIDE,
+                ButtonToolTips.PatternProviderOutputSideModeSingleSide,
+                ButtonToolTips.PatternProviderOutputSideModeSingleSideDescription.text());
+            registerApp(Icon.PATTERN_PROVIDER_OUTPUT_SIDE_SPLIT_BY_INGREDIENTS_TYPE,
+                Settings.PATTERN_PROVIDER_OUTPUT_SIDE_MODE,
+                PatternProviderOutputSideMode.SPLIT_BY_INGREDIENTS_TYPE,
+                ButtonToolTips.PatternProviderOutputSideModeSplitByIngredientsType,
+                ButtonToolTips.PatternProviderOutputSideModeSplitByIngredientsTypeDescription.text());
 
             registerApp(Icon.UNLOCKED, Settings.LOCK_CRAFTING_MODE, LockCraftingMode.NONE,
                 ButtonToolTips.LockCraftingMode, ButtonToolTips.LockCraftingModeNone);

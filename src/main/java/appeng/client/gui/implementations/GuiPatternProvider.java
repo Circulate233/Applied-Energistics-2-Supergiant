@@ -3,6 +3,8 @@ package appeng.client.gui.implementations;
 import appeng.api.config.BlockingMode;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.config.PatternProviderBlockingType;
+import appeng.api.config.PatternProviderInsertionMode;
+import appeng.api.config.PatternProviderOutputSideMode;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.upgrades.Upgrades;
@@ -36,6 +38,8 @@ public class GuiPatternProvider extends AEBaseGui<ContainerPatternProvider> {
 
     private final SettingToggleButton<BlockingMode> blockingModeButton;
     private final SettingToggleButton<LockCraftingMode> lockCraftingModeButton;
+    private final SettingToggleButton<PatternProviderInsertionMode> insertionModeButton;
+    private final SettingToggleButton<PatternProviderOutputSideMode> outputSideModeButton;
     private final ToggleButton blockingTypeButton;
     private final ToggleButton showInPatternAccessTerminalButton;
     private final PatternProviderLockReason lockReason;
@@ -61,6 +65,10 @@ public class GuiPatternProvider extends AEBaseGui<ContainerPatternProvider> {
             ButtonToolTips.PatternProviderBlockingType.text(),
             ButtonToolTips.SmartBlockingDescription.text()));
         addToLeftToolbar(this.blockingTypeButton);
+        this.insertionModeButton = addToLeftToolbar(new ServerSettingToggleButton<>(
+            Settings.PATTERN_PROVIDER_INSERTION_MODE, PatternProviderInsertionMode.DEFAULT));
+        this.outputSideModeButton = addToLeftToolbar(new ServerSettingToggleButton<>(
+            Settings.PATTERN_PROVIDER_OUTPUT_SIDE_MODE, PatternProviderOutputSideMode.SINGLE_SIDE));
         this.lockCraftingModeButton = addToLeftToolbar(
             new ServerSettingToggleButton<>(Settings.LOCK_CRAFTING_MODE, LockCraftingMode.NONE));
         this.widgets.addOpenPriorityButton();
@@ -93,6 +101,8 @@ public class GuiPatternProvider extends AEBaseGui<ContainerPatternProvider> {
         this.blockingModeButton.set(this.container.getBlockingMode());
         this.blockingTypeButton.setVisibility(this.container.getBlockingMode() != BlockingMode.NO);
         this.blockingTypeButton.setState(this.container.getBlockingType() == PatternProviderBlockingType.SMART);
+        this.insertionModeButton.set(this.container.getInsertionMode());
+        this.outputSideModeButton.set(this.container.getOutputSideMode());
         this.lockCraftingModeButton.set(this.container.getLockCraftingMode());
         this.showInPatternAccessTerminalButton.setState(this.container.getShowInAccessTerminal() == YesNo.YES);
         this.previousPageButton.setVisibility(this.container.getPageCount() > 1 && this.container.getCurrentPage() > 0);

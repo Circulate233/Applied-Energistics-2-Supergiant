@@ -51,6 +51,10 @@ public final class Settings {
         BlockingMode.YES, BlockingMode.STRONG);
     public static final Setting<PatternProviderBlockingType> PATTERN_PROVIDER_BLOCKING_TYPE = register(
         "pattern_provider_blocking_type", PatternProviderBlockingType.class);
+    public static final Setting<PatternProviderInsertionMode> PATTERN_PROVIDER_INSERTION_MODE = register(
+        "pattern_provider_insertion_mode", PatternProviderInsertionMode.class);
+    public static final Setting<PatternProviderOutputSideMode> PATTERN_PROVIDER_OUTPUT_SIDE_MODE = register(
+        "pattern_provider_output_side_mode", PatternProviderOutputSideMode.class);
     public static final Setting<LockCraftingMode> LOCK_CRAFTING_MODE = register("lock_crafting_mode",
         LockCraftingMode.class);
     public static final Setting<OperationMode> OPERATION_MODE = register("operation_mode", OperationMode.class);

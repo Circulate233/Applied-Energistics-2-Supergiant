@@ -22,6 +22,8 @@ import appeng.api.config.Actionable;
 import appeng.api.config.BlockingMode;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.config.PatternProviderBlockingType;
+import appeng.api.config.PatternProviderInsertionMode;
+import appeng.api.config.PatternProviderOutputSideMode;
 import appeng.api.config.Setting;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
@@ -45,6 +47,7 @@ import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import appeng.api.stacks.AEItemKey;
 import appeng.api.stacks.AEKey;
+import appeng.api.stacks.AEKeyType;
 import appeng.api.stacks.GenericStack;
 import appeng.api.stacks.KeyCounter;
 import appeng.api.upgrades.IUpgradeInventory;
@@ -69,6 +72,8 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -101,7 +106,10 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     public static final String NBT_PRIORITY = "priority";
     public static final String NBT_SEND_LIST = "sendList";
     public static final String NBT_SEND_DIRECTION = "sendDirection";
+    public static final String NBT_PENDING_SEND_LIST = "pendingSendList";
     public static final String NBT_RETURN_INV = "returnInv";
+    private static final String NBT_PENDING_SEND_STACK = "stack";
+    private static final String NBT_PENDING_SEND_DIRECTION = "direction";
     private static final String MEMORY_CARD_SETTINGS = "settings";
     private static final String MEMORY_CARD_PRIORITY = "priority";
     private static final String MEMORY_CARD_PATTERNS = "patterns";
@@ -116,12 +124,11 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     private final ObjectList<IPatternDetails> patterns = new ObjectArrayList<>();
     private final ObjectSet<AEItemKey> patternKeys = new ObjectOpenHashSet<>();
     private final ObjectSet<AEKey> patternInputs = new ObjectOpenHashSet<>();
-    private final ObjectList<GenericStack> sendList = new ObjectArrayList<>();
+    private final ObjectList<PendingSend> pendingSendList = new ObjectArrayList<>();
     private final PatternProviderReturnInventory returnInv;
     private final PatternProviderTargetCache[] targetCaches = new PatternProviderTargetCache[6];
 
     private int priority;
-    private EnumFacing sendDirection;
     private YesNo redstoneState = YesNo.UNDECIDED;
     private UnlockCraftingEvent unlockEvent;
     private GenericStack unlockStack;
@@ -153,6 +160,10 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
                                            .registerSetting(Settings.BLOCKING_MODE, BlockingMode.NO)
                                            .registerSetting(Settings.PATTERN_PROVIDER_BLOCKING_TYPE,
                                                PatternProviderBlockingType.NORMAL)
+                                           .registerSetting(Settings.PATTERN_PROVIDER_INSERTION_MODE,
+                                               PatternProviderInsertionMode.DEFAULT)
+                                           .registerSetting(Settings.PATTERN_PROVIDER_OUTPUT_SIDE_MODE,
+                                               PatternProviderOutputSideMode.SINGLE_SIDE)
                                            .registerSetting(Settings.PATTERN_ACCESS_TERMINAL, YesNo.YES)
                                            .registerSetting(Settings.LOCK_CRAFTING_MODE, LockCraftingMode.NONE)
                                            .build();
@@ -230,17 +241,16 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
             tag.setByte(NBT_UNLOCK_EVENT, (byte) 3);
         }
 
-        NBTTagList sendListTag = new NBTTagList();
-        for (GenericStack toSend : this.sendList) {
-            sendListTag.appendTag(GenericStack.writeTag(toSend));
+        NBTTagList pendingSendListTag = new NBTTagList();
+        for (PendingSend pendingSend : this.pendingSendList) {
+            NBTTagCompound pendingSendTag = new NBTTagCompound();
+            pendingSendTag.setTag(NBT_PENDING_SEND_STACK, GenericStack.writeTag(pendingSend.stack()));
+            pendingSendTag.setByte(NBT_PENDING_SEND_DIRECTION, (byte) pendingSend.direction().ordinal());
+            pendingSendListTag.appendTag(pendingSendTag);
         }
-        tag.setTag(NBT_SEND_LIST, sendListTag);
-
-        if (this.sendDirection != null) {
-            tag.setByte(NBT_SEND_DIRECTION, (byte) this.sendDirection.ordinal());
-        } else {
-            tag.removeTag(NBT_SEND_DIRECTION);
-        }
+        tag.setTag(NBT_PENDING_SEND_LIST, pendingSendListTag);
+        tag.removeTag(NBT_SEND_LIST);
+        tag.removeTag(NBT_SEND_DIRECTION);
 
         tag.setTag(NBT_RETURN_INV, this.returnInv.writeToTag());
     }
@@ -267,23 +277,27 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
             ? GenericStack.readTag(tag.getCompoundTag(NBT_UNLOCK_STACK))
             : null;
 
-        this.sendDirection = null;
-        this.sendList.clear();
-        if (tag.hasKey(NBT_SEND_LIST, Constants.NBT.TAG_LIST)) {
-            NBTTagList sendListTag = tag.getTagList(NBT_SEND_LIST, Constants.NBT.TAG_COMPOUND);
-            for (GenericStack stack : GenericStack.readList(sendListTag)) {
-                if (stack != null) {
-                    this.sendList.add(stack);
+        this.pendingSendList.clear();
+        if (tag.hasKey(NBT_PENDING_SEND_LIST, Constants.NBT.TAG_LIST)) {
+            NBTTagList pendingSendListTag = tag.getTagList(NBT_PENDING_SEND_LIST, Constants.NBT.TAG_COMPOUND);
+            for (int i = 0; i < pendingSendListTag.tagCount(); i++) {
+                NBTTagCompound pendingSendTag = pendingSendListTag.getCompoundTagAt(i);
+                GenericStack stack = GenericStack.readTag(pendingSendTag.getCompoundTag(NBT_PENDING_SEND_STACK));
+                EnumFacing direction = EnumFacing.byIndex(pendingSendTag.getByte(NBT_PENDING_SEND_DIRECTION));
+                if (stack != null && direction != null) {
+                    this.pendingSendList.add(new PendingSend(stack, direction));
                 }
             }
-        }
-
-        if (tag.hasKey(NBT_SEND_DIRECTION, Constants.NBT.TAG_BYTE)) {
-            this.sendDirection = EnumFacing.byIndex(tag.getByte(NBT_SEND_DIRECTION));
-        }
-
-        if (this.sendList.isEmpty()) {
-            this.sendDirection = null;
+        } else if (tag.hasKey(NBT_SEND_LIST, Constants.NBT.TAG_LIST)) {
+            NBTTagList sendListTag = tag.getTagList(NBT_SEND_LIST, Constants.NBT.TAG_COMPOUND);
+            EnumFacing direction = tag.hasKey(NBT_SEND_DIRECTION, Constants.NBT.TAG_BYTE)
+                ? EnumFacing.byIndex(tag.getByte(NBT_SEND_DIRECTION))
+                : null;
+            for (GenericStack stack : GenericStack.readList(sendListTag)) {
+                if (stack != null && direction != null) {
+                    this.pendingSendList.add(new PendingSend(stack, direction));
+                }
+            }
         }
 
         this.returnInv.readFromChildTag(tag, NBT_RETURN_INV);
@@ -372,7 +386,7 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     @Override
     public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputHolder) {
         var basePatternDetails = PseudoPatternDetails.unwrap(patternDetails);
-        if (!this.sendList.isEmpty() || !this.mainNode.isActive() || !this.patterns.contains(basePatternDetails)) {
+        if (!this.pendingSendList.isEmpty() || !this.mainNode.isActive() || !this.patterns.contains(basePatternDetails)) {
             return false;
         }
 
@@ -411,6 +425,11 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         }
 
         rearrangeRoundRobin(possibleTargets);
+        if (this.configManager.getSetting(Settings.PATTERN_PROVIDER_OUTPUT_SIDE_MODE)
+            == PatternProviderOutputSideMode.SPLIT_BY_INGREDIENTS_TYPE) {
+            return pushPatternSplitByIngredientsType(basePatternDetails, inputHolder, possibleTargets);
+        }
+
         for (int i = 0; i < possibleTargets.size(); ++i) {
             PushTarget target = possibleTargets.get(i);
             if (this.isTargetBlocked(target.target, basePatternDetails)) {
@@ -419,13 +438,12 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
             if (this.adapterAcceptsAll(target.target, inputHolder)) {
                 basePatternDetails.pushInputsToExternalInventory(inputHolder, (what, amount) -> {
-                    long inserted = target.target.insert(what, amount, Actionable.MODULATE);
+                    long inserted = target.target.insert(what, amount, Actionable.MODULATE, getInsertionMode());
                     if (inserted < amount) {
-                        this.addToSendList(what, amount - inserted);
+                        this.addToSendList(what, amount - inserted, target.direction);
                     }
                 });
                 onPushPatternSuccess(basePatternDetails);
-                this.sendDirection = target.direction;
                 this.saveChanges();
                 this.sendStacksOut();
                 this.roundRobinIndex += i + 1;
@@ -438,7 +456,7 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
     @Override
     public boolean isBusy() {
-        return !this.sendList.isEmpty();
+        return !this.pendingSendList.isEmpty();
     }
 
     public boolean resetCraftingLock() {
@@ -545,6 +563,64 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         return patternDetails.getDefinition().hashCode();
     }
 
+    private boolean pushPatternSplitByIngredientsType(IPatternDetails patternDetails, KeyCounter[] inputHolder,
+                                                      ObjectList<PushTarget> possibleTargets) {
+        Reference2ObjectMap<AEKeyType, KeyCounter[]> inputsByType = splitInputsByType(inputHolder);
+        Reference2ObjectMap<AEKeyType, PushTarget> targetsByType = new Reference2ObjectOpenHashMap<>();
+        int highestMatchedTargetIndex = -1;
+
+        for (Entry<AEKeyType, KeyCounter[]> entry : inputsByType.entrySet()) {
+            PushTarget matchedTarget = null;
+            for (int i = 0; i < possibleTargets.size(); i++) {
+                PushTarget target = possibleTargets.get(i);
+                if (this.isTargetBlocked(target.target, patternDetails)) {
+                    continue;
+                }
+
+                if (this.adapterAcceptsAll(target.target, entry.getValue())) {
+                    matchedTarget = target;
+                    highestMatchedTargetIndex = Math.max(highestMatchedTargetIndex, i);
+                    break;
+                }
+            }
+
+            if (matchedTarget == null) {
+                return false;
+            }
+            targetsByType.put(entry.getKey(), matchedTarget);
+        }
+
+        patternDetails.pushInputsToExternalInventory(inputHolder, (what, amount) -> {
+            PushTarget target = targetsByType.get(what.getType());
+            long inserted = target.target.insert(what, amount, Actionable.MODULATE, getInsertionMode());
+            if (inserted < amount) {
+                this.addToSendList(what, amount - inserted, target.direction);
+            }
+        });
+        onPushPatternSuccess(patternDetails);
+        this.saveChanges();
+        this.sendStacksOut();
+        this.roundRobinIndex += highestMatchedTargetIndex + 1;
+        return true;
+    }
+
+    private Reference2ObjectMap<AEKeyType, KeyCounter[]> splitInputsByType(KeyCounter[] inputHolder) {
+        Reference2ObjectMap<AEKeyType, KeyCounter[]> result = new Reference2ObjectOpenHashMap<>();
+        for (int slot = 0; slot < inputHolder.length; slot++) {
+            for (Object2LongMap.Entry<AEKey> input : inputHolder[slot]) {
+                KeyCounter[] perTypeInput = result.computeIfAbsent(input.getKey().getType(), ignored -> {
+                    KeyCounter[] counters = new KeyCounter[inputHolder.length];
+                    for (int i = 0; i < counters.length; i++) {
+                        counters[i] = new KeyCounter();
+                    }
+                    return counters;
+                });
+                perTypeInput[slot].add(input.getKey(), input.getLongValue());
+            }
+        }
+        return result;
+    }
+
     @Nullable
     private PatternProviderTarget findAdapter(EnumFacing side) {
         if (this.targetCaches[side.ordinal()] == null) {
@@ -565,10 +641,14 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         Arrays.fill(this.targetCaches, null);
     }
 
+    private PatternProviderInsertionMode getInsertionMode() {
+        return this.configManager.getSetting(Settings.PATTERN_PROVIDER_INSERTION_MODE);
+    }
+
     private boolean adapterAcceptsAll(PatternProviderTarget target, KeyCounter[] inputHolder) {
         for (KeyCounter inputList : inputHolder) {
             for (Object2LongMap.Entry<AEKey> input : inputList) {
-                if (target.insert(input.getKey(), input.getLongValue(), Actionable.SIMULATE) == 0) {
+                if (target.insert(input.getKey(), input.getLongValue(), Actionable.SIMULATE, getInsertionMode()) == 0) {
                     return false;
                 }
             }
@@ -576,51 +656,39 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         return true;
     }
 
-    private void addToSendList(AEKey what, long amount) {
+    private void addToSendList(AEKey what, long amount, EnumFacing direction) {
         if (amount > 0) {
-            this.sendList.add(new GenericStack(what, amount));
+            this.pendingSendList.add(new PendingSend(new GenericStack(what, amount), direction));
             this.mainNode.ifPresent((grid, node) -> grid.getTickManager().alertDevice(node));
         }
     }
 
     private boolean sendStacksOut() {
-        if (this.sendDirection == null) {
-            if (!this.sendList.isEmpty()) {
-                throw new IllegalStateException("Invalid pattern provider state, this is a bug.");
-            }
-            return false;
-        }
-
         TileEntity blockEntity = this.host.getTileEntity();
         World level = blockEntity.getWorld();
         if (level == null) {
             return false;
         }
 
-        PatternProviderTarget adapter = findAdapter(this.sendDirection);
-        if (adapter == null) {
-            return false;
-        }
-
         boolean didSomething = false;
         boolean changed = false;
-        for (ListIterator<GenericStack> it = this.sendList.listIterator(); it.hasNext(); ) {
-            GenericStack stack = it.next();
-            long inserted = adapter.insert(stack.what(), stack.amount(), Actionable.MODULATE);
+        for (ListIterator<PendingSend> it = this.pendingSendList.listIterator(); it.hasNext(); ) {
+            PendingSend pendingSend = it.next();
+            GenericStack stack = pendingSend.stack();
+            PatternProviderTarget adapter = findAdapter(pendingSend.direction());
+            if (adapter == null) {
+                continue;
+            }
+
+            long inserted = adapter.insert(stack.what(), stack.amount(), Actionable.MODULATE, getInsertionMode());
             if (inserted >= stack.amount()) {
                 it.remove();
                 didSomething = true;
                 changed = true;
             } else if (inserted > 0) {
-                it.set(new GenericStack(stack.what(), stack.amount() - inserted));
+                it.set(new PendingSend(new GenericStack(stack.what(), stack.amount() - inserted),
+                    pendingSend.direction()));
                 didSomething = true;
-                changed = true;
-            }
-        }
-
-        if (this.sendList.isEmpty()) {
-            if (this.sendDirection != null) {
-                this.sendDirection = null;
                 changed = true;
             }
         }
@@ -633,7 +701,7 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     }
 
     private boolean hasWorkToDo() {
-        return !this.sendList.isEmpty() || !this.returnInv.isEmpty();
+        return !this.pendingSendList.isEmpty() || !this.returnInv.isEmpty();
     }
 
     private boolean doWork() {
@@ -703,7 +771,8 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         TileEntity blockEntity = this.host.getTileEntity();
         World level = blockEntity.getWorld();
         if (level != null) {
-            for (GenericStack stack : this.sendList) {
+            for (PendingSend pendingSend : this.pendingSendList) {
+                GenericStack stack = pendingSend.stack();
                 stack.what().addDrops(stack.amount(), drops, level, blockEntity.getPos());
             }
             this.returnInv.addDrops(drops, level, blockEntity.getPos());
@@ -713,7 +782,7 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     public void clearContent() {
         this.patternInventory.clear();
         this.upgrades.clear();
-        this.sendList.clear();
+        this.pendingSendList.clear();
         this.returnInv.clear();
     }
 
@@ -950,6 +1019,9 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     }
 
     private record PushTarget(EnumFacing direction, PatternProviderTarget target) {
+    }
+
+    private record PendingSend(GenericStack stack, EnumFacing direction) {
     }
 
     private static class PatternInventoryFilter implements IAEItemFilter {

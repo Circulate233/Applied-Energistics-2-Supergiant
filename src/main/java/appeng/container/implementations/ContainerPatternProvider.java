@@ -3,6 +3,8 @@ package appeng.container.implementations;
 import appeng.api.config.BlockingMode;
 import appeng.api.config.LockCraftingMode;
 import appeng.api.config.PatternProviderBlockingType;
+import appeng.api.config.PatternProviderInsertionMode;
+import appeng.api.config.PatternProviderOutputSideMode;
 import appeng.api.config.Settings;
 import appeng.api.config.YesNo;
 import appeng.api.stacks.AEItemKey;
@@ -52,6 +54,10 @@ public class ContainerPatternProvider extends AEBaseContainer
     public GenericStack unlockStack;
     @GuiSync(8)
     public PatternProviderBlockingType blockingType = PatternProviderBlockingType.NORMAL;
+    @GuiSync(14)
+    public PatternProviderInsertionMode insertionMode = PatternProviderInsertionMode.DEFAULT;
+    @GuiSync(15)
+    public PatternProviderOutputSideMode outputSideMode = PatternProviderOutputSideMode.SINGLE_SIDE;
     private final PatternModifierPanel patternModifierPanel;
     @GuiSync(9)
     public int activePatternSlots = 9;
@@ -99,6 +105,8 @@ public class ContainerPatternProvider extends AEBaseContainer
         if (isServerSide()) {
             this.blockingMode = this.logic.getConfigManager().getSetting(Settings.BLOCKING_MODE);
             this.blockingType = this.logic.getConfigManager().getSetting(Settings.PATTERN_PROVIDER_BLOCKING_TYPE);
+            this.insertionMode = this.logic.getConfigManager().getSetting(Settings.PATTERN_PROVIDER_INSERTION_MODE);
+            this.outputSideMode = this.logic.getConfigManager().getSetting(Settings.PATTERN_PROVIDER_OUTPUT_SIDE_MODE);
             this.showInAccessTerminal = this.logic.getConfigManager().getSetting(Settings.PATTERN_ACCESS_TERMINAL);
             this.lockCraftingMode = this.logic.getConfigManager().getSetting(Settings.LOCK_CRAFTING_MODE);
             this.craftingLockedReason = this.logic.getCraftingLockedReason();
@@ -149,6 +157,14 @@ public class ContainerPatternProvider extends AEBaseContainer
 
     public PatternProviderBlockingType getBlockingType() {
         return this.blockingType;
+    }
+
+    public PatternProviderInsertionMode getInsertionMode() {
+        return this.insertionMode;
+    }
+
+    public PatternProviderOutputSideMode getOutputSideMode() {
+        return this.outputSideMode;
     }
 
     public YesNo getShowInAccessTerminal() {
