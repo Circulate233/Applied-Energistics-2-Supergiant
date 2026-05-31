@@ -309,6 +309,7 @@ public class WidgetContainer {
         for (AETextField textField : textFields.values()) {
             if (textField.getVisible()) {
                 textField.updateCursorCounter();
+                textField.tickKeyRepeat();
             }
         }
     }

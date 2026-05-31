@@ -46,8 +46,9 @@ import java.util.function.Consumer;
  */
 public class AETextField extends GuiTextField implements IResizableWidget, ITooltip {
     private static final Blitter BLITTER = Blitter.texture("guis/text_field.png", 128, 128);
-
     private static final int PADDING = 2;
+    private static final long KEY_REPEAT_DELAY_MS = 2000;
+    private static final long KEY_REPEAT_INTERVAL_MS = 200;
 
     private final FontRenderer fontRenderer;
     private final int fontPad;
@@ -57,6 +58,10 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
     private List<ITextComponent> tooltipMessage = ObjectLists.emptyList();
     @Nullable
     private Consumer<String> responder;
+    private int repeatingKeyCode = Keyboard.KEY_NONE;
+    private char repeatingChar;
+    private long repeatStartMillis;
+    private long lastRepeatMillis;
 
     /**
      * Displayed with a muted text color when the text box is unfocused and has no content.
@@ -110,6 +115,7 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
     @Override
     public boolean textboxKeyTyped(char typedChar, int keyCode) {
         if (super.textboxKeyTyped(typedChar, keyCode)) {
+            this.armKeyRepeat(typedChar, keyCode);
             if (this.responder != null) {
                 this.responder.accept(this.getText());
             }
@@ -117,6 +123,38 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
         }
 
         return this.isFocused() && this.canConsumeInput() && keyCode != Keyboard.KEY_TAB && keyCode != Keyboard.KEY_ESCAPE;
+    }
+
+    public void tickKeyRepeat() {
+        if (this.repeatingKeyCode == Keyboard.KEY_NONE) {
+            return;
+        }
+
+        if (!this.isFocused() || !this.canConsumeInput() || !Keyboard.isKeyDown(this.repeatingKeyCode)) {
+            this.clearKeyRepeat();
+            return;
+        }
+
+        long now = System.currentTimeMillis();
+        if (now - this.repeatStartMillis < KEY_REPEAT_DELAY_MS || now - this.lastRepeatMillis < KEY_REPEAT_INTERVAL_MS) {
+            return;
+        }
+
+        String oldValue = this.getText();
+        if (super.textboxKeyTyped(this.repeatingChar, this.repeatingKeyCode)) {
+            this.lastRepeatMillis = now;
+            if (this.responder != null && !oldValue.equals(this.getText())) {
+                this.responder.accept(this.getText());
+            }
+            return;
+        }
+
+        if (oldValue.equals(this.getText())
+            && (this.repeatingKeyCode == Keyboard.KEY_BACK || this.repeatingKeyCode == Keyboard.KEY_DELETE)) {
+            this.clearKeyRepeat();
+        } else {
+            this.lastRepeatMillis = now;
+        }
     }
 
     public void setResponder(@Nullable Consumer<String> responder) {
@@ -247,6 +285,9 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
     public void setEnabled(boolean enabled) {
         super.setEnabled(enabled);
         this.enabled = enabled;
+        if (!enabled) {
+            this.clearKeyRepeat();
+        }
     }
 
     private Rectangle getVisualBounds() {
@@ -266,5 +307,50 @@ public class AETextField extends GuiTextField implements IResizableWidget, ITool
 
     public void setPlaceholder(@Nullable ITextComponent placeholder) {
         this.placeholder = placeholder;
+    }
+
+    @Override
+    public void setFocused(boolean focused) {
+        super.setFocused(focused);
+        if (!focused) {
+            this.clearKeyRepeat();
+        }
+    }
+
+    @Override
+    public void setVisible(boolean visible) {
+        super.setVisible(visible);
+        if (!visible) {
+            this.clearKeyRepeat();
+        }
+    }
+
+    private void armKeyRepeat(char typedChar, int keyCode) {
+        if (!this.isRepeatableKey(typedChar, keyCode)) {
+            this.clearKeyRepeat();
+            return;
+        }
+
+        this.repeatingKeyCode = keyCode;
+        this.repeatingChar = typedChar;
+        this.repeatStartMillis = System.currentTimeMillis();
+        this.lastRepeatMillis = this.repeatStartMillis;
+    }
+
+    private boolean isRepeatableKey(char typedChar, int keyCode) {
+        if (keyCode == Keyboard.KEY_BACK || keyCode == Keyboard.KEY_DELETE
+            || keyCode == Keyboard.KEY_LEFT || keyCode == Keyboard.KEY_RIGHT
+            || keyCode == Keyboard.KEY_HOME || keyCode == Keyboard.KEY_END) {
+            return true;
+        }
+
+        return typedChar >= 32 && keyCode != Keyboard.KEY_RETURN && keyCode != Keyboard.KEY_NUMPADENTER;
+    }
+
+    private void clearKeyRepeat() {
+        this.repeatingKeyCode = Keyboard.KEY_NONE;
+        this.repeatingChar = 0;
+        this.repeatStartMillis = 0;
+        this.lastRepeatMillis = 0;
     }
 }
