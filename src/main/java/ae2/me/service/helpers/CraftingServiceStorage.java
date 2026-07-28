@@ -21,12 +21,18 @@ package ae2.me.service.helpers;
 import ae2.api.config.Actionable;
 import ae2.api.networking.security.IActionSource;
 import ae2.api.stacks.AEKey;
+import ae2.api.stacks.KeyCounter;
 import ae2.api.storage.IStorageMounts;
 import ae2.api.storage.IStorageProvider;
-import ae2.api.storage.MEStorage;
+import ae2.api.storage.MEStorageChangeListener;
+import ae2.api.storage.MEStorageMonitor;
 import ae2.core.localization.GuiText;
 import ae2.me.service.CraftingService;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.util.text.ITextComponent;
+
+import java.util.Objects;
 
 /**
  * The storage exposed by the crafting service. It does two things:
@@ -37,7 +43,9 @@ import net.minecraft.util.text.ITextComponent;
  */
 public class CraftingServiceStorage implements IStorageProvider {
     private final CraftingService craftingService;
-    private final MEStorage inventory = new MEStorage() {
+    private final MEStorageMonitor inventory = new MEStorageMonitor() {
+        private final ObjectList<MonitorRegistration> listeners = new ObjectArrayList<>();
+
         @Override
         public boolean isPreferredStorageFor(AEKey key, IActionSource source) {
             return key.getType().isCraftingCpuInsertable();
@@ -53,6 +61,40 @@ public class CraftingServiceStorage implements IStorageProvider {
         }
 
         @Override
+        public void getAvailableStacks(KeyCounter out) {
+            removeInvalidListeners();
+        }
+
+        @Override
+        public void addListener(MEStorageChangeListener listener, Object verificationToken) {
+            Objects.requireNonNull(listener, "listener");
+            for (int i = 0; i < this.listeners.size(); i++) {
+                if (this.listeners.get(i).listener == listener) {
+                    throw new IllegalStateException("The storage listener is already registered.");
+                }
+            }
+            this.listeners.add(new MonitorRegistration(listener, verificationToken));
+        }
+
+        @Override
+        public void removeListener(MEStorageChangeListener listener) {
+            for (int i = this.listeners.size() - 1; i >= 0; i--) {
+                if (this.listeners.get(i).listener == listener) {
+                    this.listeners.remove(i);
+                }
+            }
+        }
+
+        private void removeInvalidListeners() {
+            for (int i = this.listeners.size() - 1; i >= 0; i--) {
+                var registration = this.listeners.get(i);
+                if (!registration.listener.isValid(registration.verificationToken)) {
+                    this.listeners.remove(i);
+                }
+            }
+        }
+
+        @Override
         public ITextComponent getDescription() {
             return GuiText.AutoCrafting.text();
         }
@@ -65,5 +107,8 @@ public class CraftingServiceStorage implements IStorageProvider {
     @Override
     public void mountInventories(IStorageMounts mounts) {
         mounts.mount(inventory, Integer.MAX_VALUE);
+    }
+
+    private record MonitorRegistration(MEStorageChangeListener listener, Object verificationToken) {
     }
 }

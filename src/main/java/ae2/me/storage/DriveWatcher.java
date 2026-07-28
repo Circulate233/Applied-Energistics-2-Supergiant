@@ -21,13 +21,15 @@ package ae2.me.storage;
 import ae2.api.config.Actionable;
 import ae2.api.networking.security.IActionSource;
 import ae2.api.stacks.AEKey;
+import ae2.api.storage.MEStorageChangeListener;
+import ae2.api.storage.MEStorageMonitor;
 import ae2.api.storage.cells.CellState;
 import ae2.api.storage.cells.ICellWorkbenchItem;
 import ae2.api.storage.cells.StorageCell;
 import ae2.core.definitions.AEItems;
 import net.minecraft.item.ItemStack;
 
-public class DriveWatcher extends MEInventoryHandler {
+public class DriveWatcher extends MEInventoryHandler implements MEStorageMonitor {
 
     private final Runnable activityCallback;
     private CellState oldStatus = CellState.EMPTY;
@@ -47,6 +49,16 @@ public class DriveWatcher extends MEInventoryHandler {
 
     public StorageCell getCell() {
         return (StorageCell) getDelegate();
+    }
+
+    @Override
+    public void addListener(MEStorageChangeListener listener, Object verificationToken) {
+        getCell().addListener(listener, verificationToken);
+    }
+
+    @Override
+    public void removeListener(MEStorageChangeListener listener) {
+        getCell().removeListener(listener);
     }
 
     @Override

@@ -39,7 +39,8 @@ import ae2.api.stacks.AEKey;
 import ae2.api.stacks.KeyCounter;
 import ae2.api.storage.IStorageMounts;
 import ae2.api.storage.IStorageProvider;
-import ae2.api.storage.MEStorage;
+import ae2.api.storage.MEStorageChangeListener;
+import ae2.api.storage.MEStorageMonitor;
 import ae2.api.storage.StorageHelper;
 import ae2.api.util.AECableType;
 import ae2.api.util.IConfigManager;
@@ -60,6 +61,8 @@ import ae2.util.prioritylist.DefaultPriorityList;
 import ae2.util.prioritylist.FuzzyPriorityList;
 import ae2.util.prioritylist.IPartitionList;
 import ae2.util.prioritylist.PrecisePriorityList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -75,6 +78,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Objects;
 
 public class FormationPlanePart extends UpgradeablePart
     implements IStorageProvider, IPriorityHost, IConfigInvHost, IGridTickable, IWorkIntervalHost {
@@ -86,7 +90,7 @@ public class FormationPlanePart extends UpgradeablePart
     private static final long DEFAULT_WORK_INTERVAL = 10L;
     private static final Logger LOG = LoggerFactory.getLogger(FormationPlanePart.class);
     private final PlaneConnectionHelper connectionHelper = new PlaneConnectionHelper(this);
-    private final MEStorage inventory = new InWorldStorage();
+    private final MEStorageMonitor inventory = new InWorldStorage();
     private final ConfigInventory config;
     private final IActionSource source;
     private boolean wasOnline = false;
@@ -244,7 +248,7 @@ public class FormationPlanePart extends UpgradeablePart
      * Places the given stacks in-world and returns what couldn't be placed.
      *
      * @return The amount that was placed.
-     * @see MEStorage#insert
+     * @see MEStorageMonitor#insert
      */
     protected long placeInWorld(AEKey what, long amount, Actionable type) {
         var placeBlock = this.getConfigManager().getSetting(Settings.PLACE_BLOCK);
@@ -492,7 +496,9 @@ public class FormationPlanePart extends UpgradeablePart
     /**
      * Models the block adjacent to this formation plane as storage.
      */
-    class InWorldStorage implements MEStorage {
+    class InWorldStorage implements MEStorageMonitor {
+        private final ObjectList<MonitorRegistration> listeners = new ObjectArrayList<>();
+
         @Override
         public long insert(AEKey what, long amount, Actionable mode, IActionSource source) {
             if (!matchesFilter(what)) {
@@ -503,9 +509,46 @@ public class FormationPlanePart extends UpgradeablePart
         }
 
         @Override
+        public void getAvailableStacks(KeyCounter out) {
+            removeInvalidListeners();
+        }
+
+        @Override
+        public void addListener(MEStorageChangeListener listener, Object verificationToken) {
+            Objects.requireNonNull(listener, "listener");
+            for (int i = 0; i < this.listeners.size(); i++) {
+                if (this.listeners.get(i).listener == listener) {
+                    throw new IllegalStateException("The storage listener is already registered.");
+                }
+            }
+            this.listeners.add(new MonitorRegistration(listener, verificationToken));
+        }
+
+        @Override
+        public void removeListener(MEStorageChangeListener listener) {
+            for (int i = this.listeners.size() - 1; i >= 0; i--) {
+                if (this.listeners.get(i).listener == listener) {
+                    this.listeners.remove(i);
+                }
+            }
+        }
+
+        private void removeInvalidListeners() {
+            for (int i = this.listeners.size() - 1; i >= 0; i--) {
+                var registration = this.listeners.get(i);
+                if (!registration.listener.isValid(registration.verificationToken)) {
+                    this.listeners.remove(i);
+                }
+            }
+        }
+
+        @Override
         public ITextComponent getDescription() {
             return TextComponentItemStack.of(getPartItem().asItemStack());
         }
+    }
+
+    private record MonitorRegistration(MEStorageChangeListener listener, Object verificationToken) {
     }
 
 }

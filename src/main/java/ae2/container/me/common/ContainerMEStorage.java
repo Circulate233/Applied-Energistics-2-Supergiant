@@ -31,8 +31,10 @@ import ae2.api.inventories.InternalInventory;
 import ae2.api.networking.IGrid;
 import ae2.api.networking.IGridNode;
 import ae2.api.networking.crafting.ICraftingCPU;
+import ae2.api.networking.crafting.ICraftingService;
 import ae2.api.networking.energy.IEnergySource;
 import ae2.api.networking.security.IActionHost;
+import ae2.api.networking.storage.IStorageService;
 import ae2.api.stacks.AEFluidKey;
 import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.AEKey;
@@ -40,6 +42,8 @@ import ae2.api.stacks.KeyCounter;
 import ae2.api.storage.ILinkStatus;
 import ae2.api.storage.ITerminalHost;
 import ae2.api.storage.MEStorage;
+import ae2.api.storage.MEStorageChangeListener;
+import ae2.api.storage.MEStorageMonitor;
 import ae2.api.storage.StorageHelper;
 import ae2.api.storage.cells.IBasicCellItem;
 import ae2.api.util.IConfigManager;
@@ -76,6 +80,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSets;
 import it.unimi.dsi.fastutil.shorts.ShortSet;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.init.Items;
@@ -104,6 +109,35 @@ public class ContainerMEStorage extends AEBaseContainer
     private final ITerminalHost host;
     private final GuiIds.GuiKey guiKey;
     private final IncrementalUpdateHelper updateHelper = new IncrementalUpdateHelper();
+    private final KeyCounter requestables = new KeyCounter();
+    private final MEStorageChangeListener gridStorageListener = new MEStorageChangeListener() {
+        @Override
+        public boolean isValid(Object verificationToken) {
+            if (verificationToken != gridStorageVerificationToken || containerClosed) {
+                return false;
+            }
+            assertGridStorageCallbackThread("validating a terminal storage listener");
+            return gridStorageMonitor != null;
+        }
+
+        @Override
+        public void onStackChange(AEKey what, long delta) {
+            assertGridStorageCallbackThread("reporting a terminal storage change");
+            if (what == null) {
+                AELog.error("Grid storage monitor reported a null key to terminal %s.", ContainerMEStorage.this);
+                throw new IllegalArgumentException("Grid storage monitor reported a null key");
+            }
+            if (delta != 0) {
+                updateHelper.addChange(what);
+            }
+        }
+
+        @Override
+        public void onListUpdate() {
+            assertGridStorageCallbackThread("invalidating a terminal storage list");
+            gridStorageFullUpdatePending = true;
+        }
+    };
     /**
      * The number of active crafting jobs in the network. -1 means unknown and will hide the label on the screen.
      */
@@ -129,6 +163,19 @@ public class ContainerMEStorage extends AEBaseContainer
      */
     private Set<AEKey> previousCraftables = ObjectSets.emptySet();
     private KeyCounter previousAvailableStacks = new KeyCounter();
+    @Nullable
+    private IStorageService gridStorageService;
+    @Nullable
+    private MEStorageMonitor gridStorageMonitor;
+    @Nullable
+    private Object gridStorageVerificationToken;
+    @Nullable
+    private Thread gridStorageThread;
+    private boolean gridStorageFullUpdatePending;
+    private boolean containerClosed;
+    @Nullable
+    private ICraftingService previousCraftingService;
+    private long previousCraftablesVersion = Long.MIN_VALUE;
 
     public ContainerMEStorage(GuiIds.GuiKey guiKey, InventoryPlayer ip, ITerminalHost host) {
         this(guiKey, ip, host, true);
@@ -258,33 +305,44 @@ public class ContainerMEStorage extends AEBaseContainer
                 this.searchKeyTypes = new SyncedKeyTypes(((KeyTypeSelectionHost) host).getKeyTypeSelection().enabled());
             }
 
-            Set<AEKey> craftables = getCraftablesFromGrid();
-            KeyCounter availableStacks = storage.getAvailableStacks();
+            updateGridStorageBinding();
+            updateCraftables();
 
-            KeyCounter requestables = new KeyCounter();
-
-            try {
-                addSetDifference(updateHelper::addChange, previousCraftables, craftables);
-                addSetDifference(updateHelper::addChange, craftables, previousCraftables);
-
+            KeyCounter availableStacks;
+            if (this.gridStorageService != null) {
+                if (this.gridStorageFullUpdatePending) {
+                    this.gridStorageFullUpdatePending = false;
+                    this.updateHelper.reset();
+                }
+                availableStacks = this.gridStorageService.getCachedInventory();
+            } else {
+                availableStacks = storage.getAvailableStacks();
                 previousAvailableStacks.removeAll(availableStacks);
                 previousAvailableStacks.removeZeros();
                 previousAvailableStacks.keySet().forEach(updateHelper::addChange);
+            }
 
+            try {
                 if (updateHelper.hasChanges()) {
                     MEInventoryUpdatePacket.Builder builder = MEInventoryUpdatePacket.builder(updateHelper.isFullUpdate());
                     builder.setFilter(this::isKeyVisible);
-                    builder.addChanges(updateHelper, availableStacks, craftables, requestables);
+                    if (updateHelper.isFullUpdate()) {
+                        builder.addFull(updateHelper, availableStacks, previousCraftables, requestables);
+                    } else {
+                        builder.addChanges(updateHelper, availableStacks, previousCraftables, requestables);
+                    }
                     builder.buildAndSend(this::sendPacketToClient);
                     updateHelper.commitChanges();
                 }
 
             } catch (Exception e) {
                 AELog.warn(e, "Failed to send incremental inventory update to client");
+                updateHelper.reset();
             }
 
-            previousCraftables = new ObjectOpenHashSet<>(craftables);
-            previousAvailableStacks = availableStacks;
+            if (this.gridStorageService == null) {
+                previousAvailableStacks = availableStacks;
+            }
 
             super.broadcastChanges();
         }
@@ -306,19 +364,95 @@ public class ContainerMEStorage extends AEBaseContainer
         return true;
     }
 
-    private Set<AEKey> getCraftablesFromGrid() {
+    @Nullable
+    private ICraftingService getCraftingService() {
         IGridNode hostNode = getGridNode();
         if (hostNode == null && host instanceof IActionHost) {
             hostNode = ((IActionHost) host).getActionableNode();
         }
         if (!showsCraftables()) {
-            return Collections.emptySet();
+            return null;
         }
 
         if (hostNode != null && hostNode.isActive()) {
-            return hostNode.grid().getCraftingService().getCraftables(this::isKeyVisible);
+            return hostNode.grid().getCraftingService();
         }
-        return Collections.emptySet();
+        return null;
+    }
+
+    private void updateCraftables() {
+        ICraftingService craftingService = getCraftingService();
+        long craftablesVersion = craftingService == null ? 0 : craftingService.getCraftablesVersion();
+        if (craftingService == this.previousCraftingService
+            && craftablesVersion == this.previousCraftablesVersion) {
+            return;
+        }
+
+        Set<AEKey> craftables = craftingService == null
+            ? Collections.emptySet()
+            : craftingService.getCraftables(this::isKeyVisible);
+        addSetDifference(updateHelper::addChange, previousCraftables, craftables);
+        addSetDifference(updateHelper::addChange, craftables, previousCraftables);
+        previousCraftables = craftables.isEmpty() ? ObjectSets.emptySet() : new ObjectOpenHashSet<>(craftables);
+        previousCraftingService = craftingService;
+        previousCraftablesVersion = craftablesVersion;
+    }
+
+    private void updateGridStorageBinding() {
+        IStorageService currentService = this.host.getGridStorageService();
+        if (currentService == this.gridStorageService) {
+            return;
+        }
+
+        unbindGridStorageMonitor();
+        this.gridStorageService = currentService;
+        this.previousAvailableStacks = new KeyCounter();
+        this.updateHelper.reset();
+
+        if (currentService == null) {
+            return;
+        }
+
+        MEStorageMonitor monitor = Objects.requireNonNull(currentService.getInventory(),
+            "grid storage inventory is null");
+        Object verificationToken = new Object();
+        this.gridStorageMonitor = monitor;
+        this.gridStorageVerificationToken = verificationToken;
+        this.gridStorageThread = Thread.currentThread();
+        try {
+            monitor.addListener(this.gridStorageListener, verificationToken);
+        } catch (RuntimeException e) {
+            this.gridStorageMonitor = null;
+            this.gridStorageVerificationToken = null;
+            this.gridStorageThread = null;
+            this.gridStorageService = null;
+            AELog.error(e, "Failed to subscribe terminal to grid storage monitor");
+            throw e;
+        }
+    }
+
+    private void unbindGridStorageMonitor() {
+        MEStorageMonitor monitor = this.gridStorageMonitor;
+        if (monitor != null) {
+            monitor.removeListener(this.gridStorageListener);
+        }
+        this.gridStorageMonitor = null;
+        this.gridStorageVerificationToken = null;
+        this.gridStorageThread = null;
+        this.gridStorageService = null;
+        this.gridStorageFullUpdatePending = false;
+    }
+
+    private void assertGridStorageCallbackThread(String operation) {
+        Thread expectedThread = this.gridStorageThread;
+        if (this.containerClosed || this.gridStorageMonitor == null || expectedThread == null) {
+            AELog.error("Grid storage monitor attempted %s after its terminal listener was detached.", operation);
+            throw new IllegalStateException("Detached terminal storage listener callback");
+        }
+        if (Thread.currentThread() != expectedThread) {
+            AELog.error("Grid storage monitor attempted %s from the wrong thread.", operation);
+            throw new IllegalStateException("Terminal storage listener callback from wrong thread");
+        }
     }
 
     private void updateActiveCraftingJobs() {
@@ -810,12 +944,22 @@ public class ContainerMEStorage extends AEBaseContainer
     }
 
     /**
-     * @return The stacks available in the storage as determined the last time this container was ticked.
+     * @return the shared current grid cache for network terminals, or the last local snapshot for local terminals
      */
     @SuppressWarnings("unused")
     protected final KeyCounter getPreviousAvailableStacks() {
         Preconditions.checkState(isServerSide());
-        return previousAvailableStacks;
+        IStorageService storageService = this.gridStorageService;
+        return storageService != null ? storageService.getCachedInventory() : previousAvailableStacks;
+    }
+
+    @Override
+    public void onContainerClosed(EntityPlayer player) {
+        this.containerClosed = true;
+        if (isServerSide()) {
+            unbindGridStorageMonitor();
+        }
+        super.onContainerClosed(player);
     }
 
     public boolean canConfigureTypeFilter() {

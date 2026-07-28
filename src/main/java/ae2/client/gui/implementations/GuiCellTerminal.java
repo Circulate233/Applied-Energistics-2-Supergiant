@@ -89,6 +89,7 @@ import ae2.core.definitions.AEParts;
 import ae2.core.localization.ButtonToolTips;
 import ae2.core.localization.GuiText;
 import ae2.core.localization.Tooltips;
+import ae2.core.network.clientbound.CellTerminalSyncChunkPacket;
 import ae2.helpers.WirelessTerminalGuiHost;
 import ae2.integration.modules.hei.GenericIngredientHelper;
 import ae2.integration.modules.hei.target.CellTerminalPartitionTarget;
@@ -1351,6 +1352,7 @@ public class GuiCellTerminal extends AEBaseGui<ContainerCellTerminal> implements
 
     @Override
     public void onGuiClosed() {
+        CellTerminalSyncChunkPacket.clearPendingTransfers(this.container.windowId);
         if (this.searchOverlay != null) {
             this.searchOverlay.close();
         }

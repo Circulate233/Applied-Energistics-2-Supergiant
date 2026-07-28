@@ -23,6 +23,7 @@
 
 package ae2.api.storage;
 
+import ae2.api.networking.storage.IStorageService;
 import ae2.api.upgrades.IUpgradeableObject;
 import ae2.api.util.IConfigurableObject;
 import ae2.client.Hotkeys;
@@ -34,6 +35,22 @@ public interface ITerminalHost extends IUpgradeableObject, IConfigurableObject, 
      * terminal host can change during its lifecycle, you need to return a {@link SupplierStorage}.
      */
     MEStorage getInventory();
+
+    /**
+     * Returns the grid-wide storage service displayed by this terminal, if this host represents a complete network
+     * inventory.
+     * <p>
+     * Containers use this identity to subscribe directly to the network inventory monitor and avoid enumerating the
+     * same network once per open terminal. Hosts backed by a local inventory, such as portable cells and ME chests,
+     * must keep the default value. Hosts whose grid connection can change must return {@code null} while disconnected
+     * and the current service after reconnecting.
+     *
+     * @return the currently displayed grid storage service, or {@code null} for local or disconnected inventories
+     */
+    @Nullable
+    default IStorageService getGridStorageService() {
+        return null;
+    }
 
     /**
      * For hosts that do not have a fixed connection to the grid, this method is used to give feedback to the player

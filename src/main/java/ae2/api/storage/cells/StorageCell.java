@@ -23,12 +23,14 @@
 
 package ae2.api.storage.cells;
 
-import ae2.api.storage.MEStorage;
+import ae2.api.storage.MEStorageMonitor;
 
 /**
  * Represents the most general possible cell inventory. Register a {@link ICellHandler} to provide custom subclasses.
+ * Storage cells are mounted directly into network caches and must synchronously report every visible content change
+ * through the inherited monitor listener contract.
  */
-public interface StorageCell extends MEStorage {
+public interface StorageCell extends MEStorageMonitor {
     /**
      * Return the current status of the cell.
      */

@@ -27,6 +27,7 @@ import ae2.core.network.clientbound.NetworkConfigInitPacket;
 import ae2.core.network.clientbound.NetworkDataUpdatePacket;
 import ae2.core.network.clientbound.NetworkStatusPacket;
 import ae2.core.network.clientbound.OpenGuiPacket;
+import ae2.core.network.clientbound.PatternAccessTerminalChunkPacket;
 import ae2.core.network.clientbound.PatternAccessTerminalInfoPacket;
 import ae2.core.network.clientbound.PatternAccessTerminalPacket;
 import ae2.core.network.clientbound.ProfileDataUpdatePacket;
@@ -108,6 +109,7 @@ public final class InitNetwork {
         registerClientbound(AppEngPayloadHandler.Client.class, NetworkStatusPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, OpenGuiPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, PatternAccessTerminalPacket.class);
+        registerClientbound(AppEngPayloadHandler.Client.class, PatternAccessTerminalChunkPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, PatternAccessTerminalInfoPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, RestorePreviousGuiPacket.class);
         registerClientbound(AppEngPayloadHandler.Client.class, SetLinkStatusPacket.class);

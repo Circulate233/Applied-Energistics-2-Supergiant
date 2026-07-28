@@ -8,7 +8,6 @@ import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.AEKey;
 import ae2.api.stacks.KeyCounter;
 import ae2.api.storage.AEKeyFilter;
-import ae2.hooks.ticking.TickHandler;
 import com.google.common.collect.Iterators;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
@@ -54,7 +53,7 @@ public class NetworkCraftingProviders {
 
     private final Set<AEKey> craftableKeys = Collections.unmodifiableSet(craftableItems.keySet());
     private final Set<AEKey> emittableKeys = Collections.unmodifiableSet(emitableItems.keySet());
-    private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+    private long revision;
     private long nextProviderOrder = 0;
 
     public NetworkCraftingProviders() {
@@ -71,12 +70,13 @@ public class NetworkCraftingProviders {
             var state = new ProviderState(provider, nextProviderOrder++);
             state.mount(this);
             craftingProviders.put(node, state);
-            setLastModifiedOnTick();
+            markModified();
         }
     }
 
     public void addProvider(ICraftingProvider provider) {
-        for (var state : globalProviders) {
+        for (int i = 0; i < globalProviders.size(); i++) {
+            var state = globalProviders.get(i);
             if (state.provider == provider) {
                 throw new IllegalArgumentException("Duplicate crafting provider registration for " + provider);
             }
@@ -85,7 +85,7 @@ public class NetworkCraftingProviders {
         var state = new ProviderState(provider, nextProviderOrder++);
         state.mount(this);
         globalProviders.add(state);
-        setLastModifiedOnTick();
+        markModified();
     }
 
     public void removeProvider(IGridNode node) {
@@ -94,19 +94,18 @@ public class NetworkCraftingProviders {
             var state = craftingProviders.remove(node);
             if (state != null) {
                 state.unmount(this);
-                setLastModifiedOnTick();
+                markModified();
             }
         }
     }
 
     public void removeProvider(ICraftingProvider provider) {
-        var it = this.globalProviders.iterator();
-        while (it.hasNext()) {
-            var state = it.next();
+        for (int i = this.globalProviders.size() - 1; i >= 0; i--) {
+            var state = this.globalProviders.get(i);
             if (state.provider == provider) {
-                it.remove();
+                this.globalProviders.remove(i);
                 state.unmount(this);
-                setLastModifiedOnTick();
+                markModified();
             }
         }
     }
@@ -174,15 +173,12 @@ public class NetworkCraftingProviders {
         return mediumList == null ? List.of() : mediumList.snapshot();
     }
 
-    private void setLastModifiedOnTick() {
-        lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+    private void markModified() {
+        revision = Math.incrementExact(revision);
     }
 
-    /**
-     * @see TickHandler#getCurrentTick()
-     */
-    public long getLastModifiedOnTick() {
-        return lastModifiedOnTick;
+    public long getRevision() {
+        return revision;
     }
 
     private static class CraftingProviderList implements Iterable<ICraftingProvider> {
@@ -233,7 +229,8 @@ public class NetworkCraftingProviders {
             for (var emitable : emitableItems) {
                 methods.emitableItems.merge(emitable, 1, Integer::sum);
             }
-            for (var pattern : patterns) {
+            for (int i = 0; i < patterns.size(); i++) {
+                var pattern = patterns.get(i);
                 methods.knownPatternDefinitions.merge(pattern.getDefinition(), 1, Integer::sum);
 
                 // output -> pattern (for simulation)
@@ -255,7 +252,8 @@ public class NetworkCraftingProviders {
             for (var emitable : emitableItems) {
                 methods.emitableItems.compute(emitable, (ignored, cnt) -> cnt == null || cnt <= 1 ? null : cnt - 1);
             }
-            for (var pattern : patterns) {
+            for (int i = 0; i < patterns.size(); i++) {
+                var pattern = patterns.get(i);
                 methods.knownPatternDefinitions.compute(pattern.getDefinition(),
                     (ignored, cnt) -> cnt == null || cnt <= 1 ? null : cnt - 1);
 
@@ -290,7 +288,8 @@ public class NetworkCraftingProviders {
 
             var seenPatterns = new ObjectOpenHashSet<IPatternDetails>(sortedPatternInfos.size());
             var deduplicatedPatterns = new ObjectArrayList<IPatternDetails>(sortedPatternInfos.size());
-            for (var patternInfo : sortedPatternInfos) {
+            for (int i = 0; i < sortedPatternInfos.size(); i++) {
+                var patternInfo = sortedPatternInfos.get(i);
                 var pattern = patternInfo.pattern();
                 if (seenPatterns.add(pattern)) {
                     deduplicatedPatterns.add(pattern);

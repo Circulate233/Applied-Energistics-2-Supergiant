@@ -264,33 +264,51 @@ slow down, sleep, or keep the current rate.
 **Service Interface:** `ae2.api.networking.storage.IStorageService`  
 **Convenience Getter:** `IGrid.getStorageService()`
 
-Storage in grids is organized as mounted `MEStorage` inventories. The storage service exposes the unified grid
-inventory through `getInventory()`, provides a cached inventory snapshot through `getCachedInventory()`, and manages
-`IStorageProvider` mounts from nodes and global providers.
+Storage in grids is organized as mounted `MEStorageMonitor` inventories. The storage service exposes the unified grid
+inventory as an `MEStorageMonitor` through `getInventory()`, provides its shared aggregate `KeyCounter` through
+`getCachedInventory()`, and manages `IStorageProvider` mounts from nodes and global providers.
 
-`getInventory()` returns a network inventory whose runtime implementation also implements `MEStorageMonitor`.
-Consumers that need live content changes can register an `MEStorageChangeListener`, enumerate the inventory once, and
-then apply the synchronous signed deltas they receive. `onListUpdate()` means the list structure changed and the
-consumer should enumerate once again; it must not be used instead of an exact delta for an ordinary content change.
+The aggregate cache is built by enumerating all mounts on its first access. Later content changes update it
+synchronously through signed `MEStorageChangeListener.onStackChange(...)` deltas. A full enumeration is only performed
+again after the mount structure changes or a monitor calls `onListUpdate()`. The returned `KeyCounter` is shared and
+must not be modified.
 
-`getCachedInventory()` uses the same mechanism internally. Event-driven mounts update it synchronously, while legacy
-mounts and invalidated lists are reflected by the next cache rebuild. It should be preferred when slightly outdated
-legacy content is acceptable because it avoids repeatedly walking the full network inventory.
+Consumers of `getInventory()` may register their own `MEStorageChangeListener`, enumerate once, and then apply the
+synchronous signed deltas they receive. Positive deltas add to the amount of a key and negative deltas remove from it.
+`onListUpdate()` means that an exact delta cannot describe a structural change and requests one new enumeration; it
+must not replace `onStackChange(...)` for an ordinary content change.
 
 Node-backed storage should implement `IStorageProvider` as a node service. When the node joins or leaves a grid, the
 storage service will mount or unmount it automatically by calling `mountInventories(...)`. Global storage providers
 can be added with `IStorageService.addGlobalStorageProvider(...)` when the storage is provided by a grid service rather
 than by an individual node.
 
+`IStorageMounts.mount(...)` accepts only `MEStorageMonitor`. Every network-mounted inventory must synchronously report
+each visible content change exactly once as a signed delta on the registering server thread. Network mounts that only
+implement `MEStorage` are not supported. If a mount cannot express a structural change as exact deltas, it must call
+`onListUpdate()` so the network performs one new authoritative enumeration.
+
 When a storage provider needs to remove, add, or rebuild its mounts due to an external event or config change, call
 `IStorageProvider.requestUpdate(managedNode)` for node providers, or `refreshGlobalStorageProvider(...)` for global
 providers.
+
+`StorageCell` extends `MEStorageMonitor`. Custom cells returned by an `ICellHandler` therefore have the same synchronous
+signed-delta obligation as any other network mount. A `MODULATE` insertion or extraction must report the actual visible
+amount added or removed exactly once; a `SIMULATE` operation must not report a change. Listener removal must stop all
+later callbacks, and monitors must validate the registration token before dispatching.
 
 External item or fluid handlers may additionally implement `ExternalStorageMonitor`. A storage bus then enumerates
 that handler once while it is mounted and consumes exact signed deltas instead of polling it. The handler receives the
 active `StorageFilter` when a listener is registered and must synchronously report every later content change on the
 registering server thread. Structural changes that cannot be expressed as deltas use `onListUpdate()` and trigger one
-new enumeration. Handlers that do not implement this interface keep the legacy periodic scan behavior.
+new enumeration. This is an optional optimization only for adjacent Forge item or fluid handlers; handlers that do not
+implement it continue to use the storage bus's adaptive periodic scan.
+
+Network terminal hosts may override `ITerminalHost.getGridStorageService()` when they display the complete inventory of
+one grid. Terminal containers use the returned service identity to subscribe to the shared network monitor instead of
+enumerating the same grid independently on every tick. Local terminals such as portable cells and ME chests must keep
+the default `null`; reconnectable hosts must return `null` while disconnected and their current service after
+reconnecting.
 
 #### Auto-Crafting
 
@@ -300,6 +318,10 @@ new enumeration. Handlers that do not implement this interface keep the legacy p
 This service provides access to craftable patterns, crafting CPUs, job calculation, job simulation, job submission,
 and active-request tracking. Craftable keys are queried through this service rather than being reported as ordinary
 stored network contents.
+
+`getCraftablesVersion()` returns a monotonic revision that changes whenever the craftable resource set may have
+changed. Consumers can retain the last observed revision and avoid calling `getCraftables(...)` again while it remains
+unchanged. The value describes craftable-provider structure only; it is not a replacement for storage monitor changes.
 
 #### Merged Pattern Push
 
@@ -645,9 +667,10 @@ known to the grid.
 
 Mounting storage into the network storage has changed. Since storage is unified across key types, the storage service
 calls `mountInventories` on `IStorageProvider` services provided by grid nodes and allows each provider to mount
-storage into the network. When the node wants to remove or add storage due to an external event or config change, it
-can request the mounting process again by calling `IStorageProvider.requestUpdate(managedNode)`. This replaces sending
-cell-array refresh events directly.
+`MEStorageMonitor` inventories into the network. `IStorageMounts.mount(...)` no longer accepts a plain `MEStorage`.
+When the node wants to remove or add storage due to an external event or config change, it can request the mounting
+process again by calling `IStorageProvider.requestUpdate(managedNode)`. This replaces sending cell-array refresh events
+directly.
 
 For item-opened GUIs, this branch uses `IGuiItem` and `ItemGuiHost`.
 
@@ -661,10 +684,10 @@ and other item-opened screens.
 The priority and crafting-confirm flows use `ISubGuiHost` so hosts can return to the previous screen after a nested
 screen closes.
 
-Custom storage cells are based on the unified key-storage model. Addon cells should expose `MEStorage` through the
-appropriate cell or capability APIs and should use key filters to restrict accepted key types when needed. Item and
-fluid storage math can still differ, so prefer the public cell APIs in `ae2.api.storage.cells` over depending on
-AE2 implementation classes.
+Custom storage cells are based on the unified key-storage model. Addon cells must expose `StorageCell`, which extends
+`MEStorageMonitor`, through the appropriate cell APIs and must synchronously report signed content deltas. They should
+use key filters to restrict accepted key types when needed. Item and fluid storage math can still differ, so prefer the
+public cell APIs in `ae2.api.storage.cells` over depending on AE2 implementation classes.
 
 ## Crank
 

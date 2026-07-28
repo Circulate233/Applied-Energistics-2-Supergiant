@@ -24,6 +24,7 @@ import ae2.api.config.SortOrder;
 import ae2.api.config.ViewItems;
 import ae2.api.implementations.blockentities.IViewCellStorage;
 import ae2.api.inventories.InternalInventory;
+import ae2.api.networking.storage.IStorageService;
 import ae2.api.parts.IPartItem;
 import ae2.api.storage.ILinkStatus;
 import ae2.api.storage.ITerminalHost;
@@ -44,6 +45,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.Vec3d;
 import org.jetbrains.annotations.MustBeInvokedByOverriders;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -159,6 +161,14 @@ public abstract class AbstractTerminalPart extends AbstractDisplayPart
             }
             return null;
         });
+    }
+
+    @Nullable
+    @Override
+    public IStorageService getGridStorageService() {
+        var mainNode = getMainNode();
+        var grid = mainNode.getGrid();
+        return mainNode.isActive() && grid != null ? grid.getStorageService() : null;
     }
 
     @Override

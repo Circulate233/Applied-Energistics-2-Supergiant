@@ -22,7 +22,6 @@ import ae2.api.config.Actionable;
 import ae2.api.networking.security.IActionSource;
 import ae2.api.stacks.AEKey;
 import ae2.api.stacks.KeyCounter;
-import ae2.api.storage.MEStorage;
 import ae2.api.storage.MEStorageChangeListener;
 import ae2.api.storage.MEStorageMonitor;
 import ae2.core.AELog;
@@ -43,28 +42,28 @@ import java.util.function.Supplier;
 
 public class NetworkStorage implements MEStorageMonitor {
     private static final IntComparator PRIORITY_SORTER = (first, second) -> Integer.compare(second, first);
-    private final Int2ObjectSortedMap<ObjectList<MEStorage>> priorityInventory =
+    private final Int2ObjectSortedMap<ObjectList<MEStorageMonitor>> priorityInventory =
         new Int2ObjectRBTreeMap<>(PRIORITY_SORTER);
-    private final ObjectList<MEStorage> secondPassInventories = new ObjectArrayList<>();
+    private final ObjectList<MEStorageMonitor> secondPassInventories = new ObjectArrayList<>();
     private final ObjectList<ListenerRegistration> listeners = new ObjectArrayList<>();
     private final ObjectList<ListenerRegistration> listenerDispatchBuffer = new ObjectArrayList<>();
     private final Supplier<KeyCounter> cachedContents;
-    private final Runnable legacyMutationCallback;
+    private final Runnable invalidationCallback;
     private boolean mountsInUse;
     @Nullable
     private ObjectList<QueuedOperation> queuedOperations;
     @Nullable
-    private Set<MEStorage> queuedRemovals;
+    private Set<MEStorageMonitor> queuedRemovals;
     private boolean dispatchingListeners;
     private boolean dispatchingListUpdate;
     private boolean listUpdatePending;
 
-    public NetworkStorage(Supplier<KeyCounter> cachedContents, Runnable legacyMutationCallback) {
+    public NetworkStorage(Supplier<KeyCounter> cachedContents, Runnable invalidationCallback) {
         this.cachedContents = cachedContents;
-        this.legacyMutationCallback = legacyMutationCallback;
+        this.invalidationCallback = invalidationCallback;
     }
 
-    public void mount(int priority, MEStorage inventory) {
+    public void mount(int priority, MEStorageMonitor inventory) {
         if (this.mountsInUse) {
             if (this.queuedOperations == null) {
                 this.queuedOperations = new ObjectArrayList<>();
@@ -76,7 +75,7 @@ public class NetworkStorage implements MEStorageMonitor {
         this.priorityInventory.computeIfAbsent(priority, ignored -> new ObjectArrayList<>()).add(inventory);
     }
 
-    public void unmount(MEStorage inventory) {
+    public void unmount(MEStorageMonitor inventory) {
         if (this.mountsInUse) {
             if (this.queuedOperations == null) {
                 this.queuedOperations = new ObjectArrayList<>();
@@ -132,7 +131,6 @@ public class NetworkStorage implements MEStorageMonitor {
                     if (inventory.isStickyStorageFor(what, source)) {
                         long inserted = inventory.insert(what, remaining, mode, source);
                         remaining -= inserted;
-                        legacyStorageChanged(inventory, inserted, mode);
                         stickyStorageFound = true;
                     }
                 }
@@ -152,7 +150,6 @@ public class NetworkStorage implements MEStorageMonitor {
                         if (inventory.isPreferredStorageFor(what, source)) {
                             long inserted = inventory.insert(what, remaining, mode, source);
                             remaining -= inserted;
-                            legacyStorageChanged(inventory, inserted, mode);
                         } else {
                             this.secondPassInventories.add(inventory);
                         }
@@ -168,7 +165,6 @@ public class NetworkStorage implements MEStorageMonitor {
                         }
                         long inserted = inventory.insert(what, remaining, mode, source);
                         remaining -= inserted;
-                        legacyStorageChanged(inventory, inserted, mode);
                     }
                 }
             }
@@ -204,7 +200,6 @@ public class NetworkStorage implements MEStorageMonitor {
                     }
                     long extractedNow = inventory.extract(what, amount - extracted, mode, source);
                     extracted += extractedNow;
-                    legacyStorageChanged(inventory, extractedNow, mode);
                 }
             }
         } finally {
@@ -291,7 +286,7 @@ public class NetworkStorage implements MEStorageMonitor {
             AELog.error("Reentrant network storage listener notification; scheduling a full storage refresh.");
             if (!this.listUpdatePending && !this.dispatchingListUpdate) {
                 this.listUpdatePending = true;
-                this.legacyMutationCallback.run();
+                this.invalidationCallback.run();
             }
             return;
         }
@@ -361,17 +356,11 @@ public class NetworkStorage implements MEStorageMonitor {
         }
     }
 
-    private boolean isQueuedForRemoval(MEStorage inventory) {
+    private boolean isQueuedForRemoval(MEStorageMonitor inventory) {
         return this.queuedRemovals != null && this.queuedRemovals.contains(inventory);
     }
 
-    private void legacyStorageChanged(MEStorage inventory, long amount, Actionable mode) {
-        if (amount > 0 && mode == Actionable.MODULATE && !(inventory instanceof MEStorageMonitor)) {
-            this.legacyMutationCallback.run();
-        }
-    }
-
-    private record QueuedOperation(boolean mount, int priority, MEStorage inventory) {
+    private record QueuedOperation(boolean mount, int priority, MEStorageMonitor inventory) {
     }
 
     private static final class ListenerRegistration {

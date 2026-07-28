@@ -192,6 +192,16 @@ public interface ICraftingService extends IGridService {
     Set<AEKey> getCraftables(AEKeyFilter filter);
 
     /**
+     * Returns a monotonic revision that changes whenever the set of craftable resources may have changed.
+     * <p>
+     * Consumers can retain the last observed value and avoid repeatedly enumerating {@link #getCraftables(AEKeyFilter)}
+     * while the provider structure is unchanged.
+     *
+     * @return the current craftables revision
+     */
+    long getCraftablesVersion();
+
+    /**
      * Returns true if <code>what</code> is currently being requested for a crafting job in this grid.
      * <p/>
      * This means that its pattern was pushed to a provider and the result is now being awaited, or that more of the

@@ -28,7 +28,7 @@ import ae2.api.networking.IGridService;
 import ae2.api.stacks.AEKeyType;
 import ae2.api.stacks.KeyCounter;
 import ae2.api.storage.IStorageProvider;
-import ae2.api.storage.MEStorage;
+import ae2.api.storage.MEStorageMonitor;
 
 /**
  * Grid-wide storage services for all {@link AEKeyType}.
@@ -38,11 +38,11 @@ public interface IStorageService extends IGridService {
     /**
      * @return The network inventory.
      */
-    MEStorage getInventory();
+    MEStorageMonitor getInventory();
 
     /**
      * Returns the cached content of the network inventory. Event-driven storage updates this cache synchronously.
-     * Changes from legacy storage or invalidated storage lists are reflected when the cache is next rebuilt.
+     * Invalidated storage lists are reflected when the cache is next rebuilt.
      * <p/>
      * Should be used when slightly outdated content is not a big deal. Preferred to
      * {@code getInventory().getAvailableStacks()} for performance reasons.
