@@ -8,6 +8,7 @@ import it.unimi.dsi.fastutil.objects.ObjectList;
 import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IRecipeLayout;
 import mezz.jei.bookmarks.BookmarkItem;
+import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -161,6 +162,23 @@ public final class GenericIngredientHelper {
             return isValidStack(stack) ? stack : null;
         }
         return null;
+    }
+
+    /**
+     * Converts a wrapped generic stack to its native HEI ingredient when a converter is registered for its key type.
+     * Unsupported key types keep their wrapper so they remain usable by the cell-view renderer.
+     */
+    public static Object unwrapWrappedIngredient(Object ingredient) {
+        if (ingredient instanceof ItemStack itemStack) {
+            GenericStack stack = GenericStack.unwrapItemStack(itemStack);
+            if (stack != null) {
+                Object converted = stackToIngredient(stack);
+                if (converted != null) {
+                    return converted;
+                }
+            }
+        }
+        return ingredient;
     }
 
     @Nullable

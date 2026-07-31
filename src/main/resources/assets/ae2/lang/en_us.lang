@@ -2152,3 +2152,12 @@ gui.ae2.CellTerminal.subnet.controls.dblclick=Double-click: Highlight in world
 gui.ae2.CellTerminal.subnet.controls.star=Toggle favorite
 gui.ae2.CellTerminal.subnet.controls.rename=Name (R-click): Rename
 gui.ae2.CellTerminal.subnet.controls.esc=ESC: Return to view
+gui.ae2.CellViewTitle=Storage Cell Contents
+gui.ae2.CellViewStoredTypes=Stored types: %s
+gui.ae2.CellViewBytes=Bytes: %s / %s
+gui.ae2.CellViewTypes=Types: %s / %s
+gui.ae2.CellViewTypeCost=Bytes per type: %s
+gui.ae2.CellViewTypeCostDetails=%s bytes/type x %s types = %s bytes
+gui.ae2.CellViewAmount=Stored: %s
+gui.ae2.CellViewMod=Mod: %s
+gui.ae2.CellViewShortcut=Press %s to view contents

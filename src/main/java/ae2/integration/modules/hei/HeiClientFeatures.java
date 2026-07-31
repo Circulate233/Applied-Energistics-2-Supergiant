@@ -2,6 +2,7 @@ package ae2.integration.modules.hei;
 
 import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.GenericStack;
+import ae2.api.storage.StorageCells;
 import ae2.client.gui.PreviousExternalGui;
 import ae2.client.gui.me.common.GuiMEStorage;
 import ae2.container.me.common.MEIngredientAction;
@@ -10,6 +11,7 @@ import ae2.core.localization.ButtonToolTips;
 import ae2.core.localization.GuiText;
 import ae2.core.network.InitNetwork;
 import ae2.core.network.serverbound.HeiIngredientActionPacket;
+import mezz.jei.config.KeyBindings;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.ItemStack;
@@ -60,25 +62,31 @@ final class HeiClientFeatures {
     }
 
     static void appendIngredientActionTooltip(ItemTooltipEvent event) {
+        if (!AEConfig.instance().isShowHeiTooltip()) {
+            return;
+        }
+
+        ItemStack tooltipStack = event.getItemStack();
+        if (StorageCells.isCellHandled(tooltipStack)) {
+            addTooltipLine(event, GuiText.CellViewShortcut.getLocal(KeyBindings.showRecipe.getDisplayName()));
+        }
+
         Object hovered = getHoveredIngredient();
         GenericStack stack = GenericIngredientHelper.ingredientToStack(hovered);
         if (stack == null || !(stack.what() instanceof AEItemKey itemKey)) {
             return;
         }
 
-        ItemStack tooltipStack = event.getItemStack();
         if (tooltipStack.isEmpty() || !itemKey.matches(tooltipStack)) {
             return;
         }
 
-        if (AEConfig.instance().isShowHeiTooltip()) {
-            if (Minecraft.getMinecraft().currentScreen instanceof GuiMEStorage<?>) {
-                addTooltipLine(event, ButtonToolTips.HeiAutoPin.getLocal(getKeyText(RETRIEVE)));
-            } else {
-                addTooltipLine(event, GuiText.HeiRetrieveIngredientTooltip.getLocal(getKeyText(RETRIEVE)));
-            }
-            addTooltipLine(event, GuiText.HeiCraftIngredientTooltip.getLocal(getKeyText(CRAFT)));
+        if (Minecraft.getMinecraft().currentScreen instanceof GuiMEStorage<?>) {
+            addTooltipLine(event, ButtonToolTips.HeiAutoPin.getLocal(getKeyText(RETRIEVE)));
+        } else {
+            addTooltipLine(event, GuiText.HeiRetrieveIngredientTooltip.getLocal(getKeyText(RETRIEVE)));
         }
+        addTooltipLine(event, GuiText.HeiCraftIngredientTooltip.getLocal(getKeyText(CRAFT)));
     }
 
     private static void handleInput(int eventKey, Consumer<Boolean> cancelEvent) {

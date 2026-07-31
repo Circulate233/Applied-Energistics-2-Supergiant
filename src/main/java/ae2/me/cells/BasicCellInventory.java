@@ -31,6 +31,7 @@ import ae2.api.storage.cells.CellState;
 import ae2.api.storage.cells.IBasicCellItem;
 import ae2.api.storage.cells.ISaveProvider;
 import ae2.api.storage.cells.StorageCell;
+import ae2.api.storage.cells.StorageCellStatistics;
 import ae2.core.AELog;
 import ae2.core.definitions.AEItems;
 import ae2.text.TextComponentItemStack;
@@ -49,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.Objects;
 
-public class BasicCellInventory implements StorageCell {
+public class BasicCellInventory implements StorageCell, StorageCellStatistics {
     private static final String STORAGE_CELL_INV_TAG = "storage_cell_inv";
     private static final String ITEM_COUNT_TAG = "ic";
     private static final String ITEM_SLOT_TAG = "it";
@@ -565,10 +566,12 @@ public class BasicCellInventory implements StorageCell {
         return this.partitionList.matchesFilter(requestedAddition, this.partitionMode);
     }
 
+    @Override
     public long getTotalBytes() {
         return this.totalBytes;
     }
 
+    @Override
     public int getBytesPerType() {
         return this.bytesPerType;
     }
@@ -585,6 +588,17 @@ public class BasicCellInventory implements StorageCell {
         return storedItems;
     }
 
+    @Override
+    public long getStoredTypes() {
+        return getStoredItemTypes();
+    }
+
+    @Override
+    public long getTotalTypes() {
+        return getTotalItemTypes();
+    }
+
+    @Override
     public long getUsedBytes() {
         long bytesForItemCount = divideRoundingUp(getStoredItemCount(), this.amountPerByte);
         return saturatedAdd(saturatedMultiply(getStoredItemTypes(), getBytesPerType()), bytesForItemCount);

@@ -338,7 +338,8 @@ public class HeiPlugin implements IModPlugin {
             new CondenserCategory(registry.getJeiHelpers().getGuiHelper()),
             new TransformCategory(registry.getJeiHelpers().getGuiHelper()),
             new EntropyRecipeCategory(registry.getJeiHelpers().getGuiHelper()),
-            new P2PAttunementCategory(registry.getJeiHelpers().getGuiHelper()));
+            new P2PAttunementCategory(registry.getJeiHelpers().getGuiHelper()),
+            new CellViewRecipeCategory(registry.getJeiHelpers().getGuiHelper()));
     }
 
     @Override
@@ -355,6 +356,7 @@ public class HeiPlugin implements IModPlugin {
         registerCraftingRecipeWrappers(registry);
         registerDescriptions(registry);
         blacklistTechnicalItems(registry);
+        registry.addRecipeRegistryPlugin(new CellViewRegistryPlugin());
 
         var transferHelper = registry.getJeiHelpers().recipeTransferHandlerHelper();
         registry.getRecipeTransferRegistry().addRecipeTransferHandler(

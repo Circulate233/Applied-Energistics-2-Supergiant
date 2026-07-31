@@ -35,6 +35,12 @@ import java.util.List;
 
 @SideOnly(Side.CLIENT)
 public interface AEKeyRenderHandler<T extends AEKey> {
+    /**
+     * Draws the key in a 16x16 GUI area. Implementations must balance their matrix operations and restore any GL state
+     * they modify beyond the AE GUI baseline: blending enabled, depth and lighting disabled, and color set to white.
+     * Callers do not sandbox handlers or repair state changed through raw OpenGL calls, and implementations are not
+     * expected to restore every state value that was active before this method was called.
+     */
     void drawInGui(Minecraft minecraft, int x, int y, T stack);
 
     void drawOnBlockFace(T what, float scale, int combinedLight, World level);
