@@ -131,7 +131,11 @@ public class Repo implements IClientRepo {
     @Override
     public final void handleUpdate(boolean fullUpdate, List<GridInventoryEntry> entries) {
         if (fullUpdate) {
-            clear();
+            if (isPaused()) {
+                clearEntries();
+            } else {
+                clear();
+            }
         }
 
         for (var entry : entries) {
@@ -199,14 +203,19 @@ public class Repo implements IClientRepo {
             var playerPinnedFreeSlots = getFreeSlots(playerPinnedEntries);
             var viewFreeSlots = getFreeSlots(view);
 
-            ObjectList<GridInventoryEntry> entriesToAdd = new ObjectArrayList<>(this.entries.size());
+            ObjectList<GridInventoryEntry> newEntries = new ObjectArrayList<>(this.entries.size());
 
-            // Determine what to do with server entries that are not currently being shown
+            // Collect first because HashBiMap does not provide a stable iteration order.
             for (var serverEntry : entries.values()) {
-                if (visibleSerials.contains(serverEntry.serial())) {
-                    continue; // Entry is already visible
+                if (!visibleSerials.contains(serverEntry.serial())) {
+                    newEntries.add(serverEntry);
                 }
+            }
+            newEntries.sort(Comparator.comparingLong(GridInventoryEntry::serial));
 
+            int entriesToAppend = 0;
+            for (int i = 0; i < newEntries.size(); i++) {
+                var serverEntry = newEntries.get(i);
                 // First, try to find an empty/meaningless slot in the view that is visually indistinguishable
                 // and fill it
                 if (takeOverSlotOccupiedByRemovedItem(serverEntry, craftingPinnedFreeSlots, craftingPinnedEntries)
@@ -215,11 +224,11 @@ public class Repo implements IClientRepo {
                     continue;
                 }
 
-                // if we couldn't take over an existing slot, just append it
-                entriesToAdd.add(serverEntry);
+                newEntries.set(entriesToAppend++, serverEntry);
             }
+            newEntries.size(entriesToAppend);
 
-            addEntriesToView(entriesToAdd);
+            addEntriesToView(newEntries);
         } else {
             this.view.clear();
             this.craftingPinnedEntries.clear();
@@ -416,9 +425,8 @@ public class Repo implements IClientRepo {
 
             // Update entries with data from server, which doesn't move them
             var serverEntry = entries.get(entry.serial());
-            if (serverEntry == null) {
-                // The server has removed the entry. Let's replace it with an entry that is not meaningful, but shows
-                // amount 0
+            if (serverEntry == null || !Objects.equals(entry.what(), serverEntry.what())) {
+                // The server removed the entry or reassigned its serial. Keep the old key in place at amount 0.
                 entry = new GridInventoryEntry(
                     entry.serial(),
                     entry.what(),
@@ -427,9 +435,9 @@ public class Repo implements IClientRepo {
                     false);
             } else {
                 entry = serverEntry;
+                visibleSerials.add(entry.serial());
             }
 
-            visibleSerials.add(entry.serial());
             shownEntries.set(i, entry);
         }
     }
@@ -445,7 +453,8 @@ public class Repo implements IClientRepo {
             if (entry == null) {
                 continue;
             }
-            if (!entries.containsKey(entry.serial())) {
+            var serverEntry = entries.get(entry.serial());
+            if (serverEntry == null || !Objects.equals(entry.what(), serverEntry.what())) {
                 freeSlots.computeIfAbsent(entry.what(), ignored -> new IntArrayList()).add(i);
             }
         }
@@ -513,7 +522,7 @@ public class Repo implements IClientRepo {
     }
 
     public final void clear() {
-        this.entries.clear();
+        clearEntries();
         this.view.clear();
         this.pinnedSlots.clear();
         this.pinnedSlotUserSlotIndexes.clear();
@@ -525,6 +534,10 @@ public class Repo implements IClientRepo {
         this.pinnedRowCount = 0;
         this.visiblePlayerPinRows = 0;
         this.configuredPlayerPinRows = 0;
+    }
+
+    private void clearEntries() {
+        this.entries.clear();
         this.entriesByItemId.clear();
     }
 
