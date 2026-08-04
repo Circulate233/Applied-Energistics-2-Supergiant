@@ -51,6 +51,7 @@ import ae2.core.network.serverbound.InventoryActionPacket;
 import ae2.core.network.serverbound.MEInteractionPacket;
 import ae2.core.network.serverbound.MouseWheelPacket;
 import ae2.core.network.serverbound.NetworkConfigSavePacket;
+import ae2.core.network.serverbound.PatternViewPacket;
 import ae2.core.network.serverbound.QuickMovePatternPacket;
 import ae2.core.network.serverbound.RequestClosestMeteoritePacket;
 import ae2.core.network.serverbound.RequesterSlotUpdatePacket;
@@ -138,6 +139,7 @@ public final class InitNetwork {
         registerServerbound(AppEngPayloadHandler.Server.class, InventoryActionPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, MEInteractionPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, MouseWheelPacket.class);
+        registerServerbound(AppEngPayloadHandler.Server.class, PatternViewPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, QuickMovePatternPacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, SelectKeyTypePacket.class);
         registerServerbound(AppEngPayloadHandler.Server.class, SelectWirelessTerminalPacket.class);
