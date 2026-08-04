@@ -48,7 +48,7 @@ public final class PatternHotKey {
         tooltip.add(Math.min(1, tooltip.size()), TextFormatting.DARK_GRAY
             + I18n.format("pattern.tooltip", TextFormatting.GRAY + keyName));
 
-        if (VIEW_PATTERN.isPressed()) {
+        if (VIEW_PATTERN.isActiveAndMatches(Keyboard.getEventKey())) {
             PatternGuiHandler.prepareClient(stack);
             InitNetwork.sendToServer(new PatternViewPacket(stack));
         }
