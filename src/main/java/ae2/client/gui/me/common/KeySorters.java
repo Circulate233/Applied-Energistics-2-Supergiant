@@ -41,7 +41,11 @@ final class KeySorters {
         AEKey::getModId,
         String::compareToIgnoreCase).thenComparing(NAME_ASC);
     public static final Comparator<AEKey> MOD_DESC = MOD_ASC.reversed();
-    public static final Comparator<AEKey> INVTWEAKS_ASC = KeySorters::compareInvTweaks;
+    private static final Comparator<AEKey> FALLBACK_ASC = KeySorters::compareByFallback;
+    private static final Comparator<AEKey> FALLBACK_DESC = FALLBACK_ASC.reversed();
+    public static final Comparator<AEKey> INVTWEAKS_ASC = ExternalSortFallback.comparator(
+        KeySorters::compareInvTweaks,
+        FALLBACK_ASC);
     public static final Comparator<AEKey> INVTWEAKS_DESC = INVTWEAKS_ASC.reversed();
 
     private KeySorters() {
@@ -56,10 +60,16 @@ final class KeySorters {
                 HeiAdapter hei = Integrations.hei();
                 var componentWeights = new Object2IntOpenHashMap<AEKey>();
                 componentWeights.defaultReturnValue(-1);
-                yield (left, right) -> compareHei(left, right, hei, componentWeights, dir);
+                yield ExternalSortFallback.comparator(
+                    (left, right) -> compareHei(left, right, hei, componentWeights, dir),
+                    getFallbackComparator(dir));
             }
             case AMOUNT -> throw new UnsupportedOperationException();
         };
+    }
+
+    static Comparator<AEKey> getFallbackComparator(SortDir dir) {
+        return dir == SortDir.ASCENDING ? FALLBACK_ASC : FALLBACK_DESC;
     }
 
     private static int compareInvTweaks(AEKey left, AEKey right) {
