@@ -67,8 +67,6 @@ import ae2.client.gui.me.patternencode.GuiPEATerm;
 import ae2.client.gui.me.patternencode.GuiPatternEncodingTerm;
 import ae2.client.gui.me.requester.GuiRequesterTerm;
 import ae2.client.gui.networking.GuiControllerStatus;
-import ae2.client.gui.pattern.GuiCraftingPattern;
-import ae2.client.gui.pattern.GuiProcessingPattern;
 import ae2.client.gui.style.GuiStyleManager;
 import ae2.container.AEBaseContainer;
 import ae2.container.GuiIds;
@@ -132,10 +130,6 @@ import ae2.container.me.items.ContainerCraftingTerm;
 import ae2.container.me.items.ContainerPatternEncodingTerm;
 import ae2.container.me.items.ContainerWirelessCraftingTerm;
 import ae2.container.networking.ContainerControllerStatus;
-import ae2.container.pattern.ContainerCraftingPattern;
-import ae2.container.pattern.ContainerPattern;
-import ae2.container.pattern.ContainerProcessingPattern;
-import ae2.container.pattern.PatternGuiHandler;
 import ae2.core.gui.locator.GuiHostLocator;
 import ae2.core.gui.locator.GuiHostLocators;
 import ae2.core.gui.locator.ItemGuiHostLocator;
@@ -246,8 +240,7 @@ public class AEGuiHandler implements IGuiHandler {
             || bridge == GuiIds.GuiKey.WIRELESS_PATTERN_ACCESS_TERMINAL
             || bridge == GuiIds.GuiKey.WIRELESS_PEA_TERMINAL
             || bridge == GuiIds.GuiKey.WIRELESS_REQUESTER_TERMINAL
-            || bridge == GuiIds.GuiKey.WIRELESS_TERMINAL_DYNAMIC
-            || bridge == GuiIds.GuiKey.PATTERN_VIEW;
+            || bridge == GuiIds.GuiKey.WIRELESS_TERMINAL_DYNAMIC;
     }
 
     private static boolean isPartGui(GuiIds.GuiKey bridge) {
@@ -680,9 +673,6 @@ public class AEGuiHandler implements IGuiHandler {
             }
             case WIRELESS_TERMINAL_DYNAMIC -> {
                 return createDynamicWirelessTerminalContainer(player, x, y, ID);
-            }
-            case PATTERN_VIEW -> {
-                return PatternGuiHandler.createServerContainer(player.inventory);
             }
         }
         return null;
@@ -1343,16 +1333,6 @@ public class AEGuiHandler implements IGuiHandler {
                 return definition == null ? null : definition.screenFactory()
                                                              .create(definition, wirelessTerminalContainer,
                                                                  player.inventory);
-            }
-            case PATTERN_VIEW -> {
-                ContainerPattern container = PatternGuiHandler.createClientContainer(player.inventory);
-                if (container instanceof ContainerCraftingPattern craftingPattern) {
-                    return new GuiCraftingPattern(craftingPattern, player.inventory);
-                }
-                if (container instanceof ContainerProcessingPattern processingPattern) {
-                    return new GuiProcessingPattern(processingPattern, player.inventory);
-                }
-                return null;
             }
         }
         return null;

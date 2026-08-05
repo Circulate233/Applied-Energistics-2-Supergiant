@@ -7,8 +7,10 @@ import ae2.core.localization.ButtonToolTips;
 import ae2.core.localization.Tooltips;
 import ae2.container.pattern.ContainerPattern;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Slot;
 import net.minecraft.util.text.ITextComponent;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 
@@ -50,5 +52,9 @@ public abstract class GuiPattern<T extends ContainerPattern> extends AEBaseGui<T
             return;
         }
         super.renderHoveredToolTip(mouseX, mouseY);
+    }
+
+    @Override
+    protected void handleMouseClick(@Nullable Slot slot, int slotId, int mouseButton, ClickType clickType) {
     }
 }

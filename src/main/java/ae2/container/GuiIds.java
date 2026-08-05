@@ -108,8 +108,7 @@ public final class GuiIds {
         PORTABLE_CELL_PICKUP_FILTER,
         CELL_TERMINAL,
         WIRELESS_CELL_TERMINAL,
-        WIRELESS_TERMINAL_DYNAMIC,
-        PATTERN_VIEW;
+        WIRELESS_TERMINAL_DYNAMIC;
 
         private static final GuiKey[] VALUES = values();
 

@@ -1,13 +1,13 @@
 package ae2.client;
 
-import ae2.container.pattern.PatternGuiHandler;
-import ae2.core.network.InitNetwork;
-import ae2.core.network.serverbound.PatternViewPacket;
+import ae2.client.gui.pattern.PatternGuiHandler;
 import ae2.crafting.pattern.EncodedPatternItem;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.settings.KeyBinding;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraftforge.client.settings.KeyConflictContext;
 import net.minecraftforge.client.settings.KeyModifier;
 import net.minecraftforge.common.MinecraftForge;
@@ -49,8 +49,13 @@ public final class PatternHotKey {
             + I18n.format("pattern.tooltip", TextFormatting.GRAY + keyName));
 
         if (VIEW_PATTERN.isActiveAndMatches(Keyboard.getEventKey())) {
-            PatternGuiHandler.prepareClient(stack);
-            InitNetwork.sendToServer(new PatternViewPacket(stack));
+            ItemStack pattern = stack.copy();
+            Minecraft minecraft = Minecraft.getMinecraft();
+            minecraft.addScheduledTask(() -> {
+                if (!PatternGuiHandler.open(pattern) && minecraft.player != null) {
+                    minecraft.player.sendMessage(new TextComponentTranslation("chat.pattern_view.error"));
+                }
+            });
         }
     }
 }
