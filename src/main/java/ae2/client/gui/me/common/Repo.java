@@ -248,7 +248,18 @@ public class Repo implements IClientRepo {
             var sortOrder = this.sortSrc.getSortBy();
             var sortDir = this.sortSrc.getSortDir();
 
-            this.view.sort(getComparator(sortOrder, sortDir));
+            var comparator = getComparator(sortOrder, sortDir);
+            if (isExternalSortOrder(sortOrder)) {
+                Throwable failure = ExternalSortFallback.sort(
+                    this.view,
+                    comparator,
+                    getFallbackComparator(sortDir));
+                if (failure != null) {
+                    AELog.warn(failure, "External terminal sorting failed for %s; using stable ordering", sortOrder);
+                }
+            } else {
+                this.view.sort(comparator);
+            }
         }
 
         rebuildPinnedSlots();
@@ -474,6 +485,15 @@ public class Repo implements IClientRepo {
 
         return Comparator.comparing(GridInventoryEntry::what, getKeyComparator(sortOrder, sortDir))
                          .thenComparingLong(GridInventoryEntry::serial);
+    }
+
+    private Comparator<? super GridInventoryEntry> getFallbackComparator(SortDir sortDir) {
+        return Comparator.comparing(GridInventoryEntry::what, KeySorters.getFallbackComparator(sortDir))
+                         .thenComparingLong(GridInventoryEntry::serial);
+    }
+
+    private static boolean isExternalSortOrder(SortOrder sortOrder) {
+        return sortOrder == SortOrder.INVTWEAKS || sortOrder == SortOrder.HEI;
     }
 
     public List<GridInventoryEntry> getPinnedEntries() {
