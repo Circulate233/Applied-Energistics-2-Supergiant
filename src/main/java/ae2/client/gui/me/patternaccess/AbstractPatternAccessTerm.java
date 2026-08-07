@@ -38,6 +38,7 @@ import ae2.container.implementations.IPatternAccess;
 import ae2.core.AEConfig;
 import ae2.core.localization.GuiText;
 import ae2.core.network.InitNetwork;
+import ae2.core.network.clientbound.PatternAccessTerminalChunkPacket;
 import ae2.core.network.serverbound.InventoryActionPacket;
 import ae2.core.network.serverbound.QuickMovePatternPacket;
 import ae2.crafting.execution.CraftingSupplierLocator;
@@ -650,6 +651,7 @@ public abstract class AbstractPatternAccessTerm<C extends AEBaseContainer & IPat
     public void onGuiClosed() {
         finishActiveGroupRename(true);
         finishActiveRename(true);
+        PatternAccessTerminalChunkPacket.clearPendingTransfers(this.container.windowId);
         super.onGuiClosed();
     }
 

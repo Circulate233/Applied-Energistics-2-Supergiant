@@ -2,6 +2,7 @@ package ae2.core.network.clientbound;
 
 import ae2.api.storage.ILinkStatus;
 import ae2.container.implementations.CellTerminalClientState;
+import ae2.container.implementations.CellTerminalClientState.CellTerminalTab;
 import ae2.container.implementations.ContainerCellTerminal;
 import ae2.core.AELog;
 import ae2.core.network.ClientboundPacket;
@@ -16,63 +17,102 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 public class CellTerminalSyncPacket extends ClientboundPacket {
     static final int CHUNK_PAYLOAD_BYTES = 262_144;
-    static final int MAX_CHUNKED_BYTES = 8 * 1_048_576;
+    static final int MAX_UNCOMPRESSED_BYTES = 8 * 1_048_576;
+    static final int MAX_WIRE_BYTES = 8 * 1_048_576;
     private static final String TAG_WINDOW_ID = "windowId";
     private static final String TAG_STATE = "state";
-    private static final int MAX_PACKET_BYTES = 1_048_576;
+
     private int windowId;
-    private CellTerminalClientState state = CellTerminalClientState.empty();
+    private boolean compressed;
+    private int uncompressedLength;
+    private byte[] payload = new byte[0];
     private boolean malformed;
 
     public CellTerminalSyncPacket() {
     }
 
-    public CellTerminalSyncPacket(int windowId, CellTerminalClientState state) {
+    CellTerminalSyncPacket(int windowId, boolean compressed, int uncompressedLength, byte[] payload) {
         this.windowId = windowId;
-        this.state = state;
+        this.compressed = compressed;
+        this.uncompressedLength = uncompressedLength;
+        this.payload = Arrays.copyOf(payload, payload.length);
+        validatePayloadMetadata();
     }
 
     public static void sendToClient(EntityPlayerMP player, int windowId, CellTerminalClientState state) {
-        NBTTagCompound root = rootTag(windowId, state);
-        byte[] payload = encodeRoot(root);
-        if (payload.length <= MAX_PACKET_BYTES) {
-            InitNetwork.sendToClient(player, new CellTerminalSyncPacket(windowId, state));
+        EncodedSyncPayload encoded = encodeStatePayload(windowId, state);
+        if (encoded == null) {
+            sendOfflineState(player, windowId, state.tab());
             return;
         }
 
-        if (payload.length > MAX_CHUNKED_BYTES) {
-            AELog.error("Cell Terminal sync packet exceeded chunked limit %s bytes: %s",
-                MAX_CHUNKED_BYTES, payload.length);
-            CellTerminalClientState lightState = state.lightSnapshot();
-            byte[] lightPayload = encodeRoot(rootTag(windowId, lightState));
-            if (lightPayload.length <= MAX_PACKET_BYTES) {
-                InitNetwork.sendToClient(player, new CellTerminalSyncPacket(windowId, lightState));
-                return;
-            }
-            InitNetwork.sendToClient(player, new CellTerminalSyncPacket(windowId, CellTerminalClientState.offline(
-                state.tab(),
-                ILinkStatus.ofDisconnected())));
+        if (encoded.payload().length <= CHUNK_PAYLOAD_BYTES) {
+            InitNetwork.sendToClient(player, new CellTerminalSyncPacket(windowId, encoded.compressed(),
+                encoded.uncompressedLength(), encoded.payload()));
             return;
         }
 
         int transferId = (int) (System.nanoTime() ^ ((long) windowId << 16) ^ state.cacheRevision());
-        int totalChunks = (payload.length + CHUNK_PAYLOAD_BYTES - 1) / CHUNK_PAYLOAD_BYTES;
+        int totalChunks = (encoded.payload().length + CHUNK_PAYLOAD_BYTES - 1) / CHUNK_PAYLOAD_BYTES;
         for (int chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
             int start = chunkIndex * CHUNK_PAYLOAD_BYTES;
-            int length = Math.min(CHUNK_PAYLOAD_BYTES, payload.length - start);
-            byte[] chunk = new byte[length];
-            System.arraycopy(payload, start, chunk, 0, length);
+            int length = Math.min(CHUNK_PAYLOAD_BYTES, encoded.payload().length - start);
+            byte[] chunk = Arrays.copyOfRange(encoded.payload(), start, start + length);
             InitNetwork.sendToClient(player, new CellTerminalSyncChunkPacket(
                 windowId,
                 transferId,
                 chunkIndex,
                 totalChunks,
-                payload.length,
+                encoded.compressed(),
+                encoded.uncompressedLength(),
+                encoded.payload().length,
                 chunk));
         }
+    }
+
+    static EncodedSyncPayload encodeStatePayload(int windowId, CellTerminalClientState state) {
+        try {
+            return encodeRawPayload(encodeRoot(rootTag(windowId, state)));
+        } catch (RuntimeException e) {
+            AELog.error(e, "Could not encode Cell Terminal sync state");
+            return null;
+        }
+    }
+
+    static EncodedSyncPayload encodeRawPayload(byte[] rawPayload) {
+        if (rawPayload.length > MAX_UNCOMPRESSED_BYTES) {
+            AELog.error("Cell Terminal sync state exceeded %s raw bytes: %s", MAX_UNCOMPRESSED_BYTES,
+                rawPayload.length);
+            return null;
+        }
+
+        var encoded = TerminalPayloadCodec.encode(rawPayload, MAX_UNCOMPRESSED_BYTES);
+        if (encoded.payload().length > MAX_WIRE_BYTES) {
+            AELog.error("Cell Terminal sync state exceeded %s wire bytes: %s", MAX_WIRE_BYTES,
+                encoded.payload().length);
+            return null;
+        }
+        return new EncodedSyncPayload(encoded.compressed(), encoded.uncompressedLength(), encoded.payload());
+    }
+
+    private static void sendOfflineState(EntityPlayerMP player, int windowId, CellTerminalTab tab) {
+        EncodedSyncPayload encoded = encodeStatePayload(windowId,
+            CellTerminalClientState.offline(tab, ILinkStatus.ofDisconnected()));
+        if (encoded == null) {
+            AELog.error("Could not encode Cell Terminal offline sync state");
+            return;
+        }
+        if (encoded.payload().length > CHUNK_PAYLOAD_BYTES) {
+            AELog.error("Cell Terminal offline sync state unexpectedly exceeded single packet limit: %s",
+                encoded.payload().length);
+            return;
+        }
+        InitNetwork.sendToClient(player, new CellTerminalSyncPacket(windowId, encoded.compressed(),
+            encoded.uncompressedLength(), encoded.payload()));
     }
 
     static NBTTagCompound rootTag(int windowId, CellTerminalClientState state) {
@@ -94,29 +134,44 @@ public class CellTerminalSyncPacket extends ClientboundPacket {
         }
     }
 
-    static void applyEncodedRoot(Minecraft minecraft, byte[] payload) {
-        ByteBuf buffer = Unpooled.wrappedBuffer(payload);
+    static DecodedState decodePayload(int expectedWindowId, boolean compressed, int uncompressedLength,
+                                     byte[] payload) {
+        byte[] rawPayload = TerminalPayloadCodec.decode(compressed, uncompressedLength, payload,
+            MAX_UNCOMPRESSED_BYTES);
+        ByteBuf buffer = Unpooled.wrappedBuffer(rawPayload);
         try {
             NBTTagCompound root = new PacketBuffer(buffer).readCompoundTag();
             if (root == null || !root.hasKey(TAG_STATE)) {
-                throw new IllegalArgumentException("Cell Terminal chunked sync packet has no state tag");
+                throw new IllegalArgumentException("Cell Terminal sync payload has no state tag");
             }
-            applyState(minecraft, root.getInteger(TAG_WINDOW_ID),
-                CellTerminalClientState.fromTag(root.getCompoundTag(TAG_STATE)));
-        } catch (RuntimeException | IOException e) {
-            AELog.warn(e, "Ignoring malformed chunked Cell Terminal sync packet");
+            int actualWindowId = root.getInteger(TAG_WINDOW_ID);
+            if (actualWindowId != expectedWindowId) {
+                throw new IllegalArgumentException("Cell Terminal sync window id does not match packet header");
+            }
+            if (buffer.isReadable()) {
+                throw new IllegalArgumentException("Trailing Cell Terminal sync payload bytes: "
+                    + buffer.readableBytes());
+            }
+            return new DecodedState(actualWindowId, CellTerminalClientState.fromTag(root.getCompoundTag(TAG_STATE)));
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Could not decode Cell Terminal sync payload", e);
         } finally {
             buffer.release();
         }
     }
 
-    private static int encodedSize(NBTTagCompound tag) {
-        ByteBuf sizeBuffer = Unpooled.buffer();
+    DecodedState decodePayload() {
+        return decodePayload(this.windowId, this.compressed, this.uncompressedLength, this.payload);
+    }
+
+    @SideOnly(Side.CLIENT)
+    static void applyPayload(Minecraft minecraft, int windowId, boolean compressed, int uncompressedLength,
+                             byte[] payload) {
         try {
-            new PacketBuffer(sizeBuffer).writeCompoundTag(tag);
-            return sizeBuffer.readableBytes();
-        } finally {
-            sizeBuffer.release();
+            DecodedState decoded = decodePayload(windowId, compressed, uncompressedLength, payload);
+            applyState(minecraft, decoded.windowId(), decoded.state());
+        } catch (RuntimeException e) {
+            AELog.warn(e, "Ignoring malformed Cell Terminal sync payload");
         }
     }
 
@@ -133,19 +188,20 @@ public class CellTerminalSyncPacket extends ClientboundPacket {
 
     @Override
     protected void read(ByteBuf buf) {
-        var packetBuffer = new PacketBuffer(buf);
+        var data = new PacketBuffer(buf);
         try {
-            if (buf.readableBytes() > MAX_PACKET_BYTES) {
-                throw new IllegalArgumentException("Cell Terminal sync packet exceeds " + MAX_PACKET_BYTES
-                    + " bytes before NBT decode: " + buf.readableBytes());
+            this.windowId = data.readVarInt();
+            this.compressed = data.readBoolean();
+            this.uncompressedLength = data.readVarInt();
+            int payloadLength = data.readVarInt();
+            if (payloadLength <= 0 || payloadLength > CHUNK_PAYLOAD_BYTES
+                || payloadLength != data.readableBytes()) {
+                throw new IllegalArgumentException("Cell Terminal sync payload length does not match packet bytes");
             }
-            NBTTagCompound root = packetBuffer.readCompoundTag();
-            if (root == null || !root.hasKey(TAG_STATE)) {
-                throw new IllegalArgumentException("Cell Terminal sync packet has no state tag");
-            }
-            this.windowId = root.getInteger(TAG_WINDOW_ID);
-            this.state = CellTerminalClientState.fromTag(root.getCompoundTag(TAG_STATE));
-        } catch (RuntimeException | IOException e) {
+            this.payload = new byte[payloadLength];
+            data.readBytes(this.payload);
+            validatePayloadMetadata();
+        } catch (RuntimeException e) {
             this.malformed = true;
             buf.skipBytes(buf.readableBytes());
             AELog.warn(e, "Ignoring malformed Cell Terminal sync packet");
@@ -154,20 +210,24 @@ public class CellTerminalSyncPacket extends ClientboundPacket {
 
     @Override
     protected void write(ByteBuf buf) {
-        var root = rootTag(this.windowId, this.state);
-        int encodedSize = encodedSize(root);
-        if (encodedSize > MAX_PACKET_BYTES) {
-            AELog.error("Cell Terminal sync packet exceeded %s bytes: %s", MAX_PACKET_BYTES, encodedSize);
-            root.setTag(TAG_STATE, this.state.lightSnapshot().toTag());
-            int lightSize = encodedSize(root);
-            if (lightSize > MAX_PACKET_BYTES) {
-                AELog.error("Cell Terminal light sync packet exceeded %s bytes: %s", MAX_PACKET_BYTES, lightSize);
-                root.setTag(TAG_STATE, CellTerminalClientState.offline(
-                    this.state.tab(),
-                    ILinkStatus.ofDisconnected()).toTag());
-            }
+        validatePayloadMetadata();
+        var data = new PacketBuffer(buf);
+        data.writeVarInt(this.windowId);
+        data.writeBoolean(this.compressed);
+        data.writeVarInt(this.uncompressedLength);
+        data.writeVarInt(this.payload.length);
+        data.writeBytes(this.payload);
+    }
+
+    private void validatePayloadMetadata() {
+        if (this.uncompressedLength <= 0 || this.uncompressedLength > MAX_UNCOMPRESSED_BYTES) {
+            throw new IllegalArgumentException("Invalid Cell Terminal sync uncompressed length: "
+                + this.uncompressedLength);
         }
-        new PacketBuffer(buf).writeCompoundTag(root);
+        if (this.payload.length <= 0 || this.payload.length > CHUNK_PAYLOAD_BYTES) {
+            throw new IllegalArgumentException("Invalid Cell Terminal sync wire payload length: "
+                + this.payload.length);
+        }
     }
 
     @Override
@@ -176,11 +236,15 @@ public class CellTerminalSyncPacket extends ClientboundPacket {
         if (this.malformed || minecraft.player == null) {
             return;
         }
-        applyState(minecraft, this.windowId, this.state);
+        applyPayload(minecraft, this.windowId, this.compressed, this.uncompressedLength, this.payload);
     }
 
-    @SuppressWarnings("unused")
-    public CellTerminalClientState getState() {
-        return this.state;
+    record DecodedState(int windowId, CellTerminalClientState state) {
+    }
+
+    record EncodedSyncPayload(boolean compressed, int uncompressedLength, byte[] payload) {
+        EncodedSyncPayload {
+            payload = Arrays.copyOf(payload, payload.length);
+        }
     }
 }

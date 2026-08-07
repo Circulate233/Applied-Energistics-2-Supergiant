@@ -46,6 +46,8 @@ import ae2.api.storage.IStorageMounts;
 import ae2.api.storage.IStorageProvider;
 import ae2.api.storage.ITerminalHost;
 import ae2.api.storage.MEStorage;
+import ae2.api.storage.MEStorageChangeListener;
+import ae2.api.storage.MEStorageMonitor;
 import ae2.api.storage.StorageCells;
 import ae2.api.storage.StorageHelper;
 import ae2.api.storage.SupplierStorage;
@@ -654,7 +656,7 @@ public class TileMEChest extends AENetworkedPoweredTile
         return cell.isEmpty() ? Items.AIR : cell.getItem();
     }
 
-    private static class ChestMonitorHandler extends DelegatingMEInventory {
+    private static class ChestMonitorHandler extends DelegatingMEInventory implements MEStorageMonitor {
         private final TileMEChest owner;
         private final StorageCell cellInventory;
 
@@ -662,6 +664,16 @@ public class TileMEChest extends AENetworkedPoweredTile
             super(cellInventory);
             this.owner = owner;
             this.cellInventory = cellInventory;
+        }
+
+        @Override
+        public void addListener(MEStorageChangeListener listener, Object verificationToken) {
+            this.cellInventory.addListener(listener, verificationToken);
+        }
+
+        @Override
+        public void removeListener(MEStorageChangeListener listener) {
+            this.cellInventory.removeListener(listener);
         }
 
         @Override

@@ -69,6 +69,7 @@ public final class PatternAccessSupport<C extends AEBaseContainer & IPatternAcce
     private final Reference2ObjectMap<PatternContainer, ContainerTracker> diList = new Reference2ObjectLinkedOpenHashMap<>();
     private final Long2ObjectOpenHashMap<ContainerTracker> byId = new Long2ObjectOpenHashMap<>();
     private final ReferenceSet<PatternContainer> pinnedHosts = new ReferenceOpenHashSet<>();
+    private boolean synchronizationSuppressed;
 
     public PatternAccessSupport(Supplier<@Nullable IGrid> gridSupplier,
                                 Supplier<ShowPatternProviders> shownProvidersSupplier,
@@ -130,11 +131,13 @@ public final class PatternAccessSupport<C extends AEBaseContainer & IPatternAcce
             this.pinnedHosts.clear();
         }
 
-        if (!hasSameVisibleContainers(state.visibleContainers)) {
-            state.forceFullUpdate = true;
-        }
-
-        if (state.total != this.diList.size() || state.forceFullUpdate) {
+        boolean topologyChanged = state.total != this.diList.size() || state.forceFullUpdate
+            || !hasSameVisibleContainers(state.visibleContainers);
+        if (this.synchronizationSuppressed) {
+            if (topologyChanged || hasTrackerContentChanged()) {
+                sendFullUpdate(grid, false);
+            }
+        } else if (topologyChanged) {
             sendFullUpdate(grid);
         } else {
             sendIncrementalUpdate();
@@ -357,21 +360,34 @@ public final class PatternAccessSupport<C extends AEBaseContainer & IPatternAcce
     }
 
     void sendIncrementalUpdate() {
+        List<ClientboundPacket> preparedPackets = new ObjectArrayList<>();
         for (ContainerTracker inv : this.diList.values()) {
             PatternAccessTerminalPacket packet = inv.createUpdatePacket();
             if (packet != null) {
-                this.packetSender.accept(packet);
+                List<ClientboundPacket> packets = createPatternPackets(packet);
+                if (packets == null) {
+                    suppressSynchronization(true);
+                    return;
+                }
+                appendPackets(preparedPackets, packets);
             }
         }
+        sendPreparedPackets(preparedPackets);
     }
 
     void sendFullUpdate(@Nullable IGrid grid) {
+        sendFullUpdate(grid, true);
+    }
+
+    private void sendFullUpdate(@Nullable IGrid grid, boolean clearClientBeforeFullUpdate) {
         this.byId.clear();
         this.diList.clear();
 
-        this.packetSender.accept(new ClearPatternAccessTerminalPacket());
-
         if (grid == null) {
+            if (clearClientBeforeFullUpdate) {
+                this.packetSender.accept(new ClearPatternAccessTerminalPacket());
+            }
+            this.synchronizationSuppressed = false;
             return;
         }
 
@@ -389,14 +405,62 @@ public final class PatternAccessSupport<C extends AEBaseContainer & IPatternAcce
             }
         }
 
+        List<ClientboundPacket> preparedPackets = new ObjectArrayList<>();
         for (ContainerTracker inv : this.diList.values()) {
             this.byId.put(inv.serverId, inv);
-            this.packetSender.accept(inv.createFullPacket());
+            List<ClientboundPacket> packets = createPatternPackets(inv.createFullPacket());
+            if (packets == null) {
+                suppressSynchronization(clearClientBeforeFullUpdate);
+                return;
+            }
+            appendPackets(preparedPackets, packets);
             PatternAccessTerminalInfoPacket infoPacket = inv.createInfoPacket();
             if (infoPacket != null) {
-                this.packetSender.accept(infoPacket);
+                preparedPackets.add(infoPacket);
             }
         }
+        if (clearClientBeforeFullUpdate) {
+            this.packetSender.accept(new ClearPatternAccessTerminalPacket());
+        }
+        sendPreparedPackets(preparedPackets);
+        this.synchronizationSuppressed = false;
+    }
+
+    private @Nullable List<ClientboundPacket> createPatternPackets(PatternAccessTerminalPacket update) {
+        int windowId = this.ownerContainer == null ? 0 : this.ownerContainer.windowId;
+        return PatternAccessTerminalPacket.createPackets(update, windowId);
+    }
+
+    private void sendPreparedPackets(List<ClientboundPacket> packets) {
+        for (int i = 0; i < packets.size(); i++) {
+            this.packetSender.accept(packets.get(i));
+        }
+    }
+
+    private static void appendPackets(List<ClientboundPacket> target, List<ClientboundPacket> source) {
+        for (int i = 0; i < source.size(); i++) {
+            target.add(source.get(i));
+        }
+    }
+
+    private void suppressSynchronization(boolean clearClient) {
+        if (clearClient && !this.synchronizationSuppressed) {
+            this.packetSender.accept(new ClearPatternAccessTerminalPacket());
+        }
+        for (ContainerTracker tracker : this.diList.values()) {
+            tracker.synchronizeClientSnapshot();
+        }
+        this.byId.clear();
+        this.synchronizationSuppressed = true;
+    }
+
+    private boolean hasTrackerContentChanged() {
+        for (ContainerTracker tracker : this.diList.values()) {
+            if (tracker.hasContentChanged()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     boolean hasProvider(long inventoryId) {
@@ -627,6 +691,22 @@ public final class PatternAccessSupport<C extends AEBaseContainer & IPatternAcce
 
             return PatternAccessTerminalPacket.fullUpdate(this.serverId, this.server.size(), this.sortBy,
                 this.container.canEditTerminalName(), this.container.canModifyTerminalVisibility(), this.group, slots);
+        }
+
+        private void synchronizeClientSnapshot() {
+            for (int i = 0; i < this.client.size(); i++) {
+                ItemStack stack = this.getVisibleStack(i);
+                this.client.setItemDirect(i, stack.isEmpty() ? ItemStack.EMPTY : stack.copy());
+            }
+        }
+
+        private boolean hasContentChanged() {
+            for (int i = 0; i < this.server.size(); i++) {
+                if (isDifferent(this.getVisibleStack(i), this.client.getStackInSlot(i))) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         @Nullable

@@ -120,7 +120,7 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     private final ObjectSet<AEKey> currentlyCrafting = new ObjectOpenHashSet<>();
     private final ObjectOpenHashSet<AEKey> currentlyCraftable = new ObjectOpenHashSet<>();
     private long lastProcessedCraftingLogicChangeTick;
-    private long lastProcessedCraftableChangeTick;
+    private long lastProcessedCraftablesVersion;
     private long recursiveIngredientReserveAmount = DEFAULT_RECURSIVE_INGREDIENT_RESERVE_AMOUNT;
     private boolean recursiveIngredientReserveAmountRestored;
     private boolean updateList = false;
@@ -129,7 +129,7 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
         this.grid = grid;
         this.energyGrid = energyGrid;
         this.lastProcessedCraftingLogicChangeTick = TickHandler.instance().getCurrentTick();
-        this.lastProcessedCraftableChangeTick = TickHandler.instance().getCurrentTick();
+        this.lastProcessedCraftablesVersion = this.craftingProviders.getRevision();
 
         storageGrid.addGlobalStorageProvider(new CraftingServiceStorage(this));
     }
@@ -224,6 +224,11 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     @Override
     public Set<AEKey> getCraftables(AEKeyFilter filter) {
         return this.craftingProviders.getCraftables(filter);
+    }
+
+    @Override
+    public long getCraftablesVersion() {
+        return this.craftingProviders.getRevision();
     }
 
     private void updateCPUClusters() {
@@ -422,8 +427,8 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
             }
         }
 
-        if (this.lastProcessedCraftableChangeTick != this.craftingProviders.getLastModifiedOnTick()) {
-            this.lastProcessedCraftableChangeTick = this.craftingProviders.getLastModifiedOnTick();
+        if (this.lastProcessedCraftablesVersion != this.craftingProviders.getRevision()) {
+            this.lastProcessedCraftablesVersion = this.craftingProviders.getRevision();
 
             var craftableKeys = this.craftingProviders.getCraftableKeys();
             var emittableKeys = this.craftingProviders.getEmittableKeys();

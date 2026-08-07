@@ -9,9 +9,11 @@ import ae2.api.stacks.AEKey;
 import ae2.api.stacks.AEKey2LongMap;
 import ae2.api.stacks.GenericStack;
 import ae2.api.stacks.KeyCounter;
+import ae2.api.storage.MEStorageChangeListener;
 import ae2.api.storage.cells.CellState;
 import ae2.api.storage.cells.ISaveProvider;
 import ae2.api.storage.cells.StorageCell;
+import ae2.core.AELog;
 import ae2.core.definitions.AEItems;
 import ae2.items.storage.VoidCellItem;
 import ae2.text.TextComponentItemStack;
@@ -20,12 +22,15 @@ import ae2.tile.misc.CondenserLogicHost;
 import ae2.util.CellWorkbenchFilter;
 import ae2.util.prioritylist.DefaultPriorityList;
 import ae2.util.prioritylist.IPartitionList;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Objects;
 
 public class VoidCellInventory implements StorageCell, CondenserLogicHost {
     private static final String STORED_STACKS = "void_cell_stored_stacks";
@@ -36,9 +41,14 @@ public class VoidCellInventory implements StorageCell, CondenserLogicHost {
     private final CondenserOutput mode;
     private final IncludeExclude partitionMode;
     private final IPartitionList partitionList;
+    private final ObjectList<ListenerRegistration> listeners = new ObjectArrayList<>();
     private AEKey2LongMap storedAmounts;
     private double voidEnergy;
     private boolean persisted = true;
+    private boolean dispatchingListeners;
+    private boolean listUpdateRequired;
+    @Nullable
+    private ListenerRegistration currentListener;
 
     public VoidCellInventory(ItemStack stack, @Nullable ISaveProvider host) {
         this.stack = stack;
@@ -90,6 +100,7 @@ public class VoidCellInventory implements StorageCell, CondenserLogicHost {
                 getCellItems().put(what, currentAmount - extracted);
             }
             saveChanges();
+            postChange(what, -extracted);
         }
         return extracted;
     }
@@ -176,27 +187,28 @@ public class VoidCellInventory implements StorageCell, CondenserLogicHost {
         return this.storedAmounts;
     }
 
-    private void addStoredAmount(AEKey what, long amount) {
+    private long addStoredAmount(AEKey what, long amount) {
         if (what == null || amount <= 0) {
-            return;
+            return 0;
         }
         AEKey2LongMap cellItems = getCellItems();
-        addStoredAmount(cellItems, what, amount);
+        return addStoredAmount(cellItems, what, amount);
     }
 
-    private void addStoredAmount(AEKey2LongMap cellItems, AEKey what, long amount) {
+    private long addStoredAmount(AEKey2LongMap cellItems, AEKey what, long amount) {
         if (what == null || amount <= 0) {
-            return;
+            return 0;
         }
         if (!isValidStoredOutput(what)) {
-            return;
+            return 0;
         }
         long currentAmount = cellItems.getLong(what);
         long newAmount = Long.MAX_VALUE - currentAmount < amount ? Long.MAX_VALUE : currentAmount + amount;
         cellItems.put(what, newAmount);
+        return newAmount - currentAmount;
     }
 
-    private boolean isValidStoredOutput(AEKey what) {
+    boolean isValidStoredOutput(AEKey what) {
         return what.equals(AEItemKey.of(AEItems.MATTER_BALL.item()))
             || what.equals(AEItemKey.of(AEItems.SINGULARITY.item()));
     }
@@ -249,11 +261,139 @@ public class VoidCellInventory implements StorageCell, CondenserLogicHost {
 
     @Override
     public void addCondenserOutput(AEItemKey output, long amount) {
-        addStoredAmount(output, amount);
+        long added = addStoredAmount(output, amount);
+        if (added > 0) {
+            postChange(output, added);
+        }
     }
 
     @Override
     public void saveCondenserChanges() {
         saveChanges();
+    }
+
+    @Override
+    public void addListener(MEStorageChangeListener listener, Object verificationToken) {
+        Objects.requireNonNull(listener, "listener");
+        for (int i = 0; i < this.listeners.size(); i++) {
+            if (this.listeners.get(i).listener == listener) {
+                throw new IllegalStateException("The storage listener is already registered.");
+            }
+        }
+        this.listeners.add(new ListenerRegistration(listener, verificationToken));
+    }
+
+    @Override
+    public void removeListener(MEStorageChangeListener listener) {
+        for (int i = this.listeners.size() - 1; i >= 0; i--) {
+            var registration = this.listeners.get(i);
+            if (registration.listener == listener) {
+                registration.active = false;
+                if (!this.dispatchingListeners) {
+                    this.listeners.remove(i);
+                }
+            }
+        }
+    }
+
+    private void postChange(AEKey what, long delta) {
+        if (this.dispatchingListeners) {
+            if (this.currentListener != null) {
+                AELog.error(
+                        "Void cell storage listener {} modified the cell during its callback; disabling it and requesting a full storage refresh.",
+                        this.currentListener.listener);
+                this.currentListener.active = false;
+            } else {
+                AELog.error(
+                        "Void cell storage was modified during listener dispatch without an active listener; requesting a full storage refresh.");
+            }
+            this.listUpdateRequired = true;
+            return;
+        }
+
+        this.dispatchingListeners = true;
+        int listenerCount = this.listeners.size();
+        try {
+            for (int i = 0; i < listenerCount; i++) {
+                var registration = this.listeners.get(i);
+                if (!registration.active) {
+                    continue;
+                }
+                if (!registration.listener.isValid(registration.verificationToken)) {
+                    registration.active = false;
+                    continue;
+                }
+                this.currentListener = registration;
+                try {
+                    registration.listener.onStackChange(what, delta);
+                } finally {
+                    this.currentListener = null;
+                }
+                if (this.listUpdateRequired) {
+                    break;
+                }
+            }
+        } finally {
+            this.currentListener = null;
+            this.dispatchingListeners = false;
+        }
+
+        if (this.listUpdateRequired) {
+            notifyListUpdate();
+        }
+        removeInactiveListeners();
+    }
+
+    private void notifyListUpdate() {
+        int remainingPasses = this.listeners.size() + 1;
+        this.dispatchingListeners = true;
+        try {
+            while (this.listUpdateRequired && remainingPasses-- > 0) {
+                this.listUpdateRequired = false;
+                int listenerCount = this.listeners.size();
+                for (int i = 0; i < listenerCount; i++) {
+                    var registration = this.listeners.get(i);
+                    if (!registration.active) {
+                        continue;
+                    }
+                    if (!registration.listener.isValid(registration.verificationToken)) {
+                        registration.active = false;
+                        continue;
+                    }
+                    this.currentListener = registration;
+                    try {
+                        registration.listener.onListUpdate();
+                    } finally {
+                        this.currentListener = null;
+                    }
+                }
+            }
+            if (this.listUpdateRequired) {
+                AELog.error("Void cell storage listener refresh exceeded its bounded retry count.");
+            }
+        } finally {
+            this.listUpdateRequired = false;
+            this.currentListener = null;
+            this.dispatchingListeners = false;
+        }
+    }
+
+    private void removeInactiveListeners() {
+        for (int i = this.listeners.size() - 1; i >= 0; i--) {
+            if (!this.listeners.get(i).active) {
+                this.listeners.remove(i);
+            }
+        }
+    }
+
+    private static final class ListenerRegistration {
+        private final MEStorageChangeListener listener;
+        private final Object verificationToken;
+        private boolean active = true;
+
+        private ListenerRegistration(MEStorageChangeListener listener, Object verificationToken) {
+            this.listener = listener;
+            this.verificationToken = verificationToken;
+        }
     }
 }

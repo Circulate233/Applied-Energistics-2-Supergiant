@@ -26,10 +26,13 @@ import ae2.api.stacks.AEKey2LongMap;
 import ae2.api.stacks.AEKeyTypes;
 import ae2.api.stacks.GenericStack;
 import ae2.api.stacks.KeyCounter;
+import ae2.api.storage.MEStorageChangeListener;
 import ae2.api.storage.cells.CellState;
 import ae2.api.storage.cells.IBasicCellItem;
 import ae2.api.storage.cells.ISaveProvider;
 import ae2.api.storage.cells.StorageCell;
+import ae2.api.storage.cells.StorageCellStatistics;
+import ae2.core.AELog;
 import ae2.core.definitions.AEItems;
 import ae2.text.TextComponentItemStack;
 import ae2.util.CellWorkbenchFilter;
@@ -47,7 +50,7 @@ import org.jetbrains.annotations.Nullable;
 import java.math.BigInteger;
 import java.util.Objects;
 
-public class BasicCellInventory implements StorageCell {
+public class BasicCellInventory implements StorageCell, StorageCellStatistics {
     private static final String STORAGE_CELL_INV_TAG = "storage_cell_inv";
     private static final String ITEM_COUNT_TAG = "ic";
     private static final String ITEM_SLOT_TAG = "it";
@@ -70,9 +73,14 @@ public class BasicCellInventory implements StorageCell {
     private final boolean partitionFuzzy;
     private final IncludeExclude partitionMode;
     private final IPartitionList partitionList;
+    private final ObjectList<ListenerRegistration> listeners = new ObjectArrayList<>();
     private long storedItemCount;
     private long storedItems;
     private boolean persisted = true;
+    private boolean dispatchingListeners;
+    private boolean listUpdateRequired;
+    @Nullable
+    private ListenerRegistration currentListener;
 
     // The cell type's channel matches, so this cast is safe
     private BasicCellInventory(ItemStack itemStack, IBasicCellItem cellType, @Nullable ISaveProvider saveProvider) {
@@ -213,6 +221,7 @@ public class BasicCellInventory implements StorageCell {
             }
             storedItemCount = Math.max(0, storedItemCount - extracted);
             saveChanges();
+            postChange(what, -extracted);
         }
         return extracted;
     }
@@ -378,8 +387,123 @@ public class BasicCellInventory implements StorageCell {
                 storedItems++;
             }
             saveChanges();
+            postChange(what, inserted);
         }
         return inserted;
+    }
+
+    @Override
+    public void addListener(MEStorageChangeListener listener, Object verificationToken) {
+        Objects.requireNonNull(listener, "listener");
+        for (int i = 0; i < this.listeners.size(); i++) {
+            if (this.listeners.get(i).listener == listener) {
+                throw new IllegalStateException("The storage listener is already registered.");
+            }
+        }
+        this.listeners.add(new ListenerRegistration(listener, verificationToken));
+    }
+
+    @Override
+    public void removeListener(MEStorageChangeListener listener) {
+        for (int i = this.listeners.size() - 1; i >= 0; i--) {
+            var registration = this.listeners.get(i);
+            if (registration.listener == listener) {
+                registration.active = false;
+                if (!this.dispatchingListeners) {
+                    this.listeners.remove(i);
+                }
+            }
+        }
+    }
+
+    private void postChange(AEKey what, long delta) {
+        if (this.dispatchingListeners) {
+            if (this.currentListener != null) {
+                AELog.error(
+                        "Basic cell storage listener {} modified the cell during its callback; disabling it and requesting a full storage refresh.",
+                        this.currentListener.listener);
+                this.currentListener.active = false;
+            } else {
+                AELog.error(
+                        "Basic cell storage was modified during listener dispatch without an active listener; requesting a full storage refresh.");
+            }
+            this.listUpdateRequired = true;
+            return;
+        }
+
+        this.dispatchingListeners = true;
+        int listenerCount = this.listeners.size();
+        try {
+            for (int i = 0; i < listenerCount; i++) {
+                var registration = this.listeners.get(i);
+                if (!registration.active) {
+                    continue;
+                }
+                if (!registration.listener.isValid(registration.verificationToken)) {
+                    registration.active = false;
+                    continue;
+                }
+                this.currentListener = registration;
+                try {
+                    registration.listener.onStackChange(what, delta);
+                } finally {
+                    this.currentListener = null;
+                }
+                if (this.listUpdateRequired) {
+                    break;
+                }
+            }
+        } finally {
+            this.currentListener = null;
+            this.dispatchingListeners = false;
+        }
+
+        if (this.listUpdateRequired) {
+            notifyListUpdate();
+        }
+        removeInactiveListeners();
+    }
+
+    private void notifyListUpdate() {
+        int remainingPasses = this.listeners.size() + 1;
+        this.dispatchingListeners = true;
+        try {
+            while (this.listUpdateRequired && remainingPasses-- > 0) {
+                this.listUpdateRequired = false;
+                int listenerCount = this.listeners.size();
+                for (int i = 0; i < listenerCount; i++) {
+                    var registration = this.listeners.get(i);
+                    if (!registration.active) {
+                        continue;
+                    }
+                    if (!registration.listener.isValid(registration.verificationToken)) {
+                        registration.active = false;
+                        continue;
+                    }
+                    this.currentListener = registration;
+                    try {
+                        registration.listener.onListUpdate();
+                    } finally {
+                        this.currentListener = null;
+                    }
+                }
+            }
+            if (this.listUpdateRequired) {
+                AELog.error("Basic cell storage listener refresh exceeded its bounded retry count.");
+            }
+        } finally {
+            this.listUpdateRequired = false;
+            this.currentListener = null;
+            this.dispatchingListeners = false;
+        }
+    }
+
+    private void removeInactiveListeners() {
+        for (int i = this.listeners.size() - 1; i >= 0; i--) {
+            if (!this.listeners.get(i).active) {
+                this.listeners.remove(i);
+            }
+        }
     }
 
     private void recalculateStoredAmounts() {
@@ -399,8 +523,8 @@ public class BasicCellInventory implements StorageCell {
                 emptyKeys.add(entry.getKey());
             }
         }
-        for (AEKey emptyKey : emptyKeys) {
-            cellItems.removeLong(emptyKey);
+        for (int i = 0; i < emptyKeys.size(); i++) {
+            cellItems.removeLong(emptyKeys.get(i));
         }
     }
 
@@ -409,7 +533,8 @@ public class BasicCellInventory implements StorageCell {
     }
 
     private long calculateMaxItemsPerType() {
-        if (!cellType.getUpgrades(itemStack).isInstalled(AEItems.EQUAL_DISTRIBUTION_CARD.item())) {
+        var upgrades = cellType.getUpgrades(itemStack);
+        if (upgrades.isEmpty() || !upgrades.isInstalled(AEItems.EQUAL_DISTRIBUTION_CARD.item())) {
             return Long.MAX_VALUE;
         }
 
@@ -441,10 +566,12 @@ public class BasicCellInventory implements StorageCell {
         return this.partitionList.matchesFilter(requestedAddition, this.partitionMode);
     }
 
+    @Override
     public long getTotalBytes() {
         return this.totalBytes;
     }
 
+    @Override
     public int getBytesPerType() {
         return this.bytesPerType;
     }
@@ -461,6 +588,17 @@ public class BasicCellInventory implements StorageCell {
         return storedItems;
     }
 
+    @Override
+    public long getStoredTypes() {
+        return getStoredItemTypes();
+    }
+
+    @Override
+    public long getTotalTypes() {
+        return getTotalItemTypes();
+    }
+
+    @Override
     public long getUsedBytes() {
         long bytesForItemCount = divideRoundingUp(getStoredItemCount(), this.amountPerByte);
         return saturatedAdd(saturatedMultiply(getStoredItemTypes(), getBytesPerType()), bytesForItemCount);
@@ -495,5 +633,16 @@ public class BasicCellInventory implements StorageCell {
             return 0;
         }
         return this.amountPerByte - div;
+    }
+
+    private static final class ListenerRegistration {
+        private final MEStorageChangeListener listener;
+        private final Object verificationToken;
+        private boolean active = true;
+
+        private ListenerRegistration(MEStorageChangeListener listener, Object verificationToken) {
+            this.listener = listener;
+            this.verificationToken = verificationToken;
+        }
     }
 }

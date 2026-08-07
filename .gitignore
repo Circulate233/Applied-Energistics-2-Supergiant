@@ -25,4 +25,3 @@ gradle-app.setting
 # IDEA config
 .idea
 /logs/
-/src/test/

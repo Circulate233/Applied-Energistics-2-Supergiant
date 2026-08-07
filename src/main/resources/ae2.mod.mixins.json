@@ -8,6 +8,9 @@
   "refmap": "ae2.refmap.json",
   "client": [
     "hei.MixinGuiContainerWrapper",
-    "hei.MixinGuiScreenHelper"
+    "hei.MixinGuiScreenHelper",
+    "hei.MixinInputHandler",
+    "hei.MixinRecipeLayout",
+    "hei.MixinRecipesGui"
   ]
 }

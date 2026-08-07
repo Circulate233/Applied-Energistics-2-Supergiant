@@ -64,6 +64,8 @@ import java.util.function.Function;
  * Stores the crafting logic of a crafting CPU.
  */
 public class CraftingCpuLogic {
+    private static final String NBT_PENDING_STANDALONE_OUTPUT = "pendingStandaloneOutput";
+
     final CraftingCPUCluster cluster;
     /**
      * Used crafting operations over the last 3 ticks.
@@ -78,6 +80,8 @@ public class CraftingCpuLogic {
      * True if the CPU is currently trying to clear its inventory but is not able to.
      */
     private boolean cantStoreItems = false;
+    private long pendingStandaloneOutput = 0;
+    private boolean returningStandaloneOutput = false;
     private long lastModifiedOnTick = TickHandler.instance().getCurrentTick();
     /**
      * Inventory.
@@ -212,6 +216,8 @@ public class CraftingCpuLogic {
             cancel();
             return;
         }
+
+        returnStandaloneOutputToNetwork();
 
         // Don't schedule more work while suspended
         if (job.suspended) {
@@ -473,7 +479,7 @@ public class CraftingCpuLogic {
     public long insert(AEKey what, long amount, Actionable type) {
         // also stop accepting items when the job is complete, i.e. to prevent re-insertion when pushing out
         // items during storeItems
-        if (what == null || job == null)
+        if (returningStandaloneOutput || what == null || job == null)
             return 0;
 
         // Only accept items we are waiting for.
@@ -507,19 +513,20 @@ public class CraftingCpuLogic {
                 }
             }
 
-            // Standalone jobs have no requester link, so their requested output must be kept locally and returned to the
-            // network when the CPU finishes.
+            // A nested network insert is rejected while the network is currently delivering this output to the CPU.
+            // Keep it locally until the next CPU tick, then return it without letting this CPU intercept it again.
             if (job.link.isStandalone()) {
                 if (type == Actionable.MODULATE) {
                     inventory.insert(what, amount, Actionable.MODULATE);
+                    pendingStandaloneOutput = LongMath.saturatedAdd(pendingStandaloneOutput, amount);
                 }
             } else {
                 // Final output is special: it goes directly into the requester.
                 job.link.insert(what, amount, type);
             }
 
-            // Note: we ignore any remainder (could be the entire input if there is no requester),
-            // we already marked the items as done, and we might even finish the job.
+            // Note: we ignore any remainder from the requester, since we already marked the items as done and might
+            // even finish the job.
 
             // This means that the job can be marked as finished even if some items were not actually inserted.
             // In some cases, repeated failed inserts of a fraction of the final output might prevent some recipes from
@@ -578,9 +585,45 @@ public class CraftingCpuLogic {
 
         // Finish job.
         this.job = null;
+        this.pendingStandaloneOutput = 0;
 
         // Store all remaining items.
         this.storeItems();
+    }
+
+    private void returnStandaloneOutputToNetwork() {
+        var currentJob = this.job;
+        if (currentJob == null || !currentJob.link.isStandalone() || pendingStandaloneOutput <= 0) {
+            return;
+        }
+
+        var grid = cluster.getGrid();
+        if (grid == null) {
+            return;
+        }
+
+        var what = currentJob.finalOutput.what();
+        long amount = Math.min(pendingStandaloneOutput,
+            inventory.extract(what, pendingStandaloneOutput, Actionable.SIMULATE));
+        pendingStandaloneOutput = 0;
+        if (amount <= 0) {
+            cluster.markDirty();
+            return;
+        }
+
+        long inserted;
+        returningStandaloneOutput = true;
+        try {
+            inserted = grid.getStorageService().getInventory().insert(
+                what, amount, Actionable.MODULATE, cluster.getSrc());
+        } finally {
+            returningStandaloneOutput = false;
+        }
+
+        if (inserted > 0) {
+            inventory.extract(what, inserted, Actionable.MODULATE);
+        }
+        cluster.markDirty();
     }
 
     /**
@@ -655,6 +698,7 @@ public class CraftingCpuLogic {
 
     public void readFromNBT(NBTTagCompound data) {
         this.inventory.readFromNBT(data.getTagList("inventory", Constants.NBT.TAG_COMPOUND));
+        this.pendingStandaloneOutput = Math.max(0, data.getLong(NBT_PENDING_STANDALONE_OUTPUT));
         if (data.hasKey("job", Constants.NBT.TAG_COMPOUND)) {
             this.job = new ExecutingCraftingJob(data.getCompoundTag("job"), this::postChange, this);
             if (this.job.finalOutput == null) {
@@ -669,6 +713,7 @@ public class CraftingCpuLogic {
 
     public void writeToNBT(NBTTagCompound data) {
         data.setTag("inventory", this.inventory.writeToNBT());
+        data.setLong(NBT_PENDING_STANDALONE_OUTPUT, pendingStandaloneOutput);
         if (this.job != null) {
             data.setTag("job", this.job.writeToNBT());
         }

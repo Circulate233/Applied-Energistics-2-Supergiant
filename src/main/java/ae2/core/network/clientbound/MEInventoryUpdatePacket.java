@@ -23,7 +23,6 @@ import java.util.function.Consumer;
 
 public class MEInventoryUpdatePacket extends ClientboundPacket {
     private static final int UNCOMPRESSED_PACKET_BYTE_LIMIT = 512 * 1024;
-    private static final int MAX_ENCODED_ENTRIES_LENGTH = 1024 * 1024;
     private static final int MIN_ENCODED_ENTRY_BYTES = 5;
     private static final int MAX_ENCODED_ENTRY_COUNT = Short.MAX_VALUE;
     private static final int INITIAL_BUFFER_CAPACITY = 2 * 1024;
@@ -66,15 +65,70 @@ public class MEInventoryUpdatePacket extends ClientboundPacket {
         buffer.writeBoolean(entry.craftable());
     }
 
-    private static List<GridInventoryEntry> decodeEntriesPayload(int entryCount, PacketBuffer data) {
-        List<GridInventoryEntry> entries = new ObjectArrayList<>(entryCount);
-        for (int i = 0; i < entryCount; i++) {
-            entries.add(readEntry(data));
+    private static List<GridInventoryEntry> decodeEntriesPayload(int entryCount, byte[] payload) {
+        ByteBuf raw = Unpooled.wrappedBuffer(payload);
+        try {
+            PacketBuffer data = new PacketBuffer(raw);
+            List<GridInventoryEntry> entries = new ObjectArrayList<>(entryCount);
+            for (int i = 0; i < entryCount; i++) {
+                entries.add(readEntry(data));
+            }
+            if (data.isReadable()) {
+                throw new IllegalArgumentException("Trailing ME inventory update payload bytes: " + data.readableBytes());
+            }
+            return entries;
+        } finally {
+            raw.release();
         }
-        if (data.isReadable()) {
-            throw new IllegalArgumentException("Trailing ME inventory update payload bytes: " + data.readableBytes());
+    }
+
+    private static byte[] encodeEntries(List<GridInventoryEntry> entries) {
+        PacketBuffer encoded = new PacketBuffer(Unpooled.buffer(INITIAL_BUFFER_CAPACITY,
+            UNCOMPRESSED_PACKET_BYTE_LIMIT));
+        try {
+            for (int i = 0; i < entries.size(); i++) {
+                writeEntry(encoded, entries.get(i));
+            }
+            byte[] payload = new byte[encoded.writerIndex()];
+            encoded.getBytes(0, payload);
+            return payload;
+        } catch (IndexOutOfBoundsException e) {
+            AELog.error(e, "ME inventory update entries exceeded the 512 KiB uncompressed packet limit");
+            throw new IllegalArgumentException("ME inventory update entries exceeded the uncompressed packet limit",
+                e);
+        } finally {
+            encoded.release();
         }
-        return entries;
+    }
+
+    @Nullable
+    private static byte[] encodeEntry(GridInventoryEntry entry) {
+        PacketBuffer encoded = new PacketBuffer(Unpooled.buffer(INITIAL_BUFFER_CAPACITY,
+            UNCOMPRESSED_PACKET_BYTE_LIMIT));
+        try {
+            writeEntry(encoded, entry);
+            byte[] payload = new byte[encoded.writerIndex()];
+            encoded.getBytes(0, payload);
+            return payload;
+        } catch (IndexOutOfBoundsException e) {
+            AELog.error(e, String.format(
+                "Skipping ME inventory update entry serial %d because it exceeds the 512 KiB uncompressed packet limit",
+                entry.serial()));
+            return null;
+        } finally {
+            encoded.release();
+        }
+    }
+
+    private static void validatePayload(int entryCount, byte[] payload) {
+        if (entryCount < 0 || entryCount > MAX_ENCODED_ENTRY_COUNT
+            || entryCount > payload.length / MIN_ENCODED_ENTRY_BYTES) {
+            throw new IllegalArgumentException("Invalid ME inventory update entry count: " + entryCount);
+        }
+        if (payload.length > UNCOMPRESSED_PACKET_BYTE_LIMIT) {
+            throw new IllegalArgumentException("ME inventory update payload exceeds its uncompressed limit: "
+                + payload.length);
+        }
     }
 
     @Override
@@ -82,21 +136,28 @@ public class MEInventoryUpdatePacket extends ClientboundPacket {
         PacketBuffer data = new PacketBuffer(buf);
         this.fullUpdate = data.readBoolean();
         int entryCount = data.readVarInt();
+        if (data.readableBytes() < 9) {
+            throw new IllegalArgumentException("Incomplete ME inventory update payload metadata");
+        }
+        boolean compressed = data.readBoolean();
+        int uncompressedLength = data.readInt();
         int payloadLength = data.readInt();
-        if (payloadLength < 0 || payloadLength > MAX_ENCODED_ENTRIES_LENGTH
-            || payloadLength > data.readableBytes()) {
+        if (payloadLength < 0 || payloadLength > UNCOMPRESSED_PACKET_BYTE_LIMIT
+            || uncompressedLength < 0 || uncompressedLength > UNCOMPRESSED_PACKET_BYTE_LIMIT
+            || payloadLength != data.readableBytes()) {
             throw new IllegalArgumentException("Invalid ME inventory update payload length: " + payloadLength);
         }
         if (entryCount < 0 || entryCount > MAX_ENCODED_ENTRY_COUNT
-            || entryCount > payloadLength / MIN_ENCODED_ENTRY_BYTES) {
+            || entryCount > uncompressedLength / MIN_ENCODED_ENTRY_BYTES) {
             throw new IllegalArgumentException("Invalid ME inventory update entry count: " + entryCount);
         }
 
         this.encodedEntryCount = entryCount;
-        this.encodedEntries = new byte[payloadLength];
-        data.readBytes(this.encodedEntries);
-        this.entries = decodeEntriesPayload(this.encodedEntryCount,
-            new PacketBuffer(Unpooled.wrappedBuffer(this.encodedEntries)));
+        byte[] payload = new byte[payloadLength];
+        data.readBytes(payload);
+        this.encodedEntries = TerminalPayloadCodec.decode(compressed, uncompressedLength, payload,
+            UNCOMPRESSED_PACKET_BYTE_LIMIT);
+        this.entries = decodeEntriesPayload(this.encodedEntryCount, this.encodedEntries);
     }
 
     @Override
@@ -110,22 +171,18 @@ public class MEInventoryUpdatePacket extends ClientboundPacket {
             payload = this.encodedEntries;
             entryCount = this.encodedEntryCount;
         } else {
-            PacketBuffer encoded = new PacketBuffer(Unpooled.buffer(INITIAL_BUFFER_CAPACITY));
-            int count = 0;
-            if (this.entries != null) {
-                for (GridInventoryEntry entry : this.entries) {
-                    writeEntry(encoded, entry);
-                    count++;
-                }
-            }
-            payload = new byte[encoded.writerIndex()];
-            encoded.getBytes(0, payload);
-            entryCount = count;
+            payload = this.entries == null ? new byte[0] : encodeEntries(this.entries);
+            entryCount = this.entries == null ? 0 : this.entries.size();
         }
 
+        validatePayload(entryCount, payload);
+        TerminalPayloadCodec.EncodedPayload encoded = TerminalPayloadCodec.encode(payload,
+            UNCOMPRESSED_PACKET_BYTE_LIMIT);
         data.writeVarInt(entryCount);
-        data.writeInt(payload.length);
-        data.writeBytes(payload);
+        data.writeBoolean(encoded.compressed());
+        data.writeInt(encoded.uncompressedLength());
+        data.writeInt(encoded.payload().length);
+        data.writeBytes(encoded.payload());
     }
 
     @Override
@@ -145,8 +202,7 @@ public class MEInventoryUpdatePacket extends ClientboundPacket {
 
         List<GridInventoryEntry> actualEntries = this.entries;
         if (actualEntries == null && this.encodedEntries != null) {
-            actualEntries = decodeEntriesPayload(this.encodedEntryCount,
-                new PacketBuffer(Unpooled.wrappedBuffer(this.encodedEntries)));
+            actualEntries = decodeEntriesPayload(this.encodedEntryCount, this.encodedEntries);
         }
 
         if (actualEntries != null) {
@@ -185,8 +241,10 @@ public class MEInventoryUpdatePacket extends ClientboundPacket {
                 }
 
                 long serial = updateHelper.getOrAssignSerial(key);
-                add(new GridInventoryEntry(serial, key, networkStorage.get(key), requestables.get(key),
-                    craftables.contains(key)));
+                if (!addEntry(new GridInventoryEntry(serial, key, networkStorage.get(key), requestables.get(key),
+                    craftables.contains(key)))) {
+                    updateHelper.removeSerial(key);
+                }
             }
         }
 
@@ -197,54 +255,77 @@ public class MEInventoryUpdatePacket extends ClientboundPacket {
                     continue;
                 }
 
-                AEKey sendKey;
                 Long serial = updateHelper.getSerial(key);
+                boolean hasExistingSerial = serial != null;
 
                 if (serial == null) {
-                    sendKey = key;
                     serial = updateHelper.getOrAssignSerial(key);
-                } else {
-                    sendKey = null;
                 }
 
                 long storedAmount = networkStorage.get(key);
                 boolean craftable = craftables.contains(key);
                 long requestable = requestables.get(key);
                 if (storedAmount <= 0 && requestable <= 0 && !craftable) {
-                    add(new GridInventoryEntry(serial, sendKey, 0, 0, false));
+                    addEntry(new GridInventoryEntry(serial, null, 0, 0, false));
                     updateHelper.removeSerial(key);
                 } else {
-                    add(new GridInventoryEntry(serial, sendKey, storedAmount, requestable, craftable));
+                    AEKey sendKey = hasExistingSerial ? null : key;
+                    if (!addEntry(new GridInventoryEntry(serial, sendKey, storedAmount, requestable, craftable))) {
+                        if (hasExistingSerial) {
+                            addEntry(new GridInventoryEntry(serial, null, 0, 0, false));
+                        }
+                        updateHelper.removeSerial(key);
+                    }
                 }
             }
 
-            updateHelper.commitChanges();
         }
 
         public void add(GridInventoryEntry entry) {
-            PacketBuffer data = ensureData();
-            writeEntry(data, entry);
-            ++this.entryCount;
+            addEntry(entry);
+        }
 
-            if (data.writerIndex() >= UNCOMPRESSED_PACKET_BYTE_LIMIT || this.entryCount >= Short.MAX_VALUE) {
+        private boolean addEntry(GridInventoryEntry entry) {
+            byte[] encodedEntry = encodeEntry(entry);
+            if (encodedEntry == null) {
+                return false;
+            }
+
+            if (this.encodedEntries != null && (this.entryCount == MAX_ENCODED_ENTRY_COUNT
+                || this.encodedEntries.writerIndex() + encodedEntry.length > UNCOMPRESSED_PACKET_BYTE_LIMIT)) {
                 flushData();
             }
+
+            PacketBuffer data = ensureData();
+            data.writeBytes(encodedEntry);
+            ++this.entryCount;
+
+            if (data.writerIndex() == UNCOMPRESSED_PACKET_BYTE_LIMIT || this.entryCount == MAX_ENCODED_ENTRY_COUNT) {
+                flushData();
+            }
+            return true;
         }
 
         public List<MEInventoryUpdatePacket> build() {
             flushData();
+            if (this.packets.isEmpty() && this.fullUpdate) {
+                this.packets.add(new MEInventoryUpdatePacket(true, null, 0, new byte[0]));
+                this.fullUpdate = false;
+            }
             return this.packets;
         }
 
         public void buildAndSend(Consumer<MEInventoryUpdatePacket> sender) {
-            for (MEInventoryUpdatePacket packet : build()) {
-                sender.accept(packet);
+            List<MEInventoryUpdatePacket> builtPackets = build();
+            for (int i = 0; i < builtPackets.size(); i++) {
+                sender.accept(builtPackets.get(i));
             }
         }
 
         private PacketBuffer ensureData() {
             if (this.encodedEntries == null) {
-                this.encodedEntries = new PacketBuffer(Unpooled.buffer(INITIAL_BUFFER_CAPACITY));
+                this.encodedEntries = new PacketBuffer(Unpooled.buffer(INITIAL_BUFFER_CAPACITY,
+                    UNCOMPRESSED_PACKET_BYTE_LIMIT));
             }
             return this.encodedEntries;
         }
@@ -255,6 +336,7 @@ public class MEInventoryUpdatePacket extends ClientboundPacket {
                 this.encodedEntries.getBytes(0, payload);
                 this.packets.add(new MEInventoryUpdatePacket(this.fullUpdate, null, this.entryCount,
                     payload));
+                this.encodedEntries.release();
                 this.encodedEntries = null;
                 this.entryCount = 0;
                 this.fullUpdate = false;

@@ -26,7 +26,6 @@ import ae2.api.stacks.AEKey;
 import ae2.api.stacks.KeyCounter;
 import ae2.api.storage.IStorageMounts;
 import ae2.api.storage.IStorageProvider;
-import ae2.api.storage.MEStorage;
 import ae2.api.storage.MEStorageChangeListener;
 import ae2.api.storage.MEStorageMonitor;
 import ae2.core.AELog;
@@ -62,15 +61,12 @@ public class StorageService implements IStorageService, IGridServiceProvider {
     private boolean cachedStacksNeedUpdate = true;
     private boolean cacheInitialized;
     private boolean processingMonitorCallback;
-    private int legacyMountCount;
 
     @Override
     public void onServerEndTick() {
         boolean cacheIsObserved = !this.interestManager.isEmpty() || this.storage.hasListeners();
-        if (cacheIsObserved && (this.cachedStacksNeedUpdate || this.legacyMountCount > 0)) {
+        if (cacheIsObserved && this.cachedStacksNeedUpdate) {
             updateCachedStacks();
-        } else if (!cacheIsObserved && this.legacyMountCount > 0) {
-            this.cachedStacksNeedUpdate = true;
         }
     }
 
@@ -142,14 +138,23 @@ public class StorageService implements IStorageService, IGridServiceProvider {
             return;
         }
 
-        long updated = delta > 0 && current > Long.MAX_VALUE - delta ? Long.MAX_VALUE : current + delta;
+        if (delta > 0 && current > Long.MAX_VALUE - delta) {
+            AELog.error(
+                "Storage monitor %s reported delta %d for %s with cached amount %d, which saturates the aggregate; "
+                    + "scheduling a full storage scan.",
+                source, delta, what, current);
+            invalidateCache();
+            return;
+        }
+
+        long updated = current + delta;
         if (updated == 0) {
             this.cachedAvailableStacks.remove(what);
         } else {
             this.cachedAvailableStacks.set(what, updated);
         }
         postWatcherUpdate(what, updated);
-        this.storage.postChange(what, delta);
+        this.storage.postChange(what, updated - current);
     }
 
     private void postWatcherUpdate(AEKey what, long newAmount) {
@@ -192,7 +197,7 @@ public class StorageService implements IStorageService, IGridServiceProvider {
     }
 
     @Override
-    public MEStorage getInventory() {
+    public MEStorageMonitor getInventory() {
         return this.storage;
     }
 
@@ -277,8 +282,8 @@ public class StorageService implements IStorageService, IGridServiceProvider {
 
     private class ProviderState implements IStorageMounts {
         private final IStorageProvider provider;
-        private final ReferenceSet<MEStorage> inventories = new ReferenceOpenHashSet<>();
-        private final Reference2ObjectMap<MEStorage, SourceListener> monitorListeners =
+        private final ReferenceSet<MEStorageMonitor> inventories = new ReferenceOpenHashSet<>();
+        private final Reference2ObjectMap<MEStorageMonitor, SourceListener> monitorListeners =
             new Reference2ObjectOpenHashMap<>();
         private boolean mounted;
 
@@ -295,7 +300,7 @@ public class StorageService implements IStorageService, IGridServiceProvider {
         }
 
         @Override
-        public void mount(MEStorage inventory, int priority) {
+        public void mount(MEStorageMonitor inventory, int priority) {
             Preconditions.checkState(this.mounted, "Cannot use StorageMounts after the storage has been unmounted.");
 
             if (!this.inventories.add(inventory)) {
@@ -303,13 +308,9 @@ public class StorageService implements IStorageService, IGridServiceProvider {
             }
 
             storage.mount(priority, inventory);
-            if (inventory instanceof MEStorageMonitor monitor) {
-                var listener = new SourceListener(this, monitor, Thread.currentThread());
-                this.monitorListeners.put(inventory, listener);
-                monitor.addListener(listener, inventory);
-            } else {
-                legacyMountCount++;
-            }
+            var listener = new SourceListener(this, inventory, Thread.currentThread());
+            this.monitorListeners.put(inventory, listener);
+            inventory.addListener(listener, inventory);
             invalidateCache();
         }
 
@@ -326,11 +327,8 @@ public class StorageService implements IStorageService, IGridServiceProvider {
             this.mounted = false;
             for (var inventory : this.inventories) {
                 var listener = this.monitorListeners.remove(inventory);
-                if (listener != null) {
-                    listener.monitor.removeListener(listener);
-                } else {
-                    legacyMountCount--;
-                }
+                Preconditions.checkState(listener != null, "Mounted storage has no monitor listener");
+                listener.monitor.removeListener(listener);
                 storage.unmount(inventory);
             }
             this.inventories.clear();

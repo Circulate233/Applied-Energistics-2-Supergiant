@@ -169,7 +169,7 @@ public record GenericStack(AEKey what, long amount) {
     }
 
     public static @Nullable GenericStack unwrapItemStack(ItemStack stack) {
-        if (!stack.isEmpty() && stack.getItem() instanceof GenericStackHolderItem item) {
+        if (stack != null && !stack.isEmpty() && stack.getItem() instanceof GenericStackHolderItem item) {
             return item.getGenericStack(stack);
         }
 

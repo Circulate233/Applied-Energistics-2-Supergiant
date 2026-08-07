@@ -22,18 +22,24 @@ import ae2.api.config.Actionable;
 import ae2.api.networking.security.IActionSource;
 import ae2.api.stacks.AEKey;
 import ae2.api.stacks.KeyCounter;
+import ae2.api.storage.MEStorageChangeListener;
 import ae2.api.storage.cells.CellState;
 import ae2.api.storage.cells.StorageCell;
 import ae2.items.contents.CellConfig;
 import ae2.text.TextComponentItemStack;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectSet;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.ITextComponent;
 
+import java.util.Objects;
+
 public class CreativeCellInventory implements StorageCell {
     private final ObjectSet<AEKey> configured;
     private final ItemStack stack;
+    private final ObjectList<ListenerRegistration> listeners = new ObjectArrayList<>();
 
     protected CreativeCellInventory(ItemStack stack) {
         this.stack = stack;
@@ -58,6 +64,7 @@ public class CreativeCellInventory implements StorageCell {
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        removeInvalidListeners();
         for (AEKey key : this.configured) {
             out.add(key, Long.MAX_VALUE);
         }
@@ -90,5 +97,37 @@ public class CreativeCellInventory implements StorageCell {
 
     @Override
     public void persist() {
+    }
+
+    @Override
+    public void addListener(MEStorageChangeListener listener, Object verificationToken) {
+        Objects.requireNonNull(listener, "listener");
+        for (int i = 0; i < this.listeners.size(); i++) {
+            if (this.listeners.get(i).listener == listener) {
+                throw new IllegalStateException("The storage listener is already registered.");
+            }
+        }
+        this.listeners.add(new ListenerRegistration(listener, verificationToken));
+    }
+
+    @Override
+    public void removeListener(MEStorageChangeListener listener) {
+        for (int i = this.listeners.size() - 1; i >= 0; i--) {
+            if (this.listeners.get(i).listener == listener) {
+                this.listeners.remove(i);
+            }
+        }
+    }
+
+    private void removeInvalidListeners() {
+        for (int i = this.listeners.size() - 1; i >= 0; i--) {
+            var registration = this.listeners.get(i);
+            if (!registration.listener.isValid(registration.verificationToken)) {
+                this.listeners.remove(i);
+            }
+        }
+    }
+
+    private record ListenerRegistration(MEStorageChangeListener listener, Object verificationToken) {
     }
 }

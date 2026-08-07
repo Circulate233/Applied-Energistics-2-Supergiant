@@ -16,6 +16,7 @@ import ae2.api.inventories.InternalInventory;
 import ae2.api.networking.IGrid;
 import ae2.api.networking.IGridNode;
 import ae2.api.networking.security.IActionHost;
+import ae2.api.networking.storage.IStorageService;
 import ae2.api.stacks.AEKey;
 import ae2.api.storage.ILinkStatus;
 import ae2.api.storage.MEStorage;
@@ -202,6 +203,16 @@ public class WirelessTerminalGuiHost<T extends WirelessTerminalItem> extends Ite
     @Override
     public MEStorage getInventory() {
         return this.storage;
+    }
+
+    @Nullable
+    @Override
+    public IStorageService getGridStorageService() {
+        if (!this.linkStatus.connected()) {
+            return null;
+        }
+        IGridNode node = getActionableNode();
+        return node != null && node.isActive() ? node.grid().getStorageService() : null;
     }
 
     @Override

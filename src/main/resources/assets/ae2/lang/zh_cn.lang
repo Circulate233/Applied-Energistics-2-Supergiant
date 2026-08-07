@@ -2152,3 +2152,12 @@ gui.ae2.CellTerminal.subnet.controls.dblclick=双击：在世界中高亮
 gui.ae2.CellTerminal.subnet.controls.star=切换收藏
 gui.ae2.CellTerminal.subnet.controls.rename=名称（右击）：重命名
 gui.ae2.CellTerminal.subnet.controls.esc=ESC：返回视图
+gui.ae2.CellViewTitle=存储元件内容
+gui.ae2.CellViewStoredTypes=已存储类型：%s
+gui.ae2.CellViewBytes=字节：%s / %s
+gui.ae2.CellViewTypes=类型：%s / %s
+gui.ae2.CellViewTypeCost=每种类型占用字节：%s
+gui.ae2.CellViewTypeCostDetails=%s 字节/类型 x %s 种类型 = %s 字节
+gui.ae2.CellViewAmount=已存储：%s
+gui.ae2.CellViewMod=模组：%s
+gui.ae2.CellViewShortcut=按下 %s 查看内容
