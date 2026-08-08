@@ -20,10 +20,12 @@ public interface AEKey2LongMap extends Object2LongMap<AEKey> {
     @SuppressWarnings("UnusedReturnValue")
     long addTo(AEKey k, long incr);
 
+    @SuppressWarnings("CloneableClassInSecureContext")
     final class OpenHashMap extends Object2LongOpenHashMap<AEKey> implements AEKey2LongMap {
 
     }
 
+    @SuppressWarnings("CloneableClassInSecureContext")
     final class AVLTreeMap extends Object2LongAVLTreeMap<AEKey> implements AEKey2LongMap {
         public AVLTreeMap(Comparator<? super AEKey> c) {
             super(c);

@@ -66,6 +66,7 @@ public final class AEBlockIds {
     public static final ResourceLocation DEBUG_CUBE_GEN = id("debug_cube_gen");
     public static final ResourceLocation DEBUG_PHANTOM_NODE = id("debug_phantom_node");
     public static final ResourceLocation DEBUG_ENERGY_GEN = id("debug_energy_gen");
+    public static final ResourceLocation CRAFTING_TREE_TEST = id("crafting_tree_test");
 
     ///
     /// ME NETWORK

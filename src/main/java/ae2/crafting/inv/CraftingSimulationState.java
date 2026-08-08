@@ -29,9 +29,11 @@ import ae2.crafting.CraftingPlan;
 import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
+import java.util.RandomAccess;
 
 public abstract class CraftingSimulationState implements ICraftingSimulationState {
     /**
@@ -44,6 +46,10 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
      */
     private final KeyCounter modifiableCache;
     /**
+     * Primary keys whose fuzzy variants have been loaded into the local caches.
+     */
+    private final ReferenceOpenHashSet<Object> loadedFuzzyGroups;
+    /**
      * List of items to emit.
      */
     private final KeyCounter emittedItems;
@@ -52,7 +58,7 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
      * not count as real simulated inventory or as network extraction requirements.
      */
     private final KeyCounter pseudoItems;
-    private final Object2LongMap<IPatternDetails> crafts = new Object2LongOpenHashMap<>();
+    private final Object2LongOpenHashMap<IPatternDetails> crafts = new Object2LongOpenHashMap<>();
     /**
      * Minimum amount of each item that needs to be extracted from the network. This is the maximum of (unmodified -
      * modifiable).
@@ -66,6 +72,7 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
     protected CraftingSimulationState() {
         this.unmodifiedCache = new KeyCounter();
         this.modifiableCache = new KeyCounter();
+        this.loadedFuzzyGroups = new ReferenceOpenHashSet<>();
         this.emittedItems = new KeyCounter();
         this.pseudoItems = new KeyCounter();
         this.requiredExtract = new KeyCounter();
@@ -93,22 +100,14 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
     protected abstract Iterable<AEKey> findFuzzyParent(AEKey input);
 
     private void cacheFuzzy(AEKey what) {
-        if (unmodifiedCache.findFuzzy(what, FuzzyMode.IGNORE_ALL).isEmpty()) {
-            boolean insertedAny = false;
+        if (!loadedFuzzyGroups.add(what.getPrimaryKey())) {
+            return;
+        }
 
-            for (var keyToCache : findFuzzyParent(what)) {
-                // not cached yet.
-                var extracted = simulateExtractParent(keyToCache);
-                if (extracted != 0) {
-                    insertedAny = true;
-                }
-                modifiableCache.add(keyToCache, extracted);
-                unmodifiedCache.add(keyToCache, extracted);
-            }
-
-            if (!insertedAny) {
-                unmodifiedCache.add(what, 0);
-            }
+        for (var keyToCache : findFuzzyParent(what)) {
+            var extracted = simulateExtractParent(keyToCache);
+            modifiableCache.add(keyToCache, extracted);
+            unmodifiedCache.add(keyToCache, extracted);
         }
     }
 
@@ -186,6 +185,10 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
         return extracted;
     }
 
+    public double getBytes() {
+        return bytes;
+    }
+
     @Override
     public void addBytes(double bytes) {
         this.bytes += bytes;
@@ -193,7 +196,7 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
 
     @Override
     public void addCrafting(IPatternDetails details, long crafts) {
-        this.crafts.merge(details, crafts, Long::sum);
+        this.crafts.addTo(details, crafts);
     }
 
     public long getAvailablePseudoAmount(AEKey what) {
@@ -203,12 +206,6 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
     public long getOriginalAmount(AEKey what) {
         cacheFuzzy(what);
         return this.unmodifiedCache.get(what);
-    }
-
-    public KeyCounter getRequiredExtractMarker() {
-        var marker = new KeyCounter();
-        marker.addAll(this.requiredExtract);
-        return marker;
     }
 
     public long getRequiredExtractAmount(AEKey what) {
@@ -247,9 +244,19 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
     public long getCraftedAmount(AEKey what) {
         long amount = 0;
         for (Object2LongMap.Entry<IPatternDetails> entry : this.crafts.object2LongEntrySet()) {
-            for (var output : entry.getKey().getOutputs()) {
-                if (what.matches(output)) {
-                    amount += output.amount() * entry.getLongValue();
+            var outputs = entry.getKey().getOutputs();
+            if (outputs instanceof RandomAccess) {
+                for (int i = 0, size = outputs.size(); i < size; i++) {
+                    var output = outputs.get(i);
+                    if (what.matches(output)) {
+                        amount += output.amount() * entry.getLongValue();
+                    }
+                }
+            } else {
+                for (var output : outputs) {
+                    if (what.matches(output)) {
+                        amount += output.amount() * entry.getLongValue();
+                    }
                 }
             }
         }
@@ -301,5 +308,26 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
         for (Object2LongMap.Entry<IPatternDetails> entry : crafts.object2LongEntrySet()) {
             parent.addCrafting(entry.getKey(), entry.getLongValue());
         }
+    }
+
+    public Object2LongMap<IPatternDetails> getCrafts() {
+        return crafts;
+    }
+
+    public KeyCounter getExtractedItems() {
+        return requiredExtract;
+    }
+
+    // 新增 getter：供 MemoRecorder 录制副作用
+    public KeyCounter getEmittedItems() {
+        return emittedItems;
+    }
+
+    public KeyCounter getPseudoItems() {
+        return pseudoItems;
+    }
+
+    public KeyCounter getModifiableCache() {
+        return modifiableCache;
     }
 }

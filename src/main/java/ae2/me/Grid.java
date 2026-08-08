@@ -284,7 +284,8 @@ public class Grid implements IGrid {
             ITERATION_BUFFER.ensureCapacity(this.machines.size());
             ITERATION_BUFFER.addAll(getNodes());
 
-            for (IGridNode node : ITERATION_BUFFER) {
+            for (int i = 0, size = ITERATION_BUFFER.size(); i < size; i++) {
+                IGridNode node = ITERATION_BUFFER.get(i);
                 ((GridNode) node).notifyStatusChange(state);
             }
         } finally {

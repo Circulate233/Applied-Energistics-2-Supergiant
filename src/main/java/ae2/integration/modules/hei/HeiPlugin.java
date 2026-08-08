@@ -224,6 +224,7 @@ public class HeiPlugin implements IModPlugin {
         addItemToBlacklist(blacklist, AEBlocks.DEBUG_ITEM_GEN.stack());
         addItemToBlacklist(blacklist, AEBlocks.DEBUG_CUBE_GEN.stack());
         addItemToBlacklist(blacklist, AEBlocks.DEBUG_PHANTOM_NODE.stack());
+        addItemToBlacklist(blacklist, AEBlocks.CRAFTING_TREE_TEST.stack());
     }
 
     private static void addItemToBlacklist(IIngredientBlacklist blacklist, ItemStack stack) {

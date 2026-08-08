@@ -1,5 +1,6 @@
 package ae2.util;
 
+import ae2.api.crafting.IPatternDetails;
 import ae2.me.NetworkData;
 import ae2.me.ticker.ProfileData;
 import net.minecraft.item.ItemStack;
@@ -19,6 +20,7 @@ public final class EmptyArrays {
     public static final NetworkData.ALink[] EMPTY_NETWORK_DATA_ALINK_ARRAY = {};
     public static final NetworkData.ANode[] EMPTY_NETWORK_DATA_ANODE_ARRAY = {};
     public static final ProfileData.ATick[] EMPTY_PROFILE_DATA_ATICK_ARRAY = {};
+    public static final IPatternDetails[] EMPTY_PATTERN_DETAILS = {};
 
     private EmptyArrays() {
     }

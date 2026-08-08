@@ -3,6 +3,7 @@ package ae2.server;
 import ae2.server.services.compass.TestCompassCommand;
 import ae2.server.subcommands.ChannelModeCommand;
 import ae2.server.subcommands.ChunkLogger;
+import ae2.server.subcommands.CraftingPauseCommand;
 import ae2.server.subcommands.DebugEnergyCommand;
 import ae2.server.subcommands.GridsCommand;
 import ae2.server.subcommands.SpatialStorageCommand;
@@ -17,6 +18,7 @@ public enum Commands {
     SPATIAL("spatial", new SpatialStorageCommand(), false),
     CHANNEL_MODE("channelmode", new ChannelModeCommand(), false),
     DEBUG_ENERGY("debugenergy", new DebugEnergyCommand(), false),
+    CRAFTING_PAUSE("craftingpause", new CraftingPauseCommand(), false),
     TICK_MONITORING("tickmonitor", new TickMonitoring(), false),
     GRIDS("grids", new GridsCommand(), false),
     COMPASS("compass", new TestCompassCommand(), true),

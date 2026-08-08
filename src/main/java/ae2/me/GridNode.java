@@ -43,6 +43,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.gson.stream.JsonWriter;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import net.minecraft.crash.CrashReportCategory;
 import net.minecraft.nbt.NBTBase;
@@ -69,7 +70,7 @@ import java.util.UUID;
 public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     private static final Logger LOG = LoggerFactory.getLogger(GridNode.class);
     protected final IGridNodeListener<?> listener;
-    protected final List<GridConnection> connections = new ObjectArrayList<>();
+    protected final ObjectList<GridConnection> connections = new ObjectArrayList<>();
     private final WorldServer level;
     /**
      * This is the logical host of the node, which could be any object. In many cases this will be a tile entity or
@@ -172,7 +173,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     }
 
     boolean hasConnection(IGridNode otherSide) {
-        for (IGridConnection gc : this.connections) {
+        for (int i = 0, size = this.connections.size(); i < size; i++) {
+            IGridConnection gc = this.connections.get(i);
             if (gc.a() == otherSide || gc.b() == otherSide) {
                 return true;
             }
@@ -288,7 +290,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         boolean movedPivot = false;
 
         // First pass: Remove the connection on the other side
-        for (var connection : connections) {
+        for (int i = 0, size = this.connections.size(); i < size; i++) {
+            var connection = this.connections.get(i);
             var otherSide = (GridNode) connection.getOtherSide(this);
 
             // Moving the pivot closer means we potentially have to search fewer nodes
@@ -307,7 +310,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
         }
 
         // Second pass: Re-validate the grids of the previously connected, adjacent nodes
-        for (var connection : connections) {
+        for (int i = 0, size = this.connections.size(); i < size; i++) {
+            var connection = this.connections.get(i);
             var otherSide = (GridNode) connection.getOtherSide(this);
 
             // If we were unable to move the pivot away from ourselves in the first pass
@@ -343,7 +347,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     @Override
     public EnumSet<EnumFacing> getConnectedSides() {
         var result = EnumSet.noneOf(EnumFacing.class);
-        for (IGridConnection connection : this.connections) {
+        for (int i = 0, size = this.connections.size(); i < size; i++) {
+            IGridConnection connection = this.connections.get(i);
             if (connection.isInWorld()) {
                 result.add(connection.getDirection(this));
             }
@@ -354,7 +359,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     @Override
     public Map<EnumFacing, IGridConnection> getInWorldConnections() {
         var result = new EnumMap<EnumFacing, IGridConnection>(EnumFacing.class);
-        for (IGridConnection connection : this.connections) {
+        for (int i = 0, size = this.connections.size(); i < size; i++) {
+            IGridConnection connection = this.connections.get(i);
             var direction = connection.getDirection(this);
             if (direction != null) {
                 result.put(direction, connection);
@@ -534,12 +540,12 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
     private void visitorConnection(Object tracker, IGridVisitor g, Deque<GridNode> nextRun,
                                    Deque<IGridConnection> nextConnections) {
         if (g.visitNode(this)) {
-            for (IGridConnection gc : this.getConnections()) {
+            for (int i = 0, size = this.connections.size(); i < size; i++) {
+                GridConnection gc = this.connections.get(i);
                 final GridNode gn = (GridNode) gc.getOtherSide(this);
-                final GridConnection gcc = (GridConnection) gc;
 
-                if (gcc.getVisitorIterationNumber() != tracker) {
-                    gcc.setVisitorIterationNumber(tracker);
+                if (gc.getVisitorIterationNumber() != tracker) {
+                    gc.setVisitorIterationNumber(tracker);
                     nextConnections.add(gc);
                 }
 
@@ -556,7 +562,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
 
     private void visitorNode(Object tracker, IGridVisitor g, Deque<GridNode> nextRun) {
         if (g.visitNode(this)) {
-            for (var gc : this.getConnections()) {
+            for (int i = 0, size = this.connections.size(); i < size; i++) {
+                var gc = this.connections.get(i);
                 var gn = (GridNode) gc.getOtherSide(this);
 
                 if (tracker == gn.visitorIterationNumber) {
@@ -657,7 +664,8 @@ public class GridNode implements IGridNode, IPathItem, IDebugExportable {
 
     public int propagateChannelsUpwards(boolean consumesChannel) {
         this.usedChannels = 0;
-        for (var connection : connections) {
+        for (int i = 0, size = this.connections.size(); i < size; i++) {
+            var connection = this.connections.get(i);
             if (connection.getControllerRoute() == this) {
                 this.usedChannels += connection.usedChannels;
             }

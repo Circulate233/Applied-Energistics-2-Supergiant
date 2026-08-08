@@ -20,6 +20,7 @@ import ae2.parts.PartModel;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -143,7 +144,7 @@ public class InterfacePart extends AEBasePart implements InterfaceLogicHost {
     }
 
     @Override
-    public Set<net.minecraft.util.EnumFacing> getTargets() {
+    public Set<EnumFacing> getTargets() {
         return EnumSet.of(getSide());
     }
 

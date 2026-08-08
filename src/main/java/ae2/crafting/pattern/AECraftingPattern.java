@@ -59,7 +59,7 @@ public class AECraftingPattern implements IAssemblerPattern {
 
         this.canSubstitute = encoded.getBoolean("canSubstitute");
         this.canSubstituteFluids = encoded.getBoolean("canSubstituteFluids");
-        List<ItemStack> encodedInputs = readItemStackList(encoded.getTagList("in", 10));
+        ObjectArrayList<ItemStack> encodedInputs = readItemStackList(encoded.getTagList("in", 10));
         if (encodedInputs.size() != CRAFTING_GRID_SLOTS) {
             throw new IllegalArgumentException("Crafting pattern must contain exactly " + CRAFTING_GRID_SLOTS
                 + " input slots.");
@@ -103,7 +103,7 @@ public class AECraftingPattern implements IAssemblerPattern {
         Objects.requireNonNull(recipe.getRegistryName(), "recipe not registered");
 
         var encoded = new NBTTagCompound();
-        encoded.setTag("in", writeItemStackList(Arrays.asList(sparseInputs)));
+        encoded.setTag("in", writeItemStackList(sparseInputs));
         var outputTag = new NBTTagCompound();
         output.writeToNBT(outputTag);
         encoded.setTag("out", outputTag);
@@ -120,7 +120,9 @@ public class AECraftingPattern implements IAssemblerPattern {
         var tag = stack.getTagCompound();
         var encoded = tag != null && tag.hasKey(ENCODED_CRAFTING_PATTERN, 10) ? tag.getCompoundTag(ENCODED_CRAFTING_PATTERN) : null;
         if (encoded != null) {
-            for (var input : readItemStackList(encoded.getTagList("in", 10))) {
+            var inputs = readItemStackList(encoded.getTagList("in", 10));
+            for (int i = 0; i < inputs.size(); i++) {
+                var input = inputs.get(i);
                 if (!input.isEmpty()) {
                     tooltip.addInput(AEItemKey.of(input), input.getCount());
                 }
@@ -177,9 +179,9 @@ public class AECraftingPattern implements IAssemblerPattern {
         return tag.hasKey(ENCODED_CRAFTING_PATTERN, 10) ? tag.getCompoundTag(ENCODED_CRAFTING_PATTERN) : null;
     }
 
-    private static NBTTagList writeItemStackList(List<ItemStack> stacks) {
+    private static NBTTagList writeItemStackList(ItemStack[] stacks) {
         var list = new NBTTagList();
-        for (var stack : stacks) {
+        for (ItemStack stack : stacks) {
             var tag = new NBTTagCompound();
             if (stack != null && !stack.isEmpty()) {
                 stack.writeToNBT(tag);
@@ -189,8 +191,8 @@ public class AECraftingPattern implements IAssemblerPattern {
         return list;
     }
 
-    private static List<ItemStack> readItemStackList(NBTTagList list) {
-        List<ItemStack> result = new ObjectArrayList<>(list.tagCount());
+    private static ObjectArrayList<ItemStack> readItemStackList(NBTTagList list) {
+        ObjectArrayList<ItemStack> result = new ObjectArrayList<>(list.tagCount());
         for (int i = 0; i < list.tagCount(); i++) {
             result.add(new ItemStack(list.getCompoundTagAt(i)));
         }

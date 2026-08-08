@@ -4,9 +4,9 @@ import ae2.api.stacks.GenericStack;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.network.PacketBuffer;
 
-import java.util.List;
 import java.util.Map;
 
 public class CraftingTreeStackRegistry {
@@ -21,7 +21,7 @@ public class CraftingTreeStackRegistry {
     public static final int MAX_MACHINE_LOCATIONS_TOTAL = 4096;
 
     private final Map<Entry, Entry> entries = new Object2ObjectOpenHashMap<>();
-    private final List<Entry> entryList = new ObjectArrayList<>();
+    private final ObjectList<Entry> entryList = new ObjectArrayList<>();
 
     public int add(GenericStack stack) {
         GenericStack keyStack = new GenericStack(stack.what(), 1);
@@ -48,7 +48,8 @@ public class CraftingTreeStackRegistry {
 
     public void write(ByteBuf buf) {
         buf.writeInt(entryList.size());
-        for (Entry entry : entryList) {
+        for (int i = 0, size = entryList.size(); i < size; i++) {
+            Entry entry = entryList.get(i);
             GenericStack.writeBuffer(entry.stack, new PacketBuffer(buf));
         }
     }

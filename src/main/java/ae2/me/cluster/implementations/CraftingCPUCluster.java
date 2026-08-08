@@ -91,7 +91,8 @@ public class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
     @Override
     public void updateStatus(boolean updateGrid) {
-        for (ICraftingCPUTileEntity tile : this.blockEntities) {
+        for (int i = 0, size = this.blockEntities.size(); i < size; i++) {
+            ICraftingCPUTileEntity tile = this.blockEntities.get(i);
             tile.updateSubType(true);
         }
     }
@@ -111,7 +112,8 @@ public class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         try {
             boolean posted = false;
 
-            for (ICraftingCPUTileEntity tile : this.blockEntities) {
+            for (int i = 0, size = this.blockEntities.size(); i < size; i++) {
+                ICraftingCPUTileEntity tile = this.blockEntities.get(i);
                 final IGridNode node = tile.getActionableNode();
                 if (node != null && !posted) {
                     node.grid().postEvent(new GridCraftingCpuChange(node));
@@ -130,8 +132,8 @@ public class CraftingCPUCluster implements IAECluster, ICraftingCPU {
     @Override
     public Iterator<? extends TileEntity> getBlockEntities() {
         ObjectList<TileEntity> tiles = new ObjectArrayList<>(this.blockEntities.size());
-        for (ICraftingCPUTileEntity blockEntity : this.blockEntities) {
-            tiles.add(blockEntity.getTileEntity());
+        for (int i = 0, size = this.blockEntities.size(); i < size; i++) {
+            tiles.add(this.blockEntities.get(i).getTileEntity());
         }
         return tiles.iterator();
     }
@@ -185,8 +187,8 @@ public class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             send = null;
         }
 
-        for (TileCraftingMonitor tile : this.status) {
-            tile.setJob(send);
+        for (int i = 0, size = this.status.size(); i < size; i++) {
+            this.status.get(i).setJob(send);
         }
     }
 
@@ -315,7 +317,8 @@ public class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
     public void updateName() {
         this.myName = null;
-        for (ICraftingCPUTileEntity tile : this.blockEntities) {
+        for (int i = 0, size = this.blockEntities.size(); i < size; i++) {
+            ICraftingCPUTileEntity tile = this.blockEntities.get(i);
             if (tile.hasCustomName()) {
                 String customName = tile.getCustomName();
                 if (this.myName == null) {
@@ -375,7 +378,8 @@ public class CraftingCPUCluster implements IAECluster, ICraftingCPU {
             return false;
         }
 
-        for (ICraftingCPUTileEntity tile : this.blockEntities) {
+        for (int i = 0, size = this.blockEntities.size(); i < size; i++) {
+            ICraftingCPUTileEntity tile = this.blockEntities.get(i);
             tile.setCustomName(null);
             tile.onCustomNameChanged();
         }

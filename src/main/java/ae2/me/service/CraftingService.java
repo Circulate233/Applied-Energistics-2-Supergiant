@@ -44,6 +44,7 @@ import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.AEKey;
 import ae2.api.stacks.GenericStack;
 import ae2.api.storage.AEKeyFilter;
+import ae2.core.AEConfig;
 import ae2.crafting.CraftingCalculation;
 import ae2.crafting.CraftingLink;
 import ae2.crafting.CraftingLinkNexus;
@@ -55,6 +56,8 @@ import ae2.me.helpers.StackWatcher;
 import ae2.me.service.helpers.CraftingServiceStorage;
 import ae2.me.service.helpers.NetworkCraftingProviders;
 import ae2.tile.crafting.ICraftingCPUTileEntity;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
@@ -124,12 +127,25 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     private long recursiveIngredientReserveAmount = DEFAULT_RECURSIVE_INGREDIENT_RESERVE_AMOUNT;
     private boolean recursiveIngredientReserveAmountRestored;
     private boolean updateList = false;
+    private final Cache<Object, Object> craftingMemoCache;
+    private long memoRevision;
 
     public CraftingService(IGrid grid, IStorageService storageGrid, IEnergyService energyGrid) {
         this.grid = grid;
         this.energyGrid = energyGrid;
         this.lastProcessedCraftingLogicChangeTick = TickHandler.instance().getCurrentTick();
         this.lastProcessedCraftablesVersion = this.craftingProviders.getRevision();
+
+        int cacheSize = AEConfig.instance().getMemoizationCacheSize();
+        if (cacheSize > 0) {
+            this.craftingMemoCache = CacheBuilder.newBuilder()
+                .maximumSize(cacheSize)
+                .build();
+        } else {
+            this.craftingMemoCache = CacheBuilder.newBuilder()
+                .maximumSize(0)
+                .build();
+        }
 
         storageGrid.addGlobalStorageProvider(new CraftingServiceStorage(this));
     }
@@ -316,8 +332,14 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
             throw new IllegalArgumentException("Invalid Crafting Job Request");
         }
 
+        long currentRevision = this.craftingProviders.getRevision();
+        if (this.memoRevision != currentRevision) {
+            this.craftingMemoCache.invalidateAll();
+            this.memoRevision = currentRevision;
+        }
+
         final CraftingCalculation job = new CraftingCalculation(world, this.grid, simRequester,
-            new GenericStack(what, amount), strategy);
+            new GenericStack(what, amount), strategy, this.craftingMemoCache);
 
         return CRAFTING_POOL.submit(job::run);
     }

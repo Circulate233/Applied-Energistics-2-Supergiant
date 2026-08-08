@@ -35,6 +35,7 @@ import net.minecraft.network.PacketBuffer;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.RandomAccess;
 
 public record CraftingPlanSummary(long usedBytes, boolean simulation, List<CraftingPlanSummaryEntry> entries) {
     private static final int MAX_ENTRY_COUNT = 4096;
@@ -78,14 +79,28 @@ public record CraftingPlanSummary(long usedBytes, boolean simulation, List<Craft
             entry.crafting += emitted.getLongValue();
         }
         for (Object2LongMap.Entry<IPatternDetails> entry : job.patternTimes().object2LongEntrySet()) {
-            for (var out : entry.getKey().getOutputs()) {
-                if (hiddenOutputs.contains(out.what())) {
-                    continue;
+            var outputs = entry.getKey().getOutputs();
+            if (outputs instanceof RandomAccess) {
+                for (int i = 0, size = outputs.size(); i < size; i++) {
+                    var out = outputs.get(i);
+                    if (hiddenOutputs.contains(out.what())) {
+                        continue;
+                    }
+                    var stats = mapping(plan, out.what());
+                    stats.crafting = LongMath.saturatedAdd(stats.crafting,
+                        LongMath.saturatedMultiply(out.amount(), entry.getLongValue()));
+                    stats.requests = LongMath.saturatedAdd(stats.requests, entry.getLongValue());
                 }
-                var stats = mapping(plan, out.what());
-                stats.crafting = LongMath.saturatedAdd(stats.crafting,
-                    LongMath.saturatedMultiply(out.amount(), entry.getLongValue()));
-                stats.requests = LongMath.saturatedAdd(stats.requests, entry.getLongValue());
+            } else {
+                for (var out : outputs) {
+                    if (hiddenOutputs.contains(out.what())) {
+                        continue;
+                    }
+                    var stats = mapping(plan, out.what());
+                    stats.crafting = LongMath.saturatedAdd(stats.crafting,
+                        LongMath.saturatedMultiply(out.amount(), entry.getLongValue()));
+                    stats.requests = LongMath.saturatedAdd(stats.requests, entry.getLongValue());
+                }
             }
         }
 
@@ -109,7 +124,7 @@ public record CraftingPlanSummary(long usedBytes, boolean simulation, List<Craft
         }
 
         Collections.sort(entries);
-        return new CraftingPlanSummary(job.bytes(), job.simulation(), List.copyOf(entries));
+        return new CraftingPlanSummary(job.bytes(), job.simulation(), entries);
     }
 
     private static ObjectOpenHashSet<AEKey> getHiddenTemporaryOutputs(ICraftingPlan job) {
@@ -117,8 +132,15 @@ public record CraftingPlanSummary(long usedBytes, boolean simulation, List<Craft
         if (job instanceof CraftingPlan craftingPlan) {
             for (var provider : craftingPlan.temporaryProviders()) {
                 for (var pattern : provider.getAvailablePatterns()) {
-                    for (var output : pattern.getOutputs()) {
-                        hiddenOutputs.add(output.what());
+                    var outputs = pattern.getOutputs();
+                    if (outputs instanceof RandomAccess) {
+                        for (int i = 0, size = outputs.size(); i < size; i++) {
+                            hiddenOutputs.add(outputs.get(i).what());
+                        }
+                    } else {
+                        for (var output : outputs) {
+                            hiddenOutputs.add(output.what());
+                        }
                     }
                 }
             }
@@ -132,9 +154,17 @@ public record CraftingPlanSummary(long usedBytes, boolean simulation, List<Craft
     }
 
     public boolean hasMissingEntries() {
-        for (var entry : this.entries) {
-            if (entry.missingAmount() > 0) {
-                return true;
+        if (this.entries instanceof RandomAccess) {
+            for (int i = 0, size = this.entries.size(); i < size; i++) {
+                if (this.entries.get(i).missingAmount() > 0) {
+                    return true;
+                }
+            }
+        } else {
+            for (var entry : this.entries) {
+                if (entry.missingAmount() > 0) {
+                    return true;
+                }
             }
         }
         return false;
@@ -144,8 +174,14 @@ public record CraftingPlanSummary(long usedBytes, boolean simulation, List<Craft
         buffer.writeVarLong(this.usedBytes);
         buffer.writeBoolean(this.simulation);
         buffer.writeVarInt(this.entries.size());
-        for (CraftingPlanSummaryEntry entry : this.entries) {
-            entry.write(buffer);
+        if (this.entries instanceof RandomAccess) {
+            for (int i = 0, size = this.entries.size(); i < size; i++) {
+                this.entries.get(i).write(buffer);
+            }
+        } else {
+            for (CraftingPlanSummaryEntry entry : this.entries) {
+                entry.write(buffer);
+            }
         }
     }
 

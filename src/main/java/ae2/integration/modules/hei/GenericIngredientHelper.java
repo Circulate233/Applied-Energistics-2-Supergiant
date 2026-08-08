@@ -3,11 +3,11 @@ package ae2.integration.modules.hei;
 import ae2.api.integrations.hei.IngredientConverter;
 import ae2.api.integrations.hei.IngredientConverters;
 import ae2.api.stacks.GenericStack;
+import ae2.mixins.hei.AccessorBookmarkItem;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import mezz.jei.api.gui.IGuiIngredient;
 import mezz.jei.api.gui.IRecipeLayout;
-import mezz.jei.bookmarks.BookmarkItem;
 import net.minecraft.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -21,10 +21,10 @@ public final class GenericIngredientHelper {
     @Nullable
     public static GenericStack ingredientToStack(Object ingredient) {
         if (ingredient == null) return null;
-        if (ingredient instanceof BookmarkItem<?> bookmarkItem) {
-            GenericStack stack = ingredientToStack(bookmarkItem.ingredient);
-            if (stack != null && bookmarkItem.amount > 0) {
-                return new GenericStack(stack.what(), bookmarkItem.amount);
+        if (ingredient instanceof AccessorBookmarkItem<?> bookmarkItem) {
+            GenericStack stack = ingredientToStack(bookmarkItem.i_getIngredient());
+            if (stack != null && bookmarkItem.i_getAmount() > 0) {
+                return new GenericStack(stack.what(), bookmarkItem.i_getAmount());
             }
             return stack;
         }
@@ -40,8 +40,8 @@ public final class GenericIngredientHelper {
 
     public static boolean isRegistered(Object ingredient) {
         if (ingredient == null) return false;
-        if (ingredient instanceof BookmarkItem<?> bookmarkItem) {
-            return isRegistered(bookmarkItem.ingredient);
+        if (ingredient instanceof AccessorBookmarkItem<?> bookmarkItem) {
+            return isRegistered(bookmarkItem.i_getIngredient());
         }
 
         for (IngredientConverter<?> converter : IngredientConverters.getConverters()) {

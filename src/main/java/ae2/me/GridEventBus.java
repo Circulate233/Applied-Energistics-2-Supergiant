@@ -61,8 +61,8 @@ public final class GridEventBus {
 
         public void invoke(IGrid grid, GridEvent event) {
             var typedEvent = eventClass.cast(event);
-            for (var handler : handlers) {
-                handler.accept(grid, typedEvent);
+            for (int i = 0; i < handlers.size(); i++) {
+                handlers.get(i).accept(grid, typedEvent);
             }
         }
     }

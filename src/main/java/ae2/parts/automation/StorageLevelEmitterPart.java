@@ -189,16 +189,6 @@ public class StorageLevelEmitterPart extends AbstractLevelEmitterPart
     }
 
     @Override
-    public boolean canMergePatternPush(IPatternDetails patternDetails) {
-        return false;
-    }
-
-    @Override
-    public int getMaxPatternPushMultiplier(IPatternDetails patternDetails, int maxMultiplier) {
-        return 0;
-    }
-
-    @Override
     public boolean isBusy() {
         return true;
     }

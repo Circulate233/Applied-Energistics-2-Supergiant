@@ -42,6 +42,7 @@ import net.minecraft.util.text.TextFormatting;
 import net.minecraftforge.common.DimensionManager;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -129,17 +130,15 @@ public class PatternProviderP2PTunnelPart extends P2PTunnelPart<PatternProviderP
     }
 
     public List<PatternProviderP2PTunnelPart> getOutputsInAttemptOrder(@Nullable PatternProviderP2PTunnelPart preferred) {
-        ObjectList<PatternProviderP2PTunnelPart> outputs = new ObjectArrayList<>(getOutputs());
+        List<PatternProviderP2PTunnelPart> outputs = getOutputs();
         int preferredIndex = preferred == null ? -1 : outputs.indexOf(preferred);
         int start = preferredIndex >= 0 ? preferredIndex : normalizeOutputIndex(this.nextOutputIndex, outputs.size());
         if (start == 0) {
             return outputs;
         }
 
-        ObjectList<PatternProviderP2PTunnelPart> ordered = new ObjectArrayList<>(outputs.size());
-        ordered.addAll(outputs.subList(start, outputs.size()));
-        ordered.addAll(outputs.subList(0, start));
-        return ordered;
+        Collections.rotate(outputs, outputs.size() - start);
+        return outputs;
     }
 
     public void planOutputForPattern(IPatternDetails patternDetails, PatternProviderP2PTunnelPart outputTunnel) {

@@ -73,6 +73,7 @@ import ae2.block.storage.SkyStoneTankBlock;
 import ae2.core.AppEng;
 import ae2.core.DebugCreativeTab;
 import ae2.debug.CubeGeneratorBlock;
+import ae2.debug.CraftingTreeTestBlock;
 import ae2.debug.EnergyGeneratorBlock;
 import ae2.debug.ItemGenBlock;
 import ae2.debug.PhantomNodeBlock;
@@ -448,6 +449,9 @@ public final class AEBlocks {
     public static final BlockDefinition<PhantomNodeBlock> DEBUG_PHANTOM_NODE = new BlockDefinition<>(
         AEBlockIds.DEBUG_PHANTOM_NODE,
         new PhantomNodeBlock(), DebugCreativeTab.INSTANCE);
+    public static final BlockDefinition<CraftingTreeTestBlock> CRAFTING_TREE_TEST = new BlockDefinition<>(
+        AEBlockIds.CRAFTING_TREE_TEST,
+        new CraftingTreeTestBlock(), DebugCreativeTab.INSTANCE);
     private static final SlabDefinitions SKY_STONE_SLABS = createSlab("Sky Stone Slab", AEBlockIds.SKY_STONE_SLAB,
         MapColor.BLACK, 50.0F, 150.0F);
     public static final BlockDefinition<AEHalfSlabBlock> SKY_STONE_SLAB = SKY_STONE_SLABS.half;
@@ -622,7 +626,8 @@ public final class AEBlocks {
         DEBUG_ENERGY_GEN,
         DEBUG_ITEM_GEN,
         DEBUG_CUBE_GEN,
-        DEBUG_PHANTOM_NODE
+        DEBUG_PHANTOM_NODE,
+        CRAFTING_TREE_TEST
     };
 
     private AEBlocks() {

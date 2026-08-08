@@ -22,6 +22,8 @@ import ae2.api.networking.IGrid;
 import ae2.api.networking.crafting.ICraftingCPU;
 import com.google.common.collect.ImmutableSet;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
 import net.minecraft.util.text.TextComponentString;
@@ -35,8 +37,8 @@ public class CraftingCPUCycler {
 
     private final Predicate<ICraftingCPU> cpuFilter;
     private final ChangeListener changeListener;
-    private final List<CraftingCPURecord> cpus = new ObjectArrayList<>();
-    private final List<CraftingCPURecord> readOnlyCpus = Collections.unmodifiableList(this.cpus);
+    private final ObjectList<CraftingCPURecord> cpus = new ObjectArrayList<>();
+    private final List<CraftingCPURecord> readOnlyCpus = ObjectLists.unmodifiable(this.cpus);
     private final Reference2IntMap<ICraftingCPU> cpuSerialMap = new Reference2IntOpenHashMap<>();
     private int selectedCpu = -1;
     private int nextCpuSerial = 1;
@@ -59,7 +61,8 @@ public class CraftingCPUCycler {
         this.initialDataSent = true;
         for (ICraftingCPU cpu : cpuSet) {
             boolean found = false;
-            for (CraftingCPURecord cpuRecord : this.cpus) {
+            for (int i = 0, size = this.cpus.size(); i < size; i++) {
+                CraftingCPURecord cpuRecord = this.cpus.get(i);
                 if (cpuRecord.getCpu() == cpu) {
                     found = true;
                     if (!Objects.equals(cpuRecord.getRawName(), cpu.getName())

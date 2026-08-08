@@ -21,6 +21,7 @@ package ae2.core.definitions;
 import ae2.api.ids.AEBlockIds;
 import ae2.core.AppEng;
 import ae2.debug.TileCubeGenerator;
+import ae2.debug.TileCraftingTreeTest;
 import ae2.debug.TileEnergyGenerator;
 import ae2.debug.TileItemGen;
 import ae2.debug.TilePhantomNode;
@@ -87,6 +88,8 @@ public final class AEBlockEntities {
         AEBlockIds.DEBUG_CUBE_GEN, TileCubeGenerator.class);
     public static final TileDefinition<TilePhantomNode> DEBUG_PHANTOM_NODE = new TileDefinition<>(
         AEBlockIds.DEBUG_PHANTOM_NODE, TilePhantomNode.class);
+    public static final TileDefinition<TileCraftingTreeTest> CRAFTING_TREE_TEST = new TileDefinition<>(
+        AEBlockIds.CRAFTING_TREE_TEST, TileCraftingTreeTest.class);
     public static final TileDefinition<TileController> CONTROLLER = new TileDefinition<>(
         AppEng.makeId("controller"), TileController.class);
     public static final TileDefinition<TileCreativeEnergyCell> CREATIVE_ENERGY_CELL = new TileDefinition<>(
@@ -162,6 +165,7 @@ public final class AEBlockEntities {
         DEBUG_ITEM_GEN.register();
         DEBUG_CUBE_GEN.register();
         DEBUG_PHANTOM_NODE.register();
+        CRAFTING_TREE_TEST.register();
         CONTROLLER.register();
         CREATIVE_ENERGY_CELL.register();
         CRYSTAL_RESONANCE_GENERATOR.register();
