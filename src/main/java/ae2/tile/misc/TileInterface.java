@@ -31,7 +31,7 @@ import ae2.core.definitions.AEBlocks;
 import ae2.helpers.IPriorityHost;
 import ae2.helpers.InterfaceLogic;
 import ae2.helpers.InterfaceLogicHost;
-import ae2.tile.grid.AENetworkedInvTile;
+import ae2.tile.grid.AENetworkedTile;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
@@ -43,7 +43,7 @@ import net.minecraftforge.common.util.Constants;
 import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
-public class TileInterface extends AENetworkedInvTile
+public class TileInterface extends AENetworkedTile
     implements InterfaceLogicHost, IPriorityHost, IUpgradeableObject, IConfigurableObject {
     private static final String CELL_TERMINAL_SUBNET_ID_TAG = "cellTerminalSubnetId";
 

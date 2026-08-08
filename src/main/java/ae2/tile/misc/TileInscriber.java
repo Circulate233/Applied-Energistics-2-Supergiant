@@ -25,10 +25,7 @@ import ae2.api.config.PowerUnit;
 import ae2.api.config.Setting;
 import ae2.api.config.Settings;
 import ae2.api.config.YesNo;
-import ae2.api.crafting.IPatternDetails;
-import ae2.api.implementations.blockentities.ICraftingMachine;
 import ae2.api.implementations.blockentities.ICrankable;
-import ae2.api.implementations.blockentities.PatternContainerGroup;
 import ae2.api.inventories.ISegmentedInventory;
 import ae2.api.inventories.InternalInventory;
 import ae2.api.networking.IGridNode;
@@ -38,8 +35,6 @@ import ae2.api.networking.ticking.TickRateModulation;
 import ae2.api.networking.ticking.TickingRequest;
 import ae2.api.orientation.BlockOrientation;
 import ae2.api.orientation.RelativeSide;
-import ae2.api.stacks.AEItemKey;
-import ae2.api.stacks.KeyCounter;
 import ae2.api.upgrades.IUpgradeInventory;
 import ae2.api.upgrades.IUpgradeableObject;
 import ae2.api.upgrades.UpgradeInventories;
@@ -53,11 +48,9 @@ import ae2.core.definitions.AEBlocks;
 import ae2.core.definitions.AEItems;
 import ae2.core.gui.GuiOpener;
 import ae2.core.settings.TickRates;
-import ae2.crafting.pattern.AEProcessingPattern;
 import ae2.helpers.IOutputSideConfigHost;
 import ae2.recipes.handlers.InscriberProcessType;
 import ae2.recipes.handlers.InscriberRecipe;
-import ae2.text.TextComponentItemStack;
 import ae2.tile.grid.AENetworkedPoweredTile;
 import ae2.util.ConfigManager;
 import ae2.util.inv.AppEngInternalInventory;
@@ -80,7 +73,7 @@ import java.util.EnumSet;
 import java.util.List;
 
 public class TileInscriber extends AENetworkedPoweredTile
-    implements IGridTickable, IUpgradeableObject, IConfigurableObject, ICraftingMachine, IOutputSideConfigHost {
+    implements IGridTickable, IUpgradeableObject, IConfigurableObject, IOutputSideConfigHost {
     private static final int MAX_PROCESSING_STEPS = 200;
     private static final int POWER_PER_CRANK_TURN = 160;
     private final IUpgradeInventory upgrades = UpgradeInventories.forMachine(AEBlocks.INSCRIBER.item(), 5,
@@ -418,67 +411,6 @@ public class TileInscriber extends AENetworkedPoweredTile
             case 3 -> 64;
             default -> 1;
         };
-    }
-
-    @Override
-    public PatternContainerGroup getCraftingMachineInfo() {
-        return new PatternContainerGroup(AEItemKey.of(AEBlocks.INSCRIBER.stack()),
-            TextComponentItemStack.of(AEBlocks.INSCRIBER.stack()), List.of());
-    }
-
-    @Override
-    public boolean pushPattern(IPatternDetails patternDetails, KeyCounter[] inputs, int multiplier,
-                               EnumFacing ejectionDirection) {
-        if (!(patternDetails instanceof AEProcessingPattern processingPattern) || multiplier <= 0) {
-            return false;
-        }
-        InscriberCraftingPush.Plan plan = createCraftingPushPlan(processingPattern, inputs, multiplier);
-        if (plan == null || plan.maxMultiplier() < multiplier) {
-            return false;
-        }
-
-        insertPlannedStack(this.topItemHandler, plan.top(), multiplier);
-        insertPlannedStack(this.sideItemHandler, plan.middle(), multiplier);
-        insertPlannedStack(this.bottomItemHandler, plan.bottom(), multiplier);
-        this.cachedTask = null;
-        this.processingTime = 0;
-        this.saveChanges();
-        this.getMainNode().ifPresent((grid, node) -> grid.getTickManager().wakeDevice(node));
-        return true;
-    }
-
-    @Override
-    public int getMaxPatternPushMultiplier(IPatternDetails patternDetails, KeyCounter[] inputs, int maxMultiplier,
-                                           EnumFacing ejectionDirection) {
-        if (!(patternDetails instanceof AEProcessingPattern processingPattern)) {
-            return 0;
-        }
-        InscriberCraftingPush.Plan plan = createCraftingPushPlan(processingPattern, inputs, maxMultiplier);
-        return plan == null ? 0 : plan.maxMultiplier();
-    }
-
-    @Override
-    public boolean acceptsPlans() {
-        return true;
-    }
-
-    private InscriberCraftingPush.Plan createCraftingPushPlan(AEProcessingPattern pattern, KeyCounter[] inputs,
-                                                              int maxMultiplier) {
-        return InscriberCraftingPush.plan(pattern, inputs, new InscriberCraftingPush.State(
-            this.topItemHandler.getStackInSlot(0),
-            this.sideItemHandler.getStackInSlot(0),
-            this.bottomItemHandler.getStackInSlot(0),
-            this.sideItemHandler.getStackInSlot(1),
-            this.configManager.getSetting(Settings.INSCRIBER_INPUT_CAPACITY).capacity,
-            this.smash), this.getParallelLimit(), maxMultiplier);
-    }
-
-    private void insertPlannedStack(AppEngInternalInventory inventory, InscriberCraftingPush.SlotPlan slotPlan,
-                                    int multiplier) {
-        ItemStack stack = slotPlan.stackForRuns(multiplier);
-        if (!stack.isEmpty()) {
-            inventory.insertItem(0, stack, false);
-        }
     }
 
     private int getParallelRuns(InscriberRecipe task) {
