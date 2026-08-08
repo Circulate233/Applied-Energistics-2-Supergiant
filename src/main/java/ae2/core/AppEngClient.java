@@ -22,6 +22,7 @@ import ae2.api.parts.CableRenderMode;
 import ae2.client.ClientTickHandler;
 import ae2.client.EffectType;
 import ae2.client.Hotkeys;
+import ae2.client.PatternHotKey;
 import ae2.client.commands.ClientCommands;
 import ae2.client.gui.AEBaseGui;
 import ae2.client.gui.Icon;
@@ -166,6 +167,7 @@ public final class AppEngClient extends AppEngServer {
         InitItemColors.init();
         ClientRegistry.registerKeyBinding(MOUSE_WHEEL_ITEM_MODIFIER);
         ClientRegistry.registerKeyBinding(PART_PLACEMENT_OPPOSITE);
+        PatternHotKey.init();
         ClientCommands.register();
         MinecraftForge.EVENT_BUS.register(new RenderBlockOutlineHook());
         MinecraftForge.EVENT_BUS.register(new WirelessUniversalTerminalClientHandler());

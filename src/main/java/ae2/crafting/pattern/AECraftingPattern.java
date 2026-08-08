@@ -234,6 +234,13 @@ public class AECraftingPattern implements IAssemblerPattern {
         return sparseInputs;
     }
 
+    public int getCompressedInputIndex(int sparseIndex) {
+        if (sparseIndex < 0 || sparseIndex >= sparseToCompressed.length) {
+            return -1;
+        }
+        return sparseToCompressed[sparseIndex];
+    }
+
     public List<GenericStack> getSparseOutputs() {
         return outputsArray;
     }

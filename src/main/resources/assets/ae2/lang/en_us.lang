@@ -2161,3 +2161,8 @@ gui.ae2.CellViewTypeCostDetails=%s bytes/type x %s types = %s bytes
 gui.ae2.CellViewAmount=Stored: %s
 gui.ae2.CellViewMod=Mod: %s
 gui.ae2.CellViewShortcut=Press %s to view contents
+pattern.tooltip=Press [%s] to view pattern
+gui.pattern_view.craft.substitute=Substitute: %s
+gui.pattern_view.craft.fluid_substitute=Fluid Substitute: %s
+chat.pattern_view.error=This pattern cannot be viewed.
+key.ae2.view_pattern=View Pattern Contents

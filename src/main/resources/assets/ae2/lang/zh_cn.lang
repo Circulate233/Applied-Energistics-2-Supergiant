@@ -2161,3 +2161,8 @@ gui.ae2.CellViewTypeCostDetails=%s 字节/类型 x %s 种类型 = %s 字节
 gui.ae2.CellViewAmount=已存储：%s
 gui.ae2.CellViewMod=模组：%s
 gui.ae2.CellViewShortcut=按下 %s 查看内容
+pattern.tooltip=按下[%s]查看样板
+gui.pattern_view.craft.substitute=替换：%s
+gui.pattern_view.craft.fluid_substitute=流体替换：%s
+chat.pattern_view.error=无法查看此样板。
+key.ae2.view_pattern=查看样板内容
