@@ -83,6 +83,15 @@ public class GuiTickAnalyser extends AEBaseGui<ContainerTickAnalyser> {
         super.onGuiClosed();
     }
 
+    @Override
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        if(this.durationInput.isMouseOver(mouseX, mouseY) && mouseButton == 1) {
+            this.durationInput.setText("");
+            this.duration = 1;
+        }
+        super.mouseClicked(mouseX, mouseY, mouseButton);
+    }
+
     private void cycleEnable(int index) {
         this.enabled[index] = !this.enabled[index];
         this.dots[index].setColor(this.enabled[index] ? GREEN : RED);
@@ -90,14 +99,17 @@ public class GuiTickAnalyser extends AEBaseGui<ContainerTickAnalyser> {
     }
 
     private void syncDuration() {
+        if(this.durationInput.getText().isEmpty()) {
+            this.duration = 1;
+            return;
+        }
+
         try {
             this.duration = TickAnalyserConfig.clampDurationSeconds(Integer.parseInt(this.durationInput.getText()));
         } catch (NumberFormatException ignored) {
             this.duration = 60;
         }
-        if (this.durationInput != null) {
-            this.durationInput.setText(String.valueOf(this.duration));
-        }
+        this.durationInput.setText(String.valueOf(this.duration));
     }
 
     private void sendConfig() {
