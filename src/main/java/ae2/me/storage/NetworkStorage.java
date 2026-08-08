@@ -212,6 +212,9 @@ public class NetworkStorage implements MEStorageMonitor {
 
     @Override
     public void getAvailableStacks(KeyCounter out) {
+        if (this.mountsInUse) {
+            return;
+        }
         out.addAll(this.cachedContents.get());
     }
 
