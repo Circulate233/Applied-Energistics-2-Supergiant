@@ -51,6 +51,7 @@ public class GuiCraftingTree extends AEBaseGui<ContainerCraftingTree> {
     private final CraftingTreeButton missingOnly;
     private final CraftingTreeButton back;
     private BackgroundSize background;
+    private int clientRevision = -1;
 
     public GuiCraftingTree(ContainerCraftingTree container, InventoryPlayer playerInventory) {
         super(container, playerInventory);
@@ -161,12 +162,34 @@ public class GuiCraftingTree extends AEBaseGui<ContainerCraftingTree> {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
         drawBackgroundTexture(offsetX, offsetY, background.width(), background.height());
         fontRenderer.drawString(GuiText.CraftingTreeTitle.getLocal(), offsetX + 6, offsetY + 9, 0x404040);
+        if (container.getClientStatus() != ContainerCraftingTree.ClientStatus.SUCCESS) {
+            String message = container.getClientStatus() == ContainerCraftingTree.ClientStatus.LOADING
+                ? GuiText.CraftingTreeLoading.getLocal()
+                : GuiText.CraftingTreeError.getLocal();
+            fontRenderer.drawString(message,
+                offsetX + (background.width() - fontRenderer.getStringWidth(message)) / 2,
+                offsetY + background.height() / 2, 0x404040);
+        }
+    }
+
+    @Override
+    public void updateScreen() {
+        super.updateScreen();
+        container.checkClientTransferTimeout();
+        int revision = container.getClientRevision();
+        if (revision != clientRevision) {
+            clientRevision = revision;
+            onDataUpdate(container.getClientStatus() == ContainerCraftingTree.ClientStatus.SUCCESS
+                ? container.getClientRoot()
+                : null);
+        }
     }
 
     public void onDataUpdate(LiteCraftTreeNode root) {
         tree.setRoot(root);
         setMissingOnly(root != null && LiteCraftTreeNode.isMissing(root));
         screenshot.enabled = tree.hasTree();
+        missingOnly.enabled = tree.hasMissingItems();
     }
 
     private void saveScreenshot() {

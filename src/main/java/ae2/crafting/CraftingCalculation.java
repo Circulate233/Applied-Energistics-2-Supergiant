@@ -108,6 +108,7 @@ public class CraftingCalculation {
     private final Set<AEKey> realRecursiveSeeds = new ObjectOpenHashSet<>();
     private final Set<AEKey> realSeededRecursiveKeys = new ObjectOpenHashSet<>();
     private final Cache<Object, Object> memoCache;
+    private boolean memoReplayEnabled = true;
     private final Set<AEKey> recursiveFinalOutputInputs = new ObjectOpenHashSet<>();
     private final KeyCounter recursiveReserveCandidates = new KeyCounter();
     private final Reference2LongOpenHashMap<CraftingTreeNode> recursiveDisplayRequests = new Reference2LongOpenHashMap<>();
@@ -359,6 +360,11 @@ public class CraftingCalculation {
         });
     }
 
+    public boolean canEmitFor(AEKey what) {
+        var gridNode = this.simRequester.getGridNode();
+        return gridNode != null && gridNode.grid().getCraftingService().canEmitFor(what);
+    }
+
     CraftingTreeProcess.MachineInfo getMachineInfo(ICraftingService craftingService, IPatternDetails pattern) {
         var grid = craftingService instanceof CraftingService service ? service.getGrid() : null;
         updateMachineLocationCacheGrid(grid);
@@ -369,6 +375,10 @@ public class CraftingCalculation {
             this.machineInfoCache.put(pattern, machineInfo);
         }
         return machineInfo;
+    }
+
+    public CraftingTreeProcess.MachineInfo getMachineInfo(IPatternDetails pattern) {
+        return getMachineInfo(this.craftingService, pattern);
     }
 
     @Nullable
@@ -463,6 +473,7 @@ public class CraftingCalculation {
 
     private ICraftingPlan computePlanUnmeasured() throws InterruptedException {
         if (strategy == CalculationStrategy.CRAFT_LESS) {
+            this.memoReplayEnabled = false;
             var craftLessPlan = runCraftLessAttempt(requestedAmount);
             if (craftLessPlan != null) {
                 return craftLessPlan;
@@ -473,8 +484,11 @@ public class CraftingCalculation {
 
         try {
             return runGraphBasedAttempt(requestedAmount);
+        } catch (InterruptedException e) {
+            throw e;
         } catch (Exception e) {
             AELog.warn("Graph-based calculation failed, fallback to legacy: " + e.getMessage());
+            this.memoReplayEnabled = false;
             return runCraftAttempt(requestedAmount, requestedAmount);
         }
     }
@@ -567,10 +581,7 @@ public class CraftingCalculation {
 
         var craftingInventory = new ChildCraftingSimulationState(this.networkInv);
         var executor = new GraphExecutor(this, graph);
-        timed("applyGraph", () -> {
-            executor.applyGraph(craftingInventory);
-            return null;
-        });
+        var displaySnapshot = timed("applyGraph", () -> executor.applyGraph(craftingInventory));
 
         applyRecursiveIngredientReserve(craftingInventory);
         clearResolvedRecursiveMissingItems(craftingInventory);
@@ -578,7 +589,8 @@ public class CraftingCalculation {
 
         craftingInventory.addBytes((double) graph.getNodeCount() * 8);
 
-        return CraftingSimulationState.buildCraftingPlan(craftingInventory, this, productionAmount);
+        return CraftingSimulationState.buildCraftingPlan(
+            craftingInventory, this, productionAmount, displaySnapshot);
     }
 
     @Nullable
@@ -2128,11 +2140,13 @@ public class CraftingCalculation {
 
     @Nullable
     MemoResult getMemoResult(MemoKey key) {
-        return (MemoResult) this.memoCache.getIfPresent(key);
+        return this.memoReplayEnabled ? (MemoResult) this.memoCache.getIfPresent(key) : null;
     }
 
     void putMemoResult(MemoKey key, MemoResult result) {
-        this.memoCache.put(key, result);
+        if (this.memoReplayEnabled) {
+            this.memoCache.put(key, result);
+        }
     }
 
     static final class BundleKey {
@@ -2163,11 +2177,13 @@ public class CraftingCalculation {
 
     @Nullable
     Bundle getBundle(BundleKey key) {
-        return (Bundle) this.memoCache.getIfPresent(key);
+        return this.memoReplayEnabled ? (Bundle) this.memoCache.getIfPresent(key) : null;
     }
 
     void putBundle(BundleKey key, Bundle bundle) {
-        this.memoCache.put(key, bundle);
+        if (this.memoReplayEnabled) {
+            this.memoCache.put(key, bundle);
+        }
     }
 
     private static final class ObjectPool<T> {

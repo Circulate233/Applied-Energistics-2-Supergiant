@@ -26,6 +26,7 @@ import ae2.api.stacks.GenericStack;
 import ae2.api.stacks.KeyCounter;
 import ae2.crafting.CraftingCalculation;
 import ae2.crafting.CraftingPlan;
+import ae2.crafting.graph.CraftingGraphDisplaySnapshot;
 import com.google.common.collect.Iterables;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
@@ -81,6 +82,12 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
 
     public static CraftingPlan buildCraftingPlan(CraftingSimulationState state,
                                                  CraftingCalculation calculation, long calculatedAmount) {
+        return buildCraftingPlan(state, calculation, calculatedAmount, null);
+    }
+
+    public static CraftingPlan buildCraftingPlan(CraftingSimulationState state,
+                                                 CraftingCalculation calculation, long calculatedAmount,
+                                                 @Nullable CraftingGraphDisplaySnapshot graphDisplaySnapshot) {
         return new CraftingPlan(
             new GenericStack(calculation.getOutput(), calculatedAmount),
             (long) Math.ceil(state.bytes),
@@ -92,7 +99,8 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
             calculation.getIntermediateFinalOutputAmount(),
             state.crafts,
             calculation.getTree(),
-            calculation.getTemporaryProviders());
+            calculation.getTemporaryProviders(),
+            graphDisplaySnapshot);
     }
 
     protected abstract long simulateExtractParent(AEKey what);

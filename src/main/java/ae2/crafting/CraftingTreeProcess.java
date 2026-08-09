@@ -458,7 +458,7 @@ public class CraftingTreeProcess {
     }
 
     private void recordTreeInputDisplayAmount(CraftingSimulationState inv, CraftingTreeNode node,
-                                               long requiredExtractBefore, long missingBefore) {
+                                              long requiredExtractBefore, long missingBefore) {
         if (!node.hasSelfReturningRemainderInput()) {
             return;
         }
@@ -621,13 +621,14 @@ public class CraftingTreeProcess {
         return machineLocations;
     }
 
-    record MachineInfo(List<PatternContainerGroup> groups,
-                       Map<PatternContainerGroup, List<CraftingSupplierLocation>> locations) {
+    public record MachineInfo(List<PatternContainerGroup> groups,
+                              Map<PatternContainerGroup, List<CraftingSupplierLocation>> locations) {
     }
 
     public Object2LongLinkedOpenHashMap<CraftingTreeNode> getNodes() {
         return nodes;
     }
+
     private record Preview(CraftingSimulationState parent, ChildCraftingSimulationState state, long times,
                            long intermediateFinalOutputAmount, KeyCounter recursiveMissingSeeds,
                            KeyCounter clearedRecursiveMissingSeeds,

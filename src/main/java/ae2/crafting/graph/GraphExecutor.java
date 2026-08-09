@@ -15,19 +15,23 @@ public class GraphExecutor {
         this.graph = graph;
     }
 
-    public void applyGraph(CraftingSimulationState inv) throws InterruptedException {
+    public CraftingGraphDisplaySnapshot applyGraph(CraftingSimulationState inv) throws InterruptedException {
         var propagation = new DemandPropagation();
         var order = propagation.topologicalSort(graph);
         Collections.reverse(order);
+        var snapshot = CraftingGraphDisplaySnapshot.builder(graph);
 
         for (var node : order) {
             if (node.getCraftTimes() == 0) continue;
-            applyNode(node, inv);
+            snapshot.recordNode(node, calc.getMachineInfo(node.getPattern()));
+            applyNode(node, inv, snapshot);
             calc.handlePausing();
         }
+        return snapshot.build(graph.getRootNode().getDemandAmount());
     }
 
-    private void applyNode(CraftingGraphNode node, CraftingSimulationState inv) {
+    private void applyNode(CraftingGraphNode node, CraftingSimulationState inv,
+                           CraftingGraphDisplaySnapshot.Builder snapshot) {
         long times = node.getCraftTimes();
         var pattern = node.getPattern();
 
@@ -36,6 +40,7 @@ public class GraphExecutor {
             long got = inv.extract(edge.inputKey(), needed, Actionable.MODULATE);
 
             long shortfall = needed - got;
+            snapshot.recordEdge(edge, needed, got);
             if (shortfall > 0) {
                 var nodeKey = new CraftingGraph.NodeKey(edge.inputKey(), null);
                 if (graph.isCyclicNode(nodeKey) || edge.producer() == null) {
@@ -46,6 +51,7 @@ public class GraphExecutor {
 
         long outputAmount = node.getOutputPerCraft() * times;
         inv.insert(node.getWhat(), outputAmount, Actionable.MODULATE);
+        snapshot.recordOutput(node, outputAmount);
 
         inv.addCrafting(pattern, times);
 

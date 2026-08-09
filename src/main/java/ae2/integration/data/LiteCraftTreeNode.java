@@ -9,6 +9,7 @@ import ae2.crafting.CraftingTreeProcess;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import net.minecraft.network.PacketBuffer;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -106,7 +107,7 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
         long stackSize = CraftingTreeByteBuf.readNonNegativeVarLong(buf, "Crafting tree stack size");
         output = new GenericStack(output.what(), stackSize);
 
-        int size = buf.readUnsignedByte();
+        int size = new PacketBuffer(buf).readVarInt();
         limits.checkNodeChildCount(size);
         List<LiteCraftTreeProc> inputs = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
@@ -176,9 +177,13 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
     }
 
     public void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet) {
-        if (inputs.size() > Byte.MAX_VALUE) {
-            throw new IllegalStateException("Too many inputs for a single node");
-        }
+        writeToBuffer(buf, stackSet, new CraftingTreeStackRegistry.DecodeLimits(), 0);
+    }
+
+    void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet,
+                       final CraftingTreeStackRegistry.DecodeLimits limits, final int depth) {
+        limits.addNode(depth);
+        limits.checkNodeChildCount(inputs.size());
 
         int stackID = stackSet.add(output);
         CraftingTreeByteBuf.writeVarLong(buf, stackID);
@@ -186,14 +191,14 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
         long stackSize = output.amount();
         CraftingTreeByteBuf.writeVarLong(buf, stackSize);
 
-        buf.writeByte(inputs.size());
+        new PacketBuffer(buf).writeVarInt(inputs.size());
         if (inputs instanceof RandomAccess) {
             for (int i = 0, size = inputs.size(); i < size; i++) {
-                inputs.get(i).writeToBuffer(buf, stackSet);
+                inputs.get(i).writeToBuffer(buf, stackSet, limits, depth + 1);
             }
         } else {
             for (LiteCraftTreeProc input : inputs) {
-                input.writeToBuffer(buf, stackSet);
+                input.writeToBuffer(buf, stackSet, limits, depth + 1);
             }
         }
         CraftingTreeByteBuf.writeVarLong(buf, missing);

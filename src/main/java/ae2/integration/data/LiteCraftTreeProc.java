@@ -90,14 +90,14 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs,
                                         final CraftingTreeStackRegistry.DecodeLimits limits, final int depth) {
         limits.addProcess();
 
-        int size = buf.readUnsignedByte();
+        var packetBuffer = new PacketBuffer(buf);
+        int size = packetBuffer.readVarInt();
         limits.checkProcessChildCount(size);
-        int machineCount = buf.readUnsignedByte();
+        int machineCount = packetBuffer.readVarInt();
         limits.checkMachineCount(machineCount);
         List<PatternContainerGroup> machines = new ArrayList<>(machineCount);
         Map<PatternContainerGroup, List<CraftingSupplierLocation>> machineLocations =
             new LinkedHashMap<>(machineCount);
-        var packetBuffer = new PacketBuffer(buf);
         for (int i = 0; i < machineCount; i++) {
             PatternContainerGroup machine = PatternContainerGroup.readFromPacket(packetBuffer);
             machines.add(machine);
@@ -120,38 +120,42 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs,
     }
 
     public void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet) {
-        if (inputs.size() > Byte.MAX_VALUE) {
-            throw new IllegalStateException("Too many inputs for a single node");
-        }
-        if (machines.size() > 0xFF) {
-            throw new IllegalStateException("Too many machines for a single process");
-        }
-        buf.writeByte(inputs.size());
-        buf.writeByte(machines.size());
+        writeToBuffer(buf, stackSet, new CraftingTreeStackRegistry.DecodeLimits(), 0);
+    }
+
+    void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet,
+                       final CraftingTreeStackRegistry.DecodeLimits limits, final int depth) {
+        limits.addProcess();
+        limits.checkProcessChildCount(inputs.size());
+        limits.checkMachineCount(machines.size());
         var packetBuffer = new PacketBuffer(buf);
+        packetBuffer.writeVarInt(inputs.size());
+        packetBuffer.writeVarInt(machines.size());
         if (machines instanceof RandomAccess) {
             for (int machineIndex = 0, machineCount = machines.size(); machineIndex < machineCount; machineIndex++) {
-                writeMachine(packetBuffer, machines.get(machineIndex));
+                writeMachine(packetBuffer, machines.get(machineIndex), limits);
             }
         } else {
             for (PatternContainerGroup machine : machines) {
-                writeMachine(packetBuffer, machine);
+                writeMachine(packetBuffer, machine, limits);
             }
         }
         if (inputs instanceof RandomAccess) {
             for (int inputIndex = 0, inputCount = inputs.size(); inputIndex < inputCount; inputIndex++) {
-                inputs.get(inputIndex).writeToBuffer(buf, stackSet);
+                inputs.get(inputIndex).writeToBuffer(buf, stackSet, limits, depth);
             }
         } else {
             for (LiteCraftTreeNode input : inputs) {
-                input.writeToBuffer(buf, stackSet);
+                input.writeToBuffer(buf, stackSet, limits, depth);
             }
         }
     }
 
-    private void writeMachine(PacketBuffer packetBuffer, PatternContainerGroup machine) {
+    private void writeMachine(PacketBuffer packetBuffer, PatternContainerGroup machine,
+                              CraftingTreeStackRegistry.DecodeLimits limits) {
         machine.writeToPacket(packetBuffer);
         List<CraftingSupplierLocation> locations = machineLocations(machine);
+        limits.addMachineLocations(locations.size());
         packetBuffer.writeVarInt(locations.size());
         if (locations instanceof RandomAccess) {
             for (int locationIndex = 0, locationCount = locations.size(); locationIndex < locationCount;
