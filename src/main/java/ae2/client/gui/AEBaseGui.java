@@ -90,6 +90,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.util.text.TextComponentString;
+import net.minecraftforge.fml.client.config.GuiUtils;
 import net.minecraftforge.fml.common.Optional;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
@@ -512,7 +513,12 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
             return false;
         }
 
-        drawHoveringTextAtTopZ(getItemToolTip(displayStack), mouseX, mouseY);
+        GuiUtils.preItemToolTip(displayStack);
+        try {
+            drawHoveringTextAtTopZ(getItemToolTip(displayStack), mouseX, mouseY);
+        } finally {
+            GuiUtils.postItemToolTip();
+        }
         return true;
     }
 
