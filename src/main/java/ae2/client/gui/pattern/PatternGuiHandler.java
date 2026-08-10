@@ -19,15 +19,14 @@ import java.util.Map;
 public final class PatternGuiHandler {
 
     private static final Map<Class<?> ,GuiScreenGetter> PATTERN_GUI_MAP = new HashMap<>();
+    private static final Minecraft minecraft = Minecraft.getMinecraft();
 
     static {
-        register(AECraftingPattern.class, ( pattern)->{
-            Minecraft minecraft = Minecraft.getMinecraft();
+        register(AECraftingPattern.class, (pattern)->{
             ContainerCraftingPattern container = new ContainerCraftingPattern(minecraft.player.inventory, pattern);
             return new GuiCraftingPattern(container, minecraft.player.inventory);
         });
         register(AEProcessingPattern.class, (pattern)->{
-            Minecraft minecraft = Minecraft.getMinecraft();
             ContainerProcessingPattern container = new ContainerProcessingPattern(minecraft.player.inventory, pattern);
             return new GuiProcessingPattern(container, minecraft.player.inventory);
         });
@@ -38,7 +37,6 @@ public final class PatternGuiHandler {
     }
 
     public static boolean open(ItemStack pattern) {
-        Minecraft minecraft = Minecraft.getMinecraft();
         if (minecraft.player == null || minecraft.world == null || pattern.isEmpty()) {
             return false;
         }
@@ -54,8 +52,12 @@ public final class PatternGuiHandler {
         if (getter == null) {
             return false;
         }
-
-        minecraft.displayGuiScreen(getter.getGuiScreen(pattern));
+        GuiScreen previousScreen = minecraft.currentScreen;
+        GuiScreen patternScreen = getter.getGuiScreen(pattern);
+        if (patternScreen instanceof GuiPattern<?> guiPattern) {
+            guiPattern.setPreviousScreen(previousScreen);
+        }
+        minecraft.displayGuiScreen(patternScreen);
         return true;
     }
 

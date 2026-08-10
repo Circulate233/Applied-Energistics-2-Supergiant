@@ -46,7 +46,7 @@ public final class PatternHotKey {
         String keyName = VIEW_PATTERN.getKeyModifier().getLocalizedComboName(VIEW_PATTERN.getKeyCode());
         List<String> tooltip = event.getToolTip();
         tooltip.add(Math.min(1, tooltip.size()), TextFormatting.DARK_GRAY
-            + I18n.format("pattern.tooltip", TextFormatting.GRAY + keyName));
+            + I18n.format("pattern.tooltip", TextFormatting.GRAY + keyName + TextFormatting.DARK_GRAY));
 
         if (VIEW_PATTERN.isActiveAndMatches(Keyboard.getEventKey())) {
             ItemStack pattern = stack.copy();

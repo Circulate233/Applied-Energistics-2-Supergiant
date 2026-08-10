@@ -6,23 +6,42 @@ import ae2.client.gui.AEBaseGui;
 import ae2.core.localization.ButtonToolTips;
 import ae2.core.localization.Tooltips;
 import ae2.container.pattern.ContainerPattern;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Slot;
 import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
+import org.lwjgl.input.Keyboard;
 
+import java.io.IOException;
 import java.util.List;
 
 public abstract class GuiPattern<T extends ContainerPattern> extends AEBaseGui<T> {
 
     private int cycle;
     private int cycleTick;
+    @Nullable
+    private GuiScreen previousScreen;
 
     protected GuiPattern(T container, InventoryPlayer playerInventory) {
         super(container, playerInventory);
         this.container.setCycleItem(this.cycle);
         this.xSize = 176;
+    }
+
+    public void setPreviousScreen(@Nullable GuiScreen previousScreen) {
+        this.previousScreen = previousScreen;
+    }
+
+    @Override
+    protected void keyTyped(char typedChar, int keyCode) throws IOException {
+        if (this.previousScreen != null
+            && (keyCode == Keyboard.KEY_ESCAPE || this.mc.gameSettings.keyBindInventory.isActiveAndMatches(keyCode))) {
+            this.mc.displayGuiScreen(this.previousScreen);
+            return;
+        }
+        super.keyTyped(typedChar, keyCode);
     }
 
     @Override
