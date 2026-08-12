@@ -19,12 +19,10 @@
 package ae2.crafting.inv;
 
 import ae2.api.config.FuzzyMode;
-import ae2.api.networking.security.IActionSource;
 import ae2.api.networking.storage.IStorageService;
 import ae2.api.stacks.AEKey;
 import ae2.api.stacks.KeyCounter;
 import com.google.common.collect.Iterables;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.Map;
 
@@ -36,7 +34,7 @@ import java.util.Map;
 public class NetworkCraftingSimulationState extends CraftingSimulationState {
     private final KeyCounter list;
 
-    public NetworkCraftingSimulationState(IStorageService storage, @Nullable IActionSource src) {
+    public NetworkCraftingSimulationState(IStorageService storage) {
         this.list = storage.getInventory().getAvailableStacks();
     }
 

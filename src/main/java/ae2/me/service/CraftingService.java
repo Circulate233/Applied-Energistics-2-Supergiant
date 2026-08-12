@@ -49,6 +49,7 @@ import ae2.crafting.CraftingCalculation;
 import ae2.crafting.CraftingLink;
 import ae2.crafting.CraftingLinkNexus;
 import ae2.crafting.execution.CraftingSubmitResult;
+import ae2.crafting.graph.CraftingGraph;
 import ae2.hooks.ticking.TickHandler;
 import ae2.me.cluster.implementations.CraftingCPUCluster;
 import ae2.me.helpers.InterestManager;
@@ -77,6 +78,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -129,6 +132,12 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     private boolean updateList = false;
     private final Cache<Object, Object> craftingMemoCache;
     private long memoRevision;
+    /**
+     * Reusable graph structures keyed by output. A graph is taken (removed) for the duration of one calculation so
+     * concurrent attempts never share the mutable structure; it is put back when the calculation finishes.
+     */
+    private final ConcurrentMap<AEKey, CraftingGraph> graphCache = new ConcurrentHashMap<>();
+    private volatile long graphCacheRevision;
 
     public CraftingService(IGrid grid, IStorageService storageGrid, IEnergyService energyGrid) {
         this.grid = grid;
@@ -336,12 +345,35 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
         if (this.memoRevision != currentRevision) {
             this.craftingMemoCache.invalidateAll();
             this.memoRevision = currentRevision;
+            // Patterns changed: any cached graph structure is stale.
+            this.graphCache.clear();
+            this.graphCacheRevision = currentRevision;
         }
 
         final CraftingCalculation job = new CraftingCalculation(world, this.grid, simRequester,
             new GenericStack(what, amount), strategy, this.craftingMemoCache);
 
         return CRAFTING_POOL.submit(job::run);
+    }
+
+    /**
+     * Takes the cached graph for an output, removing it so the calling calculation owns the mutable structure until it
+     * is returned via {@link #putCachedGraph(AEKey, CraftingGraph)}.
+     */
+    @Nullable
+    public CraftingGraph takeCachedGraph(AEKey output) {
+        return this.graphCache.remove(output);
+    }
+
+    /**
+     * Returns a graph structure for reuse. The graph is discarded if the pattern revision changed while the calculation
+     * was running, otherwise the next calculation for the same output reuses it.
+     */
+    public void putCachedGraph(AEKey output, CraftingGraph graph) {
+        if (this.graphCacheRevision != this.craftingProviders.getRevision()) {
+            return;
+        }
+        this.graphCache.put(output, graph);
     }
 
     @Override
@@ -353,8 +385,7 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     @Override
     public ICraftingSubmitResult submitJob(ICraftingPlan job, @Nullable ICraftingRequester requestingMachine,
                                            @Nullable ICraftingCPU target, boolean prioritizePower, IActionSource src,
-                                           boolean forceStart) {
-        return submitJob(job, requestingMachine, target, prioritizePower, src, forceStart, false);
+                                           boolean forceStart) {        return submitJob(job, requestingMachine, target, prioritizePower, src, forceStart, false);
     }
 
     @Override

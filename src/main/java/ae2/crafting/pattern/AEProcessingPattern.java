@@ -90,8 +90,9 @@ public class AEProcessingPattern implements IPatternDetails {
         stack.setTagInfo(ENCODED_PROCESSING_PATTERN, encoded);
     }
 
-    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World world,
-                                                                 @Nullable Exception cause, boolean flags) {
+    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World ignoredWorld,
+                                                                 @Nullable Exception ignoredCause,
+                                                                 boolean ignoredFlags) {
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_PRODUCES);
         var encoded = stack.getTagCompound();
         if (encoded != null && encoded.hasKey(ENCODED_PROCESSING_PATTERN, 10)) {

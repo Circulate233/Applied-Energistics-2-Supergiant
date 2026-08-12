@@ -210,6 +210,7 @@ public class NetworkCraftingProviders {
         @Override
         @NotNull
         public Iterator<ICraftingProvider> iterator() {
+            //noinspection ReturnOfInnerClass
             return new Iterator<>() {
                 private int remaining = providers.size();
 
@@ -313,6 +314,7 @@ public class NetworkCraftingProviders {
         private List<IPatternDetails> sortedPatterns = Collections.emptyList();
         private boolean needsSorting = false;
 
+        @SuppressWarnings("ExtractMethodRecommender")
         private void sortPatterns() {
             var sortedPatternInfos = new ObjectArrayList<>(patterns);
             sortedPatternInfos.sort(Comparator

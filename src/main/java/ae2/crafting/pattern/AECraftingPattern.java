@@ -45,6 +45,11 @@ public class AECraftingPattern implements IAssemblerPattern {
     private final boolean canSubstituteFluids;
     private final IRecipe recipe;
     private final List<GenericStack> sparseInputs;
+    /**
+     * Remaining-items result for the pattern's default inputs. Graph building probes every input via isNativePattern,
+     * so caching this avoids rebuilding the crafting inventory and re-running the recipe per slot.
+     */
+    private volatile List<ItemStack> cachedRemainingItems;
     private final int[] sparseToCompressed = new int[9];
     private final Input[] inputs;
     private final ItemStack output;
@@ -114,7 +119,8 @@ public class AECraftingPattern implements IAssemblerPattern {
     }
 
     public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World ignoredWorld,
-                                                                 @Nullable Exception ignoredCause, boolean flags) {
+                                                                 @Nullable Exception ignoredCause,
+                                                                 boolean ignoredFlags) {
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_CRAFTS);
 
         var tag = stack.getTagCompound();
@@ -440,13 +446,34 @@ public class AECraftingPattern implements IAssemblerPattern {
     }
 
     private ItemStack getRecipeRemainder(int slot, AEItemKey key) {
-        var testFrame = makeCraftingInventory();
-        testFrame.setInventorySlotContents(slot, key.toStack());
-        var remainingItems = recipe.getRemainingItems(testFrame);
+        // The default-input remaining-items result is deterministic. isNativePattern probes every input, so serve it
+        // from the cached result instead of rebuilding the inventory and re-running the recipe for each slot.
+        var defaultInput = slot >= 0 && slot < sparseInputs.size() ? sparseInputs.get(slot) : null;
+        if (defaultInput == null || !key.equals(defaultInput.what())) {
+            // Non-default template: compute from a frame that actually contains the given input.
+            var testFrame = makeCraftingInventory();
+            testFrame.setInventorySlotContents(slot, key.toStack());
+            return remainingItemsAt(testFrame, slot);
+        }
+        return remainingItemsAt(null, slot);
+    }
+
+    private ItemStack remainingItemsAt(@Nullable InventoryCrafting testFrame, int slot) {
+        var remainingItems = testFrame == null ? getDefaultRemainingItems()
+            : this.recipe.getRemainingItems(testFrame);
         if (slot >= 0 && slot < remainingItems.size()) {
             return remainingItems.get(slot);
         }
         return ItemStack.EMPTY;
+    }
+
+    private List<ItemStack> getDefaultRemainingItems() {
+        var cached = this.cachedRemainingItems;
+        if (cached == null) {
+            cached = this.recipe.getRemainingItems(makeCraftingInventory());
+            this.cachedRemainingItems = cached;
+        }
+        return cached;
     }
 
     private GenericStack getItemOrFluidInput(int slot, GenericStack item) {
@@ -459,7 +486,7 @@ public class AECraftingPattern implements IAssemblerPattern {
         var isBucket = ingredientItem instanceof ItemBucket || ingredientItem == Items.MILK_BUCKET;
 
         if (canSubstituteFluids && containedFluid != null && isBucket) {
-            var remainingItems = recipe.getRemainingItems(makeCraftingInventory());
+            var remainingItems = getDefaultRemainingItems();
             if (slot >= 0 && slot < remainingItems.size()) {
                 var slotRemainder = remainingItems.get(slot);
                 if (slotRemainder.getCount() == 1 && slotRemainder.getItem() == Items.BUCKET) {

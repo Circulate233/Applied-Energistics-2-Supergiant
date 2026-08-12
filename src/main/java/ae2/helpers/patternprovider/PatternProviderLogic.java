@@ -160,11 +160,13 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     @Nullable
     private PendingMergePush pendingMergePush;
 
+    @SuppressWarnings("unused")
     public PatternProviderLogic(IManagedGridNode mainNode, PatternProviderLogicHost host) {
         this(mainNode, host, host.getMainContainerIcon().getItem(),
             PatternProviderCapacity.getMaxPatternSlots(AEConfig.instance().getPatternProviderExpansionCardLimit()));
     }
 
+    @SuppressWarnings("unused")
     public PatternProviderLogic(IManagedGridNode mainNode, PatternProviderLogicHost host, int patternInventorySize) {
         this(mainNode, host, host.getMainContainerIcon().getItem(), patternInventorySize);
     }
@@ -1759,5 +1761,4 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         }
     }
 }
-
 

@@ -28,6 +28,7 @@ import ae2.crafting.CraftingCalculation;
 import ae2.crafting.CraftingPlan;
 import ae2.crafting.graph.CraftingGraphDisplaySnapshot;
 import com.google.common.collect.Iterables;
+import com.google.common.math.LongMath;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
@@ -37,6 +38,12 @@ import java.util.Collections;
 import java.util.RandomAccess;
 
 public abstract class CraftingSimulationState implements ICraftingSimulationState {
+    record StateSnapshot(KeyCounter unmodifiedCache, KeyCounter modifiableCache,
+                         ReferenceOpenHashSet<Object> loadedFuzzyGroups, KeyCounter emittedItems,
+                         KeyCounter pseudoItems, KeyCounter boundaryItems, KeyCounter requiredExtract,
+                         Object2LongOpenHashMap<IPatternDetails> crafts, double bytes) {
+    }
+
     /**
      * Partial cache of the parent's items, never modified.
      */
@@ -59,6 +66,10 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
      * not count as real simulated inventory or as network extraction requirements.
      */
     private final KeyCounter pseudoItems;
+    /**
+     * Inputs supplied by graph boundaries while previewing a local compatibility unit.
+     */
+    private final KeyCounter boundaryItems;
     private final Object2LongOpenHashMap<IPatternDetails> crafts = new Object2LongOpenHashMap<>();
     /**
      * Minimum amount of each item that needs to be extracted from the network. This is the maximum of (unmodified -
@@ -76,6 +87,7 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
         this.loadedFuzzyGroups = new ReferenceOpenHashSet<>();
         this.emittedItems = new KeyCounter();
         this.pseudoItems = new KeyCounter();
+        this.boundaryItems = new KeyCounter();
         this.requiredExtract = new KeyCounter();
         this.crafts.defaultReturnValue(0);
     }
@@ -87,7 +99,7 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
 
     public static CraftingPlan buildCraftingPlan(CraftingSimulationState state,
                                                  CraftingCalculation calculation, long calculatedAmount,
-                                                 @Nullable CraftingGraphDisplaySnapshot graphDisplaySnapshot) {
+                                                 @Nullable CraftingGraphDisplaySnapshot.Builder graphDisplayBuilder) {
         return new CraftingPlan(
             new GenericStack(calculation.getOutput(), calculatedAmount),
             (long) Math.ceil(state.bytes),
@@ -100,7 +112,9 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
             state.crafts,
             calculation.getTree(),
             calculation.getTemporaryProviders(),
-            graphDisplaySnapshot);
+            graphDisplayBuilder,
+            calculation.getAttemptMetrics(),
+            calculation);
     }
 
     protected abstract long simulateExtractParent(AEKey what);
@@ -137,20 +151,28 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
 
     @Override
     public long extract(AEKey what, long amount, Actionable mode) {
+        long boundaryExtracted = Math.min(this.boundaryItems.get(what), amount);
+        if (mode == Actionable.MODULATE && boundaryExtracted > 0) {
+            this.boundaryItems.remove(what, boundaryExtracted);
+        }
+        if (boundaryExtracted == amount) {
+            return boundaryExtracted;
+        }
+
         cacheFuzzy(what);
 
         var cachedAmount = modifiableCache.get(what);
         if (cachedAmount == 0)
-            return 0;
+            return boundaryExtracted;
 
-        long extracted = Math.min(cachedAmount, amount);
+        long extracted = Math.min(cachedAmount, amount - boundaryExtracted);
         if (mode == Actionable.MODULATE) {
             modifiableCache.remove(what, extracted);
         }
 
         updateRequiredExtract(what, unmodifiedCache.get(what) - modifiableCache.get(what));
 
-        return extracted;
+        return boundaryExtracted + extracted;
     }
 
     @Nullable
@@ -173,6 +195,12 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
     public void insertPseudo(AEKey what, long amount, Actionable mode) {
         if (mode == Actionable.MODULATE) {
             this.pseudoItems.add(what, amount);
+        }
+    }
+
+    public void insertBoundary(AEKey what, long amount) {
+        if (amount > 0) {
+            this.boundaryItems.add(what, amount);
         }
     }
 
@@ -207,10 +235,6 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
         this.crafts.addTo(details, crafts);
     }
 
-    public long getAvailablePseudoAmount(AEKey what) {
-        return this.pseudoItems.get(what);
-    }
-
     public long getOriginalAmount(AEKey what) {
         cacheFuzzy(what);
         return this.unmodifiedCache.get(what);
@@ -222,7 +246,7 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
 
     public long getAvailableAmount(AEKey what) {
         cacheFuzzy(what);
-        return this.modifiableCache.get(what);
+        return LongMath.saturatedAdd(this.modifiableCache.get(what), this.boundaryItems.get(what));
     }
 
     public long getAvailableNonProducedAmount(AEKey what) {
@@ -240,13 +264,6 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
         this.requiredExtract.remove(what, returned);
         this.modifiableCache.add(what, returned);
         return returned;
-    }
-
-    public long getNetProducedAmount(AEKey what) {
-        cacheFuzzy(what);
-        long produced = this.modifiableCache.get(what) - this.unmodifiedCache.get(what)
-            + this.requiredExtract.get(what);
-        return Math.max(0, produced);
     }
 
     public long getCraftedAmount(AEKey what) {
@@ -278,24 +295,77 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
     }
 
     public void applyDiff(CraftingSimulationState parent) {
+        freezeDiff().applyTo(parent);
+    }
+
+    public CraftingSimulationDiff freezeDiff() {
+        var inventoryDelta = new KeyCounter();
+        for (var entry : modifiableCache) {
+            long delta = entry.getLongValue() - unmodifiedCache.get(entry.getKey());
+            if (delta != 0) {
+                inventoryDelta.add(entry.getKey(), delta);
+            }
+        }
+        return new CraftingSimulationDiff(requiredExtract, inventoryDelta, emittedItems, pseudoItems, crafts, bytes);
+    }
+
+    StateSnapshot snapshot() {
+        return new StateSnapshot(
+            copy(unmodifiedCache),
+            copy(modifiableCache),
+            new ReferenceOpenHashSet<>(loadedFuzzyGroups),
+            copy(emittedItems),
+            copy(pseudoItems),
+            copy(boundaryItems),
+            copy(requiredExtract),
+            new Object2LongOpenHashMap<>(crafts),
+            bytes);
+    }
+
+    void restore(StateSnapshot snapshot) {
+        restore(unmodifiedCache, snapshot.unmodifiedCache());
+        restore(modifiableCache, snapshot.modifiableCache());
+        loadedFuzzyGroups.clear();
+        loadedFuzzyGroups.addAll(snapshot.loadedFuzzyGroups());
+        restore(emittedItems, snapshot.emittedItems());
+        restore(pseudoItems, snapshot.pseudoItems());
+        restore(boundaryItems, snapshot.boundaryItems());
+        restore(requiredExtract, snapshot.requiredExtract());
+        crafts.clear();
+        crafts.putAll(snapshot.crafts());
+        bytes = snapshot.bytes();
+    }
+
+    private static KeyCounter copy(KeyCounter source) {
+        var result = new KeyCounter();
+        result.addAll(source);
+        return result;
+    }
+
+    private static void restore(KeyCounter target, KeyCounter snapshot) {
+        target.clear();
+        target.removeEmptySubmaps();
+        target.addAll(snapshot);
+    }
+
+    void applyDiff(CraftingSimulationDiff diff) {
         // It's important to apply this here to ensure that the extract below doesn't make us count some stacks twice.
-        for (var entry : requiredExtract) {
+        for (var entry : diff.requiredExtract) {
             var key = entry.getKey();
             // To compute the new parent max difference during the processing of the child's queries:
             // Take current parent difference, and add required extract (= max difference observed in the child).
-            long delta = parent.unmodifiedCache.get(key) - parent.modifiableCache.get(key) + entry.getLongValue();
-            parent.updateRequiredExtract(key, delta);
+            long delta = this.unmodifiedCache.get(key) - this.modifiableCache.get(key) + entry.getLongValue();
+            this.updateRequiredExtract(key, delta);
         }
 
-        for (var entry : modifiableCache) {
-            var unmodified = unmodifiedCache.get(entry.getKey());
-            long sizeDelta = entry.getLongValue() - unmodified;
+        for (var entry : diff.inventoryDelta) {
+            long sizeDelta = entry.getLongValue();
 
             if (sizeDelta > 0) {
-                parent.insert(entry.getKey(), sizeDelta, Actionable.MODULATE);
+                this.insert(entry.getKey(), sizeDelta, Actionable.MODULATE);
             } else if (sizeDelta < 0) {
                 long newStackSize = -sizeDelta;
-                var reallyExtracted = parent.extract(entry.getKey(), newStackSize, Actionable.MODULATE);
+                var reallyExtracted = this.extract(entry.getKey(), newStackSize, Actionable.MODULATE);
 
                 if (reallyExtracted != -sizeDelta) {
                     throw new IllegalStateException("Failed to extract from parent. This is a bug!");
@@ -303,18 +373,18 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
             }
         }
 
-        for (var toEmit : emittedItems) {
-            parent.emitItems(toEmit.getKey(), toEmit.getLongValue());
+        for (var toEmit : diff.emittedItems) {
+            this.emitItems(toEmit.getKey(), toEmit.getLongValue());
         }
 
-        for (var pseudoItem : pseudoItems) {
-            parent.insertPseudo(pseudoItem.getKey(), pseudoItem.getLongValue(), Actionable.MODULATE);
+        for (var pseudoItem : diff.pseudoItems) {
+            this.insertPseudo(pseudoItem.getKey(), pseudoItem.getLongValue(), Actionable.MODULATE);
         }
 
-        parent.addBytes(bytes);
+        this.addBytes(diff.bytes);
 
-        for (Object2LongMap.Entry<IPatternDetails> entry : crafts.object2LongEntrySet()) {
-            parent.addCrafting(entry.getKey(), entry.getLongValue());
+        for (Object2LongMap.Entry<IPatternDetails> entry : diff.crafts.object2LongEntrySet()) {
+            this.addCrafting(entry.getKey(), entry.getLongValue());
         }
     }
 

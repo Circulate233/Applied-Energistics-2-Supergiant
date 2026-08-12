@@ -38,6 +38,12 @@ import ae2.crafting.execution.InputTemplate;
 import ae2.crafting.graph.DemandPropagation;
 import ae2.crafting.graph.GraphBuilder;
 import ae2.crafting.graph.GraphExecutor;
+import ae2.crafting.graph.CraftingGraph;
+import ae2.crafting.graph.CraftingGraphNode;
+import ae2.crafting.graph.LocalDisplayFragment;
+import ae2.crafting.graph.LocalComponentPlan;
+import ae2.crafting.graph.LocalPatternPlan;
+import ae2.crafting.graph.SccPlan;
 import ae2.crafting.inv.ChildCraftingSimulationState;
 import ae2.crafting.inv.CraftingSimulationState;
 import ae2.crafting.inv.NetworkCraftingSimulationState;
@@ -52,7 +58,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
-import it.unimi.dsi.fastutil.objects.ObjectLists;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Reference2LongMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
@@ -70,6 +75,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
 public class CraftingCalculation {
+    private static final int MAX_LOCAL_REPLANS = 1_000_000;
 
     final ICraftingSimulationRequester simRequester;
     private final ICraftingService craftingService;
@@ -79,8 +85,10 @@ public class CraftingCalculation {
     private final KeyCounter recursiveMissingSeeds = new KeyCounter();
     private final Object monitor = new Object();
     private final CraftingPerformanceListener performanceListener;
+    private final CraftingAttemptMetrics attemptMetrics = new CraftingAttemptMetrics();
     private final Stopwatch watch = Stopwatch.createUnstarted();
-    private final CraftingTreeNode tree;
+    private int localReplans;
+    private @Nullable CraftingTreeNode tree;
     private final AEKey output;
     private final ObjectArrayList<AEKey> requestStack = new ObjectArrayList<>();
     private final ObjectArrayList<AEKey> availabilityStack = new ObjectArrayList<>();
@@ -91,7 +99,11 @@ public class CraftingCalculation {
     private final Map<AEKey, ObjectList<IPatternDetails>> patternCache = new Object2ObjectOpenHashMap<>();
     private @Nullable Map<AEKey, List<IPatternDetails>> additionalPatternsByOutput;
     private final Map<IPatternDetails, AEKey2LongMap> expandedPatternNetOutputCache = new Reference2ObjectOpenHashMap<>();
+    private final Map<IPatternDetails, AEKey2LongMap> patternOutputCountCache = new Reference2ObjectOpenHashMap<>();
+    private final Map<IPatternDetails, AEKey2LongMap> patternInputCountCache = new Reference2ObjectOpenHashMap<>();
     private final Map<IPatternDetails, Map<AEKey, RecursivePatternBatch>> recursivePatternBatchCache =
+        new Reference2ObjectOpenHashMap<>();
+    private final Reference2ObjectOpenHashMap<IPatternDetails, Boolean> positiveRecursiveNetCache =
         new Reference2ObjectOpenHashMap<>();
     private final Reference2ObjectOpenHashMap<IPatternDetails, CraftingTreeProcess.MachineInfo> machineInfoCache =
         new Reference2ObjectOpenHashMap<>();
@@ -112,6 +124,7 @@ public class CraftingCalculation {
     private final Set<AEKey> recursiveFinalOutputInputs = new ObjectOpenHashSet<>();
     private final KeyCounter recursiveReserveCandidates = new KeyCounter();
     private final Reference2LongOpenHashMap<CraftingTreeNode> recursiveDisplayRequests = new Reference2LongOpenHashMap<>();
+    private @Nullable CraftingGraph graph;
     private final List<ICraftingProvider> temporaryProviders;
     private final long recursiveIngredientReserveAmount;
     // The initially requested amount of "output", may be reduced depending on the strategy used
@@ -132,6 +145,9 @@ public class CraftingCalculation {
     private KeyCounter reserveProtectedMissingSeeds = null;
     private boolean applyingRecursiveIngredientReserve = false;
     private boolean recursiveReserveBlockedByMissingSeed = false;
+    private boolean localUnitMode = false;
+    private @Nullable Set<AEKey> localUnitScope;
+    private @Nullable KeyCounter localBoundaryDemands;
     private boolean usedCraftingTreeTestPattern;
 
     public CraftingCalculation(World level, IGrid grid, ICraftingSimulationRequester simRequester,
@@ -163,23 +179,33 @@ public class CraftingCalculation {
         var storage = grid.getStorageService();
         var craftingService = grid.getCraftingService();
         this.craftingService = craftingService;
-        this.networkInv = new NetworkCraftingSimulationState(storage, simRequester.getActionSource());
+        this.networkInv = new NetworkCraftingSimulationState(storage);
         this.recursiveIngredientReserveAmount = Math.max(0, craftingService.getRecursiveIngredientReserveAmount());
         this.processHashPrefixes.add(0);
         this.processHashPowers.add(1);
 
+    }
+
+    private CraftingTreeNode getOrCreateLegacyTree() {
+        var result = this.tree;
+        if (result != null) {
+            return result;
+        }
+
         if (isPerformanceTrackingEnabled()) {
             long treeStart = System.nanoTime();
-            this.tree = new CraftingTreeNode(craftingService, this, this.output, 1, null, -1);
+            result = new CraftingTreeNode(this.craftingService, this, this.output, 1, null, -1);
             recordPerformanceStage("construct-tree", System.nanoTime() - treeStart);
 
             long preloadStart = System.nanoTime();
             preloadPatternCache(this.output);
             recordPerformanceStage("preload-pattern-cache", System.nanoTime() - preloadStart);
         } else {
-            this.tree = new CraftingTreeNode(craftingService, this, this.output, 1, null, -1);
+            result = new CraftingTreeNode(this.craftingService, this, this.output, 1, null, -1);
             preloadPatternCache(this.output);
         }
+        this.tree = result;
+        return result;
     }
 
     private void preloadPatternCache(AEKey what) {
@@ -233,7 +259,13 @@ public class CraftingCalculation {
         return CraftingPerformanceListener.NOOP;
     }
 
-    private static long getPatternOutputCount(IPatternDetails pattern, AEKey what) {
+    private long getPatternOutputCount(IPatternDetails pattern, AEKey what) {
+        var outputsByKey = this.patternOutputCountCache.computeIfAbsent(pattern,
+            ignored -> new AEKey2LongMap.OpenHashMap());
+        return outputsByKey.computeIfAbsent(what, key -> computePatternOutputCount(pattern, (AEKey) key));
+    }
+
+    private static long computePatternOutputCount(IPatternDetails pattern, AEKey what) {
         long total = 0;
         var outputs = pattern.getOutputs();
         if (outputs instanceof RandomAccess) {
@@ -253,7 +285,13 @@ public class CraftingCalculation {
         return total;
     }
 
-    private static long getPatternInputCount(IPatternDetails pattern, AEKey what) {
+    private long getPatternInputCount(IPatternDetails pattern, AEKey what) {
+        var inputsByKey = this.patternInputCountCache.computeIfAbsent(pattern,
+            ignored -> new AEKey2LongMap.OpenHashMap());
+        return inputsByKey.computeIfAbsent(what, key -> computePatternInputCount(pattern, (AEKey) key));
+    }
+
+    private static long computePatternInputCount(IPatternDetails pattern, AEKey what) {
         long total = 0;
         for (var input : pattern.getInputs()) {
             var possibleInputs = input.possibleInputs();
@@ -324,12 +362,8 @@ public class CraftingCalculation {
 
     public ObjectList<IPatternDetails> getCraftingFor(AEKey what) {
         return this.patternCache.computeIfAbsent(what, key -> {
-            var gridNode = this.simRequester.getGridNode();
-            if (gridNode == null) {
-                return ObjectLists.emptyList();
-            }
+            var networkPatterns = this.craftingService.getCraftingFor(key);
             var patterns = new ObjectArrayList<IPatternDetails>();
-            var networkPatterns = gridNode.grid().getCraftingService().getCraftingFor(key);
             if (networkPatterns instanceof List<?> networkPatternList && networkPatternList instanceof RandomAccess) {
                 for (int i = 0, size = networkPatternList.size(); i < size; i++) {
                     var pattern = (IPatternDetails) networkPatternList.get(i);
@@ -361,8 +395,7 @@ public class CraftingCalculation {
     }
 
     public boolean canEmitFor(AEKey what) {
-        var gridNode = this.simRequester.getGridNode();
-        return gridNode != null && gridNode.grid().getCraftingService().canEmitFor(what);
+        return this.craftingService.canEmitFor(what);
     }
 
     CraftingTreeProcess.MachineInfo getMachineInfo(ICraftingService craftingService, IPatternDetails pattern) {
@@ -379,6 +412,116 @@ public class CraftingCalculation {
 
     public CraftingTreeProcess.MachineInfo getMachineInfo(IPatternDetails pattern) {
         return getMachineInfo(this.craftingService, pattern);
+    }
+
+    public LocalPatternPlan previewLocalPattern(AEKey what, IPatternDetails pattern, long craftTimes,
+                                                Set<AEKey> scope, CraftingSimulationState parent)
+        throws InterruptedException, CraftBranchFailure {
+        var localInventory = new ChildCraftingSimulationState(parent);
+        var localRoot = new CraftingTreeNode(this.craftingService, this, what, 1, null, -1);
+        var localProcess = new CraftingTreeProcess(this.craftingService, this, pattern, localRoot);
+        try (var context = enterLocalUnit(scope)) {
+            localProcess.request(localInventory, craftTimes);
+            var boundaryDemands = context.boundaryDemands();
+            var displayFragment = LocalDisplayFragment.capture(localRoot, craftTimes, keysOf(boundaryDemands),
+                new LocalDisplayFragment.CaptureContext(context.missingDelta()));
+            var calculationDelta = context.calculationDelta();
+            context.rollback();
+            this.attemptMetrics.recordLocalPatternPlan();
+            return new LocalPatternPlan(pattern, craftTimes, boundaryDemands, localInventory.freezeDiff(),
+                calculationDelta, displayFragment);
+        }
+    }
+
+    public LocalPatternPlan previewLocalUnit(AEKey what, List<IPatternDetails> candidates, long requestedAmount,
+                                             Set<AEKey> scope, CraftingSimulationState parent)
+        throws InterruptedException, CraftBranchFailure {
+        CraftBranchFailure lastFailure = null;
+        for (int i = 0, size = candidates.size(); i < size; i++) {
+            var pattern = candidates.get(i);
+            long outputPerCraft = getPatternOutputCount(pattern, what);
+            try {
+                return previewLocalPattern(what, pattern, divideCeil(requestedAmount, outputPerCraft), scope, parent);
+            } catch (CraftBranchFailure failure) {
+                lastFailure = failure;
+            }
+        }
+        if (lastFailure != null) throw lastFailure;
+        throw new CraftBranchFailure(what, requestedAmount);
+    }
+
+    public LocalComponentPlan previewLocalComponent(List<CraftingGraphNode> nodes,
+                                                    CraftingSimulationState parent)
+        throws InterruptedException, CraftBranchFailure {
+        return previewLocalComponent(nodes, null, 0, parent);
+    }
+
+    private LocalComponentPlan previewLocalComponent(List<CraftingGraphNode> nodes,
+                                                     @Nullable CraftingGraphNode requestedNode,
+                                                     long requestedAmount,
+                                                     CraftingSimulationState parent)
+        throws InterruptedException, CraftBranchFailure {
+        var scope = new ObjectOpenHashSet<AEKey>();
+        for (var node : nodes) scope.add(node.getWhat());
+
+        var localInventory = new ChildCraftingSimulationState(parent);
+        var roots = new Reference2ObjectOpenHashMap<CraftingGraphNode, CraftingTreeNode>();
+        try (var context = enterLocalUnit(scope)) {
+            for (int nodeIndex = 0; nodeIndex < nodes.size(); nodeIndex++) {
+                var node = nodes.get(nodeIndex);
+                long nodeDemand = requestedNode == null ? node.getDemandAmount()
+                    : node == requestedNode ? requestedAmount : 0;
+                if (nodeDemand <= 0 || node.getPattern() == null) continue;
+                var root = new CraftingTreeNode(this.craftingService, this, node.getWhat(), 1, null, -1);
+                roots.put(node, root);
+                root.request(localInventory, nodeDemand, null);
+            }
+            var boundaryDemands = context.boundaryDemands();
+            var fragmentBoundaries = keysOf(boundaryDemands);
+            var entries = new ObjectArrayList<LocalComponentPlan.Entry>();
+            var remainingCrafts = new Reference2LongOpenHashMap<IPatternDetails>();
+            remainingCrafts.putAll(localInventory.getCrafts());
+            var displayContext = new LocalDisplayFragment.CaptureContext(context.missingDelta());
+            for (int nodeIndex = 0; nodeIndex < nodes.size(); nodeIndex++) {
+                var node = nodes.get(nodeIndex);
+                IPatternDetails selected = null;
+                long times = 0;
+                for (var candidate : node.getPatternCandidates()) {
+                    long candidateTimes = remainingCrafts.getLong(candidate);
+                    if (candidateTimes > 0) {
+                        selected = candidate;
+                        times = candidateTimes;
+                        remainingCrafts.removeLong(candidate);
+                        break;
+                    }
+                }
+                var root = roots.get(node);
+                if (selected == null && root == null) continue;
+                long nodeDemand = requestedNode == null ? node.getDemandAmount()
+                    : node == requestedNode ? requestedAmount : 0;
+                var display = root == null
+                    ? new LocalDisplayFragment(node.getWhat(), nodeDemand, 0, List.of())
+                    : LocalDisplayFragment.capture(root, nodeDemand, fragmentBoundaries, displayContext);
+                entries.add(new LocalComponentPlan.Entry(nodeIndex, selected, times, display));
+            }
+            var calculationDelta = context.calculationDelta();
+            if (requestedNode == null && this.graph != null && !nodes.isEmpty()) {
+                int componentId = this.graph.getTopology().getComponentId(nodes.getFirst());
+                if (componentId >= 0) {
+                    this.graph.setSccPlan(componentId, SccPlan.localPlan(
+                        componentId, nodes, boundaryDemands, calculationDelta));
+                }
+            }
+            context.rollback();
+            this.attemptMetrics.recordLocalComponentPlan();
+            return new LocalComponentPlan(entries, boundaryDemands, localInventory.freezeDiff(), calculationDelta);
+        }
+    }
+
+    private static Set<AEKey> keysOf(KeyCounter counter) {
+        var result = new ObjectOpenHashSet<AEKey>();
+        for (var entry : counter) result.add(entry.getKey());
+        return result;
     }
 
     @Nullable
@@ -415,7 +558,7 @@ public class CraftingCalculation {
         return collected;
     }
 
-    public ICraftingPlan run() {
+    public ICraftingPlan run() throws InterruptedException {
         long calculationStart = System.nanoTime();
         try {
             startPerformanceListener();
@@ -444,6 +587,9 @@ public class CraftingCalculation {
                     this.getMaxRequestDepth());
             }
             return plan;
+        } catch (InterruptedException ex) {
+            Thread.currentThread().interrupt();
+            throw ex;
         } catch (Exception ex) {
             AELog.info(ex, "Exception during crafting calculation.");
             throw new RuntimeException(ex);
@@ -482,19 +628,12 @@ public class CraftingCalculation {
             return runCraftAttempt(requestedAmount, requestedAmount);
         }
 
-        try {
-            return runGraphBasedAttempt(requestedAmount);
-        } catch (InterruptedException e) {
-            throw e;
-        } catch (Exception e) {
-            AELog.warn("Graph-based calculation failed, fallback to legacy: " + e.getMessage());
-            this.memoReplayEnabled = false;
-            return runCraftAttempt(requestedAmount, requestedAmount);
-        }
+        return runGraphBasedAttempt(requestedAmount);
     }
 
     private CraftingPlan runCraftAttempt(long productionAmount, long finalAmount)
         throws InterruptedException {
+        var tree = getOrCreateLegacyTree();
         this.simulate = false;
         this.allowMissing = true;
         this.missing.clear();
@@ -511,7 +650,8 @@ public class CraftingCalculation {
         this.recursiveFinalOutputInputs.clear();
         this.recursiveReserveCandidates.clear();
         this.recursiveDisplayRequests.clear();
-        this.tree.resetPossible();
+        this.graph = null;
+        tree.resetPossible();
 
         final boolean logCrafting = AELog.isCraftingLogEnabled();
         final Stopwatch timer = logCrafting ? Stopwatch.createStarted() : null;
@@ -527,9 +667,9 @@ public class CraftingCalculation {
         try {
             if (trackPerformance) {
                 runTimedCrafting("tree-request " + attemptName,
-                    () -> this.tree.request(craftingInventory, productionAmount, null));
+                    () -> tree.request(craftingInventory, productionAmount, null));
             } else {
-                this.tree.request(craftingInventory, productionAmount, null);
+                tree.request(craftingInventory, productionAmount, null);
             }
         } catch (CraftBranchFailure failure) {
             if (failure.hasExplicitMessageKey()) {
@@ -546,9 +686,7 @@ public class CraftingCalculation {
         applyRecursiveIngredientReserve(craftingInventory);
         clearResolvedRecursiveMissingItems(craftingInventory);
         addRecursiveMissingSeedsToPlan();
-        // Add bytes for the tree size.
-        craftingInventory.addBytes((double) this.tree.getNodeCount() * 8);
-
+        craftingInventory.addBytes((double) tree.getNodeCount() * 8);
         CraftingPlan plan;
         if (trackPerformance) {
             plan = timed("build-plan " + attemptName,
@@ -567,34 +705,150 @@ public class CraftingCalculation {
     }
 
     private CraftingPlan runGraphBasedAttempt(long productionAmount) throws InterruptedException {
-        var graphBuilder = new GraphBuilder(this);
-        var graph = timed("buildGraph", () -> graphBuilder.buildGraph(this.output, productionAmount));
+        long graphCalculationStart = System.nanoTime();
+        this.simulate = false;
+        this.allowMissing = true;
 
+        var service = this.craftingService instanceof CraftingService cs ? cs : null;
+        var graph = service == null ? null : service.takeCachedGraph(this.output);
+        if (graph == null) {
+            var graphBuilder = new GraphBuilder(this);
+            graph = timed("buildGraph", () -> graphBuilder.buildGraph(this.output, productionAmount));
+        } else {
+            // Structural reuse: clear all per-attempt planning state, then re-anchor the root demand.
+            graph.resetForReuse();
+            var cachedRoot = graph.getRootNode();
+            if (cachedRoot == null) {
+                throw new IllegalStateException("Cached graph has no root node");
+            }
+            cachedRoot.setDemandAmount(productionAmount);
+            recordPerformanceCount("graphCacheHit", 1);
+        }
+        this.graph = graph;
+        try {
+            return runGraphBasedAttemptBody(graph, productionAmount, graphCalculationStart);
+        } finally {
+            if (service != null) {
+                service.putCachedGraph(this.output, graph);
+            }
+        }
+    }
+
+    private CraftingPlan runGraphBasedAttemptBody(CraftingGraph graph, long productionAmount,
+                                                  long graphCalculationStart) throws InterruptedException {
         recordPerformanceCount("graphNodes", graph.getNodeCount());
         recordPerformanceCount("graphEdges", graph.getEdgeCount());
+        long sccUnits = 0;
+        var topology = graph.getTopology();
+        if (topology.isCondensed()) {
+            for (var component : topology.getComponents()) {
+                if (component.cyclic()) {
+                    sccUnits++;
+                }
+            }
+        }
+        recordPerformanceCount("sccUnits", sccUnits);
 
-        var propagation = new DemandPropagation();
+        var propagation = new DemandPropagation(this);
         timed("propagateDemand", () -> {
             propagation.propagate(graph);
             return null;
         });
+        boolean hasLocalComponents = false;
+        if (topology.isCondensed()) {
+            for (var component : topology.getComponents()) {
+                if (!component.cyclic() || component.nodes().getFirst().getLocalComponentId() < 0) continue;
+                try {
+                    var plan = previewLocalComponent(component.nodes(), this.networkInv);
+                    graph.setLocalComponentPlan(component.id(), plan);
+                    hasLocalComponents = true;
+                } catch (CraftBranchFailure e) {
+                    throw new IllegalStateException("Failed to discover recursive crafting component "
+                        + component.id(), e);
+                }
+            }
+        }
+        long localUnits = 0;
+        boolean hasLocalUnits = false;
+        for (var node : graph.getAllNodes()) {
+            if (!node.isLocalUnit()) continue;
+            localUnits++;
+            if (node.getLocalComponentId() >= 0 || node.getDemandAmount() <= 0) continue;
+            hasLocalUnits = true;
+            try {
+                var discovery = previewLocalUnit(node.getWhat(), node.getPatternCandidates(),
+                    node.getDemandAmount(), Set.of(node.getWhat()), this.networkInv);
+                node.setPlannedBoundaryDemands(discovery.boundaryDemands());
+                // Reuse the discovery plan at execution time when the demand and inventory still match, avoiding a
+                // second full legacy solve for the same unit.
+                graph.setLocalUnitPlan(node, discovery);
+            } catch (CraftBranchFailure e) {
+                throw new IllegalStateException("Failed to discover local crafting unit " + node.getWhat(), e);
+            }
+        }
+        recordPerformanceCount("localUnits", localUnits);
+        recordPerformanceCount("nativeUnits", graph.getNodeCount() - localUnits);
+        if (hasLocalUnits || hasLocalComponents) {
+            for (var node : graph.getAllNodes()) {
+                node.resetPlanningAmounts();
+            }
+            var root = graph.getRootNode();
+            if (root == null) throw new IllegalStateException("Graph has no root node");
+            root.setDemandAmount(productionAmount);
+            timed("propagateLocalDemand", () -> {
+                propagation.propagate(graph);
+                return null;
+            });
+        }
+
+        if (topology.isCondensed()) {
+            for (var component : topology.getComponents()) {
+                if (!component.cyclic()) continue;
+                var sccPlan = graph.getSccPlan(component.id());
+                if (sccPlan != null && sccPlan.local()) {
+                    this.attemptMetrics.recordLocalScc();
+                } else {
+                    this.attemptMetrics.recordNativeScc();
+                }
+            }
+        }
 
         var craftingInventory = new ChildCraftingSimulationState(this.networkInv);
         var executor = new GraphExecutor(this, graph);
-        var displaySnapshot = timed("applyGraph", () -> executor.applyGraph(craftingInventory));
+        var displayBuilder = timed("applyGraph", () -> executor.applyGraph(craftingInventory));
 
         applyRecursiveIngredientReserve(craftingInventory);
         clearResolvedRecursiveMissingItems(craftingInventory);
         addRecursiveMissingSeedsToPlan();
-
         craftingInventory.addBytes((double) graph.getNodeCount() * 8);
+        this.attemptMetrics.recordGraphCalculation(System.nanoTime() - graphCalculationStart);
 
         return CraftingSimulationState.buildCraftingPlan(
-            craftingInventory, this, productionAmount, displaySnapshot);
+            craftingInventory, this, productionAmount, displayBuilder);
+    }
+
+    /**
+     * Executes one already planned compatibility unit after its graph boundaries have been produced.
+     */
+    public void commitLocalPattern(LocalPatternPlan plan, CraftingSimulationState inventory) {
+        plan.commit(this, inventory);
+    }
+
+    public void recordLocalReplan() {
+        if (++this.localReplans > MAX_LOCAL_REPLANS) {
+            throw new IllegalStateException("Local crafting replan limit exceeded: " + MAX_LOCAL_REPLANS);
+        }
+        this.attemptMetrics.recordLocalReplan();
+        recordPerformanceCount("localReplans", 1);
+    }
+
+    public CraftingAttemptMetrics getAttemptMetrics() {
+        return this.attemptMetrics;
     }
 
     @Nullable
     private CraftingPlan runCraftLessAttempt(long amount) throws InterruptedException {
+        var tree = getOrCreateLegacyTree();
         this.simulate = false;
         this.allowMissing = false;
         this.missing.clear();
@@ -610,7 +864,8 @@ public class CraftingCalculation {
         this.recursiveFinalOutputInputs.clear();
         this.recursiveReserveCandidates.clear();
         this.recursiveDisplayRequests.clear();
-        this.tree.resetPossible();
+        this.graph = null;
+        tree.resetPossible();
 
         final boolean logCrafting = AELog.isCraftingLogEnabled();
         final Stopwatch timer = logCrafting ? Stopwatch.createStarted() : null;
@@ -623,9 +878,9 @@ public class CraftingCalculation {
         long craftableAmount;
         if (trackPerformance) {
             craftableAmount = timed("craft-less-available " + attemptName,
-                () -> this.tree.extractAvailableForCrafting(craftingInventory, amount));
+                () -> tree.extractAvailableForCrafting(craftingInventory, amount));
         } else {
-            craftableAmount = this.tree.extractAvailableForCrafting(craftingInventory, amount);
+            craftableAmount = tree.extractAvailableForCrafting(craftingInventory, amount);
         }
         if (craftableAmount <= 0) {
             if (logCrafting) {
@@ -637,7 +892,7 @@ public class CraftingCalculation {
             return null;
         }
 
-        craftingInventory.addBytes((double) this.tree.getNodeCount() * 8);
+        craftingInventory.addBytes((double) tree.getNodeCount() * 8);
 
         CraftingPlan plan;
         if (trackPerformance) {
@@ -931,7 +1186,7 @@ public class CraftingCalculation {
             hasPositiveNet && netByKey.get(key.what()) >= 0);
     }
 
-    long getExpandedPatternNetOutput(IPatternDetails pattern, AEKey what) {
+    public long getExpandedPatternNetOutput(IPatternDetails pattern, AEKey what) {
         var outputsByKey = this.expandedPatternNetOutputCache.computeIfAbsent(pattern,
             ignored -> new AEKey2LongMap.OpenHashMap());
         return outputsByKey.computeIfAbsent(what, key -> computeExpandedPatternNetOutput(pattern, (AEKey) key));
@@ -949,14 +1204,33 @@ public class CraftingCalculation {
         accumulatePatternNet(netByKey, pattern);
         expandRecursiveNetClosure(netByKey, null, includedPatterns);
 
-        long netOutput = netByKey.get(what);
-        if (netOutput > 0 && netOutput < directOutput) {
-            return netOutput;
-        }
-        return directOutput;
+        return netByKey.get(what);
     }
 
-    RecursivePatternBatch getRecursivePatternBatch(IPatternDetails pattern, AEKey what) {
+    /**
+     * Whether the fully expanded recursive closure of the pattern has any positive net output for any key. A closure
+     * without any positive net can never grow the simulated inventory by crafting, so the SCC can be served natively
+     * from seed inventory without falling back to a legacy transaction.
+     */
+    public boolean hasPositiveRecursiveNet(IPatternDetails pattern) {
+        return this.positiveRecursiveNetCache.computeIfAbsent(pattern, this::computeHasPositiveRecursiveNet);
+    }
+
+    private boolean computeHasPositiveRecursiveNet(IPatternDetails pattern) {
+        var netByKey = new KeyCounter();
+        var includedPatterns = new ObjectOpenHashSet<IPatternDetails>();
+        includedPatterns.add(pattern);
+        accumulatePatternNet(netByKey, pattern);
+        expandRecursiveNetClosure(netByKey, null, includedPatterns);
+        for (var entry : netByKey) {
+            if (entry.getLongValue() > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public RecursivePatternBatch getRecursivePatternBatch(IPatternDetails pattern, AEKey what) {
         var batchesByKey = this.recursivePatternBatchCache.computeIfAbsent(pattern,
             ignored -> new Object2ObjectOpenHashMap<>());
         return batchesByKey.computeIfAbsent(what, key -> computeRecursivePatternBatch(pattern, key));
@@ -968,26 +1242,23 @@ public class CraftingCalculation {
             return new RecursivePatternBatch(1, 0);
         }
 
+        // Only the single-root pass is needed for SCC eligibility: a cycle that only turns positive after multiple
+        // root crafts can never be native (rootTimes must be 1), so scanning further is wasted work whose result is
+        // ignored by the local fallback anyway.
         boolean rootConsumesTarget = getPatternInputCount(pattern, what) > 0;
-        for (long rootTimes = 1; rootTimes <= 64; rootTimes++) {
-            var netByKey = new KeyCounter();
-            var recursiveUse = new RecursiveUse(rootConsumesTarget);
-            accumulatePatternNet(netByKey, pattern, rootTimes);
-            if (!expandRecursiveBatchNet(netByKey, what, recursiveUse)) {
-                return new RecursivePatternBatch(1, directOutput);
-            }
-
-            if (!recursiveUse.get()) {
-                return new RecursivePatternBatch(1, directOutput);
-            }
-
-            long netOutput = netByKey.get(what);
-            if (netOutput > 0) {
-                return new RecursivePatternBatch(rootTimes, netOutput);
-            }
+        var netByKey = new KeyCounter();
+        var recursiveUse = new RecursiveUse(rootConsumesTarget);
+        accumulatePatternNet(netByKey, pattern, 1);
+        if (!expandRecursiveBatchNet(netByKey, what, recursiveUse)) {
+            return new RecursivePatternBatch(1, directOutput);
         }
 
-        return new RecursivePatternBatch(1, directOutput);
+        if (!recursiveUse.get()) {
+            return new RecursivePatternBatch(1, directOutput);
+        }
+
+        long netOutput = netByKey.get(what);
+        return new RecursivePatternBatch(1, netOutput > 0 ? netOutput : directOutput);
     }
 
     private RecursiveSeed getRecursiveSeed(CraftingSimulationState inv, RecursiveNet recursiveNet, AEKey what,
@@ -1052,6 +1323,27 @@ public class CraftingCalculation {
         this.recursiveMissingSeeds.add(what, delta);
     }
 
+    /**
+     * Records a seed cut resolved by the graph executor in the shared recursive bookkeeping.
+     */
+    public void recordGraphRecursiveSeed(AEKey recursiveRoot, AEKey what, long required, long allocated,
+                                         long missing, long reserve) {
+        if (missing > 0) {
+            addRecursiveMissingSeed(what, missing);
+        } else if (required > 0 && allocated >= required) {
+            clearRecursiveMissingSeed(what);
+            this.realSeededRecursiveRequests.add(recursiveRoot);
+            this.realRecursiveSeeds.add(what);
+            this.realSeededRecursiveKeys.add(what);
+        }
+        if (reserve > 0) {
+            long existing = this.recursiveReserveCandidates.get(what);
+            if (existing < reserve) {
+                this.recursiveReserveCandidates.add(what, reserve - existing);
+            }
+        }
+    }
+
     private void clearRecursiveMissingSeed(AEKey what) {
         this.recursiveMissingSeeds.remove(what);
         this.missing.remove(what);
@@ -1102,17 +1394,11 @@ public class CraftingCalculation {
                     continue;
                 }
 
-                var reserveNode = new CraftingTreeNode(this.craftingService, this, what, 1, null, -1);
                 var branchInv = new ChildCraftingSimulationState(inv);
                 var branchMarker = createRecursiveReserveBranchMarker();
                 this.recursiveReserveBlockedByMissingSeed = false;
                 try {
-                    if (isPerformanceTrackingEnabled()) {
-                        runTimedCrafting("recursive-reserve " + what,
-                            () -> reserveNode.request(branchInv, deficit, null));
-                    } else {
-                        reserveNode.request(branchInv, deficit, null);
-                    }
+                    reserveLocalBranch(what, deficit, branchInv);
                     if (this.recursiveReserveBlockedByMissingSeed) {
                         restoreRecursiveReserveBranchMarker(branchMarker);
                         continue;
@@ -1141,25 +1427,321 @@ public class CraftingCalculation {
         }
     }
 
+    private void reserveLocalBranch(AEKey what, long deficit, ChildCraftingSimulationState branchInv)
+        throws InterruptedException, CraftBranchFailure {
+        var graph = this.graph;
+        var node = graph == null ? null : graph.getNodeFor(what);
+        if (node != null && node.getLocalComponentId() >= 0) {
+            var component = graph.getTopology().getComponents().get(node.getLocalComponentId());
+            recordLocalReplan();
+            var componentPlan = previewLocalComponent(component.nodes(), node, deficit, branchInv);
+            commitLocalPlanWithBoundaries(componentPlan, branchInv);
+            return;
+        }
+        if (node != null && node.isLocalUnit()) {
+            var unitPlan = previewLocalUnit(what, node.getPatternCandidates(), deficit,
+                Set.of(what), branchInv);
+            commitLocalPlanWithBoundaries(unitPlan, branchInv);
+            return;
+        }
+
+        var patterns = getCraftingFor(what);
+        var unitPlan = previewLocalUnit(what, patterns, deficit, Set.of(what), branchInv);
+        commitLocalPlanWithBoundaries(unitPlan, branchInv);
+    }
+
     private RecursiveReserveBranchMarker createRecursiveReserveBranchMarker() {
-        return new RecursiveReserveBranchMarker(
+        return new RecursiveReserveBranchMarker(createCalculationMarker());
+    }
+
+    private void restoreRecursiveReserveBranchMarker(RecursiveReserveBranchMarker marker) {
+        restoreCalculationMarker(marker.calculationMarker());
+    }
+
+    /**
+     * Captures calculation-global state which is not part of a {@link ChildCraftingSimulationState} diff.
+     */
+    public CalculationMarker createCalculationMarker() {
+        var recursiveFinalOutputInputs = new ObjectOpenHashSet<>(this.recursiveFinalOutputInputs);
+        var recursiveReserveCandidates = new KeyCounter();
+        recursiveReserveCandidates.addAll(this.recursiveReserveCandidates);
+        KeyCounter reserveProtectedMissingSeeds = null;
+        if (this.reserveProtectedMissingSeeds != null) {
+            reserveProtectedMissingSeeds = new KeyCounter();
+            reserveProtectedMissingSeeds.addAll(this.reserveProtectedMissingSeeds);
+        }
+        return new CalculationMarker(
             getMissingItemsMarker(),
             getRecursiveMissingSeedsMarker(),
             getRealSeededRecursiveRequestsMarker(),
             getRealRecursiveSeedsMarker(),
             getRealSeededRecursiveKeysMarker(),
+            recursiveFinalOutputInputs,
+            recursiveReserveCandidates,
             getRecursiveDisplayRequestsMarker(),
-            getIntermediateFinalOutputMarker());
+            getIntermediateFinalOutputMarker(),
+            reserveProtectedMissingSeeds,
+            this.missingSuppression,
+            this.recursiveMissingSeedSuppression,
+            this.applyingRecursiveIngredientReserve,
+            this.recursiveReserveBlockedByMissingSeed);
     }
 
-    private void restoreRecursiveReserveBranchMarker(RecursiveReserveBranchMarker marker) {
+    public void restoreCalculationMarker(CalculationMarker marker) {
         restoreMissingItemsMarker(marker.missingItems());
         restoreRecursiveMissingSeedsMarker(marker.recursiveMissingSeeds());
         restoreRealSeededRecursiveRequestsMarker(marker.realSeededRecursiveRequests());
         restoreRealRecursiveSeedsMarker(marker.realRecursiveSeeds());
         restoreRealSeededRecursiveKeysMarker(marker.realSeededRecursiveKeys());
+        this.recursiveFinalOutputInputs.clear();
+        this.recursiveFinalOutputInputs.addAll(marker.recursiveFinalOutputInputs());
+        this.recursiveReserveCandidates.clear();
+        this.recursiveReserveCandidates.addAll(marker.recursiveReserveCandidates());
         restoreRecursiveDisplayRequestsMarker(marker.recursiveDisplayRequests());
         restoreIntermediateFinalOutputMarker(marker.intermediateFinalOutputAmount());
+        if (marker.reserveProtectedMissingSeeds() == null) {
+            this.reserveProtectedMissingSeeds = null;
+        } else {
+            this.reserveProtectedMissingSeeds = new KeyCounter();
+            this.reserveProtectedMissingSeeds.addAll(marker.reserveProtectedMissingSeeds());
+        }
+        this.missingSuppression = marker.missingSuppression();
+        this.recursiveMissingSeedSuppression = marker.recursiveMissingSeedSuppression();
+        this.applyingRecursiveIngredientReserve = marker.applyingRecursiveIngredientReserve();
+        this.recursiveReserveBlockedByMissingSeed = marker.recursiveReserveBlockedByMissingSeed();
+    }
+
+    public CalculationDelta createCalculationDelta(CalculationMarker before) {
+        var displayRequests = new Reference2LongOpenHashMap<CraftingTreeNode>();
+        for (var entry : this.recursiveDisplayRequests.reference2LongEntrySet()) {
+            long delta = entry.getLongValue() - before.recursiveDisplayRequests().getLong(entry.getKey());
+            if (delta > 0) {
+                displayRequests.put(entry.getKey(), delta);
+            }
+        }
+        return new CalculationDelta(
+            positiveCounterDelta(before.missingItems(), this.missing),
+            increasedCounterTargets(before.recursiveMissingSeeds(), this.recursiveMissingSeeds),
+            setDelta(before.realSeededRecursiveRequests(), this.realSeededRecursiveRequests),
+            setDelta(before.realRecursiveSeeds(), this.realRecursiveSeeds),
+            setDelta(before.realSeededRecursiveKeys(), this.realSeededRecursiveKeys),
+            setDelta(before.recursiveFinalOutputInputs(), this.recursiveFinalOutputInputs),
+            increasedCounterTargets(before.recursiveReserveCandidates(), this.recursiveReserveCandidates),
+            displayRequests,
+            Math.max(0, this.intermediateFinalOutputAmount - before.intermediateFinalOutputAmount()));
+    }
+
+    public void mergeCalculationDelta(CalculationDelta delta) {
+        this.missing.addAll(delta.missingItems());
+        mergeCounterMaximum(this.recursiveMissingSeeds, delta.recursiveMissingSeeds());
+        this.realSeededRecursiveRequests.addAll(delta.realSeededRecursiveRequests());
+        this.realRecursiveSeeds.addAll(delta.realRecursiveSeeds());
+        this.realSeededRecursiveKeys.addAll(delta.realSeededRecursiveKeys());
+        this.recursiveFinalOutputInputs.addAll(delta.recursiveFinalOutputInputs());
+        mergeCounterMaximum(this.recursiveReserveCandidates, delta.recursiveReserveCandidates());
+        for (var entry : delta.recursiveDisplayRequests().reference2LongEntrySet()) {
+            addRecursiveDisplayRequest(entry.getKey(), entry.getLongValue());
+        }
+        addIntermediateFinalOutput(delta.intermediateFinalOutputAmount());
+    }
+
+    private static KeyCounter positiveCounterDelta(KeyCounter before, KeyCounter after) {
+        var result = new KeyCounter();
+        for (var entry : after) {
+            long delta = entry.getLongValue() - before.get(entry.getKey());
+            if (delta > 0) {
+                result.add(entry.getKey(), delta);
+            }
+        }
+        return result;
+    }
+
+    private static KeyCounter increasedCounterTargets(KeyCounter before, KeyCounter after) {
+        var result = new KeyCounter();
+        for (var entry : after) {
+            if (entry.getLongValue() > before.get(entry.getKey())) {
+                result.add(entry.getKey(), entry.getLongValue());
+            }
+        }
+        return result;
+    }
+
+    private static void mergeCounterMaximum(KeyCounter target, KeyCounter additions) {
+        for (var entry : additions) {
+            long current = target.get(entry.getKey());
+            if (entry.getLongValue() > current) {
+                target.add(entry.getKey(), entry.getLongValue() - current);
+            }
+        }
+    }
+
+    private static <T> Set<T> setDelta(Set<T> before, Set<T> after) {
+        Set<T> result = new ObjectOpenHashSet<>();
+        result.addAll(after);
+        result.removeAll(before);
+        return result;
+    }
+
+    /**
+     * Starts a legacy compatibility unit. Requests outside {@code scope} are exposed as graph boundary demands instead
+     * of recursively expanding another legacy subtree.
+     */
+    public LocalUnitContext enterLocalUnit(Set<AEKey> scope) {
+        if (this.localUnitMode) {
+            throw new IllegalStateException("Nested local crafting units are not supported");
+        }
+        boolean memoReplayEnabled = this.memoReplayEnabled;
+        this.localUnitMode = true;
+        this.localUnitScope = Set.copyOf(scope);
+        this.localBoundaryDemands = new KeyCounter();
+        this.memoReplayEnabled = false;
+        return new LocalUnitContext(this, createCalculationMarker(), memoReplayEnabled);
+    }
+
+    boolean interceptLocalBoundaryRequest(AEKey what, long amount, CraftingSimulationState inventory) {
+        var boundaryDemands = this.localBoundaryDemands;
+        if (!this.localUnitMode || this.localUnitScope == null || boundaryDemands == null
+            || this.localUnitScope.contains(what)) {
+            return false;
+        }
+        if (amount > 0) {
+            boundaryDemands.add(what, amount);
+            inventory.insertBoundary(what, amount);
+        }
+        return true;
+    }
+
+    boolean interceptLocalBoundaryAvailability(AEKey what) {
+        var boundaryDemands = this.localBoundaryDemands;
+        return this.localUnitMode && this.localUnitScope != null && boundaryDemands != null
+            && !this.localUnitScope.contains(what);
+    }
+
+    boolean isLocalUnitMode() {
+        return this.localUnitMode;
+    }
+
+    private void commitLocalPlanWithBoundaries(LocalPatternPlan plan,
+                                               ChildCraftingSimulationState parent)
+        throws CraftBranchFailure {
+        var marker = createCalculationMarker();
+        var transaction = new ChildCraftingSimulationState(parent);
+        try {
+            extractLocalBoundaries(plan.boundaryDemands(), transaction);
+            plan.commit(this, transaction);
+            transaction.applyDiff(parent);
+        } catch (RuntimeException | Error failure) {
+            restoreCalculationMarker(marker);
+            throw failure;
+        }
+    }
+
+    private void commitLocalPlanWithBoundaries(LocalComponentPlan plan,
+                                               ChildCraftingSimulationState parent)
+        throws CraftBranchFailure {
+        var marker = createCalculationMarker();
+        var transaction = new ChildCraftingSimulationState(parent);
+        try {
+            extractLocalBoundaries(plan.boundaryDemands(), transaction);
+            plan.commit(this, transaction);
+            transaction.applyDiff(parent);
+        } catch (RuntimeException | Error failure) {
+            restoreCalculationMarker(marker);
+            throw failure;
+        }
+    }
+
+    private static void extractLocalBoundaries(KeyCounter boundaries,
+                                               ChildCraftingSimulationState transaction)
+        throws CraftBranchFailure {
+        for (var boundary : boundaries) {
+            long extracted = transaction.extract(boundary.getKey(), boundary.getLongValue(), Actionable.MODULATE);
+            if (extracted < boundary.getLongValue()) {
+                throw new CraftBranchFailure(boundary.getKey(), boundary.getLongValue() - extracted);
+            }
+            transaction.addStackBytes(boundary.getKey(), extracted, 1);
+        }
+    }
+
+    private KeyCounter exitLocalUnit() {
+        if (!this.localUnitMode || this.localBoundaryDemands == null) {
+            throw new IllegalStateException("No local crafting unit is active");
+        }
+        var result = new KeyCounter();
+        result.addAll(this.localBoundaryDemands);
+        this.localUnitMode = false;
+        this.localUnitScope = null;
+        this.localBoundaryDemands = null;
+        return result;
+    }
+
+    private void restoreLocalUnitDefaults(boolean memoReplayEnabled) {
+        this.memoReplayEnabled = memoReplayEnabled;
+    }
+
+    public static final class LocalUnitContext implements AutoCloseable {
+        private final CraftingCalculation calculation;
+        private final CalculationMarker marker;
+        private final boolean memoReplayEnabled;
+        private boolean closed;
+
+        private LocalUnitContext(CraftingCalculation calculation, CalculationMarker marker,
+                                 boolean memoReplayEnabled) {
+            this.calculation = calculation;
+            this.marker = marker;
+            this.memoReplayEnabled = memoReplayEnabled;
+        }
+
+        public KeyCounter finish() {
+            if (this.closed) {
+                throw new IllegalStateException("Local crafting unit is already closed");
+            }
+            this.closed = true;
+            var demands = this.calculation.exitLocalUnit();
+            this.calculation.restoreLocalUnitDefaults(this.memoReplayEnabled);
+            return demands;
+        }
+
+        public KeyCounter boundaryDemands() {
+            if (this.closed || this.calculation.localBoundaryDemands == null) {
+                throw new IllegalStateException("Local crafting unit is already closed");
+            }
+            var result = new KeyCounter();
+            result.addAll(this.calculation.localBoundaryDemands);
+            return result;
+        }
+
+        public KeyCounter missingDelta() {
+            if (this.closed) throw new IllegalStateException("Local crafting unit is already closed");
+            var result = new KeyCounter();
+            for (var entry : this.calculation.missing) {
+                long delta = entry.getLongValue() - this.marker.missingItems().get(entry.getKey());
+                if (delta > 0) result.add(entry.getKey(), delta);
+            }
+            return result;
+        }
+
+        public CalculationDelta calculationDelta() {
+            if (this.closed) throw new IllegalStateException("Local crafting unit is already closed");
+            return this.calculation.createCalculationDelta(this.marker);
+        }
+
+        public void rollback() {
+            if (this.closed) {
+                throw new IllegalStateException("Local crafting unit is already closed");
+            }
+            this.closed = true;
+            this.calculation.exitLocalUnit();
+            this.calculation.restoreCalculationMarker(this.marker);
+            this.calculation.restoreLocalUnitDefaults(this.memoReplayEnabled);
+        }
+
+        @Override
+        public void close() {
+            if (!this.closed) {
+                rollback();
+            }
+        }
     }
 
     private void restoreProtectedRecursiveMissingSeeds(KeyCounter protectedSeeds) {
@@ -1172,7 +1754,11 @@ public class CraftingCalculation {
     }
 
     private void addRecursiveReserveDisplayRequest(AEKey what, long amount) {
-        var displayNode = this.tree.findDisplayNodeFor(what);
+        var tree = this.tree;
+        if (tree == null) {
+            return;
+        }
+        var displayNode = tree.findDisplayNodeFor(what);
         if (displayNode != null) {
             addRecursiveDisplayRequest(displayNode, amount);
         }
@@ -1259,29 +1845,40 @@ public class CraftingCalculation {
 
     private void expandRecursiveNetClosure(KeyCounter netByKey, @Nullable Collection<AEKey> inputKeys,
                                            Set<IPatternDetails> includedPatterns) {
-        boolean changed;
-        do {
-            changed = false;
-            var negativeKeys = new ObjectArrayList<AEKey>();
-            for (var entry : netByKey) {
-                if (entry.getLongValue() < 0) {
-                    negativeKeys.add(entry.getKey());
-                }
+        // Collect all currently negative keys once, then expand each until it turns positive or has no new pattern.
+        // Newly negative keys introduced by an expansion are appended to the queue, so the whole net table is only
+        // scanned once instead of on every closure round.
+        var pending = new ObjectArrayList<AEKey>();
+        var queued = new ObjectOpenHashSet<AEKey>();
+        for (var entry : netByKey) {
+            if (entry.getLongValue() < 0 && queued.add(entry.getKey())) {
+                pending.add(entry.getKey());
             }
+        }
 
-            for (int i = 0; i < negativeKeys.size(); i++) {
-                var key = negativeKeys.get(i);
+        for (int i = 0; i < pending.size(); i++) {
+            var key = pending.get(i);
+            while (netByKey.get(key) < 0) {
                 var patterns = this.getCraftingFor(key);
+                IPatternDetails selected = null;
                 for (int j = 0, size = patterns.size(); j < size; j++) {
                     var pattern = patterns.get(j);
                     if (includedPatterns.add(pattern)) {
-                        accumulatePatternNet(netByKey, inputKeys, pattern, 1);
-                        changed = true;
+                        selected = pattern;
                         break;
                     }
                 }
+                if (selected == null) {
+                    break;
+                }
+                accumulatePatternNet(netByKey, inputKeys, selected, 1);
+                for (var entry : netByKey) {
+                    if (entry.getLongValue() < 0 && queued.add(entry.getKey())) {
+                        pending.add(entry.getKey());
+                    }
+                }
             }
-        } while (changed);
+        }
     }
 
     private boolean expandRecursiveBatchNet(KeyCounter netByKey, AEKey target, RecursiveUse recursiveUse) {
@@ -1334,7 +1931,7 @@ public class CraftingCalculation {
         return missing;
     }
 
-    public CraftingTreeNode getTree() {
+    public @Nullable CraftingTreeNode getTree() {
         return tree;
     }
 
@@ -1564,19 +2161,50 @@ public class CraftingCalculation {
     }
 
     public boolean hasMultiplePaths() {
-        return this.tree.hasMultiplePaths();
+        var tree = this.tree;
+        if (tree != null) {
+            return tree.hasMultiplePaths();
+        }
+        var graph = this.graph;
+        if (graph != null) {
+            for (var node : graph.getAllNodes()) {
+                if (node.getPatternCandidates().size() > 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     int getTreeDepth() {
-        return this.tree.getDepth();
+        var tree = this.tree;
+        return tree == null ? getMaxRequestDepth() : tree.getDepth();
     }
 
     long getTreeNodeCount() {
-        return this.tree.getNodeCount();
+        var tree = this.tree;
+        if (tree != null) {
+            return tree.getNodeCount();
+        }
+        var graph = this.graph;
+        return graph == null ? 0 : graph.getNodeCount();
     }
 
     long getPatternNodeCount() {
-        return this.tree.getPatternNodeCount();
+        var tree = this.tree;
+        if (tree != null) {
+            return tree.getPatternNodeCount();
+        }
+        long result = 0;
+        var graph = this.graph;
+        if (graph != null) {
+            for (var node : graph.getAllNodes()) {
+                if (node.getPattern() != null) {
+                    result++;
+                }
+            }
+        }
+        return result;
     }
 
     int getMaxRequestDepth() {
@@ -1587,7 +2215,7 @@ public class CraftingCalculation {
         return this.performanceListener.isEnabled();
     }
 
-    void recordPerformanceStage(String name, long nanos) {
+    public void recordPerformanceStage(String name, long nanos) {
         if (this.performanceListener.isEnabled()) {
             this.performanceListener.stage(name, nanos);
         }
@@ -1599,7 +2227,7 @@ public class CraftingCalculation {
         }
     }
 
-    void recordPerformanceCount(String name, long amount) {
+    public void recordPerformanceCount(String name, long amount) {
         if (this.performanceListener.isEnabled()) {
             this.performanceListener.count(name, amount);
         }
@@ -1777,16 +2405,37 @@ public class CraftingCalculation {
     private record RecursiveResolution(RecursiveSeed seed, boolean missingSeeds, RecursiveSeed missingSeed) {
     }
 
-    private record RecursiveReserveBranchMarker(KeyCounter missingItems,
-                                                KeyCounter recursiveMissingSeeds,
-                                                Set<AEKey> realSeededRecursiveRequests,
-                                                Set<AEKey> realRecursiveSeeds,
-                                                Set<AEKey> realSeededRecursiveKeys,
-                                                Reference2LongMap<CraftingTreeNode> recursiveDisplayRequests,
-                                                long intermediateFinalOutputAmount) {
+    public record CalculationMarker(KeyCounter missingItems,
+                                    KeyCounter recursiveMissingSeeds,
+                                    Set<AEKey> realSeededRecursiveRequests,
+                                    Set<AEKey> realRecursiveSeeds,
+                                    Set<AEKey> realSeededRecursiveKeys,
+                                    Set<AEKey> recursiveFinalOutputInputs,
+                                    KeyCounter recursiveReserveCandidates,
+                                    Reference2LongMap<CraftingTreeNode> recursiveDisplayRequests,
+                                    long intermediateFinalOutputAmount,
+                                    @Nullable KeyCounter reserveProtectedMissingSeeds,
+                                    int missingSuppression,
+                                    int recursiveMissingSeedSuppression,
+                                    boolean applyingRecursiveIngredientReserve,
+                                    boolean recursiveReserveBlockedByMissingSeed) {
     }
 
-    record RecursivePatternBatch(long rootTimes, long netOutput) {
+    public record CalculationDelta(KeyCounter missingItems,
+                                   KeyCounter recursiveMissingSeeds,
+                                   Set<AEKey> realSeededRecursiveRequests,
+                                   Set<AEKey> realRecursiveSeeds,
+                                   Set<AEKey> realSeededRecursiveKeys,
+                                   Set<AEKey> recursiveFinalOutputInputs,
+                                   KeyCounter recursiveReserveCandidates,
+                                   Reference2LongMap<CraftingTreeNode> recursiveDisplayRequests,
+                                   long intermediateFinalOutputAmount) {
+    }
+
+    private record RecursiveReserveBranchMarker(CalculationMarker calculationMarker) {
+    }
+
+    public record RecursivePatternBatch(long rootTimes, long netOutput) {
     }
 
     private static final class RecursiveUse {
@@ -1933,11 +2582,6 @@ public class CraftingCalculation {
             this.patternTimes.addTo(pattern, times);
         }
 
-        void recordBytes(double bytes) {
-            this.bytes += bytes;
-        }
-
-        // 新增：副作用记录方法
         void recordEmitted(AEKey key, long amount) {
             this.emittedItems.add(key, amount);
         }
@@ -1996,7 +2640,6 @@ public class CraftingCalculation {
         final long baseTimes;
         double bytes;
 
-        // 新增：副作用字段（与 MemoResult 对应）
         final KeyCounter emittedItems;
         final KeyCounter missingItems;
         final KeyCounter insertedItems;
@@ -2110,7 +2753,6 @@ public class CraftingCalculation {
             this.baseTimes = baseTimes;
             this.bytes = 0;
 
-            // 初始化新增字段
             this.emittedItems = new KeyCounter();
             this.missingItems = new KeyCounter();
             this.insertedItems = new KeyCounter();
@@ -2157,7 +2799,6 @@ public class CraftingCalculation {
         BundleKey(AEKey what, IPatternDetails pattern) {
             this.what = what;
             this.pattern = pattern;
-            // 使用 pattern 的内容 hash，而非 identity
             this.hashCode = what.hashCode() * 31 + pattern.hashCode();
         }
 
@@ -2165,7 +2806,6 @@ public class CraftingCalculation {
         public boolean equals(Object o) {
             if (this == o) return true;
             if (!(o instanceof BundleKey other)) return false;
-            // 使用 pattern 的 equals，而非引用相等
             return what.equals(other.what) && pattern.equals(other.pattern);
         }
 

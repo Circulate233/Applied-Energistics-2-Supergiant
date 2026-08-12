@@ -29,6 +29,7 @@ import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.common.util.Constants;
 
 import org.jetbrains.annotations.Nullable;
+
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -145,7 +146,8 @@ public class InterfacePart extends AEBasePart implements InterfaceLogicHost {
 
     @Override
     public Set<EnumFacing> getTargets() {
-        return EnumSet.of(getSide());
+        var side = getSide();
+        return side == null ? EnumSet.noneOf(EnumFacing.class) : EnumSet.of(side);
     }
 
     @Override

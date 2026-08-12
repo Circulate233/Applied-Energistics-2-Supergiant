@@ -38,6 +38,7 @@ import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.Reference2LongMap;
+import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -59,7 +60,7 @@ public class CraftingTreeProcess {
     final IPatternDetails details;
     private static final Comparator<PatternContainerGroup> MACHINE_GROUP_COMPARATOR =
         Comparator.comparing(group -> group.name().getFormattedText().toLowerCase(Locale.ROOT));
-    private final List<PatternContainerGroup> machineGroups;
+    private @Nullable MachineInfo machineInfo;
     private final CraftingTreeNode parent;
     private final CraftingCalculation job;
     private final IPatternDetails.IInput[] inputs;
@@ -71,7 +72,6 @@ public class CraftingTreeProcess {
     boolean possible = true;
     private boolean containerItems;
     private Preview reusablePreview;
-    private final Map<PatternContainerGroup, List<CraftingSupplierLocation>> machineLocations;
     private long treeRequestTimes;
     /**
      * If true, we perform this pattern by 1 at the time. This ensures that container items or outputs get reused when
@@ -87,10 +87,6 @@ public class CraftingTreeProcess {
         this.job = job;
         this.inputs = details.getInputs();
         this.outputs = details.getOutputs();
-        MachineInfo machineInfo = job.getMachineInfo(cc, details);
-        this.machineGroups = machineInfo.groups();
-        this.machineLocations = machineInfo.locations();
-
         updateLimitQty();
 
         for (int x = 0; x < this.inputs.length; ++x) {
@@ -121,12 +117,18 @@ public class CraftingTreeProcess {
                 }
             }
         }
-        var groups = new ObjectArrayList<>(locationsByGroup.keySet());
-        groups.sort(MACHINE_GROUP_COMPARATOR);
+        var sourceGroups = new ObjectArrayList<>(locationsByGroup.keySet());
+        sourceGroups.sort(MACHINE_GROUP_COMPARATOR);
+        var groups = new ObjectArrayList<PatternContainerGroup>(sourceGroups.size());
         Map<PatternContainerGroup, List<CraftingSupplierLocation>> locations = new LinkedHashMap<>();
-        for (int i = 0, size = groups.size(); i < size; i++) {
-            var group = groups.get(i);
-            locations.put(group, Collections.unmodifiableList(new ObjectArrayList<>(locationsByGroup.get(group))));
+        for (int i = 0, size = sourceGroups.size(); i < size; i++) {
+            var sourceGroup = sourceGroups.get(i);
+            var tooltip = sourceGroup.tooltip().stream().map(ITextComponent::createCopy)
+                                     .collect(ObjectArrayList.toList());
+            var group = new PatternContainerGroup(sourceGroup.icon(), sourceGroup.name().createCopy(), tooltip);
+            groups.add(group);
+            locations.put(group,
+                Collections.unmodifiableList(new ObjectArrayList<>(locationsByGroup.get(sourceGroup))));
         }
         return new MachineInfo(Collections.unmodifiableList(groups), Collections.unmodifiableMap(locations));
     }
@@ -200,7 +202,7 @@ public class CraftingTreeProcess {
     }
 
     boolean canReusePreview() {
-        return !this.limitQty && !this.containerItems;
+        return !this.job.isLocalUnitMode() && !this.limitQty && !this.containerItems;
     }
 
     private static KeyCounter copyPositiveDelta(KeyCounter after, KeyCounter before) {
@@ -614,11 +616,20 @@ public class CraftingTreeProcess {
     }
 
     public List<PatternContainerGroup> getMachineGroups() {
-        return machineGroups;
+        return getMachineInfo().groups();
     }
 
     public Map<PatternContainerGroup, List<CraftingSupplierLocation>> getMachineLocations() {
-        return machineLocations;
+        return getMachineInfo().locations();
+    }
+
+    private MachineInfo getMachineInfo() {
+        var result = this.machineInfo;
+        if (result == null) {
+            result = this.job.getMachineInfo(this.details);
+            this.machineInfo = result;
+        }
+        return result;
     }
 
     public record MachineInfo(List<PatternContainerGroup> groups,

@@ -38,21 +38,6 @@ public final class GenericIngredientHelper {
         return null;
     }
 
-    public static boolean isRegistered(Object ingredient) {
-        if (ingredient == null) return false;
-        if (ingredient instanceof AccessorBookmarkItem<?> bookmarkItem) {
-            return isRegistered(bookmarkItem.i_getIngredient());
-        }
-
-        for (IngredientConverter<?> converter : IngredientConverters.getConverters()) {
-            boolean isIngredient = converter.getIngredientType().getIngredientClass().isInstance(ingredient);
-            if (isIngredient) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     @Nullable
     public static Object stackToIngredient(GenericStack stack) {
         if (stack == null) return null;

@@ -35,6 +35,7 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs,
     }
 
     @Nullable
+    @SuppressWarnings("unused")
     public static LiteCraftTreeProc of(final CraftingTreeProcess process, final CraftingTreeNode parent,
                                        final long parentAmount) {
         return of(process, null, null, false);
@@ -119,6 +120,7 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs,
         return proc;
     }
 
+    @SuppressWarnings("unused")
     public void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet) {
         writeToBuffer(buf, stackSet, new CraftingTreeStackRegistry.DecodeLimits(), 0);
     }

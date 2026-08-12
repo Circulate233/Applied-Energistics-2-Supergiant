@@ -168,28 +168,32 @@ public class CraftingTreeNode {
         throws CraftBranchFailure, InterruptedException {
         this.job.handlePausing();
 
+        long totalRequestedItems = getTotalRequestedItems(requestedAmount);
+        if (this.job.interceptLocalBoundaryRequest(this.what, totalRequestedItems, inv)) {
+            return;
+        }
+
         if (this.job.isRequesting(this.what)) {
-            long requestedItems = getTotalRequestedItems(requestedAmount);
-            if (this.job.resolveRecursiveRequest(this.what, inv, requestedItems)) {
-                this.job.addRecursiveDisplayRequest(this, requestedItems);
+            if (this.job.resolveRecursiveRequest(this.what, inv, totalRequestedItems)) {
+                this.job.addRecursiveDisplayRequest(this, totalRequestedItems);
                 if (this.what.equals(this.job.getOutput())) {
                     var currentRequest = this.job.getCurrentRequestKey();
                     if (currentRequest != null) {
                         this.job.addRecursiveFinalOutputInput(currentRequest);
                     }
-                    this.job.addRecursiveIntermediateFinalOutput(requestedItems);
+                    this.job.addRecursiveIntermediateFinalOutput(totalRequestedItems);
                 }
                 return;
             }
             if (this.job.cycleHasNetOutput(this.what) && this.job.canUseMissingItems()) {
-                job.addMissing(this.what, requestedItems);
+                job.addMissing(this.what, totalRequestedItems);
                 return;
             }
             if (this.job.canUseMissingItems()) {
-                throw new CraftBranchFailure(this.what, requestedItems,
+                throw new CraftBranchFailure(this.what, totalRequestedItems,
                     PlayerMessages.CraftingNoNetOutput);
             }
-            throw new CraftBranchFailure(this.what, requestedItems);
+            throw new CraftBranchFailure(this.what, totalRequestedItems);
         }
 
         this.job.pushRequest(this.what);
@@ -406,6 +410,10 @@ public class CraftingTreeNode {
     long extractAvailableForCrafting(CraftingSimulationState inv, long maxAmount)
         throws InterruptedException {
         this.job.handlePausing();
+
+        if (this.job.interceptLocalBoundaryAvailability(this.what)) {
+            return maxAmount;
+        }
 
         if (this.job.isCheckingAvailability(this.what)) {
             return 0;
@@ -1121,48 +1129,19 @@ public class CraftingTreeNode {
         }
     }
 
-    private static final class MemoSnapshot {
-        final KeyCounter snapshotExtracted;
-        final Reference2LongOpenHashMap<IPatternDetails> snapshotCrafts;
-        final double snapshotBytes;
-        final KeyCounter snapshotEmitted;
-        final KeyCounter snapshotPseudo;
-        final KeyCounter snapshotModifiable;
-        final KeyCounter snapshotMissing;
-        final long snapshotIntermediateFinalOutput;
-        final KeyCounter snapshotRecursiveMissingSeeds;
-        final ObjectOpenHashSet<AEKey> snapshotRealSeededRecursiveRequests;
-        final ObjectOpenHashSet<AEKey> snapshotRealRecursiveSeeds;
-        final ObjectOpenHashSet<AEKey> snapshotRealSeededRecursiveKeys;
-        final Reference2LongOpenHashMap<CraftingTreeNode> snapshotRecursiveDisplayRequests;
-
-        private MemoSnapshot(KeyCounter snapshotExtracted,
-                            Reference2LongOpenHashMap<IPatternDetails> snapshotCrafts,
-                            double snapshotBytes,
-                            KeyCounter snapshotEmitted,
-                            KeyCounter snapshotPseudo,
-                            KeyCounter snapshotModifiable,
-                            KeyCounter snapshotMissing,
-                            long snapshotIntermediateFinalOutput,
-                            KeyCounter snapshotRecursiveMissingSeeds,
-                            ObjectOpenHashSet<AEKey> snapshotRealSeededRecursiveRequests,
-                            ObjectOpenHashSet<AEKey> snapshotRealRecursiveSeeds,
-                            ObjectOpenHashSet<AEKey> snapshotRealSeededRecursiveKeys,
-                            Reference2LongOpenHashMap<CraftingTreeNode> snapshotRecursiveDisplayRequests) {
-            this.snapshotExtracted = snapshotExtracted;
-            this.snapshotCrafts = snapshotCrafts;
-            this.snapshotBytes = snapshotBytes;
-            this.snapshotEmitted = snapshotEmitted;
-            this.snapshotPseudo = snapshotPseudo;
-            this.snapshotModifiable = snapshotModifiable;
-            this.snapshotMissing = snapshotMissing;
-            this.snapshotIntermediateFinalOutput = snapshotIntermediateFinalOutput;
-            this.snapshotRecursiveMissingSeeds = snapshotRecursiveMissingSeeds;
-            this.snapshotRealSeededRecursiveRequests = snapshotRealSeededRecursiveRequests;
-            this.snapshotRealRecursiveSeeds = snapshotRealRecursiveSeeds;
-            this.snapshotRealSeededRecursiveKeys = snapshotRealSeededRecursiveKeys;
-            this.snapshotRecursiveDisplayRequests = snapshotRecursiveDisplayRequests;
-        }
+    private record MemoSnapshot(KeyCounter snapshotExtracted,
+                                Reference2LongOpenHashMap<IPatternDetails> snapshotCrafts,
+                                double snapshotBytes,
+                                KeyCounter snapshotEmitted,
+                                KeyCounter snapshotPseudo,
+                                KeyCounter snapshotModifiable,
+                                KeyCounter snapshotMissing,
+                                long snapshotIntermediateFinalOutput,
+                                KeyCounter snapshotRecursiveMissingSeeds,
+                                ObjectOpenHashSet<AEKey> snapshotRealSeededRecursiveRequests,
+                                ObjectOpenHashSet<AEKey> snapshotRealRecursiveSeeds,
+                                ObjectOpenHashSet<AEKey> snapshotRealSeededRecursiveKeys,
+                                Reference2LongOpenHashMap<CraftingTreeNode> snapshotRecursiveDisplayRequests) {
 
         static MemoSnapshot capture(CraftingSimulationState inv, CraftingCalculation job) {
             var snapshotExtracted = new KeyCounter();
