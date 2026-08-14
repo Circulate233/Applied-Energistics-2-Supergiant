@@ -35,6 +35,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,17 +60,33 @@ public final class GuiStyleManager {
         }
     }
 
-    public static GuiStyle loadStyleDoc(String path) {
-        GuiStyle style;
+    public static GuiStyleReloader.ReloadResult reloadAll() {
+        List<String> paths = new ObjectArrayList<>(styleCache.keySet());
+        List<String> failures = new ObjectArrayList<>();
+        int reloaded = 0;
+        for (String path : paths) {
+            try {
+                styleCache.put(path, parseStyleDoc(path));
+                reloaded++;
+            } catch (Exception e) {
+                failures.add(path + ": " + e.getMessage());
+            }
+        }
+        return new GuiStyleReloader.ReloadResult(reloaded, failures);
+    }
 
+    public static GuiStyle loadStyleDoc(String path) {
+        GuiStyle style = styleCache.get(path);
         try {
-            style = loadStyleDocInternal(path);
+            if (style == null) {
+                style = parseStyleDoc(path);
+                styleCache.put(path, style);
+            }
         } catch (FileNotFoundException e) {
             throw new RuntimeException("Failed to find Screen JSON file: " + path + ": " + e.getMessage());
         } catch (Exception e) {
             throw new RuntimeException("Failed to read Screen JSON file: " + path, e);
         }
-
         style.validate();
         return style;
     }
@@ -92,11 +110,18 @@ public final class GuiStyleManager {
         String basePath = getBasePath(path);
 
         JsonObject document;
-        var resourceId = AppEng.makeId(path.substring(1));
-        var resource = resourceManager.getResource(resourceId);
-        resourcePacks.add(resource.getResourcePackName());
-        try (var reader = new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8)) {
-            document = GuiStyle.GSON.fromJson(reader, JsonObject.class);
+        Path overrideFile = GuiStyleReloader.overridePath(path);
+        if (overrideFile != null) {
+            try (var reader = Files.newBufferedReader(overrideFile, StandardCharsets.UTF_8)) {
+                document = GuiStyle.GSON.fromJson(reader, JsonObject.class);
+            }
+        } else {
+            var resourceId = AppEng.makeId(path.substring(1));
+            var resource = resourceManager.getResource(resourceId);
+            resourcePacks.add(resource.getResourcePackName());
+            try (var reader = new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8)) {
+                document = GuiStyle.GSON.fromJson(reader, JsonObject.class);
+            }
         }
 
         if (document.has(PROP_INCLUDES)) {
@@ -158,25 +183,18 @@ public final class GuiStyleManager {
         }
     }
 
-    private static GuiStyle loadStyleDocInternal(String path) throws IOException {
-        GuiStyle style = styleCache.get(path);
-        if (style != null) {
-            return style;
-        }
-
+    private static GuiStyle parseStyleDoc(String path) throws IOException {
         Set<String> resourcePacks = new ObjectOpenHashSet<>();
         try {
             JsonObject document = loadMergedJsonTree(path, new ObjectOpenHashSet<>(), resourcePacks);
-            style = GuiStyle.GSON.fromJson(document, GuiStyle.class);
+            GuiStyle style = GuiStyle.GSON.fromJson(document, GuiStyle.class);
             style.validate();
+            return style;
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
             throw new JsonParseException("Failed to load style from " + path + " (packs: " + resourcePacks + ")", e);
         }
-
-        styleCache.put(path, style);
-        return style;
     }
 
     public static void initialize(IResourceManager resourceManager) {

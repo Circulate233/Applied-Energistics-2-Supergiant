@@ -1,7 +1,10 @@
 package ae2.client.commands;
 
+import ae2.client.gui.style.GuiStyleReloader;
 import ae2.core.AEConfig;
 import ae2.core.localization.PlayerMessages;
+import ae2.util.Platform;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.CommandException;
@@ -17,6 +20,7 @@ import java.util.Locale;
 
 public final class ClientCommands {
     private static final List<String> DEBUG_COMMANDS = ObjectLists.singleton("highlight_gui_areas");
+    private static final List<String> RELOAD_COMMANDS = ObjectLists.singleton("reload_screens");
 
     private ClientCommands() {
     }
@@ -53,6 +57,10 @@ public final class ClientCommands {
             }
 
             String action = args[0].toLowerCase(Locale.ROOT);
+            if ("reload_screens".equals(action) && Platform.isDev()) {
+                GuiStyleReloader.reloadAll(sender);
+                return;
+            }
             if ("highlight_gui_areas".equals(action) && AEConfig.instance().isDebugToolsEnabled()) {
                 boolean enabled = !AEConfig.instance().isShowDebugGuiOverlays();
                 AEConfig.instance().setShowDebugGuiOverlays(enabled);
@@ -66,11 +74,15 @@ public final class ClientCommands {
         @Override
         public List<String> getTabCompletions(MinecraftServer server, ICommandSender sender, String[] args,
                                               BlockPos targetPos) {
-            if (args.length == 1 && AEConfig.instance().isDebugToolsEnabled()) {
-                return getListOfStringsMatchingLastWord(args, DEBUG_COMMANDS);
+            if (args.length != 1) {
+                return Collections.emptyList();
             }
 
-            return Collections.emptyList();
+            List<String> commands = new ObjectArrayList<>(RELOAD_COMMANDS);
+            if (AEConfig.instance().isDebugToolsEnabled()) {
+                commands.addAll(DEBUG_COMMANDS);
+            }
+            return getListOfStringsMatchingLastWord(args, commands);
         }
     }
 }
