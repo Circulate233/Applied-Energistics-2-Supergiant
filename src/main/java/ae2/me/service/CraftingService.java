@@ -366,6 +366,16 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     }
 
     /**
+     * Read-only peek of the cached graph structure for an output, used by the main thread before a calculation starts.
+     * The graph is only present when no calculation is currently running for that output; the returned structure is
+     * never mutated while cached.
+     */
+    @Nullable
+    public CraftingGraph peekCachedGraph(AEKey output) {
+        return this.graphCache.get(output);
+    }
+
+    /**
      * Returns a graph structure for reuse. The graph is discarded if the pattern revision changed while the calculation
      * was running, otherwise the next calculation for the same output reuses it.
      */

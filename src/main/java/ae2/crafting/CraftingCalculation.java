@@ -26,6 +26,7 @@ import ae2.api.networking.crafting.ICraftingPlan;
 import ae2.api.networking.crafting.ICraftingProvider;
 import ae2.api.networking.crafting.ICraftingService;
 import ae2.api.networking.crafting.ICraftingSimulationRequester;
+import ae2.api.networking.storage.IStorageService;
 import ae2.api.stacks.AEKey;
 import ae2.api.stacks.AEKey2LongMap;
 import ae2.api.stacks.GenericStack;
@@ -179,11 +180,38 @@ public class CraftingCalculation {
         var storage = grid.getStorageService();
         var craftingService = grid.getCraftingService();
         this.craftingService = craftingService;
-        this.networkInv = new NetworkCraftingSimulationState(storage);
+        this.networkInv = createNetworkInventory(storage);
         this.recursiveIngredientReserveAmount = Math.max(0, craftingService.getRecursiveIngredientReserveAmount());
         this.processHashPrefixes.add(0);
         this.processHashPowers.add(1);
 
+    }
+
+    /**
+     * Snapshots the network inventory on the server thread before the job runs. Small networks are copied in full
+     * (cheap); large networks reuse the cached graph structure of the requested output to copy only the fuzzy groups
+     * that the crafting graph actually touches. Cold starts without a cached graph fall back to the full copy.
+     */
+    private NetworkCraftingSimulationState createNetworkInventory(IStorageService storage) {
+        // Fetch the cached network inventory exactly once: fetching may trigger an expensive full rebuild when the
+        // cache is dirty, so it must not happen once per snapshot branch.
+        var cached = storage.getCachedInventory();
+        if (cached.size() > NetworkCraftingSimulationState.SNAPSHOT_SUBSET_THRESHOLD
+            && this.craftingService instanceof CraftingService service) {
+            var graph = service.peekCachedGraph(this.output);
+            if (graph != null) {
+                var keys = new ObjectOpenHashSet<AEKey>();
+                for (var node : graph.getAllNodes()) {
+                    keys.add(node.getWhat());
+                }
+                var subset = new NetworkCraftingSimulationState(cached, keys);
+                recordPerformanceCount("inventorySnapshotKeys", subset.getSnapshotEntryCount());
+                return subset;
+            }
+        }
+        var snapshot = new NetworkCraftingSimulationState(cached);
+        recordPerformanceCount("inventorySnapshotKeys", snapshot.getSnapshotEntryCount());
+        return snapshot;
     }
 
     private CraftingTreeNode getOrCreateLegacyTree() {
@@ -2211,7 +2239,7 @@ public class CraftingCalculation {
         return this.maxRequestDepth;
     }
 
-    boolean isPerformanceTrackingEnabled() {
+    public boolean isPerformanceTrackingEnabled() {
         return this.performanceListener.isEnabled();
     }
 

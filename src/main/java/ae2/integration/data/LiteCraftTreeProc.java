@@ -224,16 +224,12 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs,
                 LiteCraftTreeNode input = inputs.get(inputIndex);
                 if (LiteCraftTreeNode.isMissing(input)) {
                     missingInputs.add(input.withMissingOnly());
-                } else {
-                    missingInputs.add(input.copyTree());
                 }
             }
         } else {
             for (LiteCraftTreeNode input : inputs) {
                 if (LiteCraftTreeNode.isMissing(input)) {
                     missingInputs.add(input.withMissingOnly());
-                } else {
-                    missingInputs.add(input.copyTree());
                 }
             }
         }
@@ -255,20 +251,6 @@ public record LiteCraftTreeProc(List<LiteCraftTreeNode> inputs,
                 input.sort(depthCache);
             }
         }
-    }
-
-    public LiteCraftTreeProc copyTree() {
-        List<LiteCraftTreeNode> copiedInputs = new ArrayList<>(inputs.size());
-        if (inputs instanceof RandomAccess) {
-            for (int inputIndex = 0, inputCount = inputs.size(); inputIndex < inputCount; inputIndex++) {
-                copiedInputs.add(inputs.get(inputIndex).copyTree());
-            }
-        } else {
-            for (LiteCraftTreeNode input : inputs) {
-                copiedInputs.add(input.copyTree());
-            }
-        }
-        return new LiteCraftTreeProc(copiedInputs, machines, machineLocations);
     }
 
     static final class MissingAllocator {

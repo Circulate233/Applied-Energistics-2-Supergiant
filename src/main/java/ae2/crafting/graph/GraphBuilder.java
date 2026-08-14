@@ -14,16 +14,18 @@ import java.util.Set;
 
 public class GraphBuilder {
     private final CraftingCalculation calc;
+    private final boolean trackPerformance;
     private long patternLookupNanos;
     private long emitLookupNanos;
     private long nodeCount;
 
     public GraphBuilder(CraftingCalculation calc) {
         this.calc = calc;
+        this.trackPerformance = calc.isPerformanceTrackingEnabled();
     }
 
     public CraftingGraph buildGraph(AEKey output, long requestedAmount) throws InterruptedException {
-        long start = System.nanoTime();
+        long start = this.trackPerformance ? System.nanoTime() : 0;
         this.patternLookupNanos = 0;
         this.emitLookupNanos = 0;
         this.nodeCount = 0;
@@ -35,12 +37,14 @@ public class GraphBuilder {
         graph.setRootNode(rootNode);
         rootNode.setDemandAmount(requestedAmount);
 
-        long total = System.nanoTime() - start;
-        calc.recordPerformanceCount("buildGraphNodes", nodeCount);
-        calc.recordPerformanceStage("buildGraphPatternLookup", patternLookupNanos);
-        calc.recordPerformanceStage("buildGraphEmitLookup", emitLookupNanos);
-        calc.recordPerformanceStage("buildGraphStructure",
-            Math.max(0, total - patternLookupNanos - emitLookupNanos));
+        if (this.trackPerformance) {
+            long total = System.nanoTime() - start;
+            calc.recordPerformanceCount("buildGraphNodes", nodeCount);
+            calc.recordPerformanceStage("buildGraphPatternLookup", patternLookupNanos);
+            calc.recordPerformanceStage("buildGraphEmitLookup", emitLookupNanos);
+            calc.recordPerformanceStage("buildGraphStructure",
+                Math.max(0, total - patternLookupNanos - emitLookupNanos));
+        }
         return graph;
     }
 
@@ -50,9 +54,11 @@ public class GraphBuilder {
         Set<AEKey> requestStack,
         boolean root
     ) throws InterruptedException {
-        long emitStart = System.nanoTime();
+        long emitStart = this.trackPerformance ? System.nanoTime() : 0;
         boolean canEmit = calc.canEmitFor(what);
-        this.emitLookupNanos += System.nanoTime() - emitStart;
+        if (this.trackPerformance) {
+            this.emitLookupNanos += System.nanoTime() - emitStart;
+        }
         if (canEmit) {
             var nodeKey = new CraftingGraph.NodeKey(what, null);
             var existing = graph.getNode(nodeKey);
@@ -65,9 +71,11 @@ public class GraphBuilder {
             return emitter;
         }
 
-        long patternStart = System.nanoTime();
+        long patternStart = this.trackPerformance ? System.nanoTime() : 0;
         var patterns = calc.getCraftingFor(what);
-        this.patternLookupNanos += System.nanoTime() - patternStart;
+        if (this.trackPerformance) {
+            this.patternLookupNanos += System.nanoTime() - patternStart;
+        }
         if (patterns.isEmpty()) {
             if (root) {
                 var nodeKey = new CraftingGraph.NodeKey(what, null);

@@ -4,6 +4,7 @@ import ae2.api.networking.crafting.ICraftingPlan;
 import ae2.container.GuiIds;
 import ae2.container.implementations.ContainerCraftConfirm;
 import ae2.container.implementations.ContainerCraftingTree;
+import ae2.core.AELog;
 import ae2.core.AppEngBase;
 import ae2.core.network.InitNetwork;
 import ae2.core.network.ServerboundPacket;
@@ -86,6 +87,7 @@ public class SwitchCraftingTreePacket extends ServerboundPacket {
 
                if (failure != null) {
                    InitNetwork.sendToClient(player, CraftingTreeDataPacket.error(windowId, requestId));
+                   AELog.error(failure);
                    return;
                }
 

@@ -249,23 +249,18 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
             return null;
         }
 
-        boolean keepCompleteSiblingProcesses = hasMissingProcess();
         List<LiteCraftTreeProc> missingInputs = new ArrayList<>();
         if (inputs instanceof RandomAccess) {
             for (int i = 0, size = inputs.size(); i < size; i++) {
                 LiteCraftTreeProc input = inputs.get(i);
                 if (isMissing(input)) {
                     missingInputs.add(input.withMissingOnly());
-                } else if (keepCompleteSiblingProcesses) {
-                    missingInputs.add(input.copyTree());
                 }
             }
         } else {
             for (LiteCraftTreeProc input : inputs) {
                 if (isMissing(input)) {
                     missingInputs.add(input.withMissingOnly());
-                } else if (keepCompleteSiblingProcesses) {
-                    missingInputs.add(input.copyTree());
                 }
             }
         }
@@ -274,41 +269,6 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
         node.missingCached = true;
         node.missingCache = true;
         return node;
-    }
-
-    public LiteCraftTreeNode copyTree() {
-        List<LiteCraftTreeProc> copiedInputs = new ArrayList<>(inputs.size());
-        if (inputs instanceof RandomAccess) {
-            for (int i = 0, size = inputs.size(); i < size; i++) {
-                copiedInputs.add(inputs.get(i).copyTree());
-            }
-        } else {
-            for (LiteCraftTreeProc input : inputs) {
-                copiedInputs.add(input.copyTree());
-            }
-        }
-
-        LiteCraftTreeNode node = new LiteCraftTreeNode(parent, output, copiedInputs, missing);
-        node.missingCached = missingCached;
-        node.missingCache = missingCache;
-        return node;
-    }
-
-    private boolean hasMissingProcess() {
-        if (inputs instanceof RandomAccess) {
-            for (int i = 0, size = inputs.size(); i < size; i++) {
-                if (isMissing(inputs.get(i))) {
-                    return true;
-                }
-            }
-        } else {
-            for (LiteCraftTreeProc input : inputs) {
-                if (isMissing(input)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 
     public LiteCraftTreeProc parent() {
