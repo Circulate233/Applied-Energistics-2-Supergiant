@@ -1,6 +1,7 @@
 package ae2.init.client;
 
 import ae2.client.gui.style.GuiStyleManager;
+import ae2.client.gui.style.GuiStyleReloader;
 import ae2.client.gui.style.IconAtlas;
 import net.minecraft.client.Minecraft;
 
@@ -19,5 +20,6 @@ public final class InitGuis {
         var resourceManager = Minecraft.getMinecraft().getResourceManager();
         GuiStyleManager.initialize(resourceManager);
         IconAtlas.initialize(resourceManager);
+        GuiStyleReloader.init();
     }
 }

@@ -46,6 +46,7 @@ import net.minecraftforge.common.util.FakePlayerFactory;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Loader;
 import net.minecraftforge.fml.common.ModContainer;
+import net.minecraftforge.fml.relauncher.FMLLaunchHandler;
 
 import org.jetbrains.annotations.Nullable;
 import java.text.DecimalFormat;
@@ -88,6 +89,10 @@ public final class Platform {
 
     public static boolean isServer() {
         return FMLCommonHandler.instance().getEffectiveSide().isServer();
+    }
+
+    public static boolean isDev() {
+        return FMLLaunchHandler.isDeobfuscatedEnvironment();
     }
 
     /**
