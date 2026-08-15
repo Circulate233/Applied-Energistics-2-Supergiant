@@ -1289,6 +1289,23 @@ public class CraftingCalculation {
         return new RecursivePatternBatch(1, netOutput > 0 ? netOutput : directOutput);
     }
 
+    /**
+     * Checks whether a recursive seed is available. Positive-net recursive closures do not net-consume their seed, so
+     * the immutable network snapshot remains authoritative even when the current local transaction has already counted
+     * the seed in {@code requiredExtract}.
+     */
+    static boolean hasRecursiveSeedAvailability(CraftingSimulationState networkInventory,
+                                                CraftingSimulationState localInventory, AEKey seed,
+                                                long requiredAmount, long locallyExtractedAmount,
+                                                boolean seedIsRequested) {
+        long localAvailable = localInventory.getAvailableNonProducedAmount(seed);
+        if (seedIsRequested) {
+            localAvailable = LongMath.saturatedAdd(localAvailable, locallyExtractedAmount);
+        }
+        long networkAvailable = networkInventory.getOriginalAmount(seed);
+        return Math.max(networkAvailable, localAvailable) >= requiredAmount;
+    }
+
     private RecursiveSeed getRecursiveSeed(CraftingSimulationState inv, RecursiveNet recursiveNet, AEKey what,
                                            long locallyExtractedAmount) {
         for (AEKey seed : recursiveNet.inputKeys()) {
@@ -1296,11 +1313,8 @@ public class CraftingCalculation {
                 continue;
             }
             long amount = getRecursiveSeedAmount(seed, recursiveNet.requestIndex());
-            long available = inv.getAvailableNonProducedAmount(seed);
-            if (seed.equals(what)) {
-                available += locallyExtractedAmount;
-            }
-            if (available >= amount) {
+            if (hasRecursiveSeedAvailability(this.networkInv, inv, seed, amount, locallyExtractedAmount,
+                seed.equals(what))) {
                 return new RecursiveSeed(seed, amount);
             }
         }
