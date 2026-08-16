@@ -214,7 +214,7 @@ public final class AppEngClient extends AppEngServer {
                     || !(event.getGui() instanceof GuiMEStorage<?> gui)
                     || !Mouse.getEventButtonState()
                     || Mouse.getEventButton() != 0
-                    || !GuiScreen.isCtrlKeyDown()) {
+                    || (!GuiScreen.isCtrlKeyDown() && !Keyboard.isKeyDown(Keyboard.KEY_SPACE))) {
                     return false;
                 }
 
