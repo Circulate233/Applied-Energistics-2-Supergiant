@@ -48,8 +48,11 @@ public record Tooltip(List<ITextComponent> content) {
     }
 
     private static void visitComponent(ITextComponent component, LineSplittingVisitor visitor) {
-        // getFormattedText() already includes this component and all of its siblings.
-        visitor.accept(component.getStyle(), component.getFormattedText());
+        // Visit every resolved component separately. Flattening the whole tree with
+        // getFormattedText() introduces reset codes (§r) that overwrite child colors.
+        for (ITextComponent part : component) {
+            visitor.accept(part.getStyle(), part.getUnformattedComponentText());
+        }
     }
 
     private static class LineSplittingVisitor {
@@ -66,6 +69,10 @@ public record Tooltip(List<ITextComponent> content) {
             for (int i = 0; i < parts.length; i++) {
                 if (i > 0) {
                     flush();
+                }
+
+                if (text.isEmpty()) {
+                    continue;
                 }
 
                 TextComponentString part = new TextComponentString(parts[i]);

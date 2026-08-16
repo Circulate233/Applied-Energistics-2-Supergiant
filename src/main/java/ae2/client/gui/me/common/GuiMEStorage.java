@@ -1416,7 +1416,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
         public @NonNull List<ITextComponent> getTooltipMessage() {
             StringJoiner joiner = new StringJoiner(", ");
             for (AEKeyType keyType : container.getClientKeyTypeSelection().enabledSet()) {
-                joiner.add(keyType.getDescription().getFormattedText());
+                joiner.add(keyType.getDescription().getUnformattedComponentText());
             }
             return List.of(GuiText.ConfigureVisibleTypes.text(), new TextComponentString(joiner.toString()));
         }
