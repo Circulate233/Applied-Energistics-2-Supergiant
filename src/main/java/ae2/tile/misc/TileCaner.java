@@ -405,18 +405,6 @@ public class TileCaner extends AENetworkedPoweredTile
             : pushEmptyPattern(patternDetails, inputs, ejectionDirection);
     }
 
-    @Override
-    public int getMaxPatternPushMultiplier(IPatternDetails patternDetails, KeyCounter[] inputs, int maxMultiplier,
-                                           EnumFacing ejectionDirection) {
-        if (maxMultiplier <= 0 || !(patternDetails instanceof AEProcessingPattern) || this.stuff.getStack(0) != null
-            || !this.container.getStackInSlot(0).isEmpty()) {
-            return 0;
-        }
-        return this.mode == CanerMode.FILL
-            ? canAcceptFillPattern(patternDetails, inputs) ? 1 : 0
-            : canAcceptEmptyPattern(patternDetails, inputs) ? 1 : 0;
-    }
-
     private boolean pushFillPattern(IPatternDetails patternDetails, KeyCounter[] inputs, EnumFacing ejectionDirection) {
         if (!canAcceptFillPattern(patternDetails, inputs)) {
             return false;

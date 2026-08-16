@@ -72,12 +72,6 @@ public final class Capabilities {
         }
 
         @Override
-        public int getMaxPatternPushMultiplier(IPatternDetails patternDetails, KeyCounter[] inputs, int maxMultiplier,
-                                               EnumFacing ejectionDirection) {
-            return 0;
-        }
-
-        @Override
         public boolean acceptsPlans() {
             return false;
         }

@@ -66,7 +66,7 @@ public final class InitCapabilityProviders {
             (part, side) -> ignoreSide(side, part.getCraftingMachineApi()),
             PatternProviderP2PTunnelPart.class);
         partEvent.register(AECapabilities.PATTERN_PROVIDER_BATCH_TARGET,
-            (part, side) -> ignoreSide(side, part.getCraftingMachineApi()),
+            (part, side) -> ignoreSide(side, part.getBatchTargetApi()),
             PatternProviderP2PTunnelPart.class);
         partEvent.register(AECapabilities.ME_STORAGE,
             (part, side) -> ignoreSide(side, part.getInputStorageApi()),

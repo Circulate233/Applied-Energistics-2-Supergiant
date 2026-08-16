@@ -47,7 +47,7 @@ import java.util.List;
 import java.util.Set;
 
 public class PatternProviderP2PTunnelPart extends P2PTunnelPart<PatternProviderP2PTunnelPart>
-    implements ICraftingMachine {
+    implements ICraftingMachine, IPatternProviderBatchTarget {
 
     private static final String NEXT_OUTPUT_INDEX_TAG = "nextOutputIndex";
     private static final String LAST_INPUT_TAG = "lastInput";
@@ -112,6 +112,11 @@ public class PatternProviderP2PTunnelPart extends P2PTunnelPart<PatternProviderP
 
     @Nullable
     public ICraftingMachine getCraftingMachineApi() {
+        return !isOutput() ? this : null;
+    }
+
+    @Nullable
+    public IPatternProviderBatchTarget getBatchTargetApi() {
         return !isOutput() ? this : null;
     }
 
@@ -183,9 +188,15 @@ public class PatternProviderP2PTunnelPart extends P2PTunnelPart<PatternProviderP
             return null;
         }
 
-        IPatternProviderBatchTarget batchTarget = machine;
+        IPatternProviderBatchTarget batchTarget = machine instanceof IPatternProviderBatchTarget direct
+            ? direct
+            : null;
         TileEntity blockEntity = target.tileEntity();
-        if (blockEntity.hasCapability(AECapabilities.PATTERN_PROVIDER_BATCH_TARGET, target.side())) {
+        if (blockEntity instanceof IPatternProviderBatchTarget directTile) {
+            batchTarget = directTile;
+        }
+        if (batchTarget == null && blockEntity.hasCapability(AECapabilities.PATTERN_PROVIDER_BATCH_TARGET,
+            target.side())) {
             IPatternProviderBatchTarget capabilityTarget = blockEntity.getCapability(
                 AECapabilities.PATTERN_PROVIDER_BATCH_TARGET, target.side());
             if (capabilityTarget != null) {
@@ -372,7 +383,7 @@ public class PatternProviderP2PTunnelPart extends P2PTunnelPart<PatternProviderP
             values[sideOrdinal]);
     }
 
-    public record RemoteMachineTarget(ICraftingMachine machine, IPatternProviderBatchTarget batchTarget,
+    public record RemoteMachineTarget(ICraftingMachine machine, @Nullable IPatternProviderBatchTarget batchTarget,
                                       EnumFacing ejectionDirection) {
     }
 

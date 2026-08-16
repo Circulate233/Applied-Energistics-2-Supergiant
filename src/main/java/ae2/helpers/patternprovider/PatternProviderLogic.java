@@ -500,7 +500,11 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
         for (int i = 0; i < targetSet.machineTargets.size(); i++) {
             MachinePushTarget machineTarget = targetSet.machineTargets.get(i);
-            int definitionMultiplier = machineTarget.batchTarget.getMaxPatternPushMultiplier(basePatternDetails,
+            IPatternProviderBatchTarget batchTarget = machineTarget.batchTarget;
+            if (batchTarget == null) {
+                continue;
+            }
+            int definitionMultiplier = batchTarget.getMaxPatternPushMultiplier(basePatternDetails,
                 buildPatternInputHolder(basePatternDetails), maxMultiplier, machineTarget.ejectionDirection);
             if (definitionMultiplier <= 0) {
                 continue;
@@ -560,8 +564,11 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
 
             ICraftingMachine craftingMachine = ICraftingMachine.of(level, adjacentPos, adjacentSide);
             if (craftingMachine != null && craftingMachine.acceptsPlans()) {
+                IPatternProviderBatchTarget directBatch = craftingMachine instanceof IPatternProviderBatchTarget batch
+                    ? batch
+                    : null;
                 IPatternProviderBatchTarget batchTarget = getBatchTarget(level, adjacentPos, adjacentSide,
-                    craftingMachine);
+                    directBatch);
                 machineTargets.add(new MachinePushTarget(craftingMachine, batchTarget, adjacentSide));
                 continue;
             }
@@ -576,9 +583,12 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         return new PushTargetSet(machineTargets, externalTargets);
     }
 
-    private static IPatternProviderBatchTarget getBatchTarget(World level, BlockPos pos, EnumFacing side,
-                                                              ICraftingMachine fallback) {
+    private static @Nullable IPatternProviderBatchTarget getBatchTarget(World level, BlockPos pos, EnumFacing side,
+                                                                        @Nullable IPatternProviderBatchTarget fallback) {
         TileEntity blockEntity = level.getTileEntity(pos);
+        if (blockEntity instanceof IPatternProviderBatchTarget direct) {
+            return direct;
+        }
         if (blockEntity != null && blockEntity.hasCapability(AECapabilities.PATTERN_PROVIDER_BATCH_TARGET, side)) {
             IPatternProviderBatchTarget batchTarget = blockEntity.getCapability(
                 AECapabilities.PATTERN_PROVIDER_BATCH_TARGET, side);
@@ -1065,8 +1075,14 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         for (PatternProviderP2PTunnelPart outputTunnel : inputTunnel.getOutputsInAttemptOrder()) {
             PatternProviderP2PTunnelPart.RemoteMachineTarget machineTarget = outputTunnel.findRemoteMachineTarget();
             if (machineTarget != null) {
-                int multiplier = machineTarget.batchTarget().getMaxPatternPushMultiplier(basePatternDetails, inputs,
-                    maxMultiplier, machineTarget.ejectionDirection());
+                int multiplier;
+                if (machineTarget.batchTarget() != null) {
+                    multiplier = machineTarget.batchTarget().getMaxPatternPushMultiplier(basePatternDetails, inputs,
+                        maxMultiplier, machineTarget.ejectionDirection());
+                } else {
+                    // A non-batch machine can still accept a single push through the P2P tunnel.
+                    multiplier = maxMultiplier > 0 ? 1 : 0;
+                }
                 if (multiplier > 0) {
                     inputTunnel.planOutputForPattern(basePatternDetails, outputTunnel);
                     return Math.min(multiplier, maxMultiplier);
@@ -1100,9 +1116,13 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         for (PatternProviderP2PTunnelPart outputTunnel : inputTunnel.getOutputsInAttemptOrder(plannedOutput)) {
             PatternProviderP2PTunnelPart.RemoteMachineTarget machineTarget = outputTunnel.findRemoteMachineTarget();
             if (machineTarget != null) {
-                int acceptedMultiplier = machineTarget.batchTarget().getMaxPatternPushMultiplier(basePatternDetails,
-                    inputHolder, multiplier, machineTarget.ejectionDirection());
-                if (acceptedMultiplier < multiplier) {
+                if (machineTarget.batchTarget() != null) {
+                    int acceptedMultiplier = machineTarget.batchTarget().getMaxPatternPushMultiplier(basePatternDetails,
+                        inputHolder, multiplier, machineTarget.ejectionDirection());
+                    if (acceptedMultiplier < multiplier) {
+                        continue;
+                    }
+                } else if (multiplier > 1) {
                     continue;
                 }
                 if (machineTarget.machine().pushPattern(basePatternDetails, inputHolder, multiplier,
@@ -1439,7 +1459,7 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         boolean push(KeyCounter[] inputHolder, int multiplier);
     }
 
-    private record MachinePushTarget(ICraftingMachine machine, IPatternProviderBatchTarget batchTarget,
+    private record MachinePushTarget(ICraftingMachine machine, @Nullable IPatternProviderBatchTarget batchTarget,
                                      EnumFacing ejectionDirection) {
     }
 
@@ -1492,6 +1512,9 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         }
 
         private boolean tryPushToTarget(MachinePushTarget target, KeyCounter[] inputHolder, int multiplier) {
+            if (target.batchTarget == null) {
+                return false;
+            }
             if (!(target.machine instanceof PatternProviderP2PTunnelPart)) {
                 int acceptedMultiplier = target.batchTarget.getMaxPatternPushMultiplier(this.patternDetails,
                     inputHolder, multiplier, target.ejectionDirection);

@@ -32,7 +32,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
-public interface ICraftingMachine extends IPatternProviderBatchTarget {
+public interface ICraftingMachine {
 
     @Nullable
     static ICraftingMachine of(@Nullable TileEntity blockEntity, EnumFacing side) {
