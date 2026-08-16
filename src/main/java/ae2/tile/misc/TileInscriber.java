@@ -472,25 +472,16 @@ public class TileInscriber extends AENetworkedPoweredTile
 
     @Override
     public boolean hasCapability(Capability<?> capability, @Nullable EnumFacing facing) {
-        if (capability == AECapabilities.CRAFTING_MACHINE
-            || capability == AECapabilities.PATTERN_PROVIDER_BATCH_TARGET) {
-            return true;
-        }
         if (capability == AECapabilities.CRANKABLE && getCrankable(facing) != null) {
             return true;
         }
         return super.hasCapability(capability, facing);
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public <T> T getCapability(Capability<T> capability, @Nullable EnumFacing facing) {
-        if (capability == AECapabilities.CRAFTING_MACHINE
-            || capability == AECapabilities.PATTERN_PROVIDER_BATCH_TARGET) {
-            return (T) this;
-        }
         if (capability == AECapabilities.CRANKABLE) {
-            return (T) getCrankable(facing);
+            return AECapabilities.CRANKABLE.cast(getCrankable(facing));
         }
         return super.getCapability(capability, facing);
     }

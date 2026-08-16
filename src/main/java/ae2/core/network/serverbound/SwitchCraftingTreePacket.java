@@ -4,12 +4,12 @@ import ae2.api.networking.crafting.ICraftingPlan;
 import ae2.container.GuiIds;
 import ae2.container.implementations.ContainerCraftConfirm;
 import ae2.container.implementations.ContainerCraftingTree;
+import ae2.core.AELog;
 import ae2.core.AppEngBase;
 import ae2.core.network.InitNetwork;
 import ae2.core.network.ServerboundPacket;
 import ae2.core.network.clientbound.CraftingTreeDataPacket;
 import ae2.crafting.CraftingPlan;
-import ae2.crafting.CraftingTreeNode;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.PacketBuffer;
@@ -67,11 +67,6 @@ public class SwitchCraftingTreePacket extends ServerboundPacket {
             return;
         }
 
-        CraftingTreeNode tree = job.tree();
-        if (tree == null) {
-            return;
-        }
-
         player.openGui(AppEngBase.instance(), GuiIds.GuiKey.CRAFTING_TREE.getGuiId(), player.world,
             (int) player.posX, (int) player.posY, (int) player.posZ);
         if (!(player.openContainer instanceof ContainerCraftingTree craftingTree)) {
@@ -81,9 +76,31 @@ public class SwitchCraftingTreePacket extends ServerboundPacket {
         FutureTask<ICraftingPlan> fakeFuture = new FutureTask<>(() -> result);
         craftingTree.setJob(fakeFuture);
         fakeFuture.run();
-        InitNetwork.sendToClient(player,
-            new CraftingTreeDataPacket(tree, job.finalOutput(), job.patternTimes(), job.usedItems(),
-                job.missingItems()));
+        int windowId = craftingTree.windowId;
+        int requestId = CraftingTreeDataPacket.nextRequestId();
+        job.requestDisplayTree()
+           .thenCompose(CraftingTreeDataPacket::encodeAsync)
+           .whenComplete((payload, failure) -> player.getServerWorld().addScheduledTask(() -> {
+               if (player.openContainer != craftingTree || craftingTree.windowId != windowId) {
+                   return;
+               }
+
+               if (failure != null) {
+                   InitNetwork.sendToClient(player, CraftingTreeDataPacket.error(windowId, requestId));
+                   AELog.error(failure);
+                   return;
+               }
+
+               int chunkCount = (payload.length + CraftingTreeDataPacket.CHUNK_BYTES - 1)
+                   / CraftingTreeDataPacket.CHUNK_BYTES;
+               InitNetwork.sendToClient(player,
+                   CraftingTreeDataPacket.begin(windowId, requestId, chunkCount, payload.length));
+               for (int i = 0; i < chunkCount; i++) {
+                   InitNetwork.sendToClient(player, CraftingTreeDataPacket.chunk(windowId, requestId, i,
+                       CraftingTreeDataPacket.chunkBytes(payload, i)));
+               }
+               InitNetwork.sendToClient(player, CraftingTreeDataPacket.complete(windowId, requestId));
+           }));
     }
 
     @Override

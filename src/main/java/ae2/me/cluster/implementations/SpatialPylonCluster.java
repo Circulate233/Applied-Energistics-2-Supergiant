@@ -67,8 +67,8 @@ public class SpatialPylonCluster implements IAECluster {
 
     @Override
     public void updateStatus(boolean updateGrid) {
-        for (var pylon : this.line) {
-            pylon.recalculateDisplay();
+        for (int i = 0, size = this.line.size(); i < size; i++) {
+            this.line.get(i).recalculateDisplay();
         }
     }
 
@@ -81,8 +81,8 @@ public class SpatialPylonCluster implements IAECluster {
         this.destroyed = true;
         MBCalculator.setModificationInProgress(this);
         try {
-            for (var pylon : this.line) {
-                pylon.updateStatus(null);
+            for (int i = 0, size = this.line.size(); i < size; i++) {
+                this.line.get(i).updateStatus(null);
             }
         } finally {
             MBCalculator.setModificationInProgress(null);

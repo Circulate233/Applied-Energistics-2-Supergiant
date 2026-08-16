@@ -76,7 +76,9 @@ public interface ICraftingProvider extends IGridNodeService {
      * Returning false does not mean the pattern cannot be pushed; it means the crafting CPU must use the normal
      * one-pattern push path instead.
      */
-    boolean canMergePatternPush(IPatternDetails patternDetails);
+    default boolean canMergePatternPush(IPatternDetails patternDetails) {
+        return false;
+    }
 
     /**
      * Return the maximum number of pattern pushes that can currently be merged for the given pattern.
@@ -84,7 +86,9 @@ public interface ICraftingProvider extends IGridNodeService {
      * pattern. Returning 0 means this provider is currently unavailable for this pattern and no normal one-pattern
      * fallback should be attempted for this provider in the current pass.
      */
-    int getMaxPatternPushMultiplier(IPatternDetails patternDetails, int maxMultiplier);
+    default int getMaxPatternPushMultiplier(IPatternDetails patternDetails, int maxMultiplier) {
+        return 0;
+    }
 
     /**
      * @return if this is true, the crafting engine will refuse to send patterns to this provider.

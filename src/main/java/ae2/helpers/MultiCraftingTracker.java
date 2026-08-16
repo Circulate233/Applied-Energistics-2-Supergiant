@@ -114,12 +114,16 @@ public class MultiCraftingTracker {
                     this.setJob(x, null);
                     this.markFailure(x, what, amount);
                 }
-            } catch (InterruptedException | ExecutionException | RuntimeException ignored) {
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                this.setJob(x, null);
+                return false;
+            } catch (ExecutionException | RuntimeException ignored) {
                 this.markFailure(x, what, amount);
                 this.setJob(x, null);
             }
         } else if (this.getLink(x) == null) {
-            this.setJob(x, cg.beginCraftingCalculation(level, () -> mySrc, what, amount, CalculationStrategy.CRAFT_LESS));
+            this.setJob(x, cg.beginCraftingCalculation(level, () -> mySrc, what, amount, CalculationStrategy.REPORT_MISSING_ITEMS));
         }
         return false;
     }

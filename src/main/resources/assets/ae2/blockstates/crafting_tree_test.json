@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "normal": {
+      "model": "ae2:crafting_tree_test"
+    },
+    "inventory": {
+      "model": "ae2:item/crafting_tree_test"
+    }
+  }
+}

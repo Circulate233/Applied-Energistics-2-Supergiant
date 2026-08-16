@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.RandomAccess;
 
 public class AEProcessingPattern implements IPatternDetails {
     public static final int MAX_INPUT_SLOTS = 9 * 9;
@@ -89,18 +90,23 @@ public class AEProcessingPattern implements IPatternDetails {
         stack.setTagInfo(ENCODED_PROCESSING_PATTERN, encoded);
     }
 
-    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World world,
-                                                                 @Nullable Exception cause, boolean flags) {
+    public static PatternDetailsTooltip getInvalidPatternTooltip(ItemStack stack, World ignoredWorld,
+                                                                 @Nullable Exception ignoredCause,
+                                                                 boolean ignoredFlags) {
         var tooltip = new PatternDetailsTooltip(PatternDetailsTooltip.OUTPUT_TEXT_PRODUCES);
         var encoded = stack.getTagCompound();
         if (encoded != null && encoded.hasKey(ENCODED_PROCESSING_PATTERN, 10)) {
             var tag = encoded.getCompoundTag(ENCODED_PROCESSING_PATTERN);
-            for (GenericStack input : readGenericStackList(tag.getTagList("inputs", 10))) {
+            var inputs = readGenericStackList(tag.getTagList("inputs", 10));
+            for (int i = 0; i < inputs.size(); i++) {
+                var input = inputs.get(i);
                 if (input != null) {
                     tooltip.addInput(input);
                 }
             }
-            for (GenericStack output : readGenericStackList(tag.getTagList("outputs", 10))) {
+            var outputs = readGenericStackList(tag.getTagList("outputs", 10));
+            for (int i = 0; i < outputs.size(); i++) {
+                var output = outputs.get(i);
                 if (output != null) {
                     tooltip.addOutput(output);
                 }
@@ -140,6 +146,15 @@ public class AEProcessingPattern implements IPatternDetails {
     }
 
     private static boolean hasAnyStack(List<GenericStack> stacks) {
+        if (stacks instanceof RandomAccess) {
+            for (int i = 0; i < stacks.size(); i++) {
+                if (stacks.get(i) != null) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         for (GenericStack stack : stacks) {
             if (stack != null) {
                 return true;
@@ -152,12 +167,21 @@ public class AEProcessingPattern implements IPatternDetails {
         if (stacks.size() > maxSlots) {
             throw new IllegalArgumentException("Processing pattern has too many " + role + " slots.");
         }
-        for (GenericStack stack : stacks) {
-            if (stack == null) {
-                continue;
+
+        if (stacks instanceof RandomAccess) {
+            for (int i = 0; i < stacks.size(); i++) {
+                var stack = stacks.get(i);
+                if (stack != null && (stack.amount() <= 0
+                    || stack.amount() > PatternDetailsHelper.MAX_PROCESSING_PATTERN_AMOUNT)) {
+                    throw new IllegalArgumentException("Processing pattern " + role + " amount is out of range.");
+                }
             }
-            if (stack.amount() <= 0 || stack.amount() > PatternDetailsHelper.MAX_PROCESSING_PATTERN_AMOUNT) {
-                throw new IllegalArgumentException("Processing pattern " + role + " amount is out of range.");
+        } else {
+            for (GenericStack stack : stacks) {
+                if (stack != null && (stack.amount() <= 0
+                    || stack.amount() > PatternDetailsHelper.MAX_PROCESSING_PATTERN_AMOUNT)) {
+                    throw new IllegalArgumentException("Processing pattern " + role + " amount is out of range.");
+                }
             }
         }
     }
@@ -220,7 +244,8 @@ public class AEProcessingPattern implements IPatternDetails {
         }
 
         long multiplier = getInputPushMultiplier(inputHolder);
-        for (var sparseInput : sparseInputs) {
+        for (int i = 0; i < sparseInputs.size(); i++) {
+            var sparseInput = sparseInputs.get(i);
             if (sparseInput == null) {
                 continue;
             }

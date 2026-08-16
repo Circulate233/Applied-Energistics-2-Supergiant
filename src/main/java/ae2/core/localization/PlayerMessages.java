@@ -62,6 +62,8 @@ public enum PlayerMessages implements LocalizationEnum {
     ChannelModeSet,
     DebugEnergyCurrent,
     DebugEnergySet,
+    CraftingPauseCurrent,
+    CraftingPauseSet,
     GuiOverlaysEnabled,
     GuiOverlaysDisabled,
     ChunkLoggerEnabled,

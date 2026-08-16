@@ -12,16 +12,17 @@ final class AEPatternHelper {
     private AEPatternHelper() {
     }
 
-    static List<GenericStack> condenseStacks(List<GenericStack> sparseStacks) {
+    static ObjectArrayList<GenericStack> condenseStacks(List<GenericStack> sparseStacks) {
         Object2LongLinkedOpenHashMap<AEKey> totals = new Object2LongLinkedOpenHashMap<>();
         totals.defaultReturnValue(0);
-        for (var stack : sparseStacks) {
+        for (int i = 0; i < sparseStacks.size(); i++) {
+            var stack = sparseStacks.get(i);
             if (stack != null) {
                 totals.addTo(stack.what(), stack.amount());
             }
         }
 
-        List<GenericStack> result = new ObjectArrayList<>(totals.size());
+        ObjectArrayList<GenericStack> result = new ObjectArrayList<>(totals.size());
         for (Object2LongMap.Entry<AEKey> entry : totals.object2LongEntrySet()) {
             result.add(new GenericStack(entry.getKey(), entry.getLongValue()));
         }

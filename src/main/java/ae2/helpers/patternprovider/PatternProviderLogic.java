@@ -160,11 +160,13 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
     @Nullable
     private PendingMergePush pendingMergePush;
 
+    @SuppressWarnings("unused")
     public PatternProviderLogic(IManagedGridNode mainNode, PatternProviderLogicHost host) {
         this(mainNode, host, host.getMainContainerIcon().getItem(),
             PatternProviderCapacity.getMaxPatternSlots(AEConfig.instance().getPatternProviderExpansionCardLimit()));
     }
 
+    @SuppressWarnings("unused")
     public PatternProviderLogic(IManagedGridNode mainNode, PatternProviderLogicHost host, int patternInventorySize) {
         this(mainNode, host, host.getMainContainerIcon().getItem(), patternInventorySize);
     }
@@ -279,7 +281,8 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         }
 
         NBTTagList pendingSendListTag = new NBTTagList();
-        for (PendingSend pendingSend : this.pendingSendList) {
+        for (int i = 0, size = this.pendingSendList.size(); i < size; i++) {
+            PendingSend pendingSend = this.pendingSendList.get(i);
             NBTTagCompound pendingSendTag = new NBTTagCompound();
             pendingSendTag.setTag(NBT_PENDING_SEND_STACK, GenericStack.writeTag(pendingSend.stack()));
             pendingSendTag.setByte(NBT_PENDING_SEND_DIRECTION, (byte) pendingSend.direction().ordinal());
@@ -448,7 +451,8 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
             return false;
         }
 
-        for (MachinePushTarget machineTarget : targetSet.machineTargets) {
+        for (int i = 0, size = targetSet.machineTargets.size(); i < size; i++) {
+            MachinePushTarget machineTarget = targetSet.machineTargets.get(i);
             if (machineTarget.machine.pushPattern(basePatternDetails, inputHolder, 1,
                 machineTarget.ejectionDirection)) {
                 onPushPatternSuccess(basePatternDetails);
@@ -1030,8 +1034,8 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         TileEntity blockEntity = this.host.getTileEntity();
         World level = blockEntity.getWorld();
         if (level != null) {
-            for (PendingSend pendingSend : this.pendingSendList) {
-                GenericStack stack = pendingSend.stack();
+            for (int i = 0, size = this.pendingSendList.size(); i < size; i++) {
+                GenericStack stack = this.pendingSendList.get(i).stack();
                 stack.what().addDrops(stack.amount(), drops, level, blockEntity.getPos());
             }
             this.returnInv.addDrops(drops, level, blockEntity.getPos());
@@ -1455,7 +1459,7 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         private MachineMergePush(IPatternDetails patternDetails, ObjectList<MachinePushTarget> targets,
                                  int matchedTargetIndex, int multiplier) {
             this.patternDetails = patternDetails;
-            this.targets = new ObjectArrayList<>(targets);
+            this.targets = targets;
             this.matchedTargetIndex = matchedTargetIndex;
             this.multiplier = multiplier;
         }
@@ -1757,5 +1761,4 @@ public class PatternProviderLogic implements InternalInventoryHost, ICraftingPro
         }
     }
 }
-
 

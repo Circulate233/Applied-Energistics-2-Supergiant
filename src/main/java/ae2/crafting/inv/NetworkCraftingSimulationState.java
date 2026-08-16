@@ -19,13 +19,11 @@
 package ae2.crafting.inv;
 
 import ae2.api.config.FuzzyMode;
-import ae2.api.networking.security.IActionSource;
-import ae2.api.networking.storage.IStorageService;
 import ae2.api.stacks.AEKey;
 import ae2.api.stacks.KeyCounter;
 import com.google.common.collect.Iterables;
-import org.jetbrains.annotations.Nullable;
 
+import java.util.Collection;
 import java.util.Map;
 
 /**
@@ -34,27 +32,58 @@ import java.util.Map;
  * the server.
  */
 public class NetworkCraftingSimulationState extends CraftingSimulationState {
+    /**
+     * Networks with at most this many distinct available keys are copied in full: the copy is cheap and avoids the
+     * graph-peek/subset machinery entirely.
+     */
+    public static final int SNAPSHOT_SUBSET_THRESHOLD = 1024;
+
     private final KeyCounter list;
 
-    public NetworkCraftingSimulationState(IStorageService storage, @Nullable IActionSource src) {
-        if (src != null && src.player().isPresent()) {
-            // We choose to re-query the available stacks every time a crafting simulation is started by a player.
-            // Using getCachedInventory causes issues with our external recipe-transfer integration, which submits
-            // a job and then immediately starts a new simulation. We want that simulation to see the state of the
-            // network after the previous job was submitted in case of overlap between the recipes. More generally,
-            // having to replan is annoying, and we want to minimize the risk of that for player-started calculations.
-            this.list = storage.getInventory().getAvailableStacks();
-        } else {
-            // For non-player sources, it is fine to use the cached inventory: they will submit a new request eventually
-            // if this simulation or job fails.
-            this.list = new KeyCounter();
-            for (var stack : storage.getCachedInventory()) {
-                long networkAmount = stack.getLongValue();
-                if (networkAmount > 0) {
-                    this.list.add(stack.getKey(), networkAmount);
+    /**
+     * @param cachedInventory the cached network inventory (server thread only). The caller fetches it exactly once,
+     *                        because fetching may trigger an expensive full rebuild when the cache is dirty.
+     */
+    public NetworkCraftingSimulationState(KeyCounter cachedInventory) {
+        this.list = fullSnapshot(cachedInventory);
+    }
+
+    /**
+     * Snapshots only the fuzzy groups of the given keys. All variants of each primary key are included, so fuzzy
+     * substitution behaves exactly like the full snapshot while the copied entry count stays proportional to the
+     * crafting graph instead of the whole network. Must be called on the server thread before the job is submitted.
+     */
+    public NetworkCraftingSimulationState(KeyCounter cachedInventory, Collection<AEKey> wantedKeys) {
+        this.list = subsetSnapshot(cachedInventory, wantedKeys);
+    }
+
+    private static KeyCounter fullSnapshot(KeyCounter cachedInventory) {
+        var result = KeyCounter.saturating();
+        for (var entry : cachedInventory) {
+            if (entry.getLongValue() > 0) {
+                result.add(entry.getKey(), entry.getLongValue());
+            }
+        }
+        return result;
+    }
+
+    private static KeyCounter subsetSnapshot(KeyCounter cachedInventory, Collection<AEKey> wantedKeys) {
+        var result = KeyCounter.saturating();
+        for (var key : wantedKeys) {
+            for (var variant : cachedInventory.findFuzzy(key, FuzzyMode.IGNORE_ALL)) {
+                if (variant.getLongValue() > 0) {
+                    result.add(variant.getKey(), variant.getLongValue());
                 }
             }
         }
+        return result;
+    }
+
+    /**
+     * Number of entries in the snapshot, for performance logging.
+     */
+    public int getSnapshotEntryCount() {
+        return this.list.size();
     }
 
     @Override

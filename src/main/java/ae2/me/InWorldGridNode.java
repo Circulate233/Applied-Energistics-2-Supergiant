@@ -71,7 +71,8 @@ public class InWorldGridNode extends GridNode {
             }
 
             // Clean up phantom node connections for this side, if applicable
-            for (var c : this.connections) {
+            for (int i = 0, size = this.connections.size(); i < size; i++) {
+                var c = this.connections.get(i);
                 if (c.isInWorld() && c.getDirection(this) == direction) {
                     // This can essentially only occur if the adjacent node has changed, but the previous node has
                     // not properly severed their connection

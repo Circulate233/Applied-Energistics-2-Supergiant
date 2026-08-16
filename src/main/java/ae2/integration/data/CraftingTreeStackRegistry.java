@@ -4,29 +4,33 @@ import ae2.api.stacks.GenericStack;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.network.PacketBuffer;
 
-import java.util.List;
 import java.util.Map;
 
 public class CraftingTreeStackRegistry {
-    public static final int MAX_REGISTRY_ENTRIES = 4096;
-    public static final int MAX_TREE_NODES = 8192;
-    public static final int MAX_TREE_PROCESSES = 8192;
-    public static final int MAX_TREE_DEPTH = 64;
-    public static final int MAX_CHILDREN_PER_NODE = Byte.MAX_VALUE;
-    public static final int MAX_CHILDREN_PER_PROCESS = Byte.MAX_VALUE;
-    public static final int MAX_MACHINES_PER_PROCESS = 0xFF;
+    public static final int MAX_REGISTRY_ENTRIES = 32_768;
+    public static final int MAX_TREE_NODES = 32_768;
+    public static final int MAX_TREE_PROCESSES = 32_768;
+    public static final int MAX_TREE_DEPTH = 128;
+    public static final int MAX_CHILDREN_PER_NODE = 16_384;
+    public static final int MAX_CHILDREN_PER_PROCESS = 16_384;
+    public static final int MAX_MACHINES_PER_PROCESS = 4_096;
     public static final int MAX_MACHINE_LOCATIONS_PER_MACHINE = 256;
     public static final int MAX_MACHINE_LOCATIONS_TOTAL = 4096;
 
     private final Map<Entry, Entry> entries = new Object2ObjectOpenHashMap<>();
-    private final List<Entry> entryList = new ObjectArrayList<>();
+    private final ObjectList<Entry> entryList = new ObjectArrayList<>();
 
     public int add(GenericStack stack) {
         GenericStack keyStack = new GenericStack(stack.what(), 1);
         Entry entry = entries.get(new Entry(keyStack, -1));
         if (entry == null) {
+            if (entryList.size() >= MAX_REGISTRY_ENTRIES) {
+                throw new IllegalArgumentException("Crafting tree registry size out of range: "
+                    + (entryList.size() + 1));
+            }
             entry = new Entry(keyStack, entryList.size());
             entries.put(entry, entry);
             entryList.add(entry);
@@ -47,8 +51,9 @@ public class CraftingTreeStackRegistry {
     }
 
     public void write(ByteBuf buf) {
-        buf.writeInt(entryList.size());
-        for (Entry entry : entryList) {
+        new PacketBuffer(buf).writeVarInt(entryList.size());
+        for (int i = 0, size = entryList.size(); i < size; i++) {
+            Entry entry = entryList.get(i);
             GenericStack.writeBuffer(entry.stack, new PacketBuffer(buf));
         }
     }
@@ -58,7 +63,7 @@ public class CraftingTreeStackRegistry {
     }
 
     public void read(ByteBuf buf, DecodeLimits limits) {
-        int size = buf.readInt();
+        int size = new PacketBuffer(buf).readVarInt();
         limits.checkRegistrySize(size);
         for (int i = 0; i < size; i++) {
             addInternal(GenericStack.readBuffer(new PacketBuffer(buf)));
@@ -88,7 +93,7 @@ public class CraftingTreeStackRegistry {
         private int processes;
         private int machineLocations;
 
-        private void checkRegistrySize(int size) {
+        void checkRegistrySize(int size) {
             if (size < 0 || size > MAX_REGISTRY_ENTRIES) {
                 throw new IllegalArgumentException("Crafting tree registry size out of range: " + size);
             }
@@ -112,19 +117,19 @@ public class CraftingTreeStackRegistry {
         }
 
         void checkNodeChildCount(int size) {
-            if (size > MAX_CHILDREN_PER_NODE) {
+            if (size < 0 || size > MAX_CHILDREN_PER_NODE) {
                 throw new IllegalArgumentException("Crafting tree node child count out of range: " + size);
             }
         }
 
         void checkProcessChildCount(int size) {
-            if (size > MAX_CHILDREN_PER_PROCESS) {
+            if (size < 0 || size > MAX_CHILDREN_PER_PROCESS) {
                 throw new IllegalArgumentException("Crafting tree process child count out of range: " + size);
             }
         }
 
         void checkMachineCount(int size) {
-            if (size > MAX_MACHINES_PER_PROCESS) {
+            if (size < 0 || size > MAX_MACHINES_PER_PROCESS) {
                 throw new IllegalArgumentException("Crafting tree machine count out of range: " + size);
             }
         }

@@ -8,7 +8,6 @@ import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.AEKey;
 import ae2.api.stacks.KeyCounter;
 import ae2.api.storage.AEKeyFilter;
-import com.google.common.collect.Iterators;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
@@ -27,6 +26,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
 
@@ -183,30 +183,64 @@ public class NetworkCraftingProviders {
 
     private static class CraftingProviderList implements Iterable<ICraftingProvider> {
         private final ObjectList<ICraftingProvider> providers = new ObjectArrayList<>();
-        /**
-         * Cycling iterator for round-robin. Has to be refreshed after every addition or removal to providers to prevent
-         * CMEs.
-         */
-        private Iterator<ICraftingProvider> cycleIterator = Iterators.cycle(providers);
+        private volatile List<ICraftingProvider> snapshot = List.of();
+        private int nextProviderIndex;
 
         private void add(ICraftingProvider provider) {
             providers.add(provider);
-            cycleIterator = Iterators.cycle(providers);
+            nextProviderIndex = 0;
+            rebuildSnapshot();
         }
 
         private void remove(ICraftingProvider provider) {
-            providers.remove(provider);
-            cycleIterator = Iterators.cycle(providers);
+            if (providers.remove(provider)) {
+                nextProviderIndex = 0;
+                rebuildSnapshot();
+            }
+        }
+
+        private void rebuildSnapshot() {
+            var newSnapshot = new ObjectArrayList<ICraftingProvider>(providers.size());
+            for (int i = 0, size = providers.size(); i < size; i++) {
+                newSnapshot.add(providers.get(i));
+            }
+            snapshot = ObjectLists.unmodifiable(newSnapshot);
         }
 
         @Override
         @NotNull
         public Iterator<ICraftingProvider> iterator() {
-            return Iterators.limit(cycleIterator, providers.size());
+            //noinspection ReturnOfInnerClass
+            return new Iterator<>() {
+                private int remaining = providers.size();
+
+                @Override
+                public boolean hasNext() {
+                    return remaining > 0 && !providers.isEmpty();
+                }
+
+                @Override
+                public ICraftingProvider next() {
+                    if (!hasNext()) {
+                        throw new NoSuchElementException();
+                    }
+
+                    if (nextProviderIndex >= providers.size()) {
+                        nextProviderIndex = 0;
+                    }
+                    var provider = providers.get(nextProviderIndex);
+                    nextProviderIndex++;
+                    if (nextProviderIndex >= providers.size()) {
+                        nextProviderIndex = 0;
+                    }
+                    remaining--;
+                    return provider;
+                }
+            };
         }
 
         private List<ICraftingProvider> snapshot() {
-            return List.copyOf(providers);
+            return snapshot;
         }
     }
 
@@ -280,6 +314,7 @@ public class NetworkCraftingProviders {
         private List<IPatternDetails> sortedPatterns = Collections.emptyList();
         private boolean needsSorting = false;
 
+        @SuppressWarnings("ExtractMethodRecommender")
         private void sortPatterns() {
             var sortedPatternInfos = new ObjectArrayList<>(patterns);
             sortedPatternInfos.sort(Comparator

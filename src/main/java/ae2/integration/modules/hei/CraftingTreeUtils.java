@@ -3,6 +3,7 @@ package ae2.integration.modules.hei;
 import ae2.api.stacks.GenericStack;
 import ae2.client.ClientTickHandler;
 import ae2.core.AELog;
+import ae2.mixins.hei.AccessorBookmarkItem;
 import mezz.jei.Internal;
 import mezz.jei.api.IJeiRuntime;
 import mezz.jei.api.recipe.IFocus;
@@ -54,9 +55,11 @@ public class CraftingTreeUtils {
             if (!Config.isBookmarkOverlayEnabled()) {
                 Config.toggleBookmarkEnabled();
             }
-            BookmarkItem<Object> bookmarkItem = new BookmarkItem<>(ingredient);
-            bookmarkItem.amount = Math.max(1, stack.amount());
-            bookmark.add(bookmarkItem);
+
+            //noinspection DataFlowIssue
+            AccessorBookmarkItem<?> bookmarkItem = (AccessorBookmarkItem<?>) new BookmarkItem<>(ingredient);
+            bookmarkItem.i_setAmount(Math.max(1, stack.amount()));
+            bookmark.add((BookmarkItem<?>) bookmarkItem);
         } catch (IllegalAccessException e) {
             AELog.warn(e);
         }

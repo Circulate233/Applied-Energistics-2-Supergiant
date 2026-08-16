@@ -274,6 +274,8 @@ public enum GuiText implements LocalizationEnum {
     CraftingTreeLocationInDimension,
     CraftingTreeHighlightProvider,
     CraftingTreeRenderedNodes,
+    CraftingTreeLoading,
+    CraftingTreeError,
     CraftingStatusHighlightSupplier,
     CraftingTreeTip0,
     CraftingTreeTip1,

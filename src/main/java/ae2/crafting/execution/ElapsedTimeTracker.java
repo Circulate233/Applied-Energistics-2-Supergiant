@@ -20,7 +20,6 @@ package ae2.crafting.execution;
 
 import ae2.api.stacks.AEKeyType;
 import ae2.api.stacks.AEKeyTypes;
-import it.unimi.dsi.fastutil.objects.Reference2LongMap;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.math.MathHelper;
@@ -29,9 +28,9 @@ public class ElapsedTimeTracker {
     private static final String NBT_ELAPSED_TIME = "elapsedTime";
     private static final String NBT_STARTED_WORK = "startedWork";
     private static final String NBT_COMPLETED_WORK = "completedWork";
-    private final Reference2LongMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(
+    private final Reference2LongOpenHashMap<AEKeyType> startedWorkByType = new Reference2LongOpenHashMap<>(
         AEKeyTypes.getAll().size());
-    private final Reference2LongMap<AEKeyType> completedWorkByType = new Reference2LongOpenHashMap<>(
+    private final Reference2LongOpenHashMap<AEKeyType> completedWorkByType = new Reference2LongOpenHashMap<>(
         AEKeyTypes.getAll().size());
     private long lastTime = System.nanoTime();
     private long elapsedTime = 0;
@@ -45,13 +44,13 @@ public class ElapsedTimeTracker {
         readLongByTypeMap(data.getCompoundTag(NBT_COMPLETED_WORK), completedWorkByType);
     }
 
-    private static void readLongByTypeMap(NBTTagCompound tag, Reference2LongMap<AEKeyType> output) {
+    private static void readLongByTypeMap(NBTTagCompound tag, Reference2LongOpenHashMap<AEKeyType> output) {
         for (var keyType : AEKeyTypes.getAll()) {
             output.put(keyType, tag.getLong(keyType.getId().toString()));
         }
     }
 
-    private static NBTTagCompound writeLongByTypeMap(Reference2LongMap<AEKeyType> input) {
+    private static NBTTagCompound writeLongByTypeMap(Reference2LongOpenHashMap<AEKeyType> input) {
         NBTTagCompound result = new NBTTagCompound();
         for (var entry : input.reference2LongEntrySet()) {
             result.setLong(entry.getKey().getId().toString(), entry.getLongValue());
@@ -75,7 +74,11 @@ public class ElapsedTimeTracker {
 
     void decrementItems(long itemDiff, AEKeyType keyType) {
         updateTime();
-        completedWorkByType.merge(keyType, itemDiff, this::saturatedSum);
+        long oldValue = completedWorkByType.addTo(keyType, itemDiff);
+        long newValue = oldValue + itemDiff;
+        if (newValue < oldValue) {
+            completedWorkByType.put(keyType, Long.MAX_VALUE);
+        }
     }
 
     private long saturatedSum(long a, long b) {
@@ -85,7 +88,11 @@ public class ElapsedTimeTracker {
 
     void addMaxItems(long itemDiff, AEKeyType keyType) {
         updateTime();
-        startedWorkByType.merge(keyType, itemDiff, this::saturatedSum);
+        long oldValue = startedWorkByType.addTo(keyType, itemDiff);
+        long newValue = oldValue + itemDiff;
+        if (newValue < oldValue) {
+            startedWorkByType.put(keyType, Long.MAX_VALUE);
+        }
     }
 
     public long getElapsedTime() {

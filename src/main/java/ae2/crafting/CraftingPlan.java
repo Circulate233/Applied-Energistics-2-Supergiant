@@ -23,32 +23,107 @@ import ae2.api.networking.crafting.ICraftingPlan;
 import ae2.api.networking.crafting.ICraftingProvider;
 import ae2.api.stacks.GenericStack;
 import ae2.api.stacks.KeyCounter;
+import ae2.crafting.graph.CraftingGraphDisplaySnapshot;
+import ae2.integration.data.LiteCraftTreeNode;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
-public record CraftingPlan(GenericStack finalOutput,
-                           long bytes,
-                           boolean simulation,
-                           boolean multiplePaths,
-                           KeyCounter usedItems,
-                           KeyCounter emittedItems,
-                           KeyCounter missingItems,
-                           long intermediateFinalOutputAmount,
-                           Object2LongMap<IPatternDetails> patternTimes,
-                           CraftingTreeNode tree,
-                           List<ICraftingProvider> temporaryProviders) implements ICraftingPlan {
-    public CraftingPlan(GenericStack finalOutput,
-                        long bytes,
-                        boolean simulation,
-                        boolean multiplePaths,
-                        KeyCounter usedItems,
-                        KeyCounter emittedItems,
-                        KeyCounter missingItems,
-                        long intermediateFinalOutputAmount,
-                        Object2LongMap<IPatternDetails> patternTimes,
-                        CraftingTreeNode tree) {
-        this(finalOutput, bytes, simulation, multiplePaths, usedItems, emittedItems, missingItems,
-            intermediateFinalOutputAmount, patternTimes, tree, List.of());
+public final class CraftingPlan implements ICraftingPlan {
+    private final GenericStack finalOutput;
+    private final long bytes;
+    private final boolean simulation;
+    private final boolean multiplePaths;
+    private final KeyCounter usedItems;
+    private final KeyCounter emittedItems;
+    private final KeyCounter missingItems;
+    private final long intermediateFinalOutputAmount;
+    private final Object2LongMap<IPatternDetails> patternTimes;
+    private final @Nullable CraftingTreeNode tree;
+    private final List<ICraftingProvider> temporaryProviders;
+    private final @Nullable CraftingGraphDisplaySnapshot.Builder graphDisplayBuilder;
+    private final CraftingPlanDisplay display;
+    private final CraftingAttemptMetrics attemptMetrics;
+
+    public CraftingPlan(GenericStack finalOutput, long bytes, boolean simulation, boolean multiplePaths,
+                        KeyCounter usedItems, KeyCounter emittedItems, KeyCounter missingItems,
+                        long intermediateFinalOutputAmount, Object2LongMap<IPatternDetails> patternTimes,
+                        @Nullable CraftingTreeNode tree, List<ICraftingProvider> temporaryProviders,
+                        @Nullable CraftingGraphDisplaySnapshot.Builder graphDisplayBuilder,
+                        CraftingAttemptMetrics attemptMetrics,
+                        @Nullable CraftingCalculation calculation) {
+        this.finalOutput = finalOutput;
+        this.bytes = bytes;
+        this.simulation = simulation;
+        this.multiplePaths = multiplePaths;
+        this.usedItems = usedItems;
+        this.emittedItems = emittedItems;
+        this.missingItems = missingItems;
+        this.intermediateFinalOutputAmount = intermediateFinalOutputAmount;
+        this.patternTimes = patternTimes;
+        this.tree = tree;
+        this.temporaryProviders = temporaryProviders;
+        this.graphDisplayBuilder = graphDisplayBuilder;
+        this.attemptMetrics = attemptMetrics;
+        this.display = new CraftingPlanDisplay(finalOutput, patternTimes, usedItems, missingItems,
+            tree, graphDisplayBuilder, attemptMetrics, calculation);
+    }
+
+    public GenericStack finalOutput() {
+        return finalOutput;
+    }
+
+    public long bytes() {
+        return bytes;
+    }
+
+    public boolean simulation() {
+        return simulation;
+    }
+
+    public boolean multiplePaths() {
+        return multiplePaths;
+    }
+
+    public KeyCounter usedItems() {
+        return usedItems;
+    }
+
+    public KeyCounter emittedItems() {
+        return emittedItems;
+    }
+
+    public KeyCounter missingItems() {
+        return missingItems;
+    }
+
+    public long intermediateFinalOutputAmount() {
+        return intermediateFinalOutputAmount;
+    }
+
+    public Object2LongMap<IPatternDetails> patternTimes() {
+        return patternTimes;
+    }
+
+    public @Nullable CraftingTreeNode tree() {
+        return tree;
+    }
+
+    public List<ICraftingProvider> temporaryProviders() {
+        return temporaryProviders;
+    }
+
+    public @Nullable CraftingGraphDisplaySnapshot.Builder graphDisplayBuilder() {
+        return graphDisplayBuilder;
+    }
+
+    public CraftingAttemptMetrics.Snapshot attemptMetrics() {
+        return attemptMetrics.snapshot();
+    }
+
+    public CompletableFuture<LiteCraftTreeNode> requestDisplayTree() {
+        return display.requestTree();
     }
 }

@@ -20,6 +20,7 @@ import ae2.parts.PartModel;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.BlockPos;
@@ -28,6 +29,7 @@ import net.minecraft.world.IBlockAccess;
 import net.minecraftforge.common.util.Constants;
 
 import org.jetbrains.annotations.Nullable;
+
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -143,8 +145,9 @@ public class InterfacePart extends AEBasePart implements InterfaceLogicHost {
     }
 
     @Override
-    public Set<net.minecraft.util.EnumFacing> getTargets() {
-        return EnumSet.of(getSide());
+    public Set<EnumFacing> getTargets() {
+        var side = getSide();
+        return side == null ? EnumSet.noneOf(EnumFacing.class) : EnumSet.of(side);
     }
 
     @Override

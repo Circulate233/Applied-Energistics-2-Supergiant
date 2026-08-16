@@ -1,6 +1,7 @@
 package ae2.integration.modules.hei;
 
 import ae2.api.stacks.GenericStack;
+import ae2.mixins.hei.AccessorBookmarkItem;
 import mezz.jei.bookmarks.BookmarkGroup;
 import mezz.jei.bookmarks.BookmarkItem;
 import mezz.jei.config.Config;
@@ -24,9 +25,9 @@ final class AEMissingBookmarkGroup extends BookmarkGroup {
                 Config.toggleBookmarkEnabled();
             }
 
-            BookmarkItem<Object> bookmarkItem = new BookmarkItem<>(ingredient);
-            bookmarkItem.amount = Math.max(1, stack.amount());
-            addItemInternal(bookmarkItem);
+            AccessorBookmarkItem<?> bookmarkItem = (AccessorBookmarkItem<?>) new BookmarkItem<>(ingredient);
+            bookmarkItem.i_setAmount(Math.max(1, stack.amount()));
+            addItemInternal((BookmarkItem<?>) bookmarkItem);
         }
     }
 

@@ -9,6 +9,7 @@ import ae2.crafting.CraftingTreeProcess;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Object2LongLinkedOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
+import net.minecraft.network.PacketBuffer;
 
 import it.unimi.dsi.fastutil.objects.Reference2IntMap;
 import it.unimi.dsi.fastutil.objects.Reference2IntOpenHashMap;
@@ -18,6 +19,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.RandomAccess;
 
 public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
     private final LiteCraftTreeProc parent;
@@ -63,13 +65,25 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
                                 long missing, PatternTimesAllocator patternTimesAllocator,
                                 LiteCraftTreeProc.MissingAllocator missingAllocator) {
         List<LiteCraftTreeProc> inputs = new ArrayList<>();
-        if (node.getDisplayNodes() != null) {
+        List<CraftingTreeProcess> displayNodes = node.getDisplayNodes();
+        if (displayNodes != null) {
             boolean recursiveDisplayNode = node.getRecursiveDisplayAmount() > 0;
-            for (CraftingTreeProcess process : node.getDisplayNodes()) {
-                LiteCraftTreeProc proc = LiteCraftTreeProc.of(process, missingAllocator, patternTimesAllocator,
-                    recursiveDisplayNode);
-                if (proc != null) {
-                    inputs.add(proc);
+            if (displayNodes instanceof RandomAccess) {
+                for (int i = 0, size = displayNodes.size(); i < size; i++) {
+                    CraftingTreeProcess process = displayNodes.get(i);
+                    LiteCraftTreeProc proc = LiteCraftTreeProc.of(process, missingAllocator, patternTimesAllocator,
+                        recursiveDisplayNode);
+                    if (proc != null) {
+                        inputs.add(proc);
+                    }
+                }
+            } else {
+                for (CraftingTreeProcess process : displayNodes) {
+                    LiteCraftTreeProc proc = LiteCraftTreeProc.of(process, missingAllocator, patternTimesAllocator,
+                        recursiveDisplayNode);
+                    if (proc != null) {
+                        inputs.add(proc);
+                    }
                 }
             }
         }
@@ -93,7 +107,7 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
         long stackSize = CraftingTreeByteBuf.readNonNegativeVarLong(buf, "Crafting tree stack size");
         output = new GenericStack(output.what(), stackSize);
 
-        int size = buf.readUnsignedByte();
+        int size = new PacketBuffer(buf).readVarInt();
         limits.checkNodeChildCount(size);
         List<LiteCraftTreeProc> inputs = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
@@ -105,14 +119,32 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
     }
 
     public static int diveToDeep(final LiteCraftTreeNode node, final int depth, final DepthRecorder recorder) {
-        for (final LiteCraftTreeProc input : node.inputs) {
-            for (final LiteCraftTreeNode subNode : input.inputs()) {
-                int newDepth = depth + 1;
-                recorder.dive(newDepth);
-                diveToDeep(subNode, newDepth, recorder);
+        if (node.inputs instanceof RandomAccess) {
+            for (int i = 0, size = node.inputs.size(); i < size; i++) {
+                diveToDeep(node.inputs.get(i), depth, recorder);
+            }
+        } else {
+            for (LiteCraftTreeProc input : node.inputs) {
+                diveToDeep(input, depth, recorder);
             }
         }
         return recorder.getDepth();
+    }
+
+    private static void diveToDeep(LiteCraftTreeProc proc, int depth, DepthRecorder recorder) {
+        List<LiteCraftTreeNode> inputs = proc.inputs();
+        int newDepth = depth + 1;
+        if (inputs instanceof RandomAccess) {
+            for (int i = 0, size = inputs.size(); i < size; i++) {
+                recorder.dive(newDepth);
+                diveToDeep(inputs.get(i), newDepth, recorder);
+            }
+        } else {
+            for (LiteCraftTreeNode input : inputs) {
+                recorder.dive(newDepth);
+                diveToDeep(input, newDepth, recorder);
+            }
+        }
     }
 
     /**
@@ -126,9 +158,15 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
             node.missingCached = true;
             return node.missingCache = true;
         }
-        for (final LiteCraftTreeProc input : node.inputs()) {
-            for (final LiteCraftTreeNode subNode : input.inputs()) {
-                if (isMissing(subNode)) {
+        if (node.inputs instanceof RandomAccess) {
+            for (int i = 0, size = node.inputs.size(); i < size; i++) {
+                if (isMissing(node.inputs.get(i))) {
+                    return node.missingCached = node.missingCache = true;
+                }
+            }
+        } else {
+            for (LiteCraftTreeProc input : node.inputs) {
+                if (isMissing(input)) {
                     return node.missingCached = node.missingCache = true;
                 }
             }
@@ -139,9 +177,13 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
     }
 
     public void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet) {
-        if (inputs.size() > Byte.MAX_VALUE) {
-            throw new IllegalStateException("Too many inputs for a single node");
-        }
+        writeToBuffer(buf, stackSet, new CraftingTreeStackRegistry.DecodeLimits(), 0);
+    }
+
+    void writeToBuffer(final ByteBuf buf, final CraftingTreeStackRegistry stackSet,
+                       final CraftingTreeStackRegistry.DecodeLimits limits, final int depth) {
+        limits.addNode(depth);
+        limits.checkNodeChildCount(inputs.size());
 
         int stackID = stackSet.add(output);
         CraftingTreeByteBuf.writeVarLong(buf, stackID);
@@ -149,15 +191,32 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
         long stackSize = output.amount();
         CraftingTreeByteBuf.writeVarLong(buf, stackSize);
 
-        buf.writeByte(inputs.size());
-        inputs.forEach(input -> input.writeToBuffer(buf, stackSet));
+        new PacketBuffer(buf).writeVarInt(inputs.size());
+        if (inputs instanceof RandomAccess) {
+            for (int i = 0, size = inputs.size(); i < size; i++) {
+                inputs.get(i).writeToBuffer(buf, stackSet, limits, depth + 1);
+            }
+        } else {
+            for (LiteCraftTreeProc input : inputs) {
+                input.writeToBuffer(buf, stackSet, limits, depth + 1);
+            }
+        }
         CraftingTreeByteBuf.writeVarLong(buf, missing);
     }
 
     private static boolean isMissing(final LiteCraftTreeProc proc) {
-        for (final LiteCraftTreeNode input : proc.inputs()) {
-            if (isMissing(input)) {
-                return true;
+        List<LiteCraftTreeNode> inputs = proc.inputs();
+        if (inputs instanceof RandomAccess) {
+            for (int i = 0, size = inputs.size(); i < size; i++) {
+                if (isMissing(inputs.get(i))) {
+                    return true;
+                }
+            }
+        } else {
+            for (LiteCraftTreeNode input : inputs) {
+                if (isMissing(input)) {
+                    return true;
+                }
             }
         }
         return false;
@@ -174,8 +233,14 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
 
     void sort(SortDepthCache depthCache) {
         inputs.sort(Comparator.comparingInt(depthCache::procDepth).reversed());
-        for (final LiteCraftTreeProc input : inputs) {
-            input.sort(depthCache);
+        if (inputs instanceof RandomAccess) {
+            for (int i = 0, size = inputs.size(); i < size; i++) {
+                inputs.get(i).sort(depthCache);
+            }
+        } else {
+            for (LiteCraftTreeProc input : inputs) {
+                input.sort(depthCache);
+            }
         }
     }
 
@@ -184,13 +249,19 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
             return null;
         }
 
-        boolean keepCompleteSiblingProcesses = hasMissingProcess();
         List<LiteCraftTreeProc> missingInputs = new ArrayList<>();
-        for (final LiteCraftTreeProc input : inputs) {
-            if (isMissing(input)) {
-                missingInputs.add(input.withMissingOnly());
-            } else if (keepCompleteSiblingProcesses) {
-                missingInputs.add(input.copyTree());
+        if (inputs instanceof RandomAccess) {
+            for (int i = 0, size = inputs.size(); i < size; i++) {
+                LiteCraftTreeProc input = inputs.get(i);
+                if (isMissing(input)) {
+                    missingInputs.add(input.withMissingOnly());
+                }
+            }
+        } else {
+            for (LiteCraftTreeProc input : inputs) {
+                if (isMissing(input)) {
+                    missingInputs.add(input.withMissingOnly());
+                }
             }
         }
 
@@ -198,27 +269,6 @@ public final class LiteCraftTreeNode implements Comparable<LiteCraftTreeNode> {
         node.missingCached = true;
         node.missingCache = true;
         return node;
-    }
-
-    public LiteCraftTreeNode copyTree() {
-        List<LiteCraftTreeProc> copiedInputs = new ArrayList<>(inputs.size());
-        for (final LiteCraftTreeProc input : inputs) {
-            copiedInputs.add(input.copyTree());
-        }
-
-        LiteCraftTreeNode node = new LiteCraftTreeNode(parent, output, copiedInputs, missing);
-        node.missingCached = missingCached;
-        node.missingCache = missingCache;
-        return node;
-    }
-
-    private boolean hasMissingProcess() {
-        for (final LiteCraftTreeProc input : inputs) {
-            if (isMissing(input)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public LiteCraftTreeProc parent() {

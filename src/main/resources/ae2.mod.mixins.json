@@ -12,5 +12,8 @@
     "hei.MixinInputHandler",
     "hei.MixinRecipeLayout",
     "hei.MixinRecipesGui"
+  ],
+  "mixins": [
+    "hei.AccessorBookmarkItem"
   ]
 }

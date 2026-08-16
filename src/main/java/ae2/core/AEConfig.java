@@ -43,6 +43,7 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import java.util.Arrays;
 import java.util.List;
 
+@SuppressWarnings("CanBeFinal")
 @Config(modid = Tags.MOD_ID, name = Tags.MOD_ID, category = "")
 public class AEConfig {
 
@@ -250,6 +251,10 @@ public class AEConfig {
 
     public int getCraftingCalculationTimePerTick() {
         return CRAFTING_CPU.craftingCalculationTimePerTick;
+    }
+
+    public int getMemoizationCacheSize() {
+        return CRAFTING.memoizationCacheSize;
     }
 
     public boolean isTooltipShowCellUpgrades() {
@@ -733,6 +738,17 @@ public class AEConfig {
         @Config.Comment("Number of ticks between two crystal growth accelerator ticks.")
         @Config.RangeInt(min = 1, max = 100)
         public int growthAccelerator = 10;
+
+        @Config.Name("craftingCalculationPausingInterval")
+        @Config.Comment({"Number of iterations between pauses during crafting calculation to allow other tasks to run. ",
+            "Higher values may improve calculation speed but reduce responsiveness."})
+        public int craftingCalculationPausingInterval = 10000;
+
+        @Config.Name("memoizationCacheSize")
+        @Config.Comment({"Maximum number of entries in the crafting memoization cache. ",
+            "Higher values improve cache hit rates but use more memory. Set to 0 to disable the cache."})
+        @Config.RangeInt(min = 0, max = 100000)
+        public int memoizationCacheSize = 10000;
     }
 
     public static class CraftingCPU {
