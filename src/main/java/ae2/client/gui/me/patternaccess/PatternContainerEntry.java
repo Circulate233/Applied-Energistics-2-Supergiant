@@ -23,7 +23,7 @@ import ae2.api.crafting.PatternDetailsHelper;
 import ae2.api.implementations.blockentities.PatternContainerGroup;
 import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.GenericStack;
-import ae2.container.implementations.ContainerPatternAccessTerm;
+import ae2.container.me.patternaccess.ContainerPatternAccessTerm;
 import ae2.util.inv.AppEngInternalInventory;
 import it.unimi.dsi.fastutil.Hash;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
