@@ -14,6 +14,7 @@ import ae2.client.gui.AEBaseGui;
 import ae2.client.gui.Icon;
 import ae2.client.gui.PatternContainerExternalGuiReturnHandler;
 import ae2.client.gui.PreviousExternalGui;
+import ae2.client.gui.Tooltip;
 import ae2.client.gui.me.common.GuiTerminalSettings;
 import ae2.client.gui.me.items.WirelessUniversalTerminalSelectorWindow;
 import ae2.client.gui.style.GuiStyle;
@@ -37,6 +38,7 @@ import ae2.container.SlotSemantics;
 import ae2.container.implementations.IPatternAccess;
 import ae2.core.AEConfig;
 import ae2.core.localization.GuiText;
+import ae2.core.localization.Tooltips;
 import ae2.core.network.InitNetwork;
 import ae2.core.network.clientbound.PatternAccessTerminalChunkPacket;
 import ae2.core.network.serverbound.InventoryActionPacket;
@@ -750,12 +752,7 @@ public abstract class AbstractPatternAccessTerm<C extends AEBaseContainer & IPat
 
         for (ProviderActionButton button : this.providerActionButtons) {
             if (button.visible && button.getTooltipArea().contains(mouseX, mouseY)) {
-                var tooltipMessage = button.getTooltipMessage();
-                var tooltipLines = new ObjectArrayList<String>(tooltipMessage.size());
-                for (ITextComponent component : tooltipMessage) {
-                    tooltipLines.add(component.getFormattedText());
-                }
-                drawTooltipLines(mouseX, mouseY, tooltipLines);
+                drawTooltipWithHeader(mouseX, mouseY, button.getTooltipMessage());
                 return;
             }
         }
@@ -1284,7 +1281,7 @@ public abstract class AbstractPatternAccessTerm<C extends AEBaseContainer & IPat
         public @NonNull List<ITextComponent> getTooltipMessage() {
             boolean editable = isEditable(this.entry);
             boolean visibilityModifiable = canToggleVisibility();
-            int lineCount = 0;
+            int lineCount = 1;
             if (this.info != null) {
                 lineCount += 3;
             }
@@ -1296,23 +1293,26 @@ public abstract class AbstractPatternAccessTerm<C extends AEBaseContainer & IPat
             }
 
             ObjectList<ITextComponent> tooltip = new ObjectArrayList<>(lineCount);
+            tooltip.add(GuiText.PatternAccessTerminalProviderManage.text());
             if (this.info != null) {
-                tooltip.add(GuiText.PatternAccessTerminalHighlightProvider.text());
-                String dimensionName = CraftingSupplierLocator.getDimensionName(this.info.dimensionId());
-                tooltip.add(GuiText.CraftingTreeLocationInDimension.text(
-                    this.info.pos().getX(),
-                    this.info.pos().getY(),
-                    this.info.pos().getZ(),
-                    dimensionName));
-                tooltip.add(GuiText.PatternAccessTerminalOpenProvider.text());
+                tooltip.add(GuiText.PatternAccessTerminalProviderManageHint.text(
+                    GuiText.CraftingTreeLocationInDimension.text(
+                        this.info.pos().getX(),
+                        this.info.pos().getY(),
+                        this.info.pos().getZ(),
+                        CraftingSupplierLocator.getDimensionName(this.info.dimensionId())
+                    )
+                ));
+                tooltip.add(Tooltips.muted(GuiText.PatternAccessTerminalHighlightProvider.text()));
+                tooltip.add(Tooltips.muted(GuiText.PatternAccessTerminalOpenProvider.text()));
             }
             if (visibilityModifiable) {
-                tooltip.add(GuiText.PatternAccessTerminalToggleVisibility.text());
+                tooltip.add(Tooltips.muted(GuiText.PatternAccessTerminalToggleVisibility.text()));
             }
             if (editable) {
-                tooltip.add(GuiText.PatternAccessTerminalRenameProvider.text());
+                tooltip.add(Tooltips.muted(GuiText.PatternAccessTerminalRenameProvider.text()));
             }
-            return tooltip;
+            return new Tooltip(tooltip).content();
         }
 
         @Override
