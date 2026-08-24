@@ -19,7 +19,6 @@
 package ae2.client.gui.me.patternaccess;
 
 import ae2.container.slot.AppEngSlot;
-import ae2.crafting.pattern.EncodedPatternItem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -42,13 +41,11 @@ public class GuiPatternSlot extends AppEngSlot {
     public ItemStack getDisplayStack() {
         if (isRemote()) {
             final ItemStack stack = super.getDisplayStack();
-            if (!stack.isEmpty() && stack.getItem() instanceof EncodedPatternItem<?> encodedPattern) {
+            if (!stack.isEmpty()) {
                 World world = this.getContainer() != null ? this.getContainer().getPlayer().world : Minecraft.getMinecraft().world;
                 if (world != null) {
-                    final ItemStack out = encodedPattern.getOutput(stack, world);
-                    if (!out.isEmpty()) {
-                        return out;
-                    }
+                    // Decoded once per stack and cached on the entry; the render loop must not decode per frame.
+                    return this.machineInv.getPatternDisplayStack(stack, world);
                 }
             }
         }

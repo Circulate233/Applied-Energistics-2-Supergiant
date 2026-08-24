@@ -268,6 +268,16 @@ public class GuiCellTerminal extends AEBaseGui<ContainerCellTerminal> implements
     private final CellTerminalSearchAssist searchAssist = new CellTerminalSearchAssist();
     private final Scrollbar scrollbar;
     private final List<Object> lineData = new ObjectArrayList<>();
+    /**
+     * Precomputed tree metadata per line-data row, rebuilt only when lineData is rebuilt. Avoids the per-frame
+     * backward scans over the whole terminal in treeLineInfo/headerConnectorInfo.
+     */
+    private CellTerminalRowList.TreeLineInfo[] lineTreeInfo = new CellTerminalRowList.TreeLineInfo[0];
+    /**
+     * Tab icons are constant while the GUI is open; caching avoids allocating a new ItemStack for every tab every
+     * frame.
+     */
+    private final ItemStack[] cachedTabIcons = new ItemStack[CellTerminalTab.values().length];
     private final Int2ObjectMap<GhostTargetData> ghostTargetData = new Int2ObjectOpenHashMap<>();
     private final Set<String> expandedStorages = new ObjectOpenHashSet<>();
     private final Set<String> expandedBuses = new ObjectOpenHashSet<>();
@@ -1246,6 +1256,13 @@ public class GuiCellTerminal extends AEBaseGui<ContainerCellTerminal> implements
     }
 
     private CellTerminalRowList.TreeLineInfo treeLineInfo(List<?> all, int index) {
+        if (index < 0 || index >= this.lineTreeInfo.length) {
+            return null;
+        }
+        return this.lineTreeInfo[index];
+    }
+
+    private CellTerminalRowList.TreeLineInfo computeTreeLineInfo(List<?> all, int index) {
         if (index < 0 || index >= all.size()) {
             return null;
         }
@@ -1559,7 +1576,20 @@ public class GuiCellTerminal extends AEBaseGui<ContainerCellTerminal> implements
                 }
             }
         }
+        this.lineTreeInfo = computeLineTreeInfo();
         this.scrollbar.setRange(0, maxScrollOffset(), configuredRows());
+    }
+
+    /**
+     * Computes the tree metadata for every line once per data rebuild. The metadata is a pure function of the line
+     * list, so the per-frame render path can look it up instead of re-scanning the terminal.
+     */
+    private CellTerminalRowList.TreeLineInfo[] computeLineTreeInfo() {
+        var result = new CellTerminalRowList.TreeLineInfo[this.lineData.size()];
+        for (int i = 0; i < result.length; i++) {
+            result[i] = computeTreeLineInfo(this.lineData, i);
+        }
+        return result;
     }
 
     private void addOverviewStorageRows(StorageEntry storage) {
@@ -3004,7 +3034,11 @@ public class GuiCellTerminal extends AEBaseGui<ContainerCellTerminal> implements
     }
 
     private ItemStack tabIcon(CellTerminalTab tab) {
-        return switch (tab) {
+        var cached = this.cachedTabIcons[tab.ordinal()];
+        if (cached != null) {
+            return cached;
+        }
+        var stack = switch (tab) {
             case OVERVIEW -> AEParts.CELL_TERMINAL.stack();
             case CELL_CONTENT -> AEBlocks.ME_CHEST.stack();
             case CELL_PARTITION -> AEBlocks.CELL_WORKBENCH.stack();
@@ -3013,6 +3047,8 @@ public class GuiCellTerminal extends AEBaseGui<ContainerCellTerminal> implements
             case SUBNETS -> AEParts.INTERFACE.stack();
             case NETWORK_TOOLS -> AEItems.NETWORK_TOOL.stack();
         };
+        this.cachedTabIcons[tab.ordinal()] = stack;
+        return stack;
     }
 
     private boolean isTabEnabled(CellTerminalTab tab) {
@@ -3063,9 +3099,9 @@ public class GuiCellTerminal extends AEBaseGui<ContainerCellTerminal> implements
     private void drawTabIcon(CellTerminalTab tab, int iconX, int iconY, boolean disabled) {
         if (tab == CellTerminalTab.BUS_CONTENT || tab == CellTerminalTab.BUS_PARTITION) {
             ItemStack overlayIcon = tab == CellTerminalTab.BUS_CONTENT
-                ? AEBlocks.ME_CHEST.stack()
-                : AEBlocks.CELL_WORKBENCH.stack();
-            drawCompositeTabIcon(overlayIcon, AEParts.STORAGE_BUS.stack(), iconX, iconY, disabled);
+                ? tabIcon(CellTerminalTab.CELL_CONTENT)
+                : tabIcon(CellTerminalTab.CELL_PARTITION);
+            drawCompositeTabIcon(overlayIcon, tabIcon(CellTerminalTab.BUS_CONTENT), iconX, iconY, disabled);
             return;
         }
         renderTabItem(tabIcon(tab), iconX, iconY, disabled);

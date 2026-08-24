@@ -5,6 +5,7 @@ import ae2.client.gui.color.ColorArea;
 import ae2.client.gui.color.ColorWindow;
 import ae2.client.gui.style.GuiStyleManager;
 import ae2.client.render.NetworkDataHandler;
+import ae2.me.NetworkData;
 import ae2.container.implementations.ContainerNetworkAnalyser;
 import ae2.core.AEConfig;
 import ae2.core.localization.GuiText;
@@ -109,18 +110,34 @@ public class GuiNetworkAnalyser extends AEBaseGui<ContainerNetworkAnalyser> {
         this.colorWindow.open(type, color);
     }
 
+    private NetworkData lastData;
+    private String lastModeText = "";
+    private String lastSizeText = "";
+
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
-        setTextContent("mode_value", this.mode.getTranslatedName());
-        setTextContent("node_size_value", new TextComponentString(String.valueOf((int) (this.size * 10))));
+        var data = NetworkDataHandler.pullData();
+        boolean dataChanged = data != this.lastData;
+        this.lastData = data;
+        if (dataChanged) {
+            setTextContent("normal_nodes", GuiText.NetworkAnalyserStateNormalNodes.text(data.countNode(NodeFlag.NORMAL)));
+            setTextContent("dense_nodes", GuiText.NetworkAnalyserStateDenseNodes.text(data.countNode(NodeFlag.DENSE)));
+            setTextContent("missing_nodes", GuiText.NetworkAnalyserStateMissingNodes.text(
+                data.countNode(NodeFlag.MISSING)));
+        }
+        var modeComponent = this.mode.getTranslatedName();
+        String modeKey = modeComponent.getFormattedText();
+        if (!modeKey.equals(this.lastModeText)) {
+            this.lastModeText = modeKey;
+            setTextContent("mode_value", modeComponent);
+        }
+        String sizeText = String.valueOf((int) (this.size * 10));
+        if (!sizeText.equals(this.lastSizeText)) {
+            this.lastSizeText = sizeText;
+            setTextContent("node_size_value", new TextComponentString(sizeText));
+        }
         setTextContent("channel_mode", GuiText.networkAnalyserChannel(AEConfig.instance().getChannelMode()).text());
-        setTextContent("normal_nodes", GuiText.NetworkAnalyserStateNormalNodes.text(
-            NetworkDataHandler.pullData().countNode(NodeFlag.NORMAL)));
-        setTextContent("dense_nodes", GuiText.NetworkAnalyserStateDenseNodes.text(
-            NetworkDataHandler.pullData().countNode(NodeFlag.DENSE)));
-        setTextContent("missing_nodes", GuiText.NetworkAnalyserStateMissingNodes.text(
-            NetworkDataHandler.pullData().countNode(NodeFlag.MISSING)));
         for (int i = 0; i < COLOR_ORDER.size(); i++) {
             Enum<?> entry = COLOR_ORDER.get(i);
             setTextContent("color_label_" + i, GuiText.networkAnalyserLabel(entry).text());

@@ -21,10 +21,8 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -70,10 +68,6 @@ final class PatternAccessDisplaySupport {
      * Optional world-location metadata per provider inventory.
      */
     private final Long2ObjectMap<PatternProviderInfo> providerInfo = new Long2ObjectOpenHashMap<>();
-    /**
-     * Slots matching the active input/output search filters. Screens use this to dim non-matching visible patterns.
-     */
-    private final Set<MatchedPatternSlot> matchedPatternSlots = new HashSet<>();
 
     public PatternAccessDisplaySupport(int columns, Supplier<World> worldSupplier, String logName) {
         this.columns = columns;
@@ -85,13 +79,15 @@ final class PatternAccessDisplaySupport {
      * Clears all provider data received from the server.
      */
     public void clear() {
+        for (var entry : this.byId.values()) {
+            entry.clearMatchedSlots();
+        }
         this.byId.clear();
         this.providerInfo.clear();
         this.patternSearchText.clear();
         this.byGroup.clear();
         this.groups.clear();
         this.rows.clear();
-        this.matchedPatternSlots.clear();
     }
 
     /**
@@ -145,7 +141,9 @@ final class PatternAccessDisplaySupport {
      */
     public void refreshList(String groupFilter, String inputFilter, String outputFilter) {
         this.byGroup.clear();
-        this.matchedPatternSlots.clear();
+        for (var entry : this.byId.values()) {
+            entry.clearMatchedSlots();
+        }
 
         String normalizedGroupFilter = groupFilter.trim().toLowerCase(Locale.ROOT);
         String normalizedInputFilter = inputFilter.trim().toLowerCase(Locale.ROOT);
@@ -198,7 +196,7 @@ final class PatternAccessDisplaySupport {
     }
 
     public boolean isMatchedPatternSlot(PatternContainerEntry entry, int slot) {
-        return this.matchedPatternSlots.contains(new MatchedPatternSlot(entry.getServerId(), slot));
+        return entry.isSlotMatched(slot);
     }
 
     private void applySlotUpdates(AppEngInternalInventory inventory, Int2ObjectMap<ItemStack> slots) {
@@ -208,6 +206,21 @@ final class PatternAccessDisplaySupport {
                 inventory.setItemDirect(slot, slotUpdate.getValue());
             } else {
                 AELog.warn("Ignoring %s provider slot update outside inventory bounds: %d", this.logName, slot);
+            }
+        }
+        // Invalidate caches for the affected entry. The entry caches decoded display data per stack reference; the
+        // global search-text cache is invalidated wholesale here because a single stack reference can appear in
+        // multiple entries and incremental refcounting is not worth the complexity for provider packet updates.
+        for (PatternContainerEntry entry : this.byId.values()) {
+            if (entry.getInventory() == inventory) {
+                for (Int2ObjectMap.Entry<ItemStack> slotUpdate : slots.int2ObjectEntrySet()) {
+                    int slot = slotUpdate.getIntKey();
+                    if (slot >= 0 && slot < inventory.size()) {
+                        entry.invalidatePatternDisplay(slotUpdate.getValue());
+                    }
+                }
+                this.patternSearchText.clear();
+                return;
             }
         }
     }
@@ -224,24 +237,18 @@ final class PatternAccessDisplaySupport {
 
         boolean inputMatched = inputFilter.isEmpty();
         boolean outputMatched = outputFilter.isEmpty();
-        Set<MatchedPatternSlot> matchedSlots = new HashSet<>();
         for (int slot = 0; slot < entry.getInventory().size(); slot++) {
             ItemStack stack = entry.getInventory().getStackInSlot(slot);
             boolean slotInputMatched = stackMatchesInputFilter(stack, inputFilter);
             boolean slotOutputMatched = stackMatchesOutputFilter(stack, outputFilter);
             if (slotInputMatched || slotOutputMatched) {
-                matchedSlots.add(new MatchedPatternSlot(entry.getServerId(), slot));
+                entry.setSlotMatched(slot);
             }
             inputMatched |= slotInputMatched;
             outputMatched |= slotOutputMatched;
         }
 
-        if (!inputMatched || !outputMatched) {
-            return false;
-        }
-
-        this.matchedPatternSlots.addAll(matchedSlots);
-        return true;
+        return inputMatched && outputMatched;
     }
 
     private boolean stackMatchesInputFilter(ItemStack stack, String inputFilter) {
@@ -315,8 +322,5 @@ final class PatternAccessDisplaySupport {
     }
 
     private record PatternSearchData(String inputs, String outputs) {
-    }
-
-    private record MatchedPatternSlot(long inventoryId, int slot) {
     }
 }

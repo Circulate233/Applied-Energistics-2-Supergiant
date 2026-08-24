@@ -28,6 +28,7 @@ import net.minecraft.util.text.ITextComponent;
 import java.util.List;
 
 public class GuiMolecularAssembler extends AEBaseGui<ContainerMolecularAssembler> {
+    private int lastRepositionedPage = Integer.MIN_VALUE;
     private final PageNavigationButton previousPageButton;
     private final PageNavigationButton nextPageButton;
     private final ToggleButton showInPatternAccessTerminalButton;
@@ -67,7 +68,11 @@ public class GuiMolecularAssembler extends AEBaseGui<ContainerMolecularAssembler
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
-        this.repositionPatternPageSlots();
+        int page = this.container.getCurrentPage();
+        if (page != this.lastRepositionedPage) {
+            this.lastRepositionedPage = page;
+            this.repositionPatternPageSlots();
+        }
         this.showInPatternAccessTerminalButton.setState(this.container.getShowInAccessTerminal() == YesNo.YES);
         this.previousPageButton.setVisibility(this.container.getPageCount() > 1 && this.container.getCurrentPage() > 0);
         this.nextPageButton.setVisibility(this.container.getPageCount() > 1

@@ -72,6 +72,8 @@ public class CraftingTreeWidget implements ICompositeWidget {
     private final Rectangle bounds = new Rectangle();
     private int offsetX;
     private int offsetY;
+    private int totalWidth;
+    private int totalHeight;
     private boolean mouseDown;
     private int mouseClickX;
     private int mouseClickY;
@@ -503,12 +505,24 @@ public class CraftingTreeWidget implements ICompositeWidget {
             addNodeRecursive(treeRoot, 0);
         }
         alignJunctionsToRowBottom();
+        computeTotalSize();
 
         TreeNode restoredSelection = findNodeByOutput(selectedOutput);
         if (restoredSelection != null) {
             restoredSelection.select();
         }
         clampOffsets();
+    }
+
+    private void computeTotalSize() {
+        int width = 0;
+        int height = 0;
+        for (TreeRow row : rows) {
+            width = Math.max(width, row.getWidth());
+            height += row.getHeight();
+        }
+        this.totalWidth = width;
+        this.totalHeight = height;
     }
 
     private TreeNode addNodeRecursive(LiteCraftTreeNode node, int depth) {
@@ -678,19 +692,26 @@ public class CraftingTreeWidget implements ICompositeWidget {
 
     @Nullable
     private TreeNode findNodeAt(Point treeMouse) {
+        int scaledHeight = (int) (bounds.height / scale);
         int y = offsetY;
         for (TreeRow row : rows) {
-            int x = offsetX;
-            for (RowElement element : row.widgets) {
-                if (element instanceof TreeNode node) {
-                    node.currentPosition = new Point(x + NODE_MARGIN_LEFT, y + node.marginTop);
-                    if (node.isMouseOver(treeMouse)) {
-                        return node;
+            int rowHeight = row.getHeight();
+            if (y + rowHeight >= 0 && y <= scaledHeight) {
+                int x = offsetX;
+                for (RowElement element : row.widgets) {
+                    if (element instanceof TreeNode node) {
+                        node.currentPosition = new Point(x + NODE_MARGIN_LEFT, y + node.marginTop);
+                        if (node.isMouseOver(treeMouse)) {
+                            return node;
+                        }
                     }
+                    x += element.getFullWidth();
                 }
-                x += element.getFullWidth();
             }
-            y += row.getHeight();
+            y += rowHeight;
+            if (y > scaledHeight) {
+                break;
+            }
         }
         return null;
     }
@@ -718,26 +739,18 @@ public class CraftingTreeWidget implements ICompositeWidget {
     private void clampOffsets() {
         int visibleWidth = Math.max(1, (int) (bounds.width / scale));
         int visibleHeight = Math.max(1, (int) (bounds.height / scale));
-        int minOffsetX = Math.min(0, visibleWidth - getTotalWidth());
-        int minOffsetY = Math.min(0, visibleHeight - getTotalHeight());
+        int minOffsetX = Math.min(0, visibleWidth - this.totalWidth);
+        int minOffsetY = Math.min(0, visibleHeight - this.totalHeight);
         this.offsetX = MathHelper.clamp(offsetX, minOffsetX, 0);
         this.offsetY = MathHelper.clamp(offsetY, minOffsetY, 0);
     }
 
     private int getTotalWidth() {
-        int width = 0;
-        for (TreeRow row : rows) {
-            width = Math.max(width, row.getWidth());
-        }
-        return width;
+        return this.totalWidth;
     }
 
     private int getTotalHeight() {
-        int height = 0;
-        for (TreeRow row : rows) {
-            height += row.getHeight();
-        }
-        return height;
+        return this.totalHeight;
     }
 
     private void select(@Nullable TreeNode node) {

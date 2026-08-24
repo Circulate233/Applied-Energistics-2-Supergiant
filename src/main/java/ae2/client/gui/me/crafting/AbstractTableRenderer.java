@@ -24,6 +24,8 @@ import ae2.api.stacks.GenericStack;
 import ae2.client.gui.AEBaseGui;
 import ae2.client.gui.StackWithBounds;
 import ae2.client.gui.style.PaletteColor;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.gui.Gui;
@@ -60,6 +62,7 @@ public abstract class AbstractTableRenderer<T> {
     private List<ITextComponent> hoveredTooltip;
     @Nullable
     private T hoveredEntry;
+    private final Reference2ObjectMap<T, List<String>> descriptionCache = new Reference2ObjectOpenHashMap<>();
 
     public AbstractTableRenderer(AEBaseGui<?> screen, int x, int y, int rows) {
         this.screen = screen;
@@ -104,7 +107,7 @@ public abstract class AbstractTableRenderer<T> {
                     continue;
                 }
 
-                List<String> lines = getEntryDescription(entry);
+                List<String> lines = getEntryDescriptionCached(entry);
 
                 float textHeight = lines.size() * lineHeight;
                 if (lines.size() > 1) {
@@ -179,6 +182,10 @@ public abstract class AbstractTableRenderer<T> {
     /**
      * Implement in subclass to determine the text to show next to an entry.
      */
+    protected final List<String> getEntryDescriptionCached(T entry) {
+        return this.descriptionCache.computeIfAbsent(entry, this::getEntryDescription);
+    }
+
     protected abstract List<String> getEntryDescription(T entry);
 
     /**

@@ -37,6 +37,7 @@ import net.minecraftforge.common.MinecraftForge;
 import java.util.List;
 
 public class GuiPatternProvider extends AEBaseGui<ContainerPatternProvider> {
+    private int lastRepositionedPage = Integer.MIN_VALUE;
 
     private final SettingToggleButton<BlockingMode> blockingModeButton;
     private final SettingToggleButton<LockCraftingMode> lockCraftingModeButton;
@@ -97,7 +98,11 @@ public class GuiPatternProvider extends AEBaseGui<ContainerPatternProvider> {
     @Override
     protected void updateBeforeRender() {
         super.updateBeforeRender();
-        this.repositionPatternPageSlots();
+        int page = this.container.getCurrentPage();
+        if (page != this.lastRepositionedPage) {
+            this.lastRepositionedPage = page;
+            this.repositionPatternPageSlots();
+        }
 
         this.lockReason.setVisible(this.container.getLockCraftingMode() != LockCraftingMode.NONE);
         this.blockingModeButton.set(this.container.getBlockingMode());

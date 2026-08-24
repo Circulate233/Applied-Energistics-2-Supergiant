@@ -89,6 +89,14 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> implements
     private SortDir lastSortDirection = AEConfig.instance().getCraftingPlanSortDirection();
     @Nullable
     private CraftingPlanSummary filteredPlan;
+    /**
+     * Cached formatted used-bytes text for the current plan instance. Plans are immutable records; formatting is
+     * repeated every frame and is pure with respect to the plan.
+     */
+    @Nullable
+    private CraftingPlanSummary lastBytesPlan;
+    @Nullable
+    private String lastBytesText;
 
     public GuiCraftConfirm(ContainerCraftConfirm container, InventoryPlayer playerInventory, ITextComponent title,
                            GuiStyle style) {
@@ -235,7 +243,7 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> implements
         ITextComponent planDetails = GuiText.CalculatingWait.text();
         ITextComponent cpuDetails = new TextComponentString("");
         if (plan != null) {
-            String byteUsed = NumberFormat.getInstance().format(plan.usedBytes());
+            String byteUsed = formatUsedBytes(plan);
             planDetails = GuiText.BytesUsed.text(byteUsed);
 
             if (plan.simulation()) {
@@ -265,6 +273,14 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> implements
         this.sortModeButton.set(sortMode);
         this.sortDirectionButton.set(sortDirection);
         updateScrollbar();
+    }
+
+    private String formatUsedBytes(CraftingPlanSummary plan) {
+        if (plan != this.lastBytesPlan) {
+            this.lastBytesPlan = plan;
+            this.lastBytesText = NumberFormat.getInstance().format(plan.usedBytes());
+        }
+        return this.lastBytesText;
     }
 
     private void selectNextCpu() {

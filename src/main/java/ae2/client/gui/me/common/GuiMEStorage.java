@@ -84,6 +84,8 @@ import ae2.text.TextComponentItemStack;
 import ae2.util.Platform;
 import ae2.util.prioritylist.IPartitionList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectLinkedOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
 import mezz.jei.api.gui.IGhostIngredientHandler;
@@ -130,6 +132,8 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
     protected final Repo repo;
     private final ObjectArrayList<ItemStack> currentViewCells = new ObjectArrayList<>();
     private final List<RepoSlot> repoSlots = new ObjectArrayList<>();
+    private final Reference2ObjectMap<RepoSlot, RepoSlotAmountCache> repoSlotAmountCache =
+        new Reference2ObjectOpenHashMap<>();
     private final IConfigManager configSrc;
     private final boolean supportsViewCells;
     private final TerminalStyle terminalStyle;
@@ -708,7 +712,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
             StackSizeRenderer.renderSizeLabel(this.fontRenderer, slot.xPos, slot.yPos, "+");
         } else {
             AmountFormat format = useLargeFonts ? AmountFormat.SLOT_LARGE_FONT : AmountFormat.SLOT;
-            String amount = entry.what().formatAmount(storedAmount, format);
+            String amount = cachedRepoAmount(slot, entry.serial(), storedAmount, format);
             renderRepoSizeLabel(slot, amount, useLargeFonts);
             if (craftable) {
                 StackSizeRenderer.renderSizeLabel(this.fontRenderer, slot.xPos - 11, slot.yPos - 11, "+", false);
@@ -719,6 +723,22 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
         GlStateManager.enableLighting();
         GlStateManager.popMatrix();
         restoreGuiStateAfterRepoItem();
+    }
+
+    private String cachedRepoAmount(RepoSlot slot, long serial, long storedAmount, AmountFormat format) {
+        var cached = this.repoSlotAmountCache.get(slot);
+        if (cached == null || cached.serial() != serial || cached.storedAmount() != storedAmount
+            || cached.format() != format) {
+            GridInventoryEntry entry = slot.getEntry();
+            String formatted = entry != null && entry.what() != null
+                ? entry.what().formatAmount(storedAmount, format) : "";
+            cached = new RepoSlotAmountCache(serial, storedAmount, format, formatted);
+            this.repoSlotAmountCache.put(slot, cached);
+        }
+        return cached.text();
+    }
+
+    private record RepoSlotAmountCache(long serial, long storedAmount, AmountFormat format, String text) {
     }
 
     private void renderRepoSizeLabel(RepoSlot slot, String amount, boolean useLargeFonts) {

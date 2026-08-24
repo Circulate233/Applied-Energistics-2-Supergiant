@@ -5,7 +5,6 @@ import ae2.api.config.ActionItems;
 import ae2.api.config.Settings;
 import ae2.api.config.ShowPatternProviders;
 import ae2.api.config.TerminalStyle;
-import ae2.api.crafting.PatternDetailsHelper;
 import ae2.api.implementations.blockentities.PatternContainerGroup;
 import ae2.api.storage.ILinkStatus;
 import ae2.api.upgrades.IUpgradeableObject;
@@ -735,7 +734,7 @@ public abstract class AbstractPatternAccessTerm<C extends AEBaseContainer & IPat
                     drawGradientRect(x, y, x + 16, y + 16, 0x6A000000, 0x6A000000);
                 }
             }
-            if (!pattern.isEmpty() && PatternDetailsHelper.decodePattern(pattern, level) == null) {
+            if (!pattern.isEmpty() && slotsRow.container().isPatternInvalid(pattern, level)) {
                 drawGradientRect(x, y, x + 16, y + 16, 0x7FFF0000, 0x7FFF0000);
             }
         }

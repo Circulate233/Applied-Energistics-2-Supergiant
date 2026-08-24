@@ -54,6 +54,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 import java.util.List;
 
 public class GuiCraftingCPU<T extends ContainerCraftingCPU> extends AEBaseGui<T> implements ITextFieldGui {
@@ -76,6 +77,26 @@ public class GuiCraftingCPU<T extends ContainerCraftingCPU> extends AEBaseGui<T>
     private String searchText = "";
     @Nullable
     private CraftingStatus filteredStatus;
+    /**
+     * Cached title suffix: elapsed time only changes once per second, so the per-frame update must not re-format it.
+     */
+    private long lastElapsedSecond = Long.MIN_VALUE;
+    private @Nullable CraftingStatus lastElapsedStatus;
+    private @Nullable String lastElapsedTitleSuffix;
+
+    @Nullable
+    private String formatElapsedSecond(@Nullable CraftingStatus status, long elapsedNanos) {
+        if (status == null || elapsedNanos <= 0) {
+            return null;
+        }
+        long second = TimeUnit.SECONDS.convert(elapsedNanos, TimeUnit.NANOSECONDS);
+        if (status != this.lastElapsedStatus || second != this.lastElapsedSecond) {
+            this.lastElapsedStatus = status;
+            this.lastElapsedSecond = second;
+            this.lastElapsedTitleSuffix = CraftingTimeDisplay.getElapsedTimeTitleSuffix(status, status.entries().size());
+        }
+        return this.lastElapsedTitleSuffix;
+    }
     @Nullable
     private CraftingStatus status;
 
@@ -126,7 +147,8 @@ public class GuiCraftingCPU<T extends ContainerCraftingCPU> extends AEBaseGui<T>
         this.suspend.enabled = this.cancel.enabled;
 
         ITextComponent title = this.getGuiDisplayName(GuiText.CraftingStatus.text());
-        String elapsedTimeSuffix = CraftingTimeDisplay.getElapsedTimeTitleSuffix(status, allEntries.size());
+        String elapsedTimeSuffix = this.status != null && !allEntries.isEmpty()
+            ? formatElapsedSecond(this.status, this.status.elapsedTime()) : null;
         if (elapsedTimeSuffix != null) {
             title = title.createCopy().appendText(" - " + elapsedTimeSuffix);
         }
