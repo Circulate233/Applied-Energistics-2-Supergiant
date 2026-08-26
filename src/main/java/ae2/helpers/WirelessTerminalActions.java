@@ -6,7 +6,9 @@ import ae2.api.networking.security.IActionHost;
 import ae2.api.stacks.AEItemKey;
 import ae2.api.storage.StorageHelper;
 import ae2.core.definitions.AEItems;
+import ae2.core.gui.locator.BaublesItemLocator;
 import ae2.core.gui.locator.GuiHostLocators;
+import ae2.core.gui.locator.InventoryItemLocator;
 import ae2.core.gui.locator.ItemGuiHostLocator;
 import ae2.core.localization.PlayerMessages;
 import ae2.integration.modules.baubles.BaublesIntegration;
@@ -16,7 +18,10 @@ import ae2.items.tools.powered.WirelessTerminalRegistry;
 import ae2.items.tools.powered.WirelessTerminals;
 import ae2.me.helpers.ActionHostEnergySource;
 import ae2.me.helpers.PlayerSource;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.entity.item.EntityItem;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -37,6 +42,8 @@ public final class WirelessTerminalActions {
     private static final ConcurrentMap<RestockPlanKey, PendingRestockPlan> PENDING_RESTOCKS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap.KeySetView<RestockPlanKey, Boolean> RESTOCKS_IN_FLIGHT =
         ConcurrentHashMap.newKeySet();
+    private static final Object2ObjectMap<EntityPlayerMP, Object2ObjectMap<Object, WirelessTerminalGuiHost<?>>> HOST_CACHE =
+        new Object2ObjectOpenHashMap<>();
 
     static {
         ThreadFactory factory = runnable -> {
@@ -53,11 +60,13 @@ public final class WirelessTerminalActions {
     public static void clear() {
         PENDING_RESTOCKS.clear();
         RESTOCKS_IN_FLIGHT.clear();
+        HOST_CACHE.clear();
     }
 
     public static void clear(UUID playerId) {
         PENDING_RESTOCKS.keySet().removeIf(key -> key.playerId.equals(playerId));
         RESTOCKS_IN_FLIGHT.removeIf(key -> key.playerId.equals(playerId));
+        HOST_CACHE.entrySet().removeIf(entry -> entry.getKey().getUniqueID().equals(playerId));
     }
 
     public static boolean toggleRestock(EntityPlayerMP player) {
@@ -391,8 +400,29 @@ public final class WirelessTerminalActions {
             return null;
         }
 
-        WirelessTerminalGuiHost<?> host = locator.locate(player, WirelessTerminalGuiHost.class);
-        if (host == null || !host.getLinkStatus().connected()) {
+        Object cacheKey = locator instanceof InventoryItemLocator inventoryLocator
+            ? new TerminalSlotKey(false, inventoryLocator.getItemIndex())
+            : locator instanceof BaublesItemLocator baublesLocator
+                ? new TerminalSlotKey(true, baublesLocator.getBaubleSlot())
+                : locator;
+        Object2ObjectMap<Object, WirelessTerminalGuiHost<?>> playerHosts = HOST_CACHE.get(player);
+        if (playerHosts == null) {
+            playerHosts = new Object2ObjectOpenHashMap<>();
+            HOST_CACHE.put(player, playerHosts);
+        }
+
+        WirelessTerminalGuiHost<?> host = playerHosts.get(cacheKey);
+        if (host == null || host.getItem() != stack.getItem() || host.getTerminalItem() != terminal) {
+            host = locator.locate(player, WirelessTerminalGuiHost.class);
+            if (host == null) {
+                return null;
+            }
+            playerHosts.put(cacheKey, host);
+        } else {
+            host.refreshConnectionState();
+        }
+
+        if (!host.getLinkStatus().connected()) {
             return null;
         }
         IGridNode node = host.getActionableNode();
@@ -403,6 +433,9 @@ public final class WirelessTerminalActions {
             ? source
             : new ActionHostEnergySource(host);
         return new TerminalContext(player, locator, stack, terminal, host, host, node, energySource);
+    }
+
+    private record TerminalSlotKey(boolean bauble, int slot) {
     }
 
     private record TerminalContext(EntityPlayerMP player, ItemGuiHostLocator locator, ItemStack stack,

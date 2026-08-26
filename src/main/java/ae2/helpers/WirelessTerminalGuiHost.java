@@ -60,6 +60,7 @@ public class WirelessTerminalGuiHost<T extends WirelessTerminalItem> extends Ite
 
     private static final String ENTANGLED_SINGULARITY_ID = "entangled_singularity_id";
     private static final double QUANTUM_BRIDGE_DRAIN_PER_TICK = 22.5;
+    private static final long ACTION_CONNECTION_REFRESH_TICKS = 1;
 
     private final BiConsumer<EntityPlayer, ISubGui> returnToMainContainer;
     private final WirelessTerminalItem terminalItem;
@@ -72,6 +73,12 @@ public class WirelessTerminalGuiHost<T extends WirelessTerminalItem> extends Ite
     protected double currentRemainingRange = Double.MIN_VALUE;
     @Nullable
     private IWirelessAccessPoint currentAccessPoint;
+    private ItemStack connectionStack;
+    private long lastConnectionUpdate = Long.MIN_VALUE;
+    private long lastLinkStatusUpdate = Long.MIN_VALUE;
+    private double lastConnectionX;
+    private double lastConnectionY;
+    private double lastConnectionZ;
     @Nullable
     private IActionHost currentQuantumBridge;
     private boolean currentQuantumBridgeUnpowered;
@@ -192,7 +199,9 @@ public class WirelessTerminalGuiHost<T extends WirelessTerminalItem> extends Ite
 
     @Nullable
     private MEStorage getStorageFromStack(ItemStack stack) {
-        updateConnectedAccessPoint();
+        if (this.connectionStack != stack) {
+            updateConnectedAccessPoint();
+        }
         IGridNode node = getActionableNode();
         if (node != null && node.isActive()) {
             return node.grid().getStorageService().getInventory();
@@ -306,21 +315,52 @@ public class WirelessTerminalGuiHost<T extends WirelessTerminalItem> extends Ite
         return new AccessPointSignal(Double.MAX_VALUE, Double.MIN_VALUE);
     }
 
+    public final void refreshConnectionState() {
+        long time = this.getPlayer().world.getTotalWorldTime();
+        updateConnectedAccessPoint();
+        if (this.lastLinkStatusUpdate != time) {
+            updateLinkStatus();
+            this.lastLinkStatusUpdate = time;
+        }
+    }
+
     @Override
     public void tick() {
+        long time = this.getPlayer().world.getTotalWorldTime();
         updateConnectedAccessPoint();
         consumeIdlePower(Actionable.MODULATE);
-        updateLinkStatus();
+        if (this.lastLinkStatusUpdate != time) {
+            updateLinkStatus();
+            this.lastLinkStatusUpdate = time;
+        }
     }
 
     protected void updateConnectedAccessPoint() {
+        ItemStack stack = getItemStack();
+        long time = this.getPlayer().world.getTotalWorldTime();
+        double x = this.getPlayer().posX;
+        double y = this.getPlayer().posY;
+        double z = this.getPlayer().posZ;
+        if (this.connectionStack == stack
+            && time - this.lastConnectionUpdate < ACTION_CONNECTION_REFRESH_TICKS
+            && Double.compare(this.lastConnectionX, x) == 0
+            && Double.compare(this.lastConnectionY, y) == 0
+            && Double.compare(this.lastConnectionZ, z) == 0) {
+            return;
+        }
+
+        this.connectionStack = stack;
+        this.lastConnectionUpdate = time;
+        this.lastConnectionX = x;
+        this.lastConnectionY = y;
+        this.lastConnectionZ = z;
         this.currentAccessPoint = null;
         this.currentQuantumBridge = null;
         this.currentQuantumBridgeUnpowered = false;
         this.currentDistanceFromGrid = Double.MAX_VALUE;
         this.currentRemainingRange = Double.MIN_VALUE;
 
-        var targetGrid = getLinkedGrid(getItemStack());
+        var targetGrid = getLinkedGrid(stack);
         if (targetGrid != null) {
             IWirelessAccessPoint bestWap = null;
             double bestSqDistance = Double.MAX_VALUE;

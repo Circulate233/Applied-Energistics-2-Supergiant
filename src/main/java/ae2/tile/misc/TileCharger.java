@@ -23,6 +23,8 @@ import ae2.api.config.PowerMultiplier;
 import ae2.api.config.PowerUnit;
 import ae2.api.implementations.blockentities.ICrankable;
 import ae2.api.implementations.items.IAEItemPowerStorage;
+import ae2.api.implementations.items.IChargeableItemAdapter;
+import ae2.api.features.ChargeableItems;
 import ae2.api.inventories.InternalInventory;
 import ae2.api.networking.IGridNode;
 import ae2.api.networking.ticking.IGridTickable;
@@ -135,26 +137,39 @@ public class TileCharger extends AENetworkedPoweredTile implements IGridTickable
 
         ItemStack stack = this.inv.getStackInSlot(0);
         if (!stack.isEmpty()) {
-            if (stack.getItem() instanceof IAEItemPowerStorage powerStorage) {
-                double currentPower = powerStorage.getAECurrentPower(stack);
-                double maxPower = powerStorage.getAEMaxPower(stack);
-                if (currentPower < maxPower) {
-                    double chargeRate = powerStorage.getChargeRate(stack) * ticksSinceLastCall;
-                    double extractedAmount = this.extractAEPower(chargeRate, Actionable.MODULATE, PowerMultiplier.CONFIG);
+            IAEItemPowerStorage powerStorage = stack.getItem() instanceof IAEItemPowerStorage value ? value : null;
+            IChargeableItemAdapter adapter = powerStorage == null ? ChargeableItems.get(stack) : null;
+            if (powerStorage != null || adapter != null) {
+                double currentPower = powerStorage != null
+                    ? powerStorage.getAECurrentPower(stack) : adapter.getCurrentPower(stack);
+                double maxPower = powerStorage != null
+                    ? powerStorage.getAEMaxPower(stack) : adapter.getMaxPower(stack);
+                double chargeRate = powerStorage != null
+                    ? powerStorage.getChargeRate(stack) : adapter.getChargeRate(stack);
+                if (Double.isFinite(currentPower) && Double.isFinite(maxPower) && Double.isFinite(chargeRate)
+                    && currentPower >= 0.0D && maxPower > currentPower && chargeRate > 0.0D) {
+                    chargeRate *= ticksSinceLastCall;
+                    double extractedAmount = this.extractAEPower(chargeRate, Actionable.MODULATE,
+                        PowerMultiplier.CONFIG);
 
                     double missingChargeRate = chargeRate - extractedAmount;
                     double missingAEPower = maxPower - currentPower;
                     double toExtract = Math.min(missingChargeRate, missingAEPower);
 
                     var grid = this.getMainNode().getGrid();
-                    if (grid != null) {
+                    if (grid != null && toExtract > 0.0D) {
                         extractedAmount += grid.getEnergyService().extractAEPower(toExtract, Actionable.MODULATE,
                             PowerMultiplier.ONE);
                     }
 
-                    if (extractedAmount > 0) {
-                        double remainder = powerStorage.injectAEPower(stack, extractedAmount, Actionable.MODULATE);
-                        this.setInternalCurrentPower(this.getInternalCurrentPower() + remainder);
+                    if (extractedAmount > 0.0D) {
+                        double remainder = powerStorage != null
+                            ? powerStorage.injectAEPower(stack, extractedAmount, Actionable.MODULATE)
+                            : adapter.injectPower(stack, extractedAmount, Actionable.MODULATE);
+                        if (Double.isFinite(remainder) && remainder > 0.0D) {
+                            this.setInternalCurrentPower(this.getInternalCurrentPower()
+                                + Math.min(remainder, extractedAmount));
+                        }
                         this.working = true;
                         changed = true;
                     }
@@ -189,6 +204,20 @@ public class TileCharger extends AENetworkedPoweredTile implements IGridTickable
         if (changed || this.working != wasWorking) {
             this.markForUpdate();
         }
+    }
+
+    public static boolean canInsert(ItemStack stack) {
+        return stack.getItem() instanceof IAEItemPowerStorage
+            || ChargeableItems.isChargeable(stack)
+            || ChargerRecipes.allowInsert(stack);
+    }
+
+    public static boolean canExtract(ItemStack stack) {
+        if (stack.getItem() instanceof IAEItemPowerStorage powerStorage) {
+            return powerStorage.getAECurrentPower(stack) >= powerStorage.getAEMaxPower(stack);
+        }
+        IChargeableItemAdapter adapter = ChargeableItems.get(stack);
+        return adapter != null ? adapter.isFullyCharged(stack) : ChargerRecipes.allowExtract(stack);
     }
 
     public ItemStack getClientDisplayItem() {
@@ -227,19 +256,12 @@ public class TileCharger extends AENetworkedPoweredTile implements IGridTickable
     private static final class ChargerInvFilter implements IAEItemFilter {
         @Override
         public boolean allowInsert(InternalInventory inv, int slot, ItemStack stack) {
-            return stack.getItem() instanceof IAEItemPowerStorage || ChargerRecipes.allowInsert(stack);
+            return TileCharger.canInsert(stack);
         }
 
         @Override
         public boolean allowExtract(InternalInventory inv, int slot, int amount) {
-            ItemStack extractedItem = inv.getStackInSlot(slot);
-
-            if (extractedItem.getItem() instanceof IAEItemPowerStorage powerStorage
-                && powerStorage.getAECurrentPower(extractedItem) >= powerStorage.getAEMaxPower(extractedItem)) {
-                return true;
-            }
-
-            return ChargerRecipes.allowExtract(extractedItem);
+            return TileCharger.canExtract(inv.getStackInSlot(slot));
         }
     }
 

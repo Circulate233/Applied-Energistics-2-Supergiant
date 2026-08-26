@@ -83,6 +83,10 @@ public final class InventoryItemLocator implements ItemGuiHostLocator {
         return result.toString();
     }
 
+    public int getItemIndex() {
+        return this.itemIndex;
+    }
+
     @Override
     public Integer getPlayerInventorySlot() {
         return itemIndex;

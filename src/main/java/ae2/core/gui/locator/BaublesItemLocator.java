@@ -68,6 +68,10 @@ public record BaublesItemLocator(int baubleSlot, @Nullable RayTraceResult hitRes
         return result.toString();
     }
 
+    public int getBaubleSlot() {
+        return this.baubleSlot;
+    }
+
     @Override
     @Nullable
     public RayTraceResult hitResult() {

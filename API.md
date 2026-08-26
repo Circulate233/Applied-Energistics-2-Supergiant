@@ -22,6 +22,7 @@ relevant during normal Forge mod initialization:
 | `ae2.api.networking.GridServices`           | Addons can register their own grid-wide services here.                                              |
 | `ae2.api.movable.BlockEntityMoveStrategies` | Allows mods to register custom strategies for moving tile entities in and out of spatial storage.   |
 | `ae2.api.features.GridLinkables`            | For working with and adding items that can be linked to a grid in the security station.             |
+| `ae2.api.features.ChargeableItems`          | For registering external item energy adapters handled by the AE2 charger.                           |
 | `ae2.api.storage.StorageCells`              | For working with and adding items that serve as storage cells for grids.                            |
 | `ae2.api.features.Locatables`               | For discovering quantum network bridges and other locatable objects based on their unique keys.     |
 | `ae2.api.parts.PartModels`                  | For registering JSON block models used by custom cable bus parts.                                   |
@@ -34,7 +35,7 @@ relevant during normal Forge mod initialization:
 
 In general, these registries are synchronized and may be used during mod loading. Finish registration before gameplay
 starts using the affected systems. Changes after mod initialization can leave already-created grids, storage cells,
-models, or upgrade inventories with stale assumptions.
+models, upgrade inventories, or charger inventories with stale assumptions.
 
 ## Item and Fluid Keys
 

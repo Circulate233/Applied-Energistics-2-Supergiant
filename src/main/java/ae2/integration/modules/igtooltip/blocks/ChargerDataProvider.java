@@ -1,5 +1,7 @@
 package ae2.integration.modules.igtooltip.blocks;
 
+import ae2.api.features.ChargeableItems;
+import ae2.api.implementations.items.IChargeableItemAdapter;
 import ae2.api.implementations.items.IAEItemPowerStorage;
 import ae2.api.integrations.igtooltip.TooltipBuilder;
 import ae2.api.integrations.igtooltip.TooltipContext;
@@ -22,10 +24,22 @@ public final class ChargerDataProvider implements BodyProvider<TileCharger> {
             tooltip.addLabel(TopText.contains, TopTooltipFormatter.displayName(chargingItem), TextFormatting.GREEN);
 
             if (chargingItem.getItem() instanceof IAEItemPowerStorage powerStorage) {
-                var fillRate = (int) Math.floor(
-                    powerStorage.getAECurrentPower(chargingItem) * 100 / powerStorage.getAEMaxPower(chargingItem));
-                tooltip.addLabel(TopText.charged, fillRate + "%");
+                addFillRate(tooltip, powerStorage.getAECurrentPower(chargingItem),
+                    powerStorage.getAEMaxPower(chargingItem));
+            } else {
+                IChargeableItemAdapter adapter = ChargeableItems.get(chargingItem);
+                if (adapter != null) {
+                    addFillRate(tooltip, adapter.getCurrentPower(chargingItem), adapter.getMaxPower(chargingItem));
+                }
             }
         }
+    }
+
+    private static void addFillRate(TooltipBuilder tooltip, double currentPower, double maxPower) {
+        if (!Double.isFinite(currentPower) || !Double.isFinite(maxPower) || maxPower <= 0.0D) {
+            return;
+        }
+        var fillRate = (int) Math.floor(Math.clamp(currentPower * 100 / maxPower, 0.0D, 100.0D));
+        tooltip.addLabel(TopText.charged, fillRate + "%");
     }
 }

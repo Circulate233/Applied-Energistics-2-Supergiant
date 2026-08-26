@@ -17,7 +17,6 @@
  */
 package ae2.block.misc;
 
-import ae2.api.implementations.items.IAEItemPowerStorage;
 import ae2.api.orientation.IOrientationStrategy;
 import ae2.api.orientation.OrientationStrategies;
 import ae2.api.orientation.RelativeSide;
@@ -28,7 +27,6 @@ import ae2.client.render.effects.ParticleTypes;
 import ae2.core.AEConfig;
 import ae2.core.AppEngBase;
 import ae2.helpers.ICustomCollision;
-import ae2.tile.misc.ChargerRecipes;
 import ae2.tile.misc.TileCharger;
 import ae2.util.Platform;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
@@ -144,7 +142,7 @@ public class ChargerBlock extends AEBaseTileBlock<TileCharger> implements ICusto
         ItemStack chargingItem = tile.getInternalInventory().getStackInSlot(0);
 
         if (chargingItem.isEmpty()) {
-            if (!held.isEmpty() && (held.getItem() instanceof IAEItemPowerStorage || ChargerRecipes.allowInsert(held))) {
+            if (!held.isEmpty() && TileCharger.canInsert(held)) {
                 if (!world.isRemote) {
                     tile.getInternalInventory().setItemDirect(0, held.splitStack(1));
                 }
