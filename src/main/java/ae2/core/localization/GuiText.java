@@ -377,8 +377,6 @@ public enum GuiText implements LocalizationEnum {
     PatternAccessTerminalProviderSearchTooltip,
     PatternAccessTerminalToggleVisibility,
     PatternAccessTerminalRenameProvider,
-    ProviderSelection,
-    ProviderSelectionMappingManagement,
     ProviderSelectionMappingAdd,
     ProviderSelectionMappingInputPlaceholder,
     PatternProviderPagePrevious,

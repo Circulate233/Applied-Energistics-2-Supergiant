@@ -144,6 +144,7 @@ public enum ButtonToolTips implements LocalizationEnum {
     ProviderSelectionMappingAdd,
     ProviderSelectionMappingInputRequired,
     ProviderSelectionMappingReload,
+    ProviderSelectionMappingReloadDetail,
     ProviderSelectionMappingUnbind,
     ProviderSelectionMappingUnbindRecipe,
     PlayerPin,

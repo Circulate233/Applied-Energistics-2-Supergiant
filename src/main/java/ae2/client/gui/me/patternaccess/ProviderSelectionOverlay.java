@@ -7,8 +7,7 @@ import ae2.client.gui.AEBaseGui;
 import ae2.client.gui.ICompositeWidget;
 import ae2.client.gui.Icon;
 import ae2.client.gui.Tooltip;
-import ae2.client.gui.style.BackgroundGenerator;
-import ae2.client.gui.style.GeneratedBackground;
+import ae2.client.gui.style.Blitter;
 import ae2.client.gui.style.GuiStyle;
 import ae2.client.gui.style.GuiStyleManager;
 import ae2.client.gui.style.WidgetStyle;
@@ -67,24 +66,25 @@ import java.util.function.Supplier;
 public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProviderSelectionEndpoint> implements ICompositeWidget {
 
     public static final String WIDGET_ID = "providerSelectionOverlay";
-    private static final String STYLE_PATH = "/screens/provider_selection.json";
+    private static final Blitter bg = style().getBackground();
+
+    private static final String STYLE_PATH = "/screens/provider_selection_overlay.json";
     private static final String BACK_WIDGET = "back";
     private static final String SEARCH_WIDGET = "search";
     private static final String MAPPING_INPUT_WIDGET = "mapping";
     private static final String RELOAD_WIDGET = "reload";
     private static final String SCROLLBAR_WIDGET = "scrollbar";
     private static final String ENTRY_WIDGET_PREFIX = "entry";
-    private static final int DEFAULT_WIDTH = 135;
-    private static final int DEFAULT_HEIGHT = 145;
+    private static final int DEFAULT_WIDTH = 125;
+    private static final int DEFAULT_HEIGHT = 125;
     private static final int PAGE_SIZE = 5;
     private static final int MAPPING_PROTOCOL_PAGE_SIZE = ProviderPageLimits.PAGE_SIZE;
     private static final int MAX_MAPPING_CACHE_PAGES = 64;
     private static final int TITLE_BAR_HEIGHT = 20;
     private static final int TITLE_X = 8;
-    private static final int TITLE_Y = 8;
-    private static final int TITLE_INFO_GAP = 4;
     private static final int TITLE_INFO_ICON_SIZE = 16;
     private static final int TITLE_INFO_ICON_TOP = 2;
+    private static final int PROVIDER_ENTRY_ICON_GUTTER = 17;
     private static final long SEARCH_DEBOUNCE_NANOS = 100_000_000L;
     private static final long PAGE_REQUEST_RETRY_NANOS = 1_000_000_000L;
 
@@ -125,8 +125,9 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
         );
         this.closeButton.setVisibility(false);
         this.reloadButton = new SimpleIconButton(
-            Icon.S_CYCLE,
+            Icon.S_CYCLE_TRANSPARENT,
             ButtonToolTips.ProviderSelectionMappingReload.text(),
+            this::getReloadButtonTooltip,
             () -> reloadProviderMappings(currentViewKey()));
         this.reloadButton.setHalfSize(true);
         this.reloadButton.setVisibility(false);
@@ -286,8 +287,8 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
         GlStateManager.pushMatrix();
         GlStateManager.translate(0, 0, 350);
         try {
-            BackgroundGenerator.draw(this.bounds.width, this.bounds.height, overlayOrigin.x(), overlayOrigin.y());
-            drawTitleText(Minecraft.getMinecraft(), overlayOrigin.x(), overlayOrigin.y());
+            Objects.requireNonNull(bg, "Provider selection overlay is missing a background");
+            bg.dest(overlayOrigin.x(), overlayOrigin.y()).blit();
             drawManagedProviderTitleInfo(Minecraft.getMinecraft(), overlayOrigin.x(), overlayOrigin.y());
             drawProviderDirectoryIcons(Minecraft.getMinecraft());
             this.closeButton.drawButton(Minecraft.getMinecraft(), mouse.x(), mouse.y(), 0);
@@ -546,6 +547,7 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
         if (providerIconTooltip != null) {
             return providerIconTooltip;
         }
+
         Tooltip buttonTooltip = getButtonTooltip(absoluteMouse);
         if (buttonTooltip != null) {
             return buttonTooltip;
@@ -556,6 +558,13 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
             if (!tooltip.isEmpty()) {
                 return new Tooltip(tooltip);
             }
+        }
+
+        if(this.searchField.getVisible() && this.searchField.isMouseOver(absoluteMouse.x(), absoluteMouse.y())) {
+            return new Tooltip(this.searchField.getTooltipMessage());
+        }
+        if(this.mappingField.getVisible() && this.mappingField.isMouseOver(absoluteMouse.x(), absoluteMouse.y())) {
+            return new Tooltip(this.mappingField.getTooltipMessage());
         }
         return null;
     }
@@ -570,7 +579,7 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
             }
             ProviderEntry entry = row.providerEntry();
             if (entry != null && entry.icon() != null) {
-                AEKeyRendering.drawInGui(minecraft, row.x - 18, row.y, entry.icon());
+                AEKeyRendering.drawInGui(minecraft, row.x - PROVIDER_ENTRY_ICON_GUTTER, row.y, entry.icon());
                 restoreGuiStateAfterTitleIcon();
             }
         }
@@ -641,33 +650,6 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
         return new Rectangle(windowBounds.x, windowBounds.y, windowBounds.width, TITLE_BAR_HEIGHT);
     }
 
-    private ITextComponent getTitleText() {
-        return this.mapping.managedProvider != null
-            ? GuiText.ProviderSelectionMappingManagement.text()
-            : GuiText.ProviderSelection.text();
-    }
-
-    private void drawTitleText(Minecraft minecraft, int x, int y) {
-        int maxWidth = getTitleTextMaxWidth(minecraft);
-        if (maxWidth <= 0) {
-            return;
-        }
-
-        minecraft.fontRenderer.drawString(
-            minecraft.fontRenderer.trimStringToWidth(getTitleText().getFormattedText(), maxWidth),
-            x + TITLE_X,
-            y + TITLE_Y,
-            0x404040);
-    }
-
-    private int getTitleTextMaxWidth(Minecraft minecraft) {
-        int right = getTitleInfoAvailableRight();
-        if (getManagedProviderTitleIcon() != null) {
-            right = getManagedProviderTitleInfoIconLeft(minecraft) - TITLE_INFO_GAP;
-        }
-        return Math.max(0, right - TITLE_X);
-    }
-
     private void drawManagedProviderTitleInfo(Minecraft minecraft, int x, int y) {
         AEItemKey icon = getManagedProviderTitleIcon();
         if (icon == null) {
@@ -675,54 +657,31 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
         }
 
         AEKeyRendering.drawInGui(minecraft,
-            x + getManagedProviderTitleInfoIconLeft(minecraft),
+            x + getManagedProviderTitleInfoIconLeft(),
             y + TITLE_INFO_ICON_TOP,
             icon);
         restoreGuiStateAfterTitleIcon();
     }
 
     private Rectangle getManagedProviderTitleInfoTooltipArea() {
-        Minecraft minecraft = this.parent.getMinecraft();
         Point overlayOrigin = getOverlayOrigin();
         return new Rectangle(
-            overlayOrigin.x() + getManagedProviderTitleInfoIconLeft(minecraft),
+            overlayOrigin.x() + getManagedProviderTitleInfoIconLeft(),
             overlayOrigin.y() + TITLE_INFO_ICON_TOP,
             TITLE_INFO_ICON_SIZE,
             TITLE_INFO_ICON_SIZE);
     }
 
-    private int getManagedProviderTitleInfoIconLeft(@Nullable Minecraft minecraft) {
-        int titleInfoStart = getTitleInfoStart(minecraft);
+    private int getManagedProviderTitleInfoIconLeft() {
         int right = getTitleInfoAvailableRight();
         int iconLeft = right - TITLE_INFO_ICON_SIZE;
-        return Math.max(TITLE_X, Math.min(titleInfoStart, iconLeft));
+        return Math.max(TITLE_X, iconLeft);
     }
 
     @Nullable
     private AEItemKey getManagedProviderTitleIcon() {
         ProviderEntry providerEntry = this.mapping.managedProvider;
         return providerEntry == null ? null : providerEntry.icon();
-    }
-
-    private int getTitleInfoStart(@Nullable Minecraft minecraft) {
-        return TITLE_X + getTitleTextWidth(minecraft) + TITLE_INFO_GAP;
-    }
-
-    private int getTitleTextWidth(@Nullable Minecraft minecraft) {
-        if (minecraft != null) {
-            return minecraft.fontRenderer.getStringWidth(getTitleText().getFormattedText());
-        }
-        return this.mapping.managedProvider != null
-            ? estimateVanillaFontWidth("Mapping Management")
-            : estimateVanillaFontWidth("Select Pattern Provider");
-    }
-
-    private static int estimateVanillaFontWidth(String text) {
-        int width = 0;
-        for (int i = 0; i < text.length(); i++) {
-            width += text.charAt(i) == ' ' ? 4 : 6;
-        }
-        return width;
     }
 
     private int getTitleInfoAvailableRight() {
@@ -825,16 +784,6 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
 
     private static GuiStyle style() {
         return StyleHolder.STYLE;
-    }
-
-    private static int getWindowWidth() {
-        GeneratedBackground background = style().getGeneratedBackground();
-        return background != null ? background.getWidth() : DEFAULT_WIDTH;
-    }
-
-    private static int getWindowHeight() {
-        GeneratedBackground background = style().getGeneratedBackground();
-        return background != null ? background.getHeight() : DEFAULT_HEIGHT;
     }
 
     private void syncTextFieldsFromState() {
@@ -967,8 +916,8 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
                     entry);
                 moveButton(entryButton, ENTRY_WIDGET_PREFIX + i);
                 // Keep a fixed icon gutter outside the shortened action button.
-                entryButton.x += 18;
-                entryButton.width -= 18;
+                entryButton.x += 17;
+                entryButton.width -= 17;
                 this.dynamicButtons.add(entryButton);
             }
         }
@@ -981,8 +930,8 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
         for (GuiButton button : this.dynamicButtons) {
             if (button instanceof ProviderEntryButton entryButton && entryButton.isProviderRow()) {
                 moveButton(button, ENTRY_WIDGET_PREFIX + providerRow++);
-                button.x += 18;
-                button.width -= 18;
+                button.x += PROVIDER_ENTRY_ICON_GUTTER;
+                button.width -= PROVIDER_ENTRY_ICON_GUTTER;
             }
         }
         moveTextFields();
@@ -1052,6 +1001,13 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
 
     private ITextComponent getCloseButtonTooltip() {
         return this.mapping.managedProvider != null ? GuiText.ReturnToPreviousGui.text() : GuiText.Close.text();
+    }
+
+    private List<ITextComponent> getReloadButtonTooltip() {
+        return new Tooltip(
+            ButtonToolTips.ProviderSelectionMappingReload.text(),
+            ButtonToolTips.ProviderSelectionMappingReloadDetail.text()
+        ).content();
     }
 
     private Point getOverlayOrigin() {
@@ -1788,7 +1744,6 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
             return false;
         }
 
-        updateWindowSize();
         this.bounds.x = (this.parent.width - this.bounds.width) / 2 - this.parent.getGuiLeft();
         this.bounds.y = (this.parent.height - this.bounds.height) / 2 - this.parent.getGuiTop();
         clampToScreen();
@@ -1797,18 +1752,12 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
     }
 
     private void clampToScreen() {
-        updateWindowSize();
         int left = this.parent.getGuiLeft() + this.bounds.x;
         int top = this.parent.getGuiTop() + this.bounds.y;
         int maxLeft = Math.max(0, this.parent.width - this.bounds.width);
         int maxTop = Math.max(0, this.parent.height - this.bounds.height);
         this.bounds.x = Math.clamp(left, 0, maxLeft) - this.parent.getGuiLeft();
         this.bounds.y = Math.clamp(top, 0, maxTop) - this.parent.getGuiTop();
-    }
-
-    private void updateWindowSize() {
-        this.bounds.width = getWindowWidth();
-        this.bounds.height = getWindowHeight();
     }
 
     private static boolean isCtrlKeyDown() {
