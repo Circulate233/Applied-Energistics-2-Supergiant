@@ -19,7 +19,9 @@
 package ae2.client.gui;
 
 import ae2.client.Point;
+import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.gui.GuiButton;
+import net.minecraftforge.fml.common.Optional;
 import org.jetbrains.annotations.Nullable;
 
 import java.awt.Rectangle;
@@ -121,6 +123,15 @@ public interface ICompositeWidget {
 
     default boolean blocksMouseInteraction(int mouseX, int mouseY) {
         return false;
+    }
+
+    @Optional.Method(modid = "jei")
+    default boolean blocksHeiTargets() {
+        return false;
+    }
+
+    @Optional.Method(modid = "jei")
+    default <I> void addHeiTargets(AEBaseGui<?> gui, List<IGhostIngredientHandler.Target<I>> targets) {
     }
 
 }

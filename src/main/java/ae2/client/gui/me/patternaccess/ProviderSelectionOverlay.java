@@ -30,13 +30,15 @@ import ae2.container.me.patternencode.ProviderMappingPage;
 import ae2.container.me.patternencode.ProviderPageLimits;
 import ae2.crafting.execution.CraftingSupplierLocator;
 import ae2.integration.Integrations;
+import ae2.integration.modules.hei.target.TextFieldTarget;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
+import mezz.jei.api.gui.IGhostIngredientHandler;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.RenderHelper;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.ITextComponent;
@@ -48,7 +50,6 @@ import org.lwjgl.input.Mouse;
 
 import java.awt.Rectangle;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.HashMap;
@@ -322,6 +323,13 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
 
         this.buttonPressState.clearPressedButton();
         Point absoluteMouse = this.screenOrigin.move(mousePos.x(), mousePos.y());
+        if (button == 0 || button == 1) {
+            ItemStack carried = this.parent.getCarriedItem();
+            if (!carried.isEmpty() && writeCarriedItemToTextField(absoluteMouse, carried, button)) {
+                return true;
+            }
+        }
+
         if (handleTextFieldMouseDown(absoluteMouse.x(), absoluteMouse.y(), button)) {
             return true;
         }
@@ -348,6 +356,28 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
             this.dragOffset = new Point(mousePos.x() - this.bounds.x, mousePos.y() - this.bounds.y);
         }
         return true;
+    }
+
+    private boolean writeCarriedItemToTextField(Point mouse, ItemStack carried, int button) {
+        String text = AEBaseGui.getTextFieldInsertionText(carried, button);
+
+        if (this.searchField.getVisible() && this.searchField.isMouseOver(mouse.x(), mouse.y())) {
+            focusSearchInput();
+            this.searchField.setTextFromClient(text);
+            acceptSearchTextInput(text, true);
+            rebuildButtons();
+            return true;
+        }
+
+        if (this.mappingField.getVisible() && this.mappingField.isMouseOver(mouse.x(), mouse.y())) {
+            focusMappingInput();
+            this.mappingField.setTextFromClient(text);
+            this.mapping.text = text;
+            rebuildButtons();
+            return true;
+        }
+
+        return false;
     }
 
     @Override
@@ -584,6 +614,26 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
     @Override
     public boolean blocksMouseInteraction(int mouseX, int mouseY) {
         return this.visible && contains(this.bounds, mouseX, mouseY);
+    }
+
+    @Override
+    public boolean blocksHeiTargets() {
+        return this.visible;
+    }
+
+    @Override
+    public <I> void addHeiTargets(AEBaseGui<?> gui, List<IGhostIngredientHandler.Target<I>> targets) {
+        if (!this.visible) {
+            return;
+        }
+
+        if (this.searchField.getVisible()) {
+            targets.add(new TextFieldTarget<>(gui, this.searchField));
+        }
+
+        if (this.mappingField.getVisible()) {
+            targets.add(new TextFieldTarget<>(gui, this.mappingField));
+        }
     }
 
     private static Rectangle getTitleBarBounds(Rectangle windowBounds) {
@@ -1769,7 +1819,7 @@ public final class ProviderSelectionOverlay<C extends AEBaseContainer & IProvide
         return Keyboard.isKeyDown(Keyboard.KEY_LSHIFT) || Keyboard.isKeyDown(Keyboard.KEY_RSHIFT);
     }
 
-    public Collection<? extends GuiTextField> getTextFields() {
+    public List<AETextField> getTextFields() {
         return this.visible ? List.of(this.searchField, this.mappingField) : List.of();
     }
 

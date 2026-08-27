@@ -475,6 +475,17 @@ public class WidgetContainer {
         return null;
     }
 
+    @Nullable
+    public ICompositeWidget getHeiTargetBlocker() {
+        for (int i = this.compositeWidgetOrder.size() - 1; i >= 0; i--) {
+            ICompositeWidget widget = this.compositeWidgetOrder.get(i);
+            if (widget.isVisible() && widget.blocksHeiTargets()) {
+                return widget;
+            }
+        }
+        return null;
+    }
+
     /**
      * @see ICompositeWidget#onMouseUp(Point, int)
      */

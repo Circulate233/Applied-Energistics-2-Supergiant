@@ -8,6 +8,7 @@ import ae2.api.crafting.PatternDetailsHelper;
 import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.AmountFormat;
 import ae2.api.stacks.GenericStack;
+import ae2.client.Point;
 import ae2.client.gui.Icon;
 import ae2.client.gui.me.common.GuiTerminalSettings;
 import ae2.client.gui.me.common.GuiTerminalSettings.GeneralSetting;
@@ -49,6 +50,7 @@ import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -169,6 +171,16 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> impl
     }
 
     @Override
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        super.mouseClicked(mouseX, mouseY, mouseButton);
+
+        Point mousePos = new Point(mouseX - this.guiLeft, mouseY - this.guiTop);
+        if (this.widgets.blocksMouseInteraction(mousePos)) {
+            this.widgets.onMouseDown(mousePos, mouseButton);
+        }
+    }
+
+    @Override
     protected void renderHoveredToolTip(int mouseX, int mouseY) {
         Slot slot = getSlotUnderMouse();
         if (this.playerInventory.getItemStack().isEmpty() && this.container.canModifyAmountForSlot(slot)) {
@@ -183,6 +195,14 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> impl
                 itemTooltip.add(Tooltips.getRenameTooltipLocal());
             }
             drawItemTooltipWithImages(mouseX, mouseY, slot.getStack(), itemTooltip);
+            return;
+        }
+
+        if(this.providerSelectionOverlay.getTextFields().stream().anyMatch(tf -> tf.isMouseOver(mouseX, mouseY))) {
+            renderTextFieldInsertionTooltip(mouseX, mouseY);
+        }
+
+        if (isMouseOverTooltipBlockingWidget(mouseX, mouseY)) {
             return;
         }
 
