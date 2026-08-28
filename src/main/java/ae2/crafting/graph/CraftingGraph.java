@@ -10,6 +10,8 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
 import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import it.unimi.dsi.fastutil.objects.ObjectSets;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
 import org.jetbrains.annotations.Nullable;
@@ -29,6 +31,9 @@ public class CraftingGraph {
     private final Reference2ObjectMap<CraftingGraphNode, LocalPatternPlan> localUnitPlans =
         new Reference2ObjectOpenHashMap<>();
     private Object2ObjectMap<AEKey, CraftingGraphNode> nodeByWhat;
+    private boolean requiresLegacyFallback;
+    private long cacheRevision = Long.MIN_VALUE;
+    private ObjectSet<AEKey> snapshotKeys;
 
     public record NodeKey(AEKey what, @Nullable IPatternDetails pattern) {
         @Override
@@ -83,6 +88,36 @@ public class CraftingGraph {
 
     public void setRootNode(CraftingGraphNode rootNode) {
         this.rootNode = rootNode;
+    }
+
+    public boolean requiresLegacyFallback() {
+        return this.requiresLegacyFallback;
+    }
+
+    public void requireLegacyFallback() {
+        this.requiresLegacyFallback = true;
+    }
+
+    public long cacheRevision() {
+        return this.cacheRevision;
+    }
+
+    public void setCacheRevision(long cacheRevision) {
+        this.cacheRevision = cacheRevision;
+    }
+
+    public synchronized ObjectSet<AEKey> getSnapshotKeys() {
+        if (this.snapshotKeys == null) {
+            var keys = new ObjectOpenHashSet<AEKey>();
+            for (var node : this.nodesInCreationOrder) {
+                keys.add(node.getWhat());
+                for (var edge : node.getInputs()) {
+                    keys.add(edge.inputKey());
+                }
+            }
+            this.snapshotKeys = ObjectSets.unmodifiable(keys);
+        }
+        return this.snapshotKeys;
     }
 
     /**

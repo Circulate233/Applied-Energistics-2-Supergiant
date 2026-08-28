@@ -247,7 +247,6 @@ public class CraftingTreeNode {
                 long extracted = CraftingCpuHelper.extractTemplates(inv, template, requestedAmount);
 
                 if (extracted > 0) {
-                    recorder.recordExtraction(template.key(), LongMath.saturatedMultiply(extracted, template.amount()));
                     requestedAmount -= extracted;
                     addContainerItems(template.key(), extracted, containerItems);
                     if (this.parentInput != null) {
@@ -276,7 +275,6 @@ public class CraftingTreeNode {
                         continue;
                     }
 
-                    recorder.recordExtraction(template.key(), LongMath.saturatedMultiply(extracted, template.amount()));
                     requestedAmount -= extracted;
                     addContainerItems(template.key(), extracted, containerItems);
                     if (this.parentInput != null) {
@@ -987,12 +985,7 @@ public class CraftingTreeNode {
     }
 
     private static final class MemoRecorder {
-        private final KeyCounter extracted = new KeyCounter();
         private final KeyCounter containerItems = new KeyCounter();
-
-        void recordExtraction(AEKey key, long amount) {
-            extracted.add(key, amount);
-        }
 
         void recordContainerItem(AEKey key, long amount) {
             containerItems.add(key, amount);
@@ -1004,10 +997,6 @@ public class CraftingTreeNode {
                                              long requestedAmount) {
             var result = new CraftingCalculation.MemoResult();
             result.baseTimes = requestedAmount;
-
-            for (var entry : extracted) {
-                result.recordExtraction(entry.getKey(), entry.getLongValue());
-            }
 
             for (var entry : containerItems) {
                 result.recordContainerItem(entry.getKey(), entry.getLongValue());

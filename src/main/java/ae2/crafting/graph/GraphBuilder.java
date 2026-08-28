@@ -77,6 +77,9 @@ public class GraphBuilder {
             this.patternLookupNanos += System.nanoTime() - patternStart;
         }
         if (patterns.isEmpty()) {
+            if (!root && calc.getFuzzyCraftable(what) != null) {
+                graph.requireLegacyFallback();
+            }
             if (root) {
                 var nodeKey = new CraftingGraph.NodeKey(what, null);
                 var leaf = new CraftingGraphNode(what, null, List.of(), 1, false, true);
@@ -109,10 +112,17 @@ public class GraphBuilder {
             localUnit = true;
             localReason = "unsupported-pattern-semantics";
         }
+        if (localUnit || PseudoPatternDetails.isPseudo(primaryPattern)) {
+            graph.requireLegacyFallback();
+        }
         var node = new CraftingGraphNode(what, primaryPattern, patterns, primaryPattern.getOutputs(), outputAmount,
             localUnit, false, localReason);
         graph.putNode(nodeKey, node);
         this.nodeCount++;
+
+        if (localUnit || PseudoPatternDetails.isPseudo(primaryPattern)) {
+            return node;
+        }
 
         requestStack.add(what);
         calc.handlePausing();

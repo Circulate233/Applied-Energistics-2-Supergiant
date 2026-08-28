@@ -25,6 +25,7 @@ import ae2.api.networking.crafting.CalculationStrategy;
 import ae2.api.networking.crafting.ICraftingPlan;
 import ae2.api.networking.crafting.ICraftingProvider;
 import ae2.api.networking.crafting.ICraftingService;
+import ae2.api.storage.AEKeyFilter;
 import ae2.api.networking.crafting.ICraftingSimulationRequester;
 import ae2.api.networking.storage.IStorageService;
 import ae2.api.stacks.AEKey;
@@ -200,10 +201,7 @@ public class CraftingCalculation {
             && this.craftingService instanceof CraftingService service) {
             var graph = service.peekCachedGraph(this.output);
             if (graph != null) {
-                var keys = new ObjectOpenHashSet<AEKey>();
-                for (var node : graph.getAllNodes()) {
-                    keys.add(node.getWhat());
-                }
+                var keys = graph.getSnapshotKeys();
                 var subset = new NetworkCraftingSimulationState(cached, keys);
                 recordPerformanceCount("inventorySnapshotKeys", subset.getSnapshotEntryCount());
                 return subset;
@@ -424,6 +422,11 @@ public class CraftingCalculation {
 
     public boolean canEmitFor(AEKey what) {
         return this.craftingService.canEmitFor(what);
+    }
+
+    @Nullable
+    public AEKey getFuzzyCraftable(AEKey what) {
+        return this.craftingService.getFuzzyCraftable(what, AEKeyFilter.none());
     }
 
     CraftingTreeProcess.MachineInfo getMachineInfo(ICraftingService craftingService, IPatternDetails pattern) {
@@ -738,10 +741,14 @@ public class CraftingCalculation {
         this.allowMissing = true;
 
         var service = this.craftingService instanceof CraftingService cs ? cs : null;
+        long graphRevision = service == null ? Long.MIN_VALUE : service.getGraphCacheRevision();
         var graph = service == null ? null : service.takeCachedGraph(this.output);
         if (graph == null) {
             var graphBuilder = new GraphBuilder(this);
             graph = timed("buildGraph", () -> graphBuilder.buildGraph(this.output, productionAmount));
+            if (service != null) {
+                graph.setCacheRevision(graphRevision);
+            }
         } else {
             // Structural reuse: clear all per-attempt planning state, then re-anchor the root demand.
             graph.resetForReuse();
@@ -753,6 +760,29 @@ public class CraftingCalculation {
             recordPerformanceCount("graphCacheHit", 1);
         }
         this.graph = graph;
+        if (graph.requiresLegacyFallback()) {
+            try {
+                return runCraftAttempt(productionAmount, productionAmount);
+            } finally {
+                if (service != null) {
+                    service.putCachedGraph(this.output, graph);
+                }
+            }
+        }
+        if (graph.getTopology().isCondensed()) {
+            for (var component : graph.getTopology().getComponents()) {
+                if (component.cyclic() && component.nodes().size() > 1) {
+                    graph.requireLegacyFallback();
+                    try {
+                        return runCraftAttempt(productionAmount, productionAmount);
+                    } finally {
+                        if (service != null) {
+                            service.putCachedGraph(this.output, graph);
+                        }
+                    }
+                }
+            }
+        }
         try {
             return runGraphBasedAttemptBody(graph, productionAmount, graphCalculationStart);
         } finally {
@@ -778,10 +808,14 @@ public class CraftingCalculation {
         recordPerformanceCount("sccUnits", sccUnits);
 
         var propagation = new DemandPropagation(this);
+        var planningInventory = new ChildCraftingSimulationState(this.networkInv);
         timed("propagateDemand", () -> {
-            propagation.propagate(graph);
+            propagation.propagate(graph, planningInventory);
             return null;
         });
+        if (graph.requiresLegacyFallback()) {
+            return runCraftAttempt(productionAmount, productionAmount);
+        }
         boolean hasLocalComponents = false;
         if (topology.isCondensed()) {
             for (var component : topology.getComponents()) {

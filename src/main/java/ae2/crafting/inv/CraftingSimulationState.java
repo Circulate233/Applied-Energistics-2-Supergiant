@@ -170,7 +170,9 @@ public abstract class CraftingSimulationState implements ICraftingSimulationStat
             modifiableCache.remove(what, extracted);
         }
 
-        updateRequiredExtract(what, unmodifiedCache.get(what) - modifiableCache.get(what));
+        if (mode == Actionable.MODULATE) {
+            updateRequiredExtract(what, unmodifiedCache.get(what) - modifiableCache.get(what));
+        }
 
         return boundaryExtracted + extracted;
     }

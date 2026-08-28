@@ -1,8 +1,11 @@
 package ae2.crafting.graph;
 
-import ae2.crafting.CraftingCalculation;
+import ae2.api.config.Actionable;
 import ae2.api.stacks.KeyCounter;
+import ae2.crafting.CraftingCalculation;
 import com.google.common.math.LongMath;
+import ae2.crafting.inv.CraftingSimulationState;
+import org.jetbrains.annotations.Nullable;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.objects.Reference2LongOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectOpenHashMap;
@@ -15,6 +18,11 @@ public class DemandPropagation {
     }
 
     public void propagate(CraftingGraph graph) throws InterruptedException {
+        propagate(graph, null);
+    }
+
+    public void propagate(CraftingGraph graph, @Nullable CraftingSimulationState inventory)
+        throws InterruptedException {
         var order = graph.getTopologicalOrder();
         var topology = graph.getTopology();
         var solvedComponents = new IntOpenHashSet();
@@ -26,12 +34,17 @@ public class DemandPropagation {
                 int componentId = topology.getComponentId(node);
                 if (solvedComponents.add(componentId)) {
                     var component = topology.getComponents().get(componentId);
-                    solveCyclicComponent(graph, topology, component);
+                    solveCyclicComponent(graph, topology, component, inventory);
                     propagateLocalComponentBoundary(graph, topology, component);
                 }
                 times = node.getCraftTimes();
             } else {
-                times = divideCeil(node.getDemandAmount(), node.getOutputPerCraft());
+                long demand = node.getDemandAmount();
+                if (inventory != null && node != graph.getRootNode() && !node.isEmitter() && !node.isExternalLeaf()) {
+                    long available = inventory.extract(node.getWhat(), demand, Actionable.MODULATE);
+                    demand = Math.max(0, demand - available);
+                }
+                times = divideCeil(demand, node.getOutputPerCraft());
                 node.setCraftTimes(times);
             }
 
@@ -47,7 +60,8 @@ public class DemandPropagation {
     }
 
     private void solveCyclicComponent(CraftingGraph graph, CraftingGraphTopology topology,
-                                      CraftingGraphTopology.Component component) {
+                                      CraftingGraphTopology.Component component,
+                                      @Nullable CraftingSimulationState inventory) {
         // Multi-pattern components cannot be solved from graph edge weights alone: expanded legacy closure can select
         // patterns and account for remainders that are intentionally absent from the graph. Keep that transaction local.
         if (component.nodes().size() != 1) {
@@ -78,6 +92,10 @@ public class DemandPropagation {
         }
 
         long demand = Math.max(0, node.getDemandAmount());
+        if (inventory != null && node != graph.getRootNode()) {
+            long available = inventory.extract(node.getWhat(), demand, Actionable.MODULATE);
+            demand = Math.max(0, demand - available);
+        }
         long directNet = LongMath.saturatedSubtract(node.getOutputPerCraft(), feedback.amountPerCraft());
         long expandedNet = calculation.getExpandedPatternNetOutput(pattern, node.getWhat());
         var batch = calculation.getRecursivePatternBatch(pattern, node.getWhat());
@@ -137,6 +155,7 @@ public class DemandPropagation {
     }
 
     private static void markLocalComponent(CraftingGraph graph, CraftingGraphTopology.Component component) {
+        graph.requireLegacyFallback();
         for (var node : component.nodes()) {
             node.setLocalComponentId(component.id());
             node.setCraftTimes(0);

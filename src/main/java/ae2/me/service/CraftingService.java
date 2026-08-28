@@ -362,7 +362,11 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
      */
     @Nullable
     public CraftingGraph takeCachedGraph(AEKey output) {
-        return this.graphCache.remove(output);
+        CraftingGraph graph = this.graphCache.remove(output);
+        if (graph != null) {
+            graph.setCacheRevision(this.graphCacheRevision);
+        }
+        return graph;
     }
 
     /**
@@ -375,14 +379,23 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
         return this.graphCache.get(output);
     }
 
+    public long getGraphCacheRevision() {
+        return this.graphCacheRevision;
+    }
+
     /**
      * Returns a graph structure for reuse. The graph is discarded if the pattern revision changed while the calculation
      * was running, otherwise the next calculation for the same output reuses it.
      */
     public void putCachedGraph(AEKey output, CraftingGraph graph) {
-        if (this.graphCacheRevision != this.craftingProviders.getRevision()) {
+        long currentRevision = this.craftingProviders.getRevision();
+        if (graph.cacheRevision() != Long.MIN_VALUE && graph.cacheRevision() != this.graphCacheRevision) {
             return;
         }
+        if (this.graphCacheRevision != currentRevision) {
+            return;
+        }
+        graph.setCacheRevision(currentRevision);
         this.graphCache.put(output, graph);
     }
 

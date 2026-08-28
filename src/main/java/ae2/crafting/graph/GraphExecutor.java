@@ -40,8 +40,9 @@ public class GraphExecutor {
                 continue;
             }
             if (node.isExternalLeaf()) {
+                boolean root = node == graph.getRootNode();
                 inv.addStackBytes(node.getWhat(), 1, node.getDemandAmount());
-                long extracted = inv.extract(node.getWhat(), node.getDemandAmount(), Actionable.MODULATE);
+                long extracted = root ? 0 : inv.extract(node.getWhat(), node.getDemandAmount(), Actionable.MODULATE);
                 long missing = node.getDemandAmount() - extracted;
                 snapshot.recordNode(node);
                 snapshot.recordExternal(node, extracted);
@@ -49,8 +50,8 @@ public class GraphExecutor {
                 if (missing > 0) calc.addMissing(node.getWhat(), missing);
                 continue;
             }
-            if (node.getCraftTimes() == 0 && !hasCycleSeed(node)) continue;
             snapshot.recordNode(node);
+            if (node.getCraftTimes() == 0 && !hasCycleSeed(node)) continue;
             if (node.isLocalUnit()) {
                 applyLocalUnit(node, inv, snapshot);
             } else {
@@ -223,7 +224,7 @@ public class GraphExecutor {
         var pattern = node.getPattern();
 
         if (node.isEmitter()) {
-            applyEmitter(node, inv, snapshot, times);
+            applyEmitter(node, inv, snapshot, times, node == graph.getRootNode());
             return;
         }
 
@@ -254,8 +255,7 @@ public class GraphExecutor {
             }
             snapshot.recordEdge(edge, needed, got);
             if (shortfall > 0) {
-                var nodeKey = new CraftingGraph.NodeKey(edge.inputKey(), null);
-                if (!edge.cycleCut() && (graph.isCyclicNode(nodeKey) || edge.producer() == null)) {
+                if (!edge.cycleCut()) {
                     calc.addMissing(edge.inputKey(), shortfall);
                 }
             }
@@ -302,8 +302,8 @@ public class GraphExecutor {
     }
 
     private void applyEmitter(CraftingGraphNode node, CraftingSimulationState inv,
-                              CraftingGraphDisplaySnapshot.Builder snapshot, long amount) {
-        long extracted = inv.extract(node.getWhat(), amount, Actionable.MODULATE);
+                              CraftingGraphDisplaySnapshot.Builder snapshot, long amount, boolean root) {
+        long extracted = root ? 0 : inv.extract(node.getWhat(), amount, Actionable.MODULATE);
         long emitted = amount - extracted;
         if (emitted > 0) {
             inv.emitItems(node.getWhat(), emitted);
