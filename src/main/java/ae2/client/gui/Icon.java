@@ -207,6 +207,7 @@ public final class Icon {
     public static final Icon S_ARROW_DOWN = registerBuiltin("s_arrow_down");
     public static final Icon S_CLEAR = registerBuiltin("s_clear");
     public static final Icon S_CYCLE = registerBuiltin("s_cycle");
+    public static final Icon S_CYCLE_TRANSPARENT = registerBuiltin("s_cycle_transparent");
     public static final Icon S_SUBSTITUTION_ENABLED = registerBuiltin("s_substitution_enabled");
     public static final Icon S_SUBSTITUTION_DISABLED = registerBuiltin("s_substitution_disabled");
     public static final Icon S_FLUID_SUBSTITUTION_ENABLED = registerBuiltin("s_fluid_substitution_enabled");

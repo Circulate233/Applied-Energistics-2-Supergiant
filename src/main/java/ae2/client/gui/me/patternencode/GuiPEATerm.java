@@ -8,6 +8,7 @@ import ae2.api.crafting.PatternDetailsHelper;
 import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.AmountFormat;
 import ae2.api.stacks.GenericStack;
+import ae2.client.Point;
 import ae2.client.gui.Icon;
 import ae2.client.gui.me.common.GuiTerminalSettings;
 import ae2.client.gui.me.common.GuiTerminalSettings.GeneralSetting;
@@ -17,12 +18,13 @@ import ae2.client.gui.me.items.GuiPatternItemRenamer;
 import ae2.client.gui.me.items.GuiSetProcessingPatternAmount;
 import ae2.client.gui.me.patternaccess.AbstractPatternAccessTerm;
 import ae2.client.gui.me.patternaccess.GuiPatternSlot;
+import ae2.client.gui.me.patternaccess.ProviderSelectionOverlay;
 import ae2.client.gui.style.GuiStyle;
 import ae2.client.gui.widgets.ActionButton;
 import ae2.client.gui.widgets.DynamicIconButton;
 import ae2.client.gui.widgets.TabButton;
 import ae2.container.SlotSemantics;
-import ae2.container.implementations.ContainerPEATerm;
+import ae2.container.me.patternencode.ContainerPEATerm;
 import ae2.container.slot.AppEngSlot;
 import ae2.core.AEConfig;
 import ae2.core.AppEng;
@@ -31,6 +33,7 @@ import ae2.core.localization.ButtonToolTips;
 import ae2.core.localization.GuiText;
 import ae2.core.localization.Tooltips;
 import ae2.core.network.InitNetwork;
+import ae2.core.network.clientbound.IProviderSelectionPageReceiver;
 import ae2.core.network.serverbound.InventoryActionPacket;
 import ae2.helpers.InventoryAction;
 import ae2.helpers.WirelessTerminalGuiHost;
@@ -38,6 +41,7 @@ import ae2.integration.Integrations;
 import ae2.parts.encoding.EncodingMode;
 import ae2.text.TextComponentItemStack;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
@@ -46,15 +50,19 @@ import net.minecraft.util.text.ITextComponent;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
+public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> implements IProviderSelectionPageReceiver {
 
     private static final ResourceLocation ACCESS_TEXTURE = AppEng.makeId("textures/guis/ex_pattern_access_terminal.png");
     private static final ResourceLocation ENCODING_TEXTURE = AppEng.makeId("textures/guis/ex_pattern.png");
+    private static final String PROVIDER_SELECTION_OVERLAY_WIDGET = ProviderSelectionOverlay.WIDGET_ID;
     private static final int GUI_FOOTER_HEIGHT = 178;
     private static final int GUI_FOOTER_TEXTURE_Y = 73;
     private static final Set<GeneralSetting> PEAT_GENERAL_SETTINGS = Set.of(
@@ -66,12 +74,15 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
     private final Map<EncodingMode, EncodingModePanel> modePanels = new EnumMap<>(EncodingMode.class);
     private final Map<EncodingMode, TabButton> modeTabButtons = new EnumMap<>(EncodingMode.class);
     private final DynamicIconButton uploadPatternButton;
+    private final ProviderSelectionOverlay<?> providerSelectionOverlay;
+    private int providerSelectionOverlayRequestNonce;
 
     public GuiPEATerm(ContainerPEATerm container, InventoryPlayer playerInventory, @Nullable ITextComponent title,
                       GuiStyle style) {
         super(container, playerInventory, title, GuiText.PatternEncodingAccessTerminalShort.text(), style,
             "pattern encoding access terminal", GUI_FOOTER_HEIGHT);
 
+        this.providerSelectionOverlay = new ProviderSelectionOverlay<>(this);
         addMode(EncodingMode.CRAFTING, new CraftingEncodingPanel(this, widgets), 0);
         addMode(EncodingMode.PROCESSING, new ProcessingEncodingPanel(this, widgets), 1);
         this.uploadPatternButton = new DynamicIconButton(
@@ -82,6 +93,7 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
         this.uploadPatternButton.setHalfSize(true);
         this.uploadPatternButton.setIconScale(0.5F);
         this.uploadPatternButton.setVisibility(false);
+        widgets.add(PROVIDER_SELECTION_OVERLAY_WIDGET, this.providerSelectionOverlay);
         widgets.add("uploadPattern", this.uploadPatternButton);
         widgets.add("encodePattern", new ActionButton(ActionItems.ENCODE,
             () -> container.encode(isShiftDown())));
@@ -105,7 +117,8 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
         if (container.mode == EncodingMode.PROCESSING) {
             return List.of(
                 ButtonToolTips.PatternUpload.text(),
-                ButtonToolTips.PatternUploadProcessingHint.text());
+                ButtonToolTips.PatternUploadProcessingHint.text(),
+                ButtonToolTips.PatternUploadProcessingShiftHint.text());
         }
         return List.of(
             ButtonToolTips.PatternUpload.text(),
@@ -158,6 +171,16 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
     }
 
     @Override
+    protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        super.mouseClicked(mouseX, mouseY, mouseButton);
+
+        Point mousePos = new Point(mouseX - this.guiLeft, mouseY - this.guiTop);
+        if (this.widgets.blocksMouseInteraction(mousePos)) {
+            this.widgets.onMouseDown(mousePos, mouseButton);
+        }
+    }
+
+    @Override
     protected void renderHoveredToolTip(int mouseX, int mouseY) {
         Slot slot = getSlotUnderMouse();
         if (this.playerInventory.getItemStack().isEmpty() && this.container.canModifyAmountForSlot(slot)) {
@@ -172,6 +195,14 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
                 itemTooltip.add(Tooltips.getRenameTooltipLocal());
             }
             drawItemTooltipWithImages(mouseX, mouseY, slot.getStack(), itemTooltip);
+            return;
+        }
+
+        if(this.providerSelectionOverlay.getTextFields().stream().anyMatch(tf -> tf.isMouseOver(mouseX, mouseY))) {
+            renderTextFieldInsertionTooltip(mouseX, mouseY);
+        }
+
+        if (isMouseOverTooltipBlockingWidget(mouseX, mouseY)) {
             return;
         }
 
@@ -192,6 +223,7 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
 
     @Override
     protected void beforePatternAccessUpdate() {
+        syncProviderSelectionOverlayOpenRequest();
         for (EncodingMode mode : ENCODING_MODES) {
             boolean selected = this.container.getMode() == mode;
             TabButton tabButton = this.modeTabButtons.get(mode);
@@ -204,6 +236,22 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
             }
         }
         this.uploadPatternButton.setVisibility(true);
+    }
+
+    private void syncProviderSelectionOverlayOpenRequest() {
+        int requestNonce = this.container.getProviderSelectionOverlayRequestNonce();
+        if (requestNonce <= this.providerSelectionOverlayRequestNonce) {
+            return;
+        }
+
+        this.providerSelectionOverlayRequestNonce = requestNonce;
+        if (requestNonce == 0) {
+            return;
+        }
+
+        this.providerSelectionOverlay.open(
+            this.container.getProviderSelectionOverlaySearchText(),
+            this.container.getProviderSelectionOverlayMappingText());
     }
 
     @Override
@@ -297,4 +345,17 @@ public class GuiPEATerm extends AbstractPatternAccessTerm<ContainerPEATerm> {
         return this.container.getSlots(SlotSemantics.ENCODED_PATTERN).contains(slot);
     }
 
+    @Override
+    public ProviderSelectionOverlay<?> getProviderSelectionOverlay() {
+        return this.providerSelectionOverlay;
+    }
+
+    @Override
+    public Collection<? extends GuiTextField> getTextFields() {
+        Collection<GuiTextField> textFields = new ArrayList<>(super.getTextFields());
+        if(providerSelectionOverlay.isVisible()) {
+            textFields.addAll(providerSelectionOverlay.getTextFields());
+        }
+        return textFields;
+    }
 }

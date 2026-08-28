@@ -348,8 +348,8 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         Point realMousePos = getMousePoint(mouseX, mouseY);
         ICompositeWidget blockedByWidget = widgets.getMouseInteractionBlocker(realMousePos);
         boolean blockedByWidgetMouse = blockedByWidget != null;
-        int baseMouseX = modalSelectionPopup || blockedByWidgetMouse ? Integer.MIN_VALUE / 4 : mouseX;
-        int baseMouseY = modalSelectionPopup || blockedByWidgetMouse ? Integer.MIN_VALUE / 4 : mouseY;
+        int baseMouseX = modalSelectionPopup ? Integer.MIN_VALUE / 4 : mouseX;
+        int baseMouseY = modalSelectionPopup ? Integer.MIN_VALUE / 4 : mouseY;
         Slot aeHoveredSlot = modalSelectionPopup || blockedByWidgetMouse ? null
             : widgets.hitTest(realMousePos) ? null : findSlot(mouseX, mouseY);
         this.hoveredSlot = aeHoveredSlot;
@@ -773,7 +773,7 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         }
     }
 
-    private boolean renderTextFieldInsertionTooltip(int mouseX, int mouseY) {
+    protected final boolean renderTextFieldInsertionTooltip(int mouseX, int mouseY) {
         List<ITextComponent> tooltip = getTextFieldInsertionTooltip(mouseX, mouseY);
         if (tooltip == null) {
             return false;
@@ -918,11 +918,11 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
     @Override
     protected void keyTyped(char typedChar, int keyCode) throws IOException {
         suppressLockedOffhandSwapKey(keyCode);
-        if (shouldReturnToPreviousGui(keyCode)) {
-            AESubGui.goBack();
+        if (widgets.onKeyTyped(typedChar, keyCode)) {
             return;
         }
-        if (widgets.onKeyTyped(typedChar, keyCode)) {
+        if (shouldReturnToPreviousGui(keyCode)) {
+            AESubGui.goBack();
             return;
         }
         super.keyTyped(typedChar, keyCode);
@@ -1708,6 +1708,10 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
         Objects.requireNonNull(subScreen, "subScreen");
     }
 
+    public final ItemStack getCarriedItem() {
+        return this.playerInventory.getItemStack();
+    }
+
     @SuppressWarnings("unused")
     public Collection<? extends Slot> getHEISlots(Object ingredient) {
         return container.inventorySlots;
@@ -1716,6 +1720,12 @@ public abstract class AEBaseGui<T extends AEBaseContainer> extends GuiContainer 
     @Optional.Method(modid = "jei")
     public <I> List<IGhostIngredientHandler.Target<I>> getHEITargets(I ingredient, int ghostMouseButton) {
         List<IGhostIngredientHandler.Target<I>> targets = new ObjectArrayList<>();
+
+        ICompositeWidget heiTargetBlocker = this.widgets.getHeiTargetBlocker();
+        if (heiTargetBlocker != null) {
+            heiTargetBlocker.addHeiTargets(this, targets);
+            return targets;
+        }
 
         for (var slot : getHEISlots(ingredient)) {
             if (!(slot instanceof FakeSlot fakeSlot) || !fakeSlot.isEnabled()) {

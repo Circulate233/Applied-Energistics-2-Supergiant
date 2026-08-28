@@ -1,0 +1,70 @@
+{
+  "$schema": "schema.json",
+  "includes": ["common/common.json"],
+  "background": {
+    "texture": "guis/provider_selection_overlay.png",
+    "srcRect": [0, 0, 125, 125]
+  },
+  "widgets": {
+    "back": {
+      "left": 111,
+      "top": -5,
+      "width": 20,
+      "height": 20
+    },
+    "search": {
+      "left": 3,
+      "top": 6,
+      "width": 106,
+      "height": 12
+    },
+    "entry0": {
+      "left": 4,
+      "top": 21,
+      "width": 110,
+      "height": 16
+    },
+    "entry1": {
+      "left": 4,
+      "top": 38,
+      "width": 110,
+      "height": 16
+    },
+    "entry2": {
+      "left": 4,
+      "top": 55,
+      "width": 110,
+      "height": 16
+    },
+    "entry3": {
+      "left": 4,
+      "top": 72,
+      "width": 110,
+      "height": 16
+    },
+    "entry4": {
+      "left": 4,
+      "top": 89,
+      "width": 110,
+      "height": 16
+    },
+    "mapping": {
+      "left": 3,
+      "top": 108,
+      "width": 110,
+      "height": 12
+    },
+    "reload": {
+      "left": 114,
+      "top": 109,
+      "width": 8,
+      "height": 8
+    },
+    "scrollbar": {
+      "left": 116,
+      "top": 21,
+      "width": 7,
+      "height": 85
+    }
+  }
+}
