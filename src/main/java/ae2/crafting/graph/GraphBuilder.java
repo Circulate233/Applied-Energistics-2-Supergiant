@@ -120,10 +120,6 @@ public class GraphBuilder {
         graph.putNode(nodeKey, node);
         this.nodeCount++;
 
-        if (localUnit || PseudoPatternDetails.isPseudo(primaryPattern)) {
-            return node;
-        }
-
         requestStack.add(what);
         calc.handlePausing();
 
