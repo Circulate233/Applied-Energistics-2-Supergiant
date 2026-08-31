@@ -4,7 +4,6 @@
   "package": "ae2.mixins",
   "compatibilityLevel": "JAVA_25",
   "target": "@env(DEFAULT)",
-  "refmap": "ae2.refmap.json",
   "mixins": [
     "ContainerStackInteractionMixin",
     "EnchantmentHelperMixin",

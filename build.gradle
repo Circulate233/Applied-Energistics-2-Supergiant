@@ -124,7 +124,7 @@ unimined.minecraft {
         loader "0.5.14-alpha"
         runs.auth.username = minecraft_username
         runs.all {
-            systemProperty('crl.dev.mixin', 'ae2.mod.mixins.json')
+            systemProperty('crl.dev.mixin', "ae2.default.mixins.json,ae2.mod.mixins.json")
             def extraArgs = propertyString('extra_jvm_args')
             if (extraArgs != null && !extraArgs.trim().isEmpty()) {
                 jvmArgs += extraArgs.split { "\\s+" }.toList()
@@ -410,7 +410,7 @@ jar {
             if (propertyBool('use_access_transformer')) {
                 attribute_map['FMLAT'] = propertyString('access_transformer_locations')
             }
-            attribute_map['MixinConfigs'] = 'ae2.mod.mixins.json'
+            attribute_map['MixinConfigs'] = 'ae2.default.mixins.json,ae2.mod.mixins.json'
             attributes(attribute_map)
         }
     }
