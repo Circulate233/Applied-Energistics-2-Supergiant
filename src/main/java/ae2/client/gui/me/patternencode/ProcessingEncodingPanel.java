@@ -7,12 +7,15 @@ import ae2.client.gui.Icon;
 import ae2.client.gui.WidgetContainer;
 import ae2.client.gui.style.Blitter;
 import ae2.client.gui.widgets.ActionButton;
+import ae2.client.gui.widgets.DynamicIconButton;
 import ae2.client.gui.widgets.Scrollbar;
 import ae2.client.gui.widgets.SmallTextTooltipButton;
 import ae2.container.SlotSemantics;
 import ae2.container.me.patternencode.ContainerPatternEncodingTerm;
+import ae2.core.localization.ButtonToolTips;
 import ae2.core.localization.GuiText;
 import ae2.parts.encoding.ProcessingPatternAmountHelper;
+import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.text.ITextComponent;
 
 import java.awt.Rectangle;
@@ -23,8 +26,7 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
     private static final Rectangle MOUSE_WHEEL_AREA = new Rectangle(-1, 1, 124, 66);
 
     private final ActionButton clearBtn;
-    private final ActionButton cycleOutputBtn;
-    private final ActionButton clearSecondaryOutputsBtn;
+    private final DynamicIconButton cycleOutputBtn;
     private final Scrollbar scrollbar;
     private final SmallTextTooltipButton[] amountButtons;
 
@@ -35,17 +37,24 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
         this.clearBtn.setDisableBackground(true);
         widgets.add("processingClearPattern", this.clearBtn);
 
-        this.cycleOutputBtn = new ActionButton(ActionItems.S_CYCLE_PROCESSING_OUTPUT,
-            this.container::cycleProcessingOutput);
+        this.cycleOutputBtn = new DynamicIconButton(
+            () -> GuiScreen.isShiftKeyDown() ? Icon.S_CLEAR : Icon.S_CYCLE,
+            ButtonToolTips.CycleProcessingOutput.text(),
+            () -> GuiScreen.isShiftKeyDown()
+                ? List.of(ButtonToolTips.ClearProcessingSecondaryOutputs.text(),
+                ButtonToolTips.ClearProcessingSecondaryOutputsTooltip.text())
+                : List.of(ButtonToolTips.CycleProcessingOutput.text(),
+                ButtonToolTips.CycleProcessingOutputTooltip.text()),
+            () -> {
+                if (GuiScreen.isShiftKeyDown()) {
+                    this.container.clearProcessingSecondaryOutputs();
+                } else {
+                    this.container.cycleProcessingOutput();
+                }
+            });
         this.cycleOutputBtn.setHalfSize(true);
         this.cycleOutputBtn.setDisableBackground(true);
         widgets.add("processingCycleOutput", this.cycleOutputBtn);
-
-        this.clearSecondaryOutputsBtn = new ActionButton(ActionItems.S_CLEAR_PROCESSING_SECONDARY_OUTPUTS,
-            this.container::clearProcessingSecondaryOutputs);
-        this.clearSecondaryOutputsBtn.setHalfSize(true);
-        this.clearSecondaryOutputsBtn.setDisableBackground(true);
-        widgets.add("processingClearSecondaryOutputs", this.clearSecondaryOutputsBtn);
 
         this.scrollbar = widgets.addScrollBar("processingPatternModeScrollbar", Scrollbar.SMALL);
         this.scrollbar.setRange(0, Math.max(0, this.container.getProcessingInputSlots().length / 3 - 3), 3);
@@ -87,7 +96,6 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
         }
 
         this.cycleOutputBtn.setVisibility(this.visible && this.container.canCycleProcessingOutputs());
-        this.clearSecondaryOutputsBtn.setVisibility(this.visible && this.container.canCycleProcessingOutputs());
         updateTooltipVisibility();
     }
 
@@ -153,7 +161,6 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
         this.scrollbar.setVisible(visible);
         this.clearBtn.setVisibility(visible);
         this.cycleOutputBtn.setVisibility(visible && this.container.canCycleProcessingOutputs());
-        this.clearSecondaryOutputsBtn.setVisibility(visible && this.container.canCycleProcessingOutputs());
         for (SmallTextTooltipButton button : this.amountButtons) {
             button.visible = visible;
             button.enabled = visible;
