@@ -1,62 +1,17 @@
-name: Releases
+name: Release tagged build
 
 on:
   push:
-    tags:
-      - "v*"
+    tags: ['*']
+
+permissions:
+  contents: write
+  actions: write
 
 jobs:
-  runtime-test:
-    uses: ./.github/workflows/runtime-test.yml
-
-  build:
-    needs: runtime-test
-    runs-on: ubuntu-latest
+  release:
+    uses: FormlessDragon/.github/.github/workflows/release.yml@main
+    secrets: inherit
     permissions:
       contents: write
-    env:
-      RELEASE_TAG: ${{ github.ref_name }}
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-      - uses: gradle/actions/setup-gradle@v6
-        with:
-          gradle-version: 9.4.1
-        name: Set up Gradle
-      - name: Add permission
-        run: chmod +x ./gradlew
-      - name: Set release version
-        run: |
-          RELEASE_VERSION="${RELEASE_TAG#v}"
-          echo "RELEASE_VERSION=${RELEASE_VERSION}" >> "$GITHUB_ENV"
-          echo "Release tag: ${RELEASE_TAG}"
-          echo "Release version: ${RELEASE_VERSION}"
-      - name: Execute Gradle build
-        run: ./gradlew build -x spotlessCheck -Pmod_version="${RELEASE_VERSION}"
-      - name: Build JitPack Maven repository
-        run: |
-          JITPACK_GROUP="com.github.${GITHUB_REPOSITORY_OWNER}"
-          JITPACK_ARTIFACT_ID="${GITHUB_REPOSITORY#*/}"
-          ./gradlew --build-cache --info --stacktrace \
-            -Ppublish_to_jitpack=true \
-            -Pjitpack_group="${JITPACK_GROUP}" \
-            -Pjitpack_artifact_id="${JITPACK_ARTIFACT_ID}" \
-            -Pjitpack_version="${RELEASE_TAG}" \
-            -Pmod_version="${RELEASE_VERSION}" \
-            -Pgenerate_sources_jar=true \
-            -Pgenerate_javadocs_jar=true \
-            clean publishMavenJavaPublicationToJitpackRepository -x test -x spotlessCheck
-      - name: Package JitPack Maven repository
-        run: |
-          cd build/jitpack-repository
-          zip -r "../jitpack-repository-${RELEASE_TAG}.zip" .
-      - name: Create GitHub release
-        run: gh release create "$RELEASE_TAG" build/libs/* "build/jitpack-repository-${RELEASE_TAG}.zip" --title "$RELEASE_TAG" --generate-notes
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      actions: write

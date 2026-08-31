@@ -1,62 +1,16 @@
 name: Build mod jar
 
 on:
-  [workflow_dispatch, push]
+  workflow_dispatch:
+  push:
+  pull_request:
 
 permissions:
   contents: write
 
 jobs:
   build:
-
-    runs-on: ubuntu-latest
-
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        fetch-depth: 0
-    - name: Set up JDK
-      uses: actions/setup-java@v5
-      with:
-        java-version: '25'
-        distribution: 'temurin'
-    - uses: gradle/actions/setup-gradle@v6
-      with:
-        gradle-version: 9.4.1
-      name: Set up Gradle
-    - name: Add permission
-      run: chmod +x ./gradlew
-    - name: Set build version
-      run: |
-        previous_tag="$(git describe --tags --abbrev=0 --exclude=dev 2>/dev/null || echo 0.0.0)"
-        previous_tag="${previous_tag#v}"
-        short_hash="$(git rev-parse --short HEAD)"
-        echo "MOD_VERSION=${previous_tag}+${short_hash}" >> "$GITHUB_ENV"
-        echo "Build version: ${previous_tag}+${short_hash}"
-    - name: Execute Gradle build
-      run: ./gradlew build -x spotlessCheck -Pmod_version="${MOD_VERSION}"
-        
-    - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v7
-      with:
-        path: build/libs
-
-    - name: Update dev tag and ensure dev release exists
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        git tag -f dev "${GITHUB_SHA}"
-        git push --force origin refs/tags/dev
-        if ! gh release view dev >/dev/null 2>&1; then
-          gh release create dev --title "dev" --notes "Latest development build artifacts"
-        fi
-
-    - name: Replace dev release assets
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: |
-        mapfile -t assets < <(gh release view dev --json assets --jq '.assets[].name')
-        for asset in "${assets[@]}"; do
-          gh release delete-asset dev "$asset" --yes
-        done
-        gh release upload dev build/libs/* --clobber
+    uses: FormlessDragon/.github/.github/workflows/build.yml@main
+    secrets: inherit
+    permissions:
+      contents: write

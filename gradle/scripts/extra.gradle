@@ -1,13 +1,274 @@
 // You may write any gradle buildscript component in this file
 // This file is automatically applied after build.gradle + dependencies.gradle is ran
 
-// If you wish to use the default helper methods, uncomment the line below
-// apply from: 'gradle/scripts/helpers.gradle'
+def minecraftVersion = '1.12.2'
+def cleanroomVersion = '0.6.10-alpha'
+
+def cleanroomInstaller = configurations.maybeCreate('cleanroomInstaller')
+cleanroomInstaller.canBeConsumed = false
+cleanroomInstaller.canBeResolved = true
+dependencies.add(cleanroomInstaller.name, "com.cleanroommc:cleanroom:${cleanroomVersion}:installer") {
+    transitive = false
+}
+
+def productionJarTaskName = propertyBool('enable_shadow') ? 'remapShadowJar' : 'remapJar'
+def productionJarTask = tasks.named(productionJarTaskName)
+def minecraftConfig = unimined.minecrafts.get(sourceSets.main)
+def productionNamespace = minecraftConfig.mcPatcher.prodNamespace
+
+def runtimeTestProductionMods = configurations.maybeCreate('runtimeTestProductionMods')
+runtimeTestProductionMods.canBeConsumed = false
+runtimeTestProductionMods.canBeResolved = true
+runtimeTestProductionMods.transitive = false
+
+[configurations.modImplementation, configurations.modRuntimeOnly].each { sourceConfiguration ->
+    sourceConfiguration.dependencies.each { dependency ->
+        if (!(dependency instanceof ModuleDependency)) {
+            return
+        }
+        def productionNotation = [
+            group: dependency.group,
+            name: dependency.name,
+            version: dependency.version
+        ]
+        if (!dependency.artifacts.empty) {
+            def requestedArtifact = dependency.artifacts.iterator().next()
+            if (requestedArtifact.classifier != null) {
+                productionNotation.classifier = requestedArtifact.classifier
+            }
+            if (requestedArtifact.extension != null) {
+                productionNotation.ext = requestedArtifact.extension
+            }
+        }
+        def productionDependency = project.dependencies.create(
+            productionNotation
+        )
+        productionDependency.transitive = false
+        runtimeTestProductionMods.dependencies.add(productionDependency)
+    }
+}
+def runtimeTestModsDir = providers.gradleProperty('runtimeTestModsDir')
+    .map { file(it) }
+    .orElse(layout.buildDirectory.dir('runtime-test/instance/mods'))
+def runtimeTestMinecraftDir = providers.gradleProperty('runtimeTestMinecraftDir')
+    .map { file(it) }
+    .orElse(layout.buildDirectory.dir('runtime-test/minecraft'))
+def runtimeTestSupportDir = layout.buildDirectory.dir('runtime-test/support')
+def runtimeTestClientModsDir = layout.buildDirectory.dir('runtime-test/client-mods')
+def runtimeRemappedDir = layout.buildDirectory.dir('runtime-test/remapped-mods')
+def runtimeMcpRemapMarker = layout.buildDirectory.file(
+    'runtime-test/runtime-mcp-remap.marker'
+)
+
+def runtimeProductionFiles = []
+def runtimeFallbackArtifacts = []
+def namespaceAttribute = Attribute.of(
+    'com.gtnewhorizons.retrofuturagradle.obfuscation',
+    String
+)
+
+def resolveProductionArtifact = { artifact ->
+    def moduleId = artifact.variant.owner
+    if (!(moduleId instanceof ModuleComponentIdentifier)) {
+        throw new GradleException(
+            "Runtime test artifact is not an external module: ${artifact.file}"
+        )
+    }
+
+    def productionDependency = project.dependencies.create([
+        group: moduleId.group,
+        name: moduleId.module,
+        version: moduleId.version
+    ])
+    productionDependency.transitive = false
+    def productionConfiguration = configurations.detachedConfiguration(
+        productionDependency
+    )
+    productionConfiguration.transitive = false
+    productionConfiguration.attributes {
+        attribute(namespaceAttribute, 'srg')
+    }
+    def candidates = productionConfiguration.incoming.artifactView {
+        lenient true
+    }.artifacts.findAll { candidate ->
+        candidate.file.name.endsWith('.jar')
+            && !candidate.file.name.endsWith('-dev.jar')
+            && !candidate.file.name.endsWith('-sources.jar')
+    }
+    if (candidates.isEmpty()) {
+        return null
+    }
+    if (candidates.size() > 1) {
+        throw new GradleException(
+            "Multiple production artifacts resolved for ${moduleId}: " +
+                candidates.collect { it.file.name }.join(', ')
+        )
+    }
+    candidates.iterator().next().file
+}
+
+runtimeTestProductionMods.incoming.artifactView {}.artifacts.each { artifact ->
+    if (!artifact.file.name.endsWith('.jar')
+        || artifact.file.name.endsWith('-sources.jar')) {
+        return
+    }
+
+    def artifactNamespace = artifact.variant.attributes.getAttribute(namespaceAttribute)
+    def isMcpArtifact = artifactNamespace == 'mcp'
+    def isDevArtifact = artifact.file.name.endsWith('-dev.jar')
+    if (!isMcpArtifact && !isDevArtifact) {
+        runtimeProductionFiles.add(artifact.file)
+        return
+    }
+
+    def productionFile = resolveProductionArtifact(artifact)
+    if (productionFile == null) {
+        runtimeFallbackArtifacts.add(artifact)
+    } else {
+        runtimeProductionFiles.add(productionFile)
+    }
+}
+
+def runtimeFallbackTasks = []
+def runtimeFallbackInputDir = layout.buildDirectory.dir(
+    'runtime-test/inputs'
+)
+runtimeFallbackArtifacts.eachWithIndex { artifact, index ->
+    def inputTask = tasks.register("runtimeTestInput${index}", Jar) {
+        archiveFileName = "runtime-test-input-${index}.jar"
+        destinationDirectory = runtimeFallbackInputDir
+        from { zipTree(artifact.file) }
+    }
+    def remapTask = minecraftConfig.remap(
+        inputTask.get(),
+        "runtimeTestRemap${index}"
+    ) {
+        devNamespace 'mcp'
+        prodNamespace productionNamespace.name
+        mixinRemap {
+            enableMixinExtra()
+            disableRefmap()
+        }
+    }
+    remapTask.configure {
+        archiveFileName = artifact.file.name.replaceFirst(
+            '-dev(?=\\.jar$)',
+            ''
+        )
+        destinationDirectory = runtimeRemappedDir
+        doFirst {
+            logger.lifecycle(
+                "[RuntimeTest] Remapping ${artifact.file.name} from mcp " +
+                    "to ${productionNamespace.name}"
+            )
+        }
+        doLast {
+            logger.lifecycle(
+                "[RuntimeTest] Finished remapping ${artifact.file.name}"
+            )
+        }
+    }
+    runtimeFallbackTasks.add(remapTask)
+}
+
+def runtimeMcpRemapTask = tasks.register('runtimeTestRemapMcp') {
+    dependsOn(runtimeFallbackTasks)
+    inputs.files(runtimeFallbackTasks.collect { remapTask ->
+        remapTask.flatMap { it.archiveFile }
+    })
+    inputs.files(runtimeProductionFiles)
+    inputs.property('runtimeRemapSchema', 'runtime-production-variants-v2')
+    outputs.file(runtimeMcpRemapMarker)
+    doLast {
+        def remappedFiles = runtimeFallbackTasks.collect { remapTask ->
+            remapTask.get().archiveFile.get().asFile
+        }
+        runtimeMcpRemapMarker.get().asFile.text = (
+            runtimeProductionFiles.collect { it.name } +
+                remappedFiles.collect { it.name }
+        ).sort().join('\n') + '\n'
+        if (remappedFiles.isEmpty()) {
+            project.delete(runtimeRemappedDir)
+        }
+        logger.lifecycle(
+            "[RuntimeTest] Production variants: ${runtimeProductionFiles.size()}, " +
+                "fallback remaps: ${remappedFiles.size()}"
+        )
+    }
+}
+
+
+
+tasks.register('stageRuntimeTestMods', Sync) {
+    dependsOn productionJarTask
+    dependsOn(runtimeMcpRemapTask)
+    from(productionJarTask.flatMap { it.archiveFile })
+    from(runtimeProductionFiles)
+    runtimeFallbackTasks.each { remapTask ->
+        from(remapTask.flatMap { it.archiveFile })
+    }
+    into(runtimeTestModsDir)
+    include '*.jar'
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+tasks.register('stageRuntimeTestClientMods', Sync) {
+    dependsOn 'stageRuntimeTestMods'
+    from(runtimeTestSupportDir) {
+        include '*.jar'
+    }
+    into(runtimeTestClientModsDir)
+    include '*.jar'
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+}
+
+tasks.register('installRuntimeTestClient', JavaExec) {
+    dependsOn cleanroomInstaller
+    dependsOn 'stageRuntimeTestClientMods'
+    classpath = cleanroomInstaller
+    mainClass = 'net.minecraftforge.installer.SimpleInstaller'
+    def installDir = runtimeTestMinecraftDir.get().asFile
+    def profile = new File(
+        installDir,
+        "versions/${minecraftVersion}-Cleanroom-${cleanroomVersion}/" +
+        "${minecraftVersion}-Cleanroom-${cleanroomVersion}.json"
+    )
+    def cleanroomJar = new File(
+        installDir,
+        "libraries/com/cleanroommc/cleanroom/${cleanroomVersion}/" +
+        "cleanroom-${cleanroomVersion}.jar"
+    )
+    def marker = layout.buildDirectory.file('runtime-test/cleanroom-client-installed.marker').get().asFile
+    onlyIf {
+        !marker.exists()
+            || marker.text.trim() != "${minecraftVersion}-Cleanroom-${cleanroomVersion}"
+            || !profile.isFile()
+            || !cleanroomJar.isFile()
+    }
+    doFirst {
+        installDir.mkdirs()
+        def launcherProfiles = new File(installDir, 'launcher_profiles.json')
+        if (!launcherProfiles.exists()) {
+            launcherProfiles.text = '{"profiles":{},"selectedProfile":""}'
+        }
+        args '--install-client', installDir.absolutePath
+    }
+    doLast {
+        marker.parentFile.mkdirs()
+        marker.text = "${minecraftVersion}-Cleanroom-${cleanroomVersion}\n"
+    }
+}
+
+tasks.register('printRuntimeTestPaths') {
+    doLast {
+        println "runtimeTestModsDir=${runtimeTestModsDir.get().absolutePath}"
+        println "runtimeTestMinecraftDir=${runtimeTestMinecraftDir.get().absolutePath}"
+    }
+}
+
 spotless {
     java {
-        // Don't forget to change the path.
-        target 'src/*/java/com/example/modid/**/*.java'
-
+        target 'src/main/java/**/*.java'
         leadingTabsToSpaces()
         endWithNewline()
         removeUnusedImports()
