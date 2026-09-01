@@ -14,6 +14,9 @@ public class CrystalFixerRecipeSerializer implements IAERecipeFactory {
     public void register(JsonObject json, JsonContext ctx) {
         JsonObject fuel = JsonUtils.getJsonObject(json, "fuel");
         Ingredient fuelIngredient = JsonRecipeUtils.readIngredient(fuel, "ingredient", ctx);
+        if (!JsonRecipeUtils.hasMatchingItems(fuelIngredient)) {
+            return;
+        }
         int fuelAmount = JsonUtils.getInt(fuel, "amount", 1);
         if (fuelAmount <= 0) {
             throw new JsonSyntaxException("fuel amount must be positive");

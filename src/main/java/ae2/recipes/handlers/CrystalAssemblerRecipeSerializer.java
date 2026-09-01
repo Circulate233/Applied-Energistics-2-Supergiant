@@ -26,6 +26,9 @@ public class CrystalAssemblerRecipeSerializer implements IAERecipeFactory {
         for (var element : array) {
             JsonObject input = JsonRecipeUtils.readObject(element, "input_items entry");
             Ingredient ingredient = JsonRecipeUtils.readIngredient(input, "ingredient", ctx);
+            if (!JsonRecipeUtils.hasMatchingItems(ingredient)) {
+                return null;
+            }
             int amount = JsonUtils.getInt(input, "amount", 1);
             if (amount <= 0) {
                 throw new JsonSyntaxException("input_items amount must be positive");
@@ -81,6 +84,9 @@ public class CrystalAssemblerRecipeSerializer implements IAERecipeFactory {
     @Override
     public void register(JsonObject json, JsonContext ctx) {
         List<CrystalAssemblerRecipe.SizedIngredient> inputs = readItemInputs(json, ctx);
+        if (inputs == null) {
+            return;
+        }
         CrystalAssemblerRecipe.SizedFluidIngredient fluid = readFluidInput(json, ctx);
         AERecipeTypes.CRYSTAL_ASSEMBLER.register(new CrystalAssemblerRecipe(
             inputs,

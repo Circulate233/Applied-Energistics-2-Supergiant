@@ -1,6 +1,7 @@
 package ae2.recipes.serializers;
 
 import ae2.api.ids.AEItemIds;
+import ae2.core.AELog;
 import ae2.util.EmptyArrays;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -92,8 +93,27 @@ public final class JsonRecipeUtils {
     }
 
     private static Ingredient readIngredient(JsonElement json, JsonContext ctx) {
-        Ingredient bridged = tryReadIngredient(json, ctx);
-        return bridged != null ? bridged : CraftingHelper.getIngredient(json, ctx);
+        Ingredient ingredient;
+        try {
+            Ingredient bridged = tryReadIngredient(json, ctx);
+            ingredient = bridged != null ? bridged : CraftingHelper.getIngredient(json, ctx);
+        } catch (RuntimeException e) {
+            if (isOreDictionaryIngredient(json)) {
+                return Ingredient.EMPTY;
+            }
+            if (isUnknownItemException(e)) {
+                AELog.warn("Skipping recipe ingredient with no matching item: %s", json);
+                return Ingredient.EMPTY;
+            }
+            throw e;
+        }
+        if (hasMatchingItems(ingredient)) {
+            return ingredient;
+        }
+        if (!isOreDictionaryIngredient(json) && json != null && !json.isJsonNull()) {
+            AELog.warn("Skipping recipe ingredient with no matching item: %s", json);
+        }
+        return Ingredient.EMPTY;
     }
 
     @Nullable
@@ -106,7 +126,7 @@ public final class JsonRecipeUtils {
             validateArraySize(json.getAsJsonArray(), "ingredient alternatives");
             List<ItemStack> alternatives = new ObjectArrayList<>();
             addAlternativeStacks(alternatives, json.getAsJsonArray(), ctx);
-            return createIngredient(alternatives, "ingredient alternatives");
+            return createIngredient(alternatives);
         }
 
         if (!json.isJsonObject()) {
@@ -126,12 +146,12 @@ public final class JsonRecipeUtils {
         List<ItemStack> alternatives = new ObjectArrayList<>();
         Set<String> seen = new ObjectLinkedOpenHashSet<>();
         addTagItems(alternatives, seen, tagId);
-        return createIngredient(alternatives, "tag " + tagId);
+        return createIngredient(alternatives);
     }
 
-    private static Ingredient createIngredient(List<ItemStack> alternatives, String description) {
+    private static Ingredient createIngredient(List<ItemStack> alternatives) {
         if (alternatives.isEmpty()) {
-            throw new JsonSyntaxException("Could not resolve any matches for " + description);
+            return Ingredient.EMPTY;
         }
         return Ingredient.fromStacks(alternatives.toArray(EmptyArrays.EMPTY_ITEM_STACK_ARRAY));
     }
@@ -284,5 +304,81 @@ public final class JsonRecipeUtils {
         } catch (RuntimeException e) {
             throw new JsonSyntaxException("Invalid resource id: " + id, e);
         }
+    }
+
+    public static boolean hasMatchingItems(Ingredient ingredient) {
+        if (ingredient == null || ingredient == Ingredient.EMPTY) {
+            return false;
+        }
+        ItemStack[] stacks = ingredient.getMatchingStacks();
+        if (stacks == null) {
+            return false;
+        }
+        for (ItemStack stack : stacks) {
+            if (stack != null && !stack.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public static boolean hasMatchingItems(List<Ingredient> ingredients) {
+        if (ingredients == null || ingredients.isEmpty()) {
+            return false;
+        }
+        for (Ingredient ingredient : ingredients) {
+            if (!hasMatchingItems(ingredient)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean isOreDictionaryIngredient(JsonElement json) {
+        if (json == null || json.isJsonNull()) {
+            return false;
+        }
+        if (json.isJsonArray()) {
+            JsonArray array = json.getAsJsonArray();
+            if (array.isEmpty()) {
+                return false;
+            }
+            for (JsonElement element : array) {
+                if (!isOreDictionaryIngredient(element)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (!json.isJsonObject()) {
+            return false;
+        }
+
+        JsonObject object = json.getAsJsonObject();
+        if (object.has("ore")) {
+            return true;
+        }
+        if (object.has("type")) {
+            String type = JsonUtils.getString(object, "type");
+            if ("forge:ore_dict".equals(type) || "forge:oredict".equals(type) || type.endsWith(":ore_dict")) {
+                return true;
+            }
+        }
+        if (object.has("tag")) {
+            ResourceLocation tagId = parseId(JsonUtils.getString(object, "tag"));
+            return ENDER_PEARLS_TAG.equals(tagId) || toOreDictionaryName(tagId) != null;
+        }
+        return false;
+    }
+
+    private static boolean isUnknownItemException(Throwable throwable) {
+        while (throwable != null) {
+            String message = throwable.getMessage();
+            if (message != null && (message.startsWith("Unknown item") || message.contains("Unknown item '"))) {
+                return true;
+            }
+            throwable = throwable.getCause();
+        }
+        return false;
     }
 }

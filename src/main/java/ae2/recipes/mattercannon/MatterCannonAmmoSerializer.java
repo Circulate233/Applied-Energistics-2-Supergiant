@@ -1,6 +1,5 @@
 package ae2.recipes.mattercannon;
 
-import ae2.core.AELog;
 import ae2.recipes.AERecipeTypes;
 import ae2.recipes.IAERecipeFactory;
 import ae2.recipes.serializers.JsonRecipeUtils;
@@ -19,8 +18,7 @@ public class MatterCannonAmmoSerializer implements IAERecipeFactory {
         }
 
         Ingredient ammo = JsonRecipeUtils.readIngredient(json, "ammo", ctx);
-        if (ammo == Ingredient.EMPTY || ammo.getMatchingStacks().length == 0) {
-            AELog.warn("Skipping matter cannon ammo recipe with no matching ammo ingredient: %s", json);
+        if (!JsonRecipeUtils.hasMatchingItems(ammo)) {
             return;
         }
 

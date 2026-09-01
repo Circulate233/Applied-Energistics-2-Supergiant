@@ -10,12 +10,16 @@ import net.minecraftforge.common.crafting.JsonContext;
 
 import java.util.List;
 
+@SuppressWarnings("unused")
 public class QuartzCuttingRecipeFactory implements IRecipeFactory {
     private static final Ingredient[] EMPTY_INGREDIENT_ARRAY = new Ingredient[0];
 
     @Override
     public IRecipe parse(JsonContext context, JsonObject json) {
         List<Ingredient> ingredients = JsonRecipeUtils.readIngredients(json, "ingredients", context);
+        if (!JsonRecipeUtils.hasMatchingItems(ingredients)) {
+            return new AENonCraftingRecipe();
+        }
         return new QuartzCuttingRecipe(
             JsonRecipeUtils.readItemStack(json, "result", context),
             NonNullList.from(Ingredient.EMPTY, ingredients.toArray(EMPTY_INGREDIENT_ARRAY)));

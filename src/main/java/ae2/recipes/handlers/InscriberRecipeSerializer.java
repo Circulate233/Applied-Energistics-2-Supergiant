@@ -26,6 +26,11 @@ public class InscriberRecipeSerializer implements IAERecipeFactory {
             : Ingredient.EMPTY;
         Ingredient middle = JsonRecipeUtils.readIngredient(ingredients, "middle", ctx);
         String mode = JsonUtils.getString(json, "mode", "inscribe");
+        if (!JsonRecipeUtils.hasMatchingItems(middle)
+            || ingredients.has("top") && !JsonRecipeUtils.hasMatchingItems(top)
+            || ingredients.has("bottom") && !JsonRecipeUtils.hasMatchingItems(bottom)) {
+            return;
+        }
 
         AERecipeTypes.INSCRIBER.register(new InscriberRecipe(
             middle,

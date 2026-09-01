@@ -77,6 +77,9 @@ public final class FurnaceRecipeRegistry {
 
     private static void registerRecipe(JsonObject json, JsonContext ctx) {
         Ingredient ingredient = JsonRecipeUtils.readIngredient(json, "ingredient", ctx);
+        if (!JsonRecipeUtils.hasMatchingItems(ingredient)) {
+            return;
+        }
         ItemStack output = JsonRecipeUtils.readItemStack(json, "result", ctx);
         float experience = JsonUtils.getFloat(json, "experience", 0.0F);
         if (!Float.isFinite(experience) || experience < 0) {

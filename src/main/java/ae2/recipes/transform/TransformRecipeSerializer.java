@@ -15,6 +15,9 @@ public class TransformRecipeSerializer implements IAERecipeFactory {
     public void register(JsonObject json, JsonContext ctx) {
         List<Ingredient> ingredients = JsonRecipeUtils.readIngredients(json, "ingredients",
             ctx);
+        if (!JsonRecipeUtils.hasMatchingItems(ingredients)) {
+            return;
+        }
         JsonObject circumstance = json.has("circumstance") ? JsonUtils.getJsonObject(json, "circumstance") : null;
         AERecipeTypes.TRANSFORM.register(new TransformRecipe(
             ingredients,

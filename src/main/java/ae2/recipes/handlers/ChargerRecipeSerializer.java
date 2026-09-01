@@ -9,8 +9,10 @@ import net.minecraftforge.common.crafting.JsonContext;
 public class ChargerRecipeSerializer implements IAERecipeFactory {
     @Override
     public void register(JsonObject json, JsonContext ctx) {
-        AERecipeTypes.CHARGER.register(new ChargerRecipe(
-            JsonRecipeUtils.readIngredient(json, "ingredient", ctx),
-            JsonRecipeUtils.readItemStack(json, "result", ctx)));
+        var ingredient = JsonRecipeUtils.readIngredient(json, "ingredient", ctx);
+        if (!JsonRecipeUtils.hasMatchingItems(ingredient)) {
+            return;
+        }
+        AERecipeTypes.CHARGER.register(new ChargerRecipe(ingredient, JsonRecipeUtils.readItemStack(json, "result", ctx)));
     }
 }
