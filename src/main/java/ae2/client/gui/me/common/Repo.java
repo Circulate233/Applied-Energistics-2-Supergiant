@@ -87,6 +87,10 @@ public class Repo implements IClientRepo {
      * Entries by item ID to speed up ingredient matching.
      */
     private final Int2ObjectOpenHashMap<ObjectList<GridInventoryEntry>> entriesByItemId = new Int2ObjectOpenHashMap<>();
+    /**
+     * Live server entries keyed by AEKey so a frozen view can resolve the current serial.
+     */
+    private final Object2ObjectOpenHashMap<AEKey, GridInventoryEntry> liveEntriesByKey = new Object2ObjectOpenHashMap<>();
     private final RepoSearch search = new RepoSearch();
     private final IScrollSource src;
     private final ISortSource sortSrc;
@@ -253,7 +257,7 @@ public class Repo implements IClientRepo {
                 Throwable failure = ExternalSortFallback.sort(
                     this.view,
                     comparator,
-                    getFallbackComparator(sortDir));
+                    getFallbackComparator(sortOrder, sortDir));
                 if (failure != null) {
                     AELog.warn(failure, "External terminal sorting failed for %s; using stable ordering", sortOrder);
                 }
@@ -487,8 +491,13 @@ public class Repo implements IClientRepo {
                          .thenComparingLong(GridInventoryEntry::serial);
     }
 
-    private Comparator<? super GridInventoryEntry> getFallbackComparator(SortDir sortDir) {
-        return Comparator.comparing(GridInventoryEntry::what, KeySorters.getFallbackComparator(sortDir))
+    private Comparator<? super GridInventoryEntry> getFallbackComparator(SortOrder sortOrder, SortDir sortDir) {
+        var keyComparator = sortOrder == SortOrder.INVTWEAKS
+            ? KeySorters.getInvTweaksFallbackComparator(sortDir)
+            : sortOrder == SortOrder.HEI
+            ? KeySorters.getHeiMissingRankComparator(sortDir)
+            : KeySorters.getFallbackComparator(sortDir);
+        return Comparator.comparing(GridInventoryEntry::what, keyComparator)
                          .thenComparingLong(GridInventoryEntry::serial);
     }
 
@@ -529,6 +538,23 @@ public class Repo implements IClientRepo {
         return this.view.get(idx);
     }
 
+    /**
+     * Maps a displayed (possibly frozen) entry to the live server entry that should be used for extraction.
+     * While paused, the visible serial may have been reused; the live table is keyed by {@link AEKey}.
+     */
+    @Nullable
+    public final GridInventoryEntry resolveInteractionEntry(@Nullable GridInventoryEntry displayed) {
+        if (displayed == null || displayed.what() == null) {
+            return displayed;
+        }
+        if (!isPaused()) {
+            return displayed;
+        }
+
+        var live = this.liveEntriesByKey.get(displayed.what());
+        return live != null && live.isMeaningful() ? live : null;
+    }
+
     private int getScrollableIndex(int visibleOffset) {
         return visibleOffset + this.src.getCurrentScroll() * this.rowSize;
     }
@@ -559,6 +585,7 @@ public class Repo implements IClientRepo {
     private void clearEntries() {
         this.entries.clear();
         this.entriesByItemId.clear();
+        this.liveEntriesByKey.clear();
     }
 
     public final boolean hasPinnedRow() {
@@ -685,6 +712,7 @@ public class Repo implements IClientRepo {
     }
 
     private void addEntryByItemId(GridInventoryEntry entry) {
+        addLiveEntry(entry);
         if (!(entry.what() instanceof AEItemKey itemKey)) {
             return;
         }
@@ -693,6 +721,7 @@ public class Repo implements IClientRepo {
     }
 
     private void removeEntryByItemId(GridInventoryEntry entry) {
+        removeLiveEntry(entry);
         if (!(entry.what() instanceof AEItemKey itemKey)) {
             return;
         }
@@ -704,6 +733,22 @@ public class Repo implements IClientRepo {
         currentList.remove(entry);
         if (currentList.isEmpty()) {
             this.entriesByItemId.remove(itemId);
+        }
+    }
+
+    private void addLiveEntry(GridInventoryEntry entry) {
+        if (entry.what() != null) {
+            this.liveEntriesByKey.put(entry.what(), entry);
+        }
+    }
+
+    private void removeLiveEntry(GridInventoryEntry entry) {
+        if (entry.what() == null) {
+            return;
+        }
+        var current = this.liveEntriesByKey.get(entry.what());
+        if (current == entry) {
+            this.liveEntriesByKey.remove(entry.what());
         }
     }
 
@@ -724,4 +769,3 @@ public class Repo implements IClientRepo {
         return false;
     }
 }
-

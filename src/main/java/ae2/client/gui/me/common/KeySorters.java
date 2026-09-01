@@ -43,10 +43,8 @@ final class KeySorters {
     public static final Comparator<AEKey> MOD_DESC = MOD_ASC.reversed();
     private static final Comparator<AEKey> FALLBACK_ASC = KeySorters::compareByFallback;
     private static final Comparator<AEKey> FALLBACK_DESC = FALLBACK_ASC.reversed();
-    public static final Comparator<AEKey> INVTWEAKS_ASC = ExternalSortFallback.comparator(
-        KeySorters::compareInvTweaks,
-        FALLBACK_ASC);
-    public static final Comparator<AEKey> INVTWEAKS_DESC = INVTWEAKS_ASC.reversed();
+    public static final Comparator<AEKey> INVTWEAKS_ASC = invTweaksComparator(SortDir.ASCENDING);
+    public static final Comparator<AEKey> INVTWEAKS_DESC = invTweaksComparator(SortDir.DESCENDING);
 
     private KeySorters() {
     }
@@ -62,7 +60,7 @@ final class KeySorters {
                 componentWeights.defaultReturnValue(-1);
                 yield ExternalSortFallback.comparator(
                     (left, right) -> compareHei(left, right, hei, componentWeights, dir),
-                    getFallbackComparator(dir));
+                    getHeiMissingRankComparator(dir));
             }
             case AMOUNT -> throw new UnsupportedOperationException();
         };
@@ -72,21 +70,63 @@ final class KeySorters {
         return dir == SortDir.ASCENDING ? FALLBACK_ASC : FALLBACK_DESC;
     }
 
-    private static int compareInvTweaks(AEKey left, AEKey right) {
-        if (!(left instanceof AEItemKey leftItem) || !(right instanceof AEItemKey rightItem)) {
-            return compareByFallback(left, right);
+    static Comparator<AEKey> getInvTweaksFallbackComparator(SortDir dir) {
+        return typeGroupedFallback(dir);
+    }
+
+    private static Comparator<AEKey> invTweaksComparator(SortDir dir) {
+        return ExternalSortFallback.comparator(
+            (left, right) -> compareInvTweaks(left, right, dir),
+            typeGroupedFallback(dir));
+    }
+
+    static Comparator<AEKey> getHeiMissingRankComparator(SortDir dir) {
+        return typeGroupedFallback(dir);
+    }
+
+    private static Comparator<AEKey> typeGroupedFallback(SortDir dir) {
+        return (left, right) -> {
+            int typeCompare = compareTypeGroup(left, right);
+            if (typeCompare != 0) {
+                return typeCompare;
+            }
+            int fallback = compareByFallback(left, right);
+            return dir == SortDir.DESCENDING ? -fallback : fallback;
+        };
+    }
+
+    private static int compareTypeGroup(AEKey left, AEKey right) {
+        boolean leftItem = left instanceof AEItemKey;
+        boolean rightItem = right instanceof AEItemKey;
+        if (leftItem != rightItem) {
+            return leftItem ? 1 : -1;
+        }
+        if (!leftItem) {
+            return left.getType().getId().compareTo(right.getType().getId());
+        }
+        return 0;
+    }
+
+    private static int compareInvTweaks(AEKey left, AEKey right, SortDir dir) {
+        int typeCompare = compareTypeGroup(left, right);
+        if (typeCompare != 0) {
+            return typeCompare;
         }
 
-        var bogoComparator = InventoryBogoSortModule.getComparator();
-        if (bogoComparator != null) {
-            return bogoComparator.compare(leftItem.getReadOnlyStack(), rightItem.getReadOnlyStack());
+        int compared;
+        if (left instanceof AEItemKey leftItem && right instanceof AEItemKey rightItem) {
+            var bogoComparator = InventoryBogoSortModule.getComparator();
+            if (bogoComparator != null) {
+                compared = bogoComparator.compare(leftItem.getReadOnlyStack(), rightItem.getReadOnlyStack());
+            } else if (InventoryTweaksModule.isLoaded()) {
+                compared = InventoryTweaksModule.compareItems(leftItem.getReadOnlyStack(), rightItem.getReadOnlyStack());
+            } else {
+                compared = compareByFallback(left, right);
+            }
+        } else {
+            compared = compareByFallback(left, right);
         }
-
-        if (InventoryTweaksModule.isLoaded()) {
-            return InventoryTweaksModule.compareItems(leftItem.getReadOnlyStack(), rightItem.getReadOnlyStack());
-        }
-
-        return compareByFallback(left, right);
+        return dir == SortDir.DESCENDING ? -compared : compared;
     }
 
     private static int compareHei(AEKey left, AEKey right, HeiAdapter hei, Object2IntMap<AEKey> componentWeights,
@@ -121,7 +161,12 @@ final class KeySorters {
             return dir == SortDir.ASCENDING ? 1 : -1;
         }
 
-        return compareByFallback(left, right);
+        int typeCompare = compareTypeGroup(left, right);
+        if (typeCompare != 0) {
+            return typeCompare;
+        }
+        int fallback = compareByFallback(left, right);
+        return dir == SortDir.DESCENDING ? -fallback : fallback;
     }
 
     private static int getComponentWeight(AEKey key, Object2IntMap<AEKey> componentWeights) {

@@ -907,6 +907,12 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
             return;
         }
 
+        GridInventoryEntry displayed = entry;
+        entry = this.repo.resolveInteractionEntry(displayed);
+        if (displayed != null && displayed.what() != null && entry == null) {
+            return;
+        }
+
         if (mouseButton == 0
             && clickType == ClickType.PICKUP
             && entry != null
@@ -921,7 +927,7 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
             InventoryAction action = clickType != ClickType.QUICK_MOVE
                 ? InventoryAction.FILL_ITEM
                 : this.playerInventory.getItemStack().isEmpty() ? InventoryAction.FILL_ENTIRE_ITEM_MOVE_TO_PLAYER
-                  : InventoryAction.FILL_ENTIRE_ITEM;
+                : InventoryAction.FILL_ENTIRE_ITEM;
             this.container.handleInteraction(entry.serial(), action);
             autoPinAfterGridAction(entry, autoPinAfterAction);
             return;
@@ -1123,7 +1129,11 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
             int mouseY = this.height - Mouse.getEventY() * this.height / this.mc.displayHeight - 1;
             RepoSlot repoSlot = getRepoSlotAt(mouseX, mouseY);
             if (repoSlot != null) {
-                GridInventoryEntry entry = repoSlot.getEntry();
+                GridInventoryEntry displayed = repoSlot.getEntry();
+                GridInventoryEntry entry = this.repo.resolveInteractionEntry(displayed);
+                if (displayed != null && displayed.what() != null && entry == null) {
+                    return;
+                }
                 long serial = entry != null ? entry.serial() : -1;
                 InventoryAction action = delta > 0 ? InventoryAction.ROLL_DOWN : InventoryAction.ROLL_UP;
                 int times = Math.max(1, Math.abs(delta) / 120);
