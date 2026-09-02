@@ -223,6 +223,8 @@ public enum GuiText implements LocalizationEnum {
     CraftingCpuList,
     CraftingCpuListEmpty,
     CraftingCpuListSearchTooltip,
+    CraftingCpuListSearchTooltipName,
+    CraftingCpuListSearchTooltipOutput,
     CraftingCpuActivityActive,
     CraftingCpuActivityFilter,
     CraftingCpuActivityInactive,

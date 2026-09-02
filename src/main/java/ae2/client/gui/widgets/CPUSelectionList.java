@@ -164,7 +164,10 @@ public class CPUSelectionList implements ICompositeWidget {
         this.searchField.setVisible(true);
         this.searchField.setPlaceholder(GuiText.SearchPlaceholder.getLocal());
         this.searchField.setResponder(this::setSearchText);
-        this.searchField.setTooltipMessage(List.of(GuiText.CraftingCpuListSearchTooltip.text()));
+        this.searchField.setTooltipMessage(List.of(
+            GuiText.CraftingCpuListSearchTooltip.text(),
+            GuiText.CraftingCpuListSearchTooltipName.text(),
+            GuiText.CraftingCpuListSearchTooltipOutput.text()));
         HeaderSettingButton<ModeFilter> modeFilterButton = new HeaderSettingButton<>(
             MODE_FILTER_SETTING,
             MODE_FILTER_BUTTON_X,
@@ -210,6 +213,14 @@ public class CPUSelectionList implements ICompositeWidget {
 
     private static String normalizedName(ContainerCraftingStatus.CraftingCpuListEntry cpu) {
         return getCpuNameStatic(cpu).getFormattedText().toLowerCase(Locale.ROOT);
+    }
+
+    @Nullable
+    private static String normalizedOutputName(ContainerCraftingStatus.CraftingCpuListEntry cpu) {
+        var currentJob = cpu.currentJob();
+        return currentJob == null
+            ? null
+            : currentJob.what().getDisplayName().getFormattedText().toLowerCase(Locale.ROOT);
     }
 
     static String getRenameInitialText(ContainerCraftingStatus.CraftingCpuListEntry cpu) {
@@ -1230,7 +1241,8 @@ public class CPUSelectionList implements ICompositeWidget {
     public enum SortMode {
         NAME(GuiText.CraftingCpuSortName.text(), HeaderIcon.ofIcon(Icon.SORT_BY_NAME)),
         CAPACITY(ButtonToolTips.SortByCapacity.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_STORAGE)),
-        COPROCESSORS(ButtonToolTips.SortByCoProcessors.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_PROCESSOR));
+        COPROCESSORS(ButtonToolTips.SortByCoProcessors.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_PROCESSOR)),
+        OPERATING_TIME(ButtonToolTips.SortByOperatingTime.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_OPERATING_TIME));
 
         public static final SortMode[] VALUES = SortMode.values();
         private final ITextComponent tooltip;
@@ -1345,7 +1357,10 @@ public class CPUSelectionList implements ICompositeWidget {
             String normalizedSearch = searchText.trim().toLowerCase(Locale.ROOT);
             Comparator<ContainerCraftingStatus.CraftingCpuListEntry> comparator = comparator();
             List<ContainerCraftingStatus.CraftingCpuListEntry> filtered = cpus.stream()
-                                                                              .filter(cpu -> normalizedSearch.isEmpty() || normalizedName(cpu).contains(normalizedSearch))
+                                                                              .filter(cpu -> CraftingCpuSearch.matches(
+                                                                                  normalizedSearch,
+                                                                                  normalizedName(cpu),
+                                                                                  normalizedOutputName(cpu)))
                                                                               .filter(cpu -> modeFilter.matches(cpu.mode()))
                                                                               .filter(activityFilter::matches)
                                                                               .sorted(comparator)
@@ -1369,6 +1384,9 @@ public class CPUSelectionList implements ICompositeWidget {
                 case COPROCESSORS -> sortDirection == SortDirection.ASCENDING
                     ? Comparator.comparingInt(ContainerCraftingStatus.CraftingCpuListEntry::coProcessors)
                     : Comparator.comparingInt(ContainerCraftingStatus.CraftingCpuListEntry::coProcessors).reversed();
+                case OPERATING_TIME -> sortDirection == SortDirection.ASCENDING
+                    ? Comparator.comparingLong(ContainerCraftingStatus.CraftingCpuListEntry::elapsedTimeNanos)
+                    : Comparator.comparingLong(ContainerCraftingStatus.CraftingCpuListEntry::elapsedTimeNanos).reversed();
             };
 
             return comparator.thenComparing(CPUSelectionList::normalizedName)

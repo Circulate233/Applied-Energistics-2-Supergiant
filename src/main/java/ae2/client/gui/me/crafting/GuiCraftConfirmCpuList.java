@@ -8,6 +8,7 @@ import ae2.client.gui.style.Blitter;
 import ae2.client.gui.style.GuiStyle;
 import ae2.client.gui.style.GuiStyleManager;
 import ae2.client.gui.widgets.AETextField;
+import ae2.client.gui.widgets.CraftingCpuSearch;
 import ae2.client.gui.widgets.DynamicIconButton;
 import ae2.client.gui.widgets.ITextFieldGui;
 import ae2.client.gui.widgets.Scrollbar;
@@ -86,7 +87,10 @@ public class GuiCraftConfirmCpuList extends AEBaseGui<ContainerCraftConfirm> imp
             this::returnToParent));
         this.searchField = this.widgets.addTextField("search");
         this.searchField.setPlaceholder(GuiText.SearchPlaceholder.getLocal());
-        this.searchField.setTooltipMessage(List.of(GuiText.CraftingCpuListSearchTooltip.text()));
+        this.searchField.setTooltipMessage(List.of(
+            GuiText.CraftingCpuListSearchTooltip.text(),
+            GuiText.CraftingCpuListSearchTooltipName.text(),
+            GuiText.CraftingCpuListSearchTooltipOutput.text()));
         this.searchField.setResponder(ignored -> updateSearch());
         this.scrollbar = this.widgets.addScrollBar("scrollbar", Scrollbar.BIG);
         this.sortButton = new DynamicIconButton(
@@ -323,8 +327,10 @@ public class GuiCraftConfirmCpuList extends AEBaseGui<ContainerCraftConfirm> imp
         this.visibleCpus.clear();
         String normalizedSearch = this.searchText.trim().toLowerCase(Locale.ROOT);
         for (CraftConfirmCpuList.Entry entry : cpuList.cpus()) {
-            if (normalizedSearch.isEmpty()
-                || getCpuName(entry).getFormattedText().toLowerCase(Locale.ROOT).contains(normalizedSearch)) {
+            if (CraftingCpuSearch.matches(
+                normalizedSearch,
+                getCpuName(entry).getFormattedText().toLowerCase(Locale.ROOT),
+                null)) {
                 this.visibleCpus.add(entry);
             }
         }

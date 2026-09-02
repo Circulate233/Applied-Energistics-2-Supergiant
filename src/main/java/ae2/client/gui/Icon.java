@@ -216,6 +216,7 @@ public final class Icon {
     public static final Icon CRAFT_CONFIRM_CPU_LIST_STORAGE = registerBuiltin("craft_confirm_cpu_list_storage");
     public static final Icon S_PROCESSOR = registerBuiltin("s_processor");
     public static final Icon CRAFT_CONFIRM_CPU_LIST_PROCESSOR = registerBuiltin("craft_confirm_cpu_list_processor");
+    public static final Icon CRAFT_CONFIRM_CPU_LIST_OPERATING_TIME = registerBuiltin("craft_confirm_cpu_list_operating_time");
     public static final Icon S_CRAFT = registerBuiltin("s_craft");
     public static final Icon S_TERMINAL = registerBuiltin("s_terminal");
     public static final Icon S_MACHINE = registerBuiltin("s_machine");

@@ -191,6 +191,7 @@ public enum ButtonToolTips implements LocalizationEnum {
     SortBy,
     SortByCapacity,
     SortByCoProcessors,
+    SortByOperatingTime,
     SortOrder,
     SortOrderAscendingDescription,
     SortOrderDescendingDescription,
