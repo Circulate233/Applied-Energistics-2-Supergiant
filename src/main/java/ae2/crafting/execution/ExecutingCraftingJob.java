@@ -22,6 +22,7 @@ import ae2.api.config.Actionable;
 import ae2.api.crafting.IPatternDetails;
 import ae2.api.crafting.PatternDetailsHelper;
 import ae2.api.networking.IGrid;
+import ae2.api.networking.crafting.CraftingJobOptions;
 import ae2.api.networking.crafting.ICraftingPlan;
 import ae2.api.networking.crafting.ICraftingProvider;
 import ae2.api.stacks.AEItemKey;
@@ -60,6 +61,8 @@ public class ExecutingCraftingJob {
     private static final String NBT_TASK_PSEUDO = "pseudo";
     private static final String NBT_TEMPORARY_PATTERNS = "temporaryPatterns";
     private static final String NBT_SUSPENDED = "suspended";
+    private static final String NBT_PRIORITY = "priority";
+    private static final String NBT_SUBSCRIBED = "subscribed";
     private static final String NBT_CRAFTING_PROGRESS = "#craftingProgress";
 
     final CraftingLink link;
@@ -77,9 +80,11 @@ public class ExecutingCraftingJob {
     long remainingIntermediateFinalOutput;
     long planBytes;
     boolean suspended;
+    int priority;
+    boolean subscribed;
 
     ExecutingCraftingJob(ICraftingPlan plan, CraftingDifferenceListener postCraftingDifference, CraftingLink link,
-                         @Nullable Integer playerId, KeyCounter remainingMissingItems) {
+                         @Nullable Integer playerId, KeyCounter remainingMissingItems, CraftingJobOptions options) {
         this.finalOutput = plan.finalOutput();
         this.totalFinalOutputAmount = this.finalOutput.amount();
         this.remainingAmount = this.finalOutput.amount();
@@ -109,6 +114,8 @@ public class ExecutingCraftingJob {
         this.link = link;
         this.playerId = playerId;
         this.suspended = false;
+        this.priority = options.priority();
+        this.subscribed = options.subscribed();
     }
 
     ExecutingCraftingJob(NBTTagCompound data,
@@ -166,6 +173,9 @@ public class ExecutingCraftingJob {
         }
 
         this.suspended = data.getBoolean(NBT_SUSPENDED);
+        this.priority = data.getInteger(NBT_PRIORITY);
+        // Older jobs were governed only by the client-wide notification preference, so preserve that behavior.
+        this.subscribed = !data.hasKey(NBT_SUBSCRIBED, Constants.NBT.TAG_BYTE) || data.getBoolean(NBT_SUBSCRIBED);
     }
 
     NBTTagCompound writeToNBT() {
@@ -205,6 +215,8 @@ public class ExecutingCraftingJob {
         }
 
         data.setBoolean(NBT_SUSPENDED, suspended);
+        data.setInteger(NBT_PRIORITY, priority);
+        data.setBoolean(NBT_SUBSCRIBED, subscribed);
         return data;
     }
 
@@ -220,7 +232,7 @@ public class ExecutingCraftingJob {
         return this.temporaryProviders.containsKey(PseudoPatternDetails.unwrap(details).getDefinition());
     }
 
-    void merge(ICraftingPlan plan, KeyCounter remainingMissingItems) {
+    void merge(ICraftingPlan plan, KeyCounter remainingMissingItems, int priority) {
         var planFinalOutput = plan.finalOutput();
         if (!this.finalOutput.what().equals(planFinalOutput.what())) {
             throw new IllegalArgumentException("Cannot merge crafting jobs with different final outputs");
@@ -238,6 +250,7 @@ public class ExecutingCraftingJob {
         addWaitingFor(plan.emittedItems());
         addWaitingFor(remainingMissingItems);
         addTasks(plan);
+        this.priority = priority;
     }
 
     private void addTemporaryProviders(ICraftingPlan plan) {

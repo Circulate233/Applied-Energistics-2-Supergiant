@@ -162,6 +162,17 @@ public interface ICraftingService extends IGridService {
     }
 
     /**
+     * Submit a job with player-facing execution options. Implementations that do not support these options retain
+     * their existing behavior.
+     */
+    default ICraftingSubmitResult submitJob(ICraftingPlan job, @Nullable ICraftingRequester requestingMachine,
+                                            @Nullable ICraftingCPU target,
+                                            boolean prioritizePower, IActionSource src, boolean forceStart,
+                                            boolean skipMerge, CraftingJobOptions options) {
+        return submitJob(job, requestingMachine, target, prioritizePower, src, forceStart, skipMerge);
+    }
+
+    /**
      * @return true when this player-facing plan can be merged into a running CPU job on this grid.
      */
     default boolean canMergeJob(ICraftingPlan job, IActionSource src) {

@@ -23,17 +23,19 @@ public class CraftingJobStatusPacket extends ClientboundPacket {
     private long requestedAmount;
     private long remainingAmount;
     private Status status;
+    private boolean showFinishedToast;
 
     public CraftingJobStatusPacket() {
     }
 
     public CraftingJobStatusPacket(UUID jobId, AEKey what, long requestedAmount, long remainingAmount,
-                                   Status status) {
+                                   Status status, boolean showFinishedToast) {
         this.jobId = jobId;
         this.what = what;
         this.requestedAmount = requestedAmount;
         this.remainingAmount = remainingAmount;
         this.status = status;
+        this.showFinishedToast = showFinishedToast;
     }
 
     @Override
@@ -48,6 +50,7 @@ public class CraftingJobStatusPacket extends ClientboundPacket {
             this.what = AEKey.readKey(data);
             this.requestedAmount = data.readLong();
             this.remainingAmount = data.readLong();
+            this.showFinishedToast = data.readBoolean();
             if (this.requestedAmount < 0 || this.remainingAmount < 0) {
                 throw new IllegalArgumentException("Crafting job status contains negative amounts");
             }
@@ -57,6 +60,7 @@ public class CraftingJobStatusPacket extends ClientboundPacket {
             this.requestedAmount = 0;
             this.remainingAmount = 0;
             this.status = Status.CANCELLED;
+            this.showFinishedToast = false;
             buf.skipBytes(buf.readableBytes());
         }
     }
@@ -69,6 +73,7 @@ public class CraftingJobStatusPacket extends ClientboundPacket {
         AEKey.writeKey(data, this.what);
         data.writeLong(this.requestedAmount);
         data.writeLong(this.remainingAmount);
+        data.writeBoolean(this.showFinishedToast);
     }
 
     @Override
@@ -84,7 +89,8 @@ public class CraftingJobStatusPacket extends ClientboundPacket {
             }
         }
 
-        PendingCraftingJobs.jobStatus(this.jobId, this.what, this.requestedAmount, this.remainingAmount, this.status);
+        PendingCraftingJobs.jobStatus(this.jobId, this.what, this.requestedAmount, this.remainingAmount, this.status,
+            this.showFinishedToast);
     }
 
     public enum Status {

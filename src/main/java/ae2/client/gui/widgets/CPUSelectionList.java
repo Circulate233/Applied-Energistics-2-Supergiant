@@ -1242,7 +1242,8 @@ public class CPUSelectionList implements ICompositeWidget {
         NAME(GuiText.CraftingCpuSortName.text(), HeaderIcon.ofIcon(Icon.SORT_BY_NAME)),
         CAPACITY(ButtonToolTips.SortByCapacity.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_STORAGE)),
         COPROCESSORS(ButtonToolTips.SortByCoProcessors.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_PROCESSOR)),
-        OPERATING_TIME(ButtonToolTips.SortByOperatingTime.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_OPERATING_TIME));
+        OPERATING_TIME(ButtonToolTips.SortByOperatingTime.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_OPERATING_TIME)),
+        PRIORITY(ButtonToolTips.SortByPriority.text(), HeaderIcon.ofIcon(Icon.CRAFT_CONFIRM_CPU_LIST_PRIORITY));
 
         public static final SortMode[] VALUES = SortMode.values();
         private final ITextComponent tooltip;
@@ -1387,6 +1388,9 @@ public class CPUSelectionList implements ICompositeWidget {
                 case OPERATING_TIME -> sortDirection == SortDirection.ASCENDING
                     ? Comparator.comparingLong(ContainerCraftingStatus.CraftingCpuListEntry::elapsedTimeNanos)
                     : Comparator.comparingLong(ContainerCraftingStatus.CraftingCpuListEntry::elapsedTimeNanos).reversed();
+                case PRIORITY -> sortDirection == SortDirection.ASCENDING
+                    ? Comparator.comparingInt(ContainerCraftingStatus.CraftingCpuListEntry::priority)
+                    : Comparator.comparingInt(ContainerCraftingStatus.CraftingCpuListEntry::priority).reversed();
             };
 
             return comparator.thenComparing(CPUSelectionList::normalizedName)

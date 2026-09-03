@@ -21,6 +21,7 @@ package ae2.client.gui.me.crafting;
 import ae2.api.config.CpuSelectionMode;
 import ae2.api.config.Settings;
 import ae2.api.config.TerminalStyle;
+import ae2.api.stacks.GenericStack;
 import ae2.client.gui.AEBaseGui;
 import ae2.client.gui.StackWithBounds;
 import ae2.client.gui.me.search.AEKeySearch;
@@ -31,6 +32,7 @@ import ae2.client.gui.widgets.ITextFieldGui;
 import ae2.client.gui.widgets.Scrollbar;
 import ae2.client.gui.widgets.ServerSettingToggleButton;
 import ae2.client.gui.widgets.SettingToggleButton;
+import ae2.client.gui.widgets.TooltipButton;
 import ae2.container.implementations.ContainerCraftingCPU;
 import ae2.container.me.crafting.CraftingStatus;
 import ae2.container.me.crafting.CraftingStatusEntry;
@@ -54,8 +56,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.concurrent.TimeUnit;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class GuiCraftingCPU<T extends ContainerCraftingCPU> extends AEBaseGui<T> implements ITextFieldGui {
     private static final String TEXTURE = "guis/craftingcpu.png";
@@ -68,6 +70,7 @@ public class GuiCraftingCPU<T extends ContainerCraftingCPU> extends AEBaseGui<T>
     private final CraftingStatusTableRenderer table;
     private final AE2Button cancel;
     private final AE2Button suspend;
+    private final TooltipButton taskPriority;
     private final Scrollbar scrollbar;
     private final SettingToggleButton<CpuSelectionMode> schedulingModeButton;
     private final SettingToggleButton<TerminalStyle> terminalStyleButton;
@@ -116,6 +119,8 @@ public class GuiCraftingCPU<T extends ContainerCraftingCPU> extends AEBaseGui<T>
             GuiText.SearchTooltipItemId.text()));
         this.cancel = widgets.addButton("cancel", GuiText.Cancel.text(), container::cancelCrafting);
         this.suspend = widgets.addButton("suspend", GuiText.Suspend.text(), container::toggleScheduling);
+        this.taskPriority = widgets.addTooltipButton("taskPriority", GuiText.CraftingTaskPriority.text(),
+            this::getTaskPriorityTooltip, this::editTaskPriority);
         this.schedulingModeButton = new ServerSettingToggleButton<>(Settings.CPU_SELECTION_MODE, CpuSelectionMode.ANY);
         this.terminalStyleButton = new SettingToggleButton<>(
             Settings.TERMINAL_STYLE, AEConfig.instance().getTerminalStyle(), this::toggleTerminalStyle);
@@ -145,6 +150,7 @@ public class GuiCraftingCPU<T extends ContainerCraftingCPU> extends AEBaseGui<T>
         List<CraftingStatusEntry> allEntries = this.status != null ? this.status.entries() : Collections.emptyList();
         this.cancel.enabled = !allEntries.isEmpty();
         this.suspend.enabled = this.cancel.enabled;
+        this.taskPriority.enabled = this.cancel.enabled;
 
         ITextComponent title = this.getGuiDisplayName(GuiText.CraftingStatus.text());
         String elapsedTimeSuffix = this.status != null && !allEntries.isEmpty()
@@ -269,13 +275,38 @@ public class GuiCraftingCPU<T extends ContainerCraftingCPU> extends AEBaseGui<T>
             status.remainingItemCount(),
             status.startItemCount(),
             sortedEntries,
-            status.suspended());
+            status.suspended(),
+            status.priority(),
+            status.finalOutput());
         this.filteredStatus = null;
         this.suspend.setMessage(status.suspended() ? GuiText.Resume.text() : GuiText.Suspend.text());
     }
 
     protected ITextComponent getGuiDisplayName(ITextComponent in) {
         return super.getGuiDisplayName(in);
+    }
+
+    private List<ITextComponent> getTaskPriorityTooltip() {
+        int priority = this.status != null ? this.status.priority() : 0;
+        return List.of(
+            GuiText.CraftingTaskPriority.text(),
+            GuiText.CraftingTaskPriorityValue.text(priority)
+                                             .setStyle(new Style().setColor(TextFormatting.GRAY)),
+            GuiText.CraftingTaskPriorityHint.text().setStyle(new Style().setColor(TextFormatting.GRAY)));
+    }
+
+    private void editTaskPriority() {
+        int priority = this.status != null ? this.status.priority() : 0;
+        switchToScreen(new GuiCraftingTaskPriority(this, priority, this.container::setTaskPriority,
+            getFinalJobOutput()));
+    }
+
+    @Nullable
+    private GenericStack getFinalJobOutput() {
+        if (this.status != null && this.status.finalOutput() != null) {
+            return this.status.finalOutput();
+        }
+        return this.container.getFinalJobOutput();
     }
 
     protected int getCraftingRows() {

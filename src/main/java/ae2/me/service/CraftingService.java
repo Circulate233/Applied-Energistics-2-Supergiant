@@ -26,6 +26,7 @@ import ae2.api.networking.IGrid;
 import ae2.api.networking.IGridNode;
 import ae2.api.networking.IGridServiceProvider;
 import ae2.api.networking.crafting.CalculationStrategy;
+import ae2.api.networking.crafting.CraftingJobOptions;
 import ae2.api.networking.crafting.ICraftingCPU;
 import ae2.api.networking.crafting.ICraftingLink;
 import ae2.api.networking.crafting.ICraftingPlan;
@@ -73,6 +74,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -182,6 +184,36 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
         return prioritizePower
             ? FAST_FIRST_COMPARATOR.compare(first, second)
             : FAST_LAST_COMPARATOR.compare(first, second);
+    }
+
+    private static int compareExecutionOrder(CraftingCPUCluster first, CraftingCPUCluster second) {
+        int result = Integer.compare(second.craftingLogic.getJobPriority(), first.craftingLogic.getJobPriority());
+        if (result != 0) {
+            return result;
+        }
+
+        var firstLevel = first.getLevel();
+        var secondLevel = second.getLevel();
+        result = Integer.compare(firstLevel != null ? firstLevel.provider.getDimension() : Integer.MIN_VALUE,
+            secondLevel != null ? secondLevel.provider.getDimension() : Integer.MIN_VALUE);
+        if (result != 0) {
+            return result;
+        }
+
+        var firstCore = first.getCorePos();
+        var secondCore = second.getCorePos();
+        result = Integer.compare(firstCore != null ? firstCore.getX() : Integer.MIN_VALUE,
+            secondCore != null ? secondCore.getX() : Integer.MIN_VALUE);
+        if (result != 0) {
+            return result;
+        }
+        result = Integer.compare(firstCore != null ? firstCore.getY() : Integer.MIN_VALUE,
+            secondCore != null ? secondCore.getY() : Integer.MIN_VALUE);
+        if (result != 0) {
+            return result;
+        }
+        return Integer.compare(firstCore != null ? firstCore.getZ() : Integer.MIN_VALUE,
+            secondCore != null ? secondCore.getZ() : Integer.MIN_VALUE);
     }
 
     @Override
@@ -415,6 +447,14 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
     public ICraftingSubmitResult submitJob(ICraftingPlan job, @Nullable ICraftingRequester requestingMachine,
                                            @Nullable ICraftingCPU target, boolean prioritizePower, IActionSource src,
                                            boolean forceStart, boolean skipMerge) {
+        return submitJob(job, requestingMachine, target, prioritizePower, src, forceStart, skipMerge,
+            CraftingJobOptions.DEFAULT);
+    }
+
+    @Override
+    public ICraftingSubmitResult submitJob(ICraftingPlan job, @Nullable ICraftingRequester requestingMachine,
+                                           @Nullable ICraftingCPU target, boolean prioritizePower, IActionSource src,
+                                           boolean forceStart, boolean skipMerge, CraftingJobOptions options) {
         if (job.simulation()) {
             return CraftingSubmitResult.INCOMPLETE_PLAN;
         }
@@ -429,13 +469,13 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
 
         if (target instanceof CraftingCPUCluster craftingCPUCluster) {
             if (requestingMachine == null && !skipMerge && craftingCPUCluster.canMergeJob(job)) {
-                return craftingCPUCluster.mergeJob(this.grid, job, src);
+                return craftingCPUCluster.mergeJob(this.grid, job, src, options.priority());
             }
             cpuCluster = craftingCPUCluster;
         } else {
             var selection = this.findCraftingCPU(job, prioritizePower, src, requestingMachine == null && !skipMerge);
             if (selection.mergeCpu() != null) {
-                return selection.mergeCpu().mergeJob(this.grid, job, src);
+                return selection.mergeCpu().mergeJob(this.grid, job, src, options.priority());
             }
             cpuCluster = selection.suitableCpu();
             if (cpuCluster == null) {
@@ -446,7 +486,7 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
             }
         }
 
-        return cpuCluster.submitJob(this.grid, job, src, requestingMachine);
+        return cpuCluster.submitJob(this.grid, job, src, requestingMachine, options);
     }
 
     @Override
@@ -469,8 +509,11 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
 
         this.craftingLinks.values().removeIf(nexus -> nexus.isDead(this.grid, this));
 
+        var sortedCpus = new ArrayList<>(this.craftingCPUClusters);
+        sortedCpus.sort(CraftingService::compareExecutionOrder);
+
         long latestChange = 0;
-        for (var cpu : this.craftingCPUClusters) {
+        for (var cpu : sortedCpus) {
             cpu.craftingLogic.tickCraftingLogic(this.energyGrid, this);
             latestChange = Math.max(latestChange, cpu.craftingLogic.getLastModifiedOnTick());
         }
@@ -484,7 +527,7 @@ public class CraftingService implements ICraftingService, IGridServiceProvider {
                 : Set.of();
             this.currentlyCrafting.clear();
 
-            for (var cpu : this.craftingCPUClusters) {
+            for (var cpu : sortedCpus) {
                 cpu.craftingLogic.getAllWaitingFor(this.currentlyCrafting);
             }
 

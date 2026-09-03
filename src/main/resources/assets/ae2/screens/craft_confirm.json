@@ -61,6 +61,18 @@
       "width": 50,
       "height": 20
     },
+    "taskPriority": {
+      "left": 221,
+      "bottom": 46,
+      "width": 16,
+      "height": 16
+    },
+    "taskSubscription": {
+      "left": 221,
+      "bottom": 25,
+      "width": 16,
+      "height": 16
+    },
     "craftTree": {
       "left": 214,
       "top": -5,

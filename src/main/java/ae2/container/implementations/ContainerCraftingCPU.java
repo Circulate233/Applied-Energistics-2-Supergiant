@@ -25,6 +25,7 @@ import ae2.api.networking.IManagedGridNode;
 import ae2.api.networking.crafting.ICraftingCPU;
 import ae2.api.networking.security.IActionHost;
 import ae2.api.stacks.AEKey;
+import ae2.api.stacks.GenericStack;
 import ae2.api.stacks.KeyCounter;
 import ae2.api.util.IConfigManager;
 import ae2.api.util.IConfigurableObject;
@@ -54,6 +55,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IConfigurab
 
     private static final String ACTION_CANCEL_CRAFTING = "cancelCrafting";
     private static final String ACTION_TOGGLE_SCHEDULING = "toggleScheduling";
+    private static final String ACTION_SET_TASK_PRIORITY = "setTaskPriority";
 
     private final IncrementalUpdateHelper incrementalUpdateHelper = new IncrementalUpdateHelper();
     @Nullable
@@ -68,6 +70,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IConfigurab
     @Nullable
     private CraftingCPUCluster cpu;
     private boolean cachedSuspend;
+    private int cachedPriority;
     private long nextSupplierTraceTick;
 
     public ContainerCraftingCPU(InventoryPlayer ip, ICraftingCPUTileEntity host) {
@@ -90,6 +93,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IConfigurab
 
         registerClientAction(ACTION_CANCEL_CRAFTING, this::cancelCrafting);
         registerClientAction(ACTION_TOGGLE_SCHEDULING, this::toggleScheduling);
+        registerClientAction(ACTION_SET_TASK_PRIORITY, Integer.class, this::setTaskPriority);
     }
 
     @Nullable
@@ -118,6 +122,7 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IConfigurab
 
         this.incrementalUpdateHelper.reset();
         this.cachedSuspend = false;
+        this.cachedPriority = 0;
 
         if (cpu instanceof CraftingCPUCluster cluster) {
             this.cpu = cluster;
@@ -152,6 +157,23 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IConfigurab
         }
     }
 
+    public int getTaskPriority() {
+        return this.cpu != null ? this.cpu.craftingLogic.getJobPriority() : 0;
+    }
+
+    public void setTaskPriority(int priority) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_TASK_PRIORITY, priority);
+        } else if (this.cpu != null && this.cpu.craftingLogic.hasJob()) {
+            this.cpu.craftingLogic.setJobPriority(priority);
+        }
+    }
+
+    @Nullable
+    public GenericStack getFinalJobOutput() {
+        return this.cpu != null ? this.cpu.craftingLogic.getFinalJobOutput() : null;
+    }
+
     @Override
     public void onContainerClosed(EntityPlayer player) {
         super.onContainerClosed(player);
@@ -167,10 +189,12 @@ public class ContainerCraftingCPU extends AEBaseContainer implements IConfigurab
             this.cantStoreItems = this.cpu.craftingLogic.isCantStoreItems();
 
             if (this.incrementalUpdateHelper.hasChanges()
-                || this.cachedSuspend != this.cpu.craftingLogic.isJobSuspended()) {
+                || this.cachedSuspend != this.cpu.craftingLogic.isJobSuspended()
+                || this.cachedPriority != this.cpu.craftingLogic.getJobPriority()) {
                 CraftingStatus status = CraftingStatus.create(this.incrementalUpdateHelper, this.cpu.craftingLogic);
                 this.incrementalUpdateHelper.commitChanges();
                 this.cachedSuspend = status.suspended();
+                this.cachedPriority = status.priority();
 
                 sendPacketToClient(new CraftingStatusPacket(windowId, status));
             }

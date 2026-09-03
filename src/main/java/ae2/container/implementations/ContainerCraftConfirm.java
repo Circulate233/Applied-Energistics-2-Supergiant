@@ -19,9 +19,11 @@
 package ae2.container.implementations;
 
 import ae2.api.crafting.IPatternDetails;
+import ae2.api.implementations.items.IAEItemPowerStorage;
 import ae2.api.networking.IGrid;
 import ae2.api.networking.IGridNode;
 import ae2.api.networking.crafting.CalculationStrategy;
+import ae2.api.networking.crafting.CraftingJobOptions;
 import ae2.api.networking.crafting.CraftingSubmitErrorCode;
 import ae2.api.networking.crafting.ICraftingCPU;
 import ae2.api.networking.crafting.ICraftingPlan;
@@ -54,7 +56,9 @@ import ae2.core.network.serverbound.SwitchGuisPacket;
 import ae2.crafting.CraftingCalculationFailure;
 import ae2.crafting.TemporaryPseudoCraftingProvider;
 import ae2.crafting.execution.CraftingSubmitResult;
+import ae2.items.tools.powered.WirelessTerminals;
 import ae2.me.helpers.PlayerSource;
+import ae2.util.SearchInventoryEvent;
 import com.google.common.primitives.Ints;
 import io.netty.buffer.ByteBuf;
 import it.unimi.dsi.fastutil.objects.Reference2BooleanMap;
@@ -63,9 +67,11 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.inventory.Container;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.PacketBuffer;
 import net.minecraft.util.text.ITextComponent;
 import net.minecraft.world.World;
+import net.minecraftforge.common.util.Constants;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -78,6 +84,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
     private static final String ACTION_CYCLE_CPU = "cycleCpu";
     private static final String ACTION_SELECT_CPU_FROM_LIST = "selectCpuFromList";
     private static final String ACTION_START_JOB = "startJob";
+    private static final String ACTION_SET_TASK_PRIORITY = "setTaskPriority";
     private static final String ACTION_REPLAN = "replan";
 
     private static final SyncableSubmitResult NO_ERROR = new SyncableSubmitResult((ICraftingSubmitResult) null);
@@ -119,6 +126,10 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
     private long cachedMergeCpuStateChangeTick = Long.MIN_VALUE;
     @GuiSync(10)
     public CraftConfirmCpuList cpuList = CraftConfirmCpuList.EMPTY;
+    @GuiSync(11)
+    public int taskPriority;
+    @GuiSync(12)
+    public boolean canSubscribe;
     @Nullable
     private ICraftingPlan cachedMergeableCpuResult;
     private long cachedMergeableCpuStateChangeTick = Long.MIN_VALUE;
@@ -137,6 +148,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         registerClientAction(ACTION_CYCLE_CPU, Boolean.class, this::cycleSelectedCPU);
         registerClientAction(ACTION_SELECT_CPU_FROM_LIST, Integer.class, this::selectCpu);
         registerClientAction(ACTION_START_JOB, StartJobRequest.class, this::startJob);
+        registerClientAction(ACTION_SET_TASK_PRIORITY, Integer.class, this::setTaskPriority);
         registerClientAction(ACTION_REPLAN, this::replan);
     }
 
@@ -218,6 +230,20 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
             return calculationFailure.getLocalizedMessageComponent();
         }
         return PlayerMessages.CraftingNoPlan.text();
+    }
+
+    private static boolean hasUsableWirelessTerminal(EntityPlayer player) {
+        for (var stack : SearchInventoryEvent.getItems(player)) {
+            NBTTagCompound tag = stack.getTagCompound();
+            if (!stack.isEmpty()
+                && stack.getItem() instanceof IAEItemPowerStorage storage
+                && storage.getAECurrentPower(stack) > 0
+                && tag != null
+                && tag.hasKey(WirelessTerminals.TAG_LINK, Constants.NBT.TAG_COMPOUND)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public boolean planJob(AEKey what, long amount, CalculationStrategy strategy) {
@@ -364,6 +390,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         ensureMergeableCpuCache(grid);
         this.cpuCycler.detectAndSendChanges(grid);
         this.mergeAvailable = canMergeCurrentResult(grid);
+        this.canSubscribe = hasUsableWirelessTerminal(this.getPlayer());
         syncCpuList(grid);
         super.broadcastChanges();
     }
@@ -459,19 +486,32 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
         this.cachedMergeableCpus.clear();
     }
 
+    public void setTaskPriority(int priority) {
+        if (isClientSide()) {
+            this.taskPriority = priority;
+            sendClientAction(ACTION_SET_TASK_PRIORITY, priority);
+        } else {
+            this.taskPriority = priority;
+        }
+    }
+
     public void startJob() {
-        startJob(false, false);
+        startJob(false, false, false);
     }
 
     public void startJob(boolean forceStart) {
-        startJob(forceStart, false);
+        startJob(forceStart, false, false);
     }
 
     public void startJob(boolean forceStart, boolean skipMerge) {
+        startJob(forceStart, skipMerge, false);
+    }
+
+    public void startJob(boolean forceStart, boolean skipMerge, boolean subscribed) {
         clearError();
 
         if (isClientSide()) {
-            sendClientAction(ACTION_START_JOB, new StartJobRequest(forceStart, skipMerge));
+            sendClientAction(ACTION_START_JOB, new StartJobRequest(forceStart, skipMerge, this.taskPriority, subscribed));
             return;
         }
 
@@ -486,7 +526,7 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
             }
             ICraftingService craftingService = grid.getCraftingService();
             ICraftingSubmitResult submitResult = craftingService.submitJob(this.result, null, this.selectedCpu, true,
-                this.getActionSrc(), forceStart, skipMerge);
+                this.getActionSrc(), forceStart, skipMerge, new CraftingJobOptions(this.taskPriority, subscribed));
             this.setAutoStart(false);
             if (submitResult.successful()) {
                 boolean hasQueuedJobs = this.autoCraftingQueue != null && !this.autoCraftingQueue.isEmpty();
@@ -499,11 +539,9 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
                         ContainerCraftConfirm.openWithCraftingList(getActionHost(), serverPlayer, getLocator(),
                             this.autoCraftingQueue, getReturnToContainerOverride());
                     }
-                } else {
-                    if (!(player instanceof EntityPlayerMP serverPlayer)
-                        || !SwitchGuisPacket.restoreExternalGui(serverPlayer)) {
-                        this.host.returnToMainContainer(player, this);
-                    }
+                } else if (!(player instanceof EntityPlayerMP serverPlayer)
+                    || !SwitchGuisPacket.restoreExternalGui(serverPlayer)) {
+                    this.host.returnToMainContainer(player, this);
                 }
             } else {
                 AELog.info("Couldn't submit crafting job for %dx%s: %s [Detail: %s]",
@@ -517,7 +555,8 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
     }
 
     private void startJob(StartJobRequest request) {
-        startJob(request.forceStart, request.skipMerge);
+        this.taskPriority = request.priority;
+        startJob(request.forceStart, request.skipMerge, request.subscribed && hasUsableWirelessTerminal(this.getPlayer()));
     }
 
     private IActionSource getActionSrc() {
@@ -720,10 +759,14 @@ public class ContainerCraftConfirm extends AEBaseContainer implements ISubGui {
     private static final class StartJobRequest {
         private final boolean forceStart;
         private final boolean skipMerge;
+        private final int priority;
+        private final boolean subscribed;
 
-        private StartJobRequest(boolean forceStart, boolean skipMerge) {
+        private StartJobRequest(boolean forceStart, boolean skipMerge, int priority, boolean subscribed) {
             this.forceStart = forceStart;
             this.skipMerge = skipMerge;
+            this.priority = priority;
+            this.subscribed = subscribed;
         }
     }
 

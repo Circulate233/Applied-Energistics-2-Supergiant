@@ -26,6 +26,12 @@
       "width": 50,
       "height": 20
     },
+    "taskPriority": {
+      "left": 43,
+      "bottom": 25,
+      "width": 50,
+      "height": 20
+    },
     "cancel": {
       "left": 163,
       "bottom": 25,

@@ -102,6 +102,9 @@ public final class Icon {
     public static final Icon SORT_BY_MOD = registerBuiltin("sort_by_mod");
     public static final Icon SORT_BY_HEI = registerBuiltin("sort_by_hei");
     public static final Icon PRIORITY = registerBuiltin("priority");
+    public static final Icon CRAFTING_TASK_PRIORITY = registerBuiltin("crafting_task_priority");
+    public static final Icon CRAFTING_TASK_SUBSCRIBED = registerBuiltin("crafting_task_subscribed");
+    public static final Icon CRAFTING_TASK_UNSUBSCRIBED = registerBuiltin("crafting_task_unsubscribed");
     public static final Icon PLAYER_PIN = registerBuiltin("player_pin");
     public static final Icon BACKGROUND_VIEW_CELL = registerBuiltin("background_view_cell");
     public static final Icon BACKGROUND_WIRELESS_TERM = registerBuiltin("background_wireless_term");
@@ -217,6 +220,7 @@ public final class Icon {
     public static final Icon S_PROCESSOR = registerBuiltin("s_processor");
     public static final Icon CRAFT_CONFIRM_CPU_LIST_PROCESSOR = registerBuiltin("craft_confirm_cpu_list_processor");
     public static final Icon CRAFT_CONFIRM_CPU_LIST_OPERATING_TIME = registerBuiltin("craft_confirm_cpu_list_operating_time");
+    public static final Icon CRAFT_CONFIRM_CPU_LIST_PRIORITY = registerBuiltin("craft_confirm_cpu_list_priority");
     public static final Icon S_CRAFT = registerBuiltin("s_craft");
     public static final Icon S_TERMINAL = registerBuiltin("s_terminal");
     public static final Icon S_MACHINE = registerBuiltin("s_machine");

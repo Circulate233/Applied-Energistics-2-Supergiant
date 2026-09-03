@@ -3,7 +3,6 @@ package ae2.client.gui.me.common;
 import ae2.api.client.AEKeyRendering;
 import ae2.api.implementations.items.IAEItemPowerStorage;
 import ae2.api.stacks.AEKey;
-import ae2.core.AEConfig;
 import ae2.core.AELog;
 import ae2.core.network.clientbound.CraftingJobStatusPacket;
 import ae2.items.tools.powered.WirelessTerminals;
@@ -46,7 +45,8 @@ public final class PendingCraftingJobs {
                                  AEKey what,
                                  long requestedAmount,
                                  long remainingAmount,
-                                 CraftingJobStatusPacket.Status status) {
+                                 CraftingJobStatusPacket.Status status,
+                                 boolean showFinishedToast) {
 
         AELog.debug("Crafting job " + id + " for " + requestedAmount
             + "x" + AEKeyRendering.getDisplayName(what).getFormattedText() + ". State=" + status);
@@ -63,8 +63,7 @@ public final class PendingCraftingJobs {
             case FINISHED -> {
                 removeJob(id);
                 Minecraft minecraft = Minecraft.getMinecraft();
-                if (AEConfig.instance().isNotifyForFinishedCraftingJobs()
-                    && minecraft.player != null && hasNotificationEnablingItem(minecraft.player)) {
+                if (showFinishedToast && minecraft.player != null && hasNotificationEnablingItem(minecraft.player)) {
                     minecraft.getToastGui().add(new FinishedJobToast(what, requestedAmount));
                 }
             }

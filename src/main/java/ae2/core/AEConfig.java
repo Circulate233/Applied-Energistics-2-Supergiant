@@ -493,13 +493,29 @@ public class AEConfig {
         return TERMINALS.terminalMargin;
     }
 
-    public boolean isNotifyForFinishedCraftingJobs() {
+    public boolean isDefaultSubscribeToFinishedCraftingJobs() {
         return CLIENT.notifyForFinishedCraftingJobs;
     }
 
-    public void setNotifyForFinishedCraftingJobs(boolean enabled) {
+    public void setDefaultSubscribeToFinishedCraftingJobs(boolean enabled) {
         CLIENT.notifyForFinishedCraftingJobs = enabled;
         this.save();
+    }
+
+    /**
+     * @deprecated Use {@link #isDefaultSubscribeToFinishedCraftingJobs()}.
+     */
+    @Deprecated
+    public boolean isNotifyForFinishedCraftingJobs() {
+        return isDefaultSubscribeToFinishedCraftingJobs();
+    }
+
+    /**
+     * @deprecated Use {@link #setDefaultSubscribeToFinishedCraftingJobs(boolean)}.
+     */
+    @Deprecated
+    public void setNotifyForFinishedCraftingJobs(boolean enabled) {
+        setDefaultSubscribeToFinishedCraftingJobs(enabled);
     }
 
     public boolean isUseExternalSearch() {
@@ -883,7 +899,7 @@ public class AEConfig {
         public boolean useLargeFonts;
 
         @Config.Name("notifyForFinishedCraftingJobs")
-        @Config.Comment("Show toast when long-running crafting jobs finish.")
+        @Config.Comment("Default subscription for completion notifications on new crafting jobs.")
         public boolean notifyForFinishedCraftingJobs = true;
 
         @Config.Name("pinAutoCraftedItems")

@@ -18,29 +18,36 @@
 
 package ae2.container.me.crafting;
 
+import ae2.api.stacks.GenericStack;
 import ae2.container.me.common.IncrementalUpdateHelper;
 import ae2.crafting.execution.CraftingCpuLogic;
 import com.google.common.collect.ImmutableList;
 import net.minecraft.network.PacketBuffer;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
 
 public record CraftingStatus(boolean fullStatus, long elapsedTime, long remainingItemCount, long startItemCount,
-                             List<CraftingStatusEntry> entries, boolean suspended) {
+                             List<CraftingStatusEntry> entries, boolean suspended, int priority,
+                             @Nullable GenericStack finalOutput) {
     private static final int MAX_ENTRY_COUNT = 4096;
     private static final int MIN_ENTRY_BYTES = 5;
 
-    public static final CraftingStatus EMPTY = new CraftingStatus(true, 0, 0, 0, Collections.emptyList(), false);
+    public static final CraftingStatus EMPTY = new CraftingStatus(true, 0, 0, 0, Collections.emptyList(), false, 0,
+        null);
 
     public CraftingStatus(boolean fullStatus, long elapsedTime, long remainingItemCount, long startItemCount,
-                          List<CraftingStatusEntry> entries, boolean suspended) {
+                          List<CraftingStatusEntry> entries, boolean suspended, int priority,
+                          @Nullable GenericStack finalOutput) {
         this.fullStatus = fullStatus;
         this.elapsedTime = elapsedTime;
         this.remainingItemCount = remainingItemCount;
         this.startItemCount = startItemCount;
         this.entries = ImmutableList.copyOf(entries);
         this.suspended = suspended;
+        this.priority = priority;
+        this.finalOutput = finalOutput;
     }
 
     public static CraftingStatus read(PacketBuffer buffer) {
@@ -62,8 +69,10 @@ public record CraftingStatus(boolean fullStatus, long elapsedTime, long remainin
             entries.add(CraftingStatusEntry.read(buffer));
         }
         boolean suspended = buffer.readBoolean();
+        int priority = buffer.readInt();
+        GenericStack finalOutput = GenericStack.readBuffer(buffer);
         return new CraftingStatus(fullStatus, elapsedTime, remainingItemCount, startItemCount, entries.build(),
-            suspended);
+            suspended, priority, finalOutput);
     }
 
     public static CraftingStatus create(IncrementalUpdateHelper changes, CraftingCpuLogic logic) {
@@ -103,7 +112,7 @@ public record CraftingStatus(boolean fullStatus, long elapsedTime, long remainin
             remainingItemCount,
             startItemCount,
             newEntries.build(),
-            logic.isJobSuspended());
+            logic.isJobSuspended(), logic.getJobPriority(), logic.getFinalJobOutput());
     }
 
     public void write(PacketBuffer buffer) {
@@ -116,5 +125,7 @@ public record CraftingStatus(boolean fullStatus, long elapsedTime, long remainin
             entry.write(buffer);
         }
         buffer.writeBoolean(suspended);
+        buffer.writeInt(priority);
+        GenericStack.writeBuffer(finalOutput, buffer);
     }
 }

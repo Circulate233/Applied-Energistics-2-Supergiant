@@ -22,6 +22,7 @@ import ae2.api.config.PowerMultiplier;
 import ae2.api.crafting.IPatternDetails;
 import ae2.api.features.IPlayerRegistry;
 import ae2.api.networking.IGrid;
+import ae2.api.networking.crafting.CraftingJobOptions;
 import ae2.api.networking.crafting.ICraftingLink;
 import ae2.api.networking.crafting.ICraftingPlan;
 import ae2.api.networking.crafting.ICraftingProvider;
@@ -129,6 +130,11 @@ public class CraftingCpuLogic {
 
     public ICraftingSubmitResult trySubmitJob(IGrid grid, ICraftingPlan plan, IActionSource src,
                                               @Nullable ICraftingRequester requester) {
+        return trySubmitJob(grid, plan, src, requester, CraftingJobOptions.DEFAULT);
+    }
+
+    public ICraftingSubmitResult trySubmitJob(IGrid grid, ICraftingPlan plan, IActionSource src,
+                                              @Nullable ICraftingRequester requester, CraftingJobOptions options) {
         // Already have a job.
         if (this.job != null)
             return CraftingSubmitResult.CPU_BUSY;
@@ -151,7 +157,7 @@ public class CraftingCpuLogic {
                           .orElse(null);
         var craftId = UUID.randomUUID();
         var linkCpu = new CraftingLink(CraftingCpuHelper.generateLinkData(craftId, requester == null, false), cluster);
-        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId, remainingMissingItems);
+        this.job = new ExecutingCraftingJob(plan, this::postChange, linkCpu, playerId, remainingMissingItems, options);
         cluster.updateOutput(plan.finalOutput());
         cluster.markDirty();
 
@@ -186,12 +192,16 @@ public class CraftingCpuLogic {
     }
 
     public ICraftingSubmitResult tryMergeJob(IGrid grid, ICraftingPlan plan, IActionSource src) {
+        return tryMergeJob(grid, plan, src, 0);
+    }
+
+    public ICraftingSubmitResult tryMergeJob(IGrid grid, ICraftingPlan plan, IActionSource src, int priority) {
         if (!canMergeJob(plan)) {
             return CraftingSubmitResult.CPU_BUSY;
         }
 
         var remainingMissingItems = CraftingCpuHelper.extractInitialItems(plan, grid, inventory, src);
-        this.job.merge(plan, remainingMissingItems);
+        this.job.merge(plan, remainingMissingItems, priority);
         cluster.updateOutput(new GenericStack(this.job.finalOutput.what(), this.job.remainingAmount));
         cluster.markDirty();
         postChange(this.job.finalOutput.what());
@@ -580,8 +590,8 @@ public class CraftingCpuLogic {
             }
         }
 
-        notifyJobOwner(job,
-            success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED);
+        var status = success ? CraftingJobStatusPacket.Status.FINISHED : CraftingJobStatusPacket.Status.CANCELLED;
+        notifyJobOwner(job, status, success && job.subscribed);
 
         // Finish job.
         this.job = null;
@@ -823,7 +833,24 @@ public class CraftingCpuLogic {
         }
     }
 
+    public int getJobPriority() {
+        return job != null ? job.priority : 0;
+    }
+
+    public void setJobPriority(int priority) {
+        if (job != null && job.priority != priority) {
+            job.priority = priority;
+            cluster.markDirty();
+            lastModifiedOnTick = TickHandler.instance().getCurrentTick();
+        }
+    }
+
     private void notifyJobOwner(ExecutingCraftingJob job, CraftingJobStatusPacket.Status status) {
+        notifyJobOwner(job, status, false);
+    }
+
+    private void notifyJobOwner(ExecutingCraftingJob job, CraftingJobStatusPacket.Status status,
+                                boolean showFinishedToast) {
         this.lastModifiedOnTick = TickHandler.instance().getCurrentTick();
 
         var playerId = job.playerId;
@@ -853,7 +880,7 @@ public class CraftingCpuLogic {
                 finalOutputKey,
                 finalOutputAmount,
                 job.remainingAmount,
-                status), connectedPlayer);
+                status, showFinishedToast), connectedPlayer);
         }
     }
 

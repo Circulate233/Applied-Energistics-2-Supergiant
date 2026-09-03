@@ -23,6 +23,7 @@ import ae2.api.config.CpuSelectionMode;
 import ae2.api.config.Settings;
 import ae2.api.networking.IGrid;
 import ae2.api.networking.IGridNode;
+import ae2.api.networking.crafting.CraftingJobOptions;
 import ae2.api.networking.crafting.CraftingJobStatus;
 import ae2.api.networking.crafting.ICraftingCPU;
 import ae2.api.networking.crafting.ICraftingPlan;
@@ -230,6 +231,11 @@ public class CraftingCPUCluster implements IAECluster, ICraftingCPU {
         return craftingLogic.trySubmitJob(grid, plan, src, requestingMachine);
     }
 
+    public ICraftingSubmitResult submitJob(IGrid grid, ICraftingPlan plan, IActionSource src,
+                                           @Nullable ICraftingRequester requestingMachine, CraftingJobOptions options) {
+        return craftingLogic.trySubmitJob(grid, plan, src, requestingMachine, options);
+    }
+
     @Override
     public boolean canMergeJob(ICraftingPlan plan) {
         return craftingLogic.canMergeJob(plan);
@@ -237,6 +243,10 @@ public class CraftingCPUCluster implements IAECluster, ICraftingCPU {
 
     public ICraftingSubmitResult mergeJob(IGrid grid, ICraftingPlan plan, IActionSource src) {
         return craftingLogic.tryMergeJob(grid, plan, src);
+    }
+
+    public ICraftingSubmitResult mergeJob(IGrid grid, ICraftingPlan plan, IActionSource src, int priority) {
+        return craftingLogic.tryMergeJob(grid, plan, src, priority);
     }
 
     @Override

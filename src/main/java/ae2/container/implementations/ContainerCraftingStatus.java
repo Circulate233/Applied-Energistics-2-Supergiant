@@ -54,7 +54,7 @@ import java.util.WeakHashMap;
 
 public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISubGui {
     private static final int MAX_CPU_LIST_ENTRIES = 1024;
-    private static final int MIN_CPU_LIST_ENTRY_BYTES = 47;
+    private static final int MIN_CPU_LIST_ENTRY_BYTES = 51;
     private static final int MAX_ICON_ID_LENGTH = 128;
 
     private static final CraftingCpuList EMPTY_CPU_LIST = new CraftingCpuList(Collections.emptyList());
@@ -308,6 +308,7 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISu
                 status != null ? status.crafting() : null,
                 progress,
                 status != null ? status.elapsedTimeNanos() : 0,
+                cluster.craftingLogic.getJobPriority(),
                 unfocusedBackgroundIcon.id(),
                 focusedBackgroundIcon.id(),
                 world.provider.getDimension(),
@@ -505,6 +506,7 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISu
             cpu.currentJob(),
             cpu.progress(),
             cpu.elapsedTimeNanos(),
+            cpu.priority(),
             cpu.unfocusedBackgroundIcon(),
             cpu.focusedBackgroundIcon(),
             cpu.dimensionId(),
@@ -515,6 +517,21 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISu
 
     public int getSelectedCpuSerial() {
         return selectedCpuSerial;
+    }
+
+    @Override
+    @Nullable
+    public GenericStack getFinalJobOutput() {
+        int serial = this.selectedCpuSerial;
+        if (serial == -1) {
+            return super.getFinalJobOutput();
+        }
+        for (CraftingCpuListEntry cpu : this.cpuList.cpus()) {
+            if (cpu.serial() == serial) {
+                return cpu.currentJob();
+            }
+        }
+        return super.getFinalJobOutput();
     }
 
     public record CraftingCpuList(List<CraftingCpuListEntry> cpus) implements PacketWritable {
@@ -556,6 +573,7 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISu
         @Nullable GenericStack currentJob,
         float progress,
         long elapsedTimeNanos,
+        int priority,
         ResourceLocation unfocusedBackgroundIcon,
         ResourceLocation focusedBackgroundIcon,
         int dimensionId,
@@ -596,6 +614,7 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISu
                 GenericStack.readBuffer(buffer),
                 buffer.readFloat(),
                 buffer.readVarLong(),
+                buffer.readInt(),
                 unfocusedBackgroundIcon,
                 focusedBackgroundIcon,
                 dimensionId,
@@ -633,6 +652,7 @@ public class ContainerCraftingStatus extends ContainerCraftingCPU implements ISu
             GenericStack.writeBuffer(this.currentJob, buffer);
             buffer.writeFloat(this.progress);
             buffer.writeVarLong(this.elapsedTimeNanos);
+            buffer.writeInt(this.priority);
         }
     }
 

@@ -378,7 +378,7 @@ public class GuiTerminalSettings extends AEBaseGui<AEBaseContainer> {
         config.setPinDisplayMode(this.pinDisplayLockedGridRadio.isSelected()
             ? PinDisplayMode.LOCKED_GRID
             : PinDisplayMode.SORT_TOP);
-        config.setNotifyForFinishedCraftingJobs(notifyForFinishedCraftingJobsCheckbox.isSelected());
+        config.setDefaultSubscribeToFinishedCraftingJobs(notifyForFinishedCraftingJobsCheckbox.isSelected());
         config.setClearGridOnClose(clearGridOnCloseCheckbox.isSelected());
         syncClearGridOnClose();
         config.setUseExternalSearch(hasExternalSearch() && this.useExternalSearchRadio.isSelected());
@@ -432,7 +432,7 @@ public class GuiTerminalSettings extends AEBaseGui<AEBaseContainer> {
         PinDisplayMode pinDisplayMode = config.getPinDisplayMode();
         pinDisplaySortTopRadio.setSelected(pinDisplayMode == PinDisplayMode.SORT_TOP);
         pinDisplayLockedGridRadio.setSelected(pinDisplayMode == PinDisplayMode.LOCKED_GRID);
-        notifyForFinishedCraftingJobsCheckbox.setSelected(config.isNotifyForFinishedCraftingJobs());
+        notifyForFinishedCraftingJobsCheckbox.setSelected(config.isDefaultSubscribeToFinishedCraftingJobs());
         clearGridOnCloseCheckbox.setSelected(config.isClearGridOnClose());
         if (this.autoFillPatternsCheckbox != null && this.container instanceof ContainerPatternEncodingTerm patternEncodingTerm) {
             this.autoFillPatternsCheckbox.setSelected(patternEncodingTerm.getAutoFillPatterns() == YesNo.YES);

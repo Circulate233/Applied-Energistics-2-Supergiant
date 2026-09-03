@@ -30,6 +30,7 @@ import ae2.client.gui.me.search.AEKeySearch;
 import ae2.client.gui.style.GuiStyle;
 import ae2.client.gui.widgets.AE2Button;
 import ae2.client.gui.widgets.AETextField;
+import ae2.client.gui.widgets.DynamicIconButton;
 import ae2.client.gui.widgets.ITextFieldGui;
 import ae2.client.gui.widgets.Scrollbar;
 import ae2.client.gui.widgets.SettingToggleButton;
@@ -48,7 +49,9 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.gui.GuiTextField;
 import net.minecraft.entity.player.InventoryPlayer;
 import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
 import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.input.Keyboard;
 
@@ -77,6 +80,8 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> implements
     private final AE2Button bookmarkMissing;
     private final AE2Button selectCPU;
     private final AE2Button selectCPUList;
+    private final DynamicIconButton taskPriority;
+    private final DynamicIconButton taskSubscription;
     private final Scrollbar scrollbar;
     private final AETextField searchField;
     private final SettingToggleButton<TerminalStyle> terminalStyleButton;
@@ -85,6 +90,7 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> implements
     private final AEKeySearch search = new AEKeySearch();
     private final ObjectArrayList<CraftingPlanSummaryEntry> visibleEntries = new ObjectArrayList<>();
     private String searchText = "";
+    private boolean subscribed = AEConfig.instance().isDefaultSubscribeToFinishedCraftingJobs();
     private CraftingPlanSortMode lastSortMode = AEConfig.instance().getCraftingPlanSortMode();
     private SortDir lastSortDirection = AEConfig.instance().getCraftingPlanSortDirection();
     @Nullable
@@ -127,6 +133,19 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> implements
             ButtonToolTips.SelectCraftingCPUFromList.text(), this::showCpuList);
         widgets.add("selectCpuList", this.selectCPUList);
         this.selectCPUList.enabled = false;
+
+        this.taskPriority = new DynamicIconButton(
+            () -> Icon.CRAFTING_TASK_PRIORITY,
+            GuiText.CraftingTaskPriority.text(),
+            this::getTaskPriorityTooltip,
+            this::editTaskPriority);
+        widgets.add("taskPriority", this.taskPriority);
+        this.taskSubscription = new DynamicIconButton(
+            () -> this.subscribed ? Icon.CRAFTING_TASK_SUBSCRIBED : Icon.CRAFTING_TASK_UNSUBSCRIBED,
+            GuiText.CraftingTaskSubscription.text(),
+            this::getTaskSubscriptionTooltip,
+            this::toggleTaskSubscription);
+        widgets.add("taskSubscription", this.taskSubscription);
 
         widgets.addButton("cancel", GuiText.Cancel.text(), container::goBack);
 
@@ -236,6 +255,9 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> implements
         this.start.setForceHighlighted(startButtonState.highlighted());
         this.selectCPU.enabled = planIsStartable;
         this.selectCPUList.enabled = planIsStartable && !this.container.cpuList.cpus().isEmpty();
+        this.taskPriority.enabled = plan != null;
+        this.taskSubscription.visible = this.container.canSubscribe;
+        this.taskSubscription.enabled = this.container.canSubscribe;
         boolean canBookmarkMissing = Integrations.hei().isEnabled() && hasMissingEntries;
         this.bookmarkMissing.visible = canBookmarkMissing;
         this.bookmarkMissing.enabled = canBookmarkMissing;
@@ -292,7 +314,46 @@ public class GuiCraftConfirm extends AEBaseGui<ContainerCraftConfirm> implements
     }
 
     private void start() {
-        getContainer().startJob(isShiftKeyDown(), isCtrlKeyDown());
+        getContainer().startJob(isShiftKeyDown(), isCtrlKeyDown(), this.subscribed);
+    }
+
+    private void editTaskPriority() {
+        switchToScreen(new GuiCraftingTaskPriority(this, this.container.taskPriority, this.container::setTaskPriority,
+            getPlanFinalOutput()));
+    }
+
+    @Nullable
+    private GenericStack getPlanFinalOutput() {
+        CraftingPlanSummary plan = container.getPlan();
+        if (plan == null) {
+            return null;
+        }
+        for (CraftingPlanSummaryEntry entry : plan.entries()) {
+            if (entry.finalOutput()) {
+                return new GenericStack(entry.what(), entry.craftAmount());
+            }
+        }
+        return null;
+    }
+
+    private void toggleTaskSubscription() {
+        this.subscribed = !this.subscribed;
+    }
+
+    private List<ITextComponent> getTaskPriorityTooltip() {
+        return List.of(
+            GuiText.CraftingTaskPriority.text(),
+            GuiText.CraftingTaskPriorityValue.text(this.container.taskPriority)
+                                             .setStyle(new Style().setColor(TextFormatting.GRAY)),
+            GuiText.CraftingTaskPriorityHint.text().setStyle(new Style().setColor(TextFormatting.GRAY)));
+    }
+
+    private List<ITextComponent> getTaskSubscriptionTooltip() {
+        return List.of(
+            GuiText.CraftingTaskSubscription.text(),
+            (this.subscribed ? GuiText.CraftingTaskSubscribed : GuiText.CraftingTaskUnsubscribed).text()
+                                                                                                 .setStyle(new Style().setColor(TextFormatting.GRAY)),
+            GuiText.CraftingTaskSubscriptionHint.text().setStyle(new Style().setColor(TextFormatting.GRAY)));
     }
 
     @Override
