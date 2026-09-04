@@ -60,48 +60,6 @@ public final class TransformLogic {
         return fluid != null && getFluidDamageProtectionItemsFluid(fluid).contains(entity.getItem().getItem());
     }
 
-    public static boolean hasIngredients(EntityItem entity, Predicate<TransformCircumstance> predicate) {
-        World world = entity.world;
-        for (var recipe : AERecipeTypes.TRANSFORM.getRecipes()) {
-            if (!predicate.test(recipe.getCircumstance()) || recipe.getIngredients().isEmpty()) {
-                continue;
-            }
-
-            double radius = recipe.getCircumstance().isExplosion() ? 4.0D : 1.0D;
-            AxisAlignedBB region = new AxisAlignedBB(entity.posX - radius, entity.posY - radius, entity.posZ - radius,
-                entity.posX + radius, entity.posY + radius, entity.posZ + radius);
-            List<EntityItem> entities = world.getEntitiesWithinAABB(EntityItem.class, region,
-                e -> e != null && !e.isDead);
-
-            List<Ingredient> missing = new ObjectArrayList<>(recipe.getIngredients());
-            Reference2IntMap<EntityItem> consumed = new Reference2IntOpenHashMap<>();
-            consumed.defaultReturnValue(0);
-
-            for (var itemEntity : entities) {
-                ItemStack stack = itemEntity.getItem();
-                if (stack.isEmpty()) {
-                    continue;
-                }
-
-                for (var iterator = missing.iterator(); iterator.hasNext(); ) {
-                    Ingredient ingredient = iterator.next();
-                    int alreadyClaimed = consumed.getInt(itemEntity);
-                    if (ingredient.apply(stack) && stack.getCount() - alreadyClaimed > 0) {
-                        consumed.put(itemEntity, alreadyClaimed + 1);
-                        iterator.remove();
-                        break;
-                    }
-                }
-            }
-
-            if (missing.isEmpty()) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     public static boolean tryTransform(EntityItem entity, Predicate<TransformCircumstance> predicate) {
         RecipeMatch match = findMatchingRecipe(entity, predicate);
         if (match == null) {
