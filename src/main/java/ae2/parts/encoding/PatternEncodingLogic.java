@@ -28,6 +28,7 @@ public class PatternEncodingLogic implements InternalInventoryHost {
     private EncodingMode mode = EncodingMode.CRAFTING;
     private boolean substitute;
     private boolean substituteFluids = true;
+    private boolean mergeHeiProcessingInputs = true;
     private final ConfigInventory encodedInputInv = ConfigInventory.configStacks(MAX_INPUT_SLOTS)
                                                                    .changeListener(this::onEncodedInputChanged)
                                                                    .allowOverstacking(true)
@@ -160,6 +161,15 @@ public class PatternEncodingLogic implements InternalInventoryHost {
         saveChanges();
     }
 
+    public boolean isMergeHeiProcessingInputs() {
+        return this.mergeHeiProcessingInputs;
+    }
+
+    public void setMergeHeiProcessingInputs(boolean merge) {
+        this.mergeHeiProcessingInputs = merge;
+        saveChanges();
+    }
+
     public ConfigInventory getEncodedInputInv() {
         return this.encodedInputInv;
     }
@@ -190,6 +200,8 @@ public class PatternEncodingLogic implements InternalInventoryHost {
             }
             this.substitute = data.getBoolean("substitute");
             this.substituteFluids = !data.hasKey("substituteFluids", 1) || data.getBoolean("substituteFluids");
+            this.mergeHeiProcessingInputs = !data.hasKey("mergeHeiProcessingInputs", 1)
+                || data.getBoolean("mergeHeiProcessingInputs");
             this.blankPatternInv.readFromNBT(data, "blankPattern");
             this.encodedPatternInv.readFromNBT(data, "encodedPattern");
             this.encodedInputInv.readFromChildTag(data, "encodedInputs");
@@ -204,6 +216,7 @@ public class PatternEncodingLogic implements InternalInventoryHost {
         data.setString("mode", this.mode.name());
         data.setBoolean("substitute", this.substitute);
         data.setBoolean("substituteFluids", this.substituteFluids);
+        data.setBoolean("mergeHeiProcessingInputs", this.mergeHeiProcessingInputs);
         this.blankPatternInv.writeToNBT(data, "blankPattern");
         this.encodedPatternInv.writeToNBT(data, "encodedPattern");
         this.encodedInputInv.writeToChildTag(data, "encodedInputs");

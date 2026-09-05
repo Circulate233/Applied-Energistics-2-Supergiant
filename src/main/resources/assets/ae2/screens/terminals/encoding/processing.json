@@ -82,10 +82,14 @@
     },
     "processingCycleOutput": {
       "left": 89,
-      "bottom": 159
+      "bottom": 149
     },
     "processingClearPattern": {
       "left": 79,
+      "bottom": 159
+    },
+    "processingMergeHeiInputs": {
+      "left": 89,
       "bottom": 159
     },
     "processingAmountButton0": {

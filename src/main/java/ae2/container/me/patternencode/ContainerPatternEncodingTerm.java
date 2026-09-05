@@ -77,6 +77,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
     private static final String ACTION_SET_CLEAR_ON_CLOSE = "setClearOnClose";
     private static final String ACTION_SET_SUBSTITUTION = "setSubstitution";
     private static final String ACTION_SET_FLUID_SUBSTITUTION = "setFluidSubstitution";
+    private static final String ACTION_SET_HEI_PROCESSING_MERGE = "setHeiProcessingMerge";
     private static final String ACTION_CYCLE_PROCESSING_OUTPUT = "cycleProcessingOutput";
     private static final String ACTION_CLEAR_PROCESSING_SECONDARY_OUTPUTS = "clearProcessingSecondaryOutputs";
     private static final String ACTION_PROCESSING_MULTIPLY_2 = "processingMultiply2";
@@ -143,6 +144,8 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
     public boolean patternModifierPanelAvailable;
     @GuiSync(92)
     public long networkBlankPatternCount;
+    @GuiSync(82)
+    public boolean mergeHeiProcessingInputs;
     @GuiSync(86)
     private long providerDirectoryRevision;
     @GuiSync(85)
@@ -176,6 +179,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
         this.mode = this.encodingLogic.getMode();
         this.substitute = this.encodingLogic.isSubstitution();
         this.substituteFluids = this.encodingLogic.isFluidSubstitution();
+        this.mergeHeiProcessingInputs = this.encodingLogic.isMergeHeiProcessingInputs();
 
         ConfigGuiInventory encodedInputs = this.encodedInputsInv.createGuiWrapper();
         ConfigGuiInventory encodedOutputs = this.encodedOutputsInv.createGuiWrapper();
@@ -294,6 +298,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
         registerClientAction(ACTION_SET_MODE, EncodingMode.class, this::changeMode);
         registerClientAction(ACTION_SET_SUBSTITUTION, Boolean.class, this::changeSubstitution);
         registerClientAction(ACTION_SET_FLUID_SUBSTITUTION, Boolean.class, this::changeFluidSubstitution);
+        registerClientAction(ACTION_SET_HEI_PROCESSING_MERGE, Boolean.class, this::changeMergeHeiProcessingInputs);
         registerClientAction(ACTION_CYCLE_PROCESSING_OUTPUT, this::cycleProcessingOutput);
         registerClientAction(ACTION_CLEAR_PROCESSING_SECONDARY_OUTPUTS, this::clearProcessingSecondaryOutputs);
         registerClientAction(ACTION_PROCESSING_MULTIPLY_2,
@@ -422,6 +427,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
             this.mode = this.encodingLogic.getMode();
             this.substitute = this.encodingLogic.isSubstitution();
             this.substituteFluids = this.encodingLogic.isFluidSubstitution();
+            this.mergeHeiProcessingInputs = this.encodingLogic.isMergeHeiProcessingInputs();
             this.autoFillPatterns = getHost().getConfigManager().getSetting(Settings.PATTERN_AUTO_FILL);
             this.patternModifierPanelAvailable = this.patternModifierPanel.isAvailable();
             this.networkBlankPatternCount = this.autoFillPatterns == YesNo.YES ? computeNetworkBlankPatternCount() : 0;
@@ -1462,6 +1468,24 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
             }
             sendClientAction(ACTION_SET_HEI_PROCESSING_RECIPE,
                 new HeiProcessingRecipeRequest(recipeTypeUid, inputCandidateKeyTags));
+        }
+    }
+
+    public boolean isMergeHeiProcessingInputs() {
+        return this.mergeHeiProcessingInputs;
+    }
+
+    public void setMergeHeiProcessingInputs(boolean merge) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SET_HEI_PROCESSING_MERGE, merge);
+        }
+        changeMergeHeiProcessingInputs(merge);
+    }
+
+    private void changeMergeHeiProcessingInputs(boolean merge) {
+        this.mergeHeiProcessingInputs = merge;
+        if (isServerSide()) {
+            this.encodingLogic.setMergeHeiProcessingInputs(merge);
         }
     }
 

@@ -221,7 +221,11 @@ public class PatternEncodingRecipeTransferHandler<C extends ContainerPatternEnco
                 GenericStack selected = PatternImportPrioritySelector.selectIngredient(genericIngredient, context,
                     false);
                 if (isValidStack(selected)) {
-                    addOrMergeInput(encodedInputs, candidatesByEncodedSlot, selected, genericIngredient);
+                    if (container.isMergeHeiProcessingInputs()) {
+                        addOrMergeInput(encodedInputs, candidatesByEncodedSlot, selected, genericIngredient);
+                    } else {
+                        addInput(encodedInputs, candidatesByEncodedSlot, selected, genericIngredient);
+                    }
                 }
             }
         }
@@ -271,6 +275,19 @@ public class PatternEncodingRecipeTransferHandler<C extends ContainerPatternEnco
 
         stacks.add(newStack);
         candidatesByEncodedSlot.add(new ObjectArrayList<>(newCandidates));
+    }
+
+    private static void addInput(List<GenericStack> stacks, List<List<AEKey>> candidatesByEncodedSlot,
+                                 GenericStack newStack, List<GenericStack> possibleInputs) {
+        List<AEKey> candidates = getCandidateKeys(possibleInputs);
+        if (!isValidStack(newStack)) {
+            return;
+        }
+        if (!candidates.contains(newStack.what())) {
+            candidates.add(newStack.what());
+        }
+        stacks.add(newStack);
+        candidatesByEncodedSlot.add(candidates);
     }
 
     private static List<AEKey> getCandidateKeys(List<GenericStack> possibleInputs) {

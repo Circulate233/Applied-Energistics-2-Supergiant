@@ -213,6 +213,8 @@ public final class Icon {
     public static final Icon S_CYCLE_TRANSPARENT = registerBuiltin("s_cycle_transparent");
     public static final Icon S_SUBSTITUTION_ENABLED = registerBuiltin("s_substitution_enabled");
     public static final Icon S_SUBSTITUTION_DISABLED = registerBuiltin("s_substitution_disabled");
+    public static final Icon S_MERGE_ENABLED = registerBuiltin("s_merge_enabled");
+    public static final Icon S_MERGE_DISABLED = registerBuiltin("s_merge_disabled");
     public static final Icon S_FLUID_SUBSTITUTION_ENABLED = registerBuiltin("s_fluid_substitution_enabled");
     public static final Icon S_FLUID_SUBSTITUTION_DISABLED = registerBuiltin("s_fluid_substitution_disabled");
     public static final Icon S_STORAGE = registerBuiltin("s_storage");

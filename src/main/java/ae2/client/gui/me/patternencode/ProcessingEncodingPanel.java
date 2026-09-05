@@ -10,13 +10,17 @@ import ae2.client.gui.widgets.ActionButton;
 import ae2.client.gui.widgets.DynamicIconButton;
 import ae2.client.gui.widgets.Scrollbar;
 import ae2.client.gui.widgets.SmallTextTooltipButton;
+import ae2.client.gui.widgets.ToggleButton;
 import ae2.container.SlotSemantics;
 import ae2.container.me.patternencode.ContainerPatternEncodingTerm;
 import ae2.core.localization.ButtonToolTips;
 import ae2.core.localization.GuiText;
+import ae2.core.localization.Tooltips;
+import ae2.integration.Integrations;
 import ae2.parts.encoding.ProcessingPatternAmountHelper;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.util.text.ITextComponent;
+import org.jetbrains.annotations.Nullable;
 
 import java.awt.Rectangle;
 import java.util.List;
@@ -27,6 +31,8 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
 
     private final ActionButton clearBtn;
     private final DynamicIconButton cycleOutputBtn;
+    @Nullable
+    private final ToggleButton mergeHeiInputsBtn;
     private final Scrollbar scrollbar;
     private final SmallTextTooltipButton[] amountButtons;
 
@@ -41,10 +47,14 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
             () -> GuiScreen.isShiftKeyDown() ? Icon.S_CLEAR : Icon.S_CYCLE,
             ButtonToolTips.CycleProcessingOutput.text(),
             () -> GuiScreen.isShiftKeyDown()
-                ? List.of(ButtonToolTips.ClearProcessingSecondaryOutputs.text(),
-                ButtonToolTips.ClearProcessingSecondaryOutputsTooltip.text())
-                : List.of(ButtonToolTips.CycleProcessingOutput.text(),
-                ButtonToolTips.CycleProcessingOutputTooltip.text()),
+                ? List.of(
+                    ButtonToolTips.ClearProcessingSecondaryOutputs.text(),
+                    ButtonToolTips.ClearProcessingSecondaryOutputsDescription.text(),
+                    ButtonToolTips.ClearProcessingSecondaryOutputsReleaseShiftHint.text())
+                : List.of(
+                    ButtonToolTips.CycleProcessingOutput.text(),
+                    ButtonToolTips.CycleProcessingOutputDescription.text(),
+                    ButtonToolTips.CycleProcessingOutputShiftHint.text()),
             () -> {
                 if (GuiScreen.isShiftKeyDown()) {
                     this.container.clearProcessingSecondaryOutputs();
@@ -55,6 +65,22 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
         this.cycleOutputBtn.setHalfSize(true);
         this.cycleOutputBtn.setDisableBackground(true);
         widgets.add("processingCycleOutput", this.cycleOutputBtn);
+
+        if (Integrations.hei().isEnabled()) {
+            this.mergeHeiInputsBtn = new ToggleButton(Icon.S_MERGE_ENABLED, Icon.S_MERGE_DISABLED,
+                this.container::setMergeHeiProcessingInputs);
+            this.mergeHeiInputsBtn.setHalfSize(true);
+            this.mergeHeiInputsBtn.setDisableBackground(true);
+            this.mergeHeiInputsBtn.setTooltipOn(List.of(
+                Tooltips.HeiProcessingMerge.text(),
+                Tooltips.HeiProcessingMergeDescEnabled.text()));
+            this.mergeHeiInputsBtn.setTooltipOff(List.of(
+                Tooltips.HeiProcessingMerge.text(),
+                Tooltips.HeiProcessingMergeDescDisabled.text()));
+            widgets.add("processingMergeHeiInputs", this.mergeHeiInputsBtn);
+        } else {
+            this.mergeHeiInputsBtn = null;
+        }
 
         this.scrollbar = widgets.addScrollBar("processingPatternModeScrollbar", Scrollbar.SMALL);
         this.scrollbar.setRange(0, Math.max(0, this.container.getProcessingInputSlots().length / 3 - 3), 3);
@@ -96,6 +122,9 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
         }
 
         this.cycleOutputBtn.setVisibility(this.visible && this.container.canCycleProcessingOutputs());
+        if (this.mergeHeiInputsBtn != null) {
+            this.mergeHeiInputsBtn.setState(this.container.isMergeHeiProcessingInputs());
+        }
         updateTooltipVisibility();
     }
 
@@ -161,6 +190,9 @@ public class ProcessingEncodingPanel extends EncodingModePanel {
         this.scrollbar.setVisible(visible);
         this.clearBtn.setVisibility(visible);
         this.cycleOutputBtn.setVisibility(visible && this.container.canCycleProcessingOutputs());
+        if (this.mergeHeiInputsBtn != null) {
+            this.mergeHeiInputsBtn.setVisibility(visible);
+        }
         for (SmallTextTooltipButton button : this.amountButtons) {
             button.visible = visible;
             button.enabled = visible;
