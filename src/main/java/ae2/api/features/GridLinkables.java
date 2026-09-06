@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Objects;
 
 /**
- * A registry for items that can be linked to a specific network using for example the security station's user
+ * A registry for items that can be linked to a specific network using for example a wireless access point's user
  * interface.
  * <p/>
  * This can be used by items like wireless terminals to encode the network security key in their NBT. This security key

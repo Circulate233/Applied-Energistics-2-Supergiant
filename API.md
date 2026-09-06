@@ -5,11 +5,12 @@ title: Addon and Mod API
 
 ## Source Layout
 
-This branch exposes AE2's public API from `src/main/java/ae2/api`.
+This branch exposes AE2's public API from `src/main/java/ae2/api`. Optional integrations such as HEI/JEI are wired
+through compile-time dependencies provided by the build, not through bundled stub sources.
 
-The `src/api/java` source set contains compatibility stubs for optional external mods. It is compiled as the
-`stubApi` source set, is placed on the main source set's compile classpath, and is then removed from the final AE2 jar.
-Use `src/main/java/ae2/api` as the public AE2 API surface.
+Stable references to AE2's own content are available as constants in `ae2.api.ids` (`AEItemIds`, `AEBlockIds`,
+`AEPartIds`, `AECreativeTabIds`) together with shared constants in `AEConstants`. Prefer these over re-creating
+`ResourceLocation`s by hand.
 
 ## Mod Initialization
 
@@ -21,7 +22,7 @@ relevant during normal Forge mod initialization:
 | `ae2.api.stacks.AEKeyTypes`                 | Addons can register custom storage types similar to `AEItemKey` and `AEFluidKey`.                   |
 | `ae2.api.networking.GridServices`           | Addons can register their own grid-wide services here.                                              |
 | `ae2.api.movable.BlockEntityMoveStrategies` | Allows mods to register custom strategies for moving tile entities in and out of spatial storage.   |
-| `ae2.api.features.GridLinkables`            | For working with and adding items that can be linked to a grid in the security station.             |
+| `ae2.api.features.GridLinkables`            | For working with and adding items that can be linked to a specific grid, such as linking wireless terminals at a wireless access point. |
 | `ae2.api.features.ChargeableItems`          | For registering external item energy adapters handled by the AE2 charger.                           |
 | `ae2.api.storage.StorageCells`              | For working with and adding items that serve as storage cells for grids.                            |
 | `ae2.api.features.Locatables`               | For discovering quantum network bridges and other locatable objects based on their unique keys.     |
@@ -32,6 +33,9 @@ relevant during normal Forge mod initialization:
 | `ae2.api.upgrades.UpgradeInventories`       | For creating upgrade inventories for upgradable machines and item-backed hosts.                     |
 | `ae2.api.networking.extensions.GridLogicExtensions` | Adds runtime behavior to supported AE2 grid logic instances without mixins.                  |
 | `ae2.api.behaviors.GenericInternalInventoryAdapters` | Allows addons to expose AE2 generic inventories through Forge capabilities.                         |
+| `ae2.api.crafting.cpu.ICraftingUnitRegistry` | For adding custom crafting CPU unit blocks that reuse AE2's cluster logic.                          |
+| `ae2.api.client.AEKeyRendering`             | For registering the client-side GUI rendering of custom key types.                                  |
+| `ae2.api.cellterminal.CellTerminalApi`      | For registering Cell Terminal scanners and live target resolvers.                                   |
 
 In general, these registries are synchronized and may be used during mod loading. Finish registration before gameplay
 starts using the affected systems. Changes after mod initialization can leave already-created grids, storage cells,
@@ -73,8 +77,7 @@ matters more than NBT or other secondary data. For items in this branch, damage 
 Example when your code only supports item keys:
 
 ```java
-if (key instanceof AEItemKey) {
-    AEItemKey itemKey = (AEItemKey) key;
+if (key instanceof AEItemKey itemKey) {
     ItemStack stack = itemKey.toStack();
     // [...]
 }
@@ -83,8 +86,7 @@ if (key instanceof AEItemKey) {
 Example when your code only supports fluid keys:
 
 ```java
-if (key instanceof AEFluidKey) {
-    AEFluidKey fluidKey = (AEFluidKey) key;
+if (key instanceof AEFluidKey fluidKey) {
     FluidStack stack = fluidKey.toStack(1000);
     // [...]
 }
@@ -127,6 +129,69 @@ final class MyCapabilityHandler implements IMyCapability {
     // then call inv.insert(...), inv.extract(...), inv.getKey(...), and inv.getAmount(...).
 }
 ```
+
+## Custom Key Rendering
+
+Registering an `AEKeyType` only teaches AE2 how to store, serialize, and route your keys. Every key family also needs
+a client-side render handler, otherwise AE2 GUIs such as terminals and cell viewers cannot display it.
+
+Register one handler per key type on the client during mod initialization:
+
+```java
+AEKeyRendering.register(MY_KEY_TYPE, MyKey.class, new MyKeyRenderHandler());
+```
+
+`AEKeyRenderHandler<T>` requires the following methods:
+
+* `drawInGui(Minecraft, x, y, key)` draws the key into a 16x16 GUI area. Implementations must balance their matrix
+  operations and restore GL state they change beyond the AE2 GUI baseline: blending enabled, depth and lighting
+  disabled, and color set to white. Callers do not repair state changed through raw OpenGL calls.
+* `drawOnBlockFace(key, scale, combinedLight, world)` draws the key onto a block face, used by previews such as
+  formation planes.
+* `getDisplayName(key)` returns the translated display name used by terminals and tooltips.
+* `getTooltip(key)` is optional and defaults to the display name plus the owning mod id.
+
+Duplicate registration for the same key type throws an exception. AE2 registers its own item and fluid handlers
+built-in; addons only register handlers for their own key types.
+
+## Custom Crafting Units
+
+The crafting CPU cluster logic is extensible through custom crafting unit definitions in `ae2.api.crafting.cpu`. A
+unit definition (`ICraftingUnitDefinition`) describes one CPU block type that participates in crafting clusters:
+
+| Method                      | Purpose                                                                     |
+|-----------------------------|-----------------------------------------------------------------------------|
+| `id()`                      | Stable identifier used for registration, model lookup, and persistence.     |
+| `storageBytes()`            | Storage bytes contributed by one block of this type to its cluster.         |
+| `acceleratorThreads()`      | Co-processor threads contributed by one block of this type to its cluster.  |
+| `getItemRepresentation()`   | Item used as the block's item representation.                               |
+| `getVisualDefinition()`     | Client rendering contract: unformed/formed model, ring and light textures.  |
+| `getFamilyId()`             | Family identifier that gates cluster compatibility between implementations.  |
+
+Register definitions and upgrade rules during mod initialization, before models are baked. Definitions can be
+registered at any point during loading; duplicate ids are rejected with an exception:
+
+```java
+CraftingUnitRegistry.getInstance().register(MY_UNIT_DEFINITION);
+CraftingUnitTransformationRegistry.getInstance()
+    .register(MY_UNIT_BLOCK, MY_UPGRADED_BLOCK, MY_UPGRADE_ITEM);
+```
+
+The transformation registry drives right-click upgrading of a base unit block into its upgraded form, and the item
+returned when the upgrade is removed again. Units whose `getFamilyId()` differs do not form a single crafting
+cluster together, so addon units can be mixed freely with each other but stay separate from AE2's own units unless
+they deliberately share a family id.
+
+The client-side formed model is provided through `ae2.api.client.crafting.ICraftingUnitClientRegistry` during client
+setup:
+
+```java
+CraftingUnitClientRegistry.getInstance().registerModelProvider(MY_UNIT_ID, MY_MODEL_PROVIDER);
+```
+
+The registry singletons currently live in `ae2.core.registries` (`CraftingUnitRegistry`,
+`CraftingUnitTransformationRegistry`, `CraftingUnitClientRegistry`); the interfaces in `ae2.api.crafting.cpu` and
+`ae2.api.client.crafting` are the stable contracts.
 
 ## Grids and Nodes
 
@@ -556,6 +621,38 @@ after AE2's native upgrade handling. Neighbor callbacks are dispatched server-si
 changes; an extension should use `context.getTargetSides()` when it only handles current output sides, because a
 pattern provider's selected side can change at runtime.
 
+## Machine Settings
+
+Machine-facing settings are modeled by `Setting<T>` constants in `ae2.api.config.Settings`, one per configurable
+behavior (`REDSTONE_CONTROLLED`, `SORT_DIRECTION`, `PATTERN_AUTO_FILL`, and so on). The enum-backed option lists such
+as `RedstoneMode` or `YesNo` also live in `ae2.api.config`.
+
+Host machines expose their settings through `IConfigManager`, reachable from any object implementing
+`ae2.api.util.IConfigurableObject`:
+
+```java
+public class MyMachine implements IConfigurableObject {
+    private final IConfigManager configManager = IConfigManager.builder(this::onSettingChanged)
+        .registerSetting(Settings.REDSTONE_CONTROLLED, RedstoneMode.HIGH_SIGNAL)
+        .build();
+
+    @Override
+    public IConfigManager getConfigManager() {
+        return this.configManager;
+    }
+
+    private void onSettingChanged(IConfigManager manager, Setting<?> setting) {
+        // React to setting changes, mark the machine dirty, refresh the GUI, etc.
+    }
+}
+```
+
+`getSetting(...)` and `putSetting(...)` read and write individual values, `getSettings()` and `hasSetting(...)`
+enumerate what the machine supports, and `writeToNBT(...)`/`readFromNBT(...)` persist the current values. Registering
+an unregistered setting on a manager throws `UnsupportedSettingException`. Item-backed hosts such as portable and
+wireless terminals build their manager with `IConfigManager.builder(ItemStack)`, which persists settings into the
+item's NBT automatically.
+
 ## Wireless Terminals
 
 Wireless terminals are registered through `AddWirelessTerminalEvent`. Register your handler during mod loading, before
@@ -570,8 +667,11 @@ fields, invalid upgrade slot counts, and registrations after the event fail with
 | `ae2.api.implementations.items.WirelessTerminalApi`            | Lookup helpers and universal terminal helpers.                           |
 | `ae2.api.implementations.items.WirelessTerminalUpgradeHelper`  | Registers upgrade cards against all registered wireless terminals.       |
 
-Definitions contain a unique id, the terminal item, an icon factory, a GUI opener, a host factory, a hotkey name, and
-the number of upgrade slots supported by that terminal. Terminal items should extend `WirelessTerminalItem`.
+Definitions contain a unique id, the terminal item, an icon factory, a GUI opener, a host factory, a container
+factory, a screen factory, a hotkey name, and the number of upgrade slots supported by that terminal. Terminal items
+should extend `WirelessTerminalItem`. The container factory creates the server-side container for the terminal, and
+the screen factory creates the client screen; this keeps external wireless terminals from having to reserve or depend
+on an AE2 `GuiKey`. A builder overload that omits the GUI opener falls back to AE2's standard item-based opener.
 
 Example registration:
 
@@ -579,14 +679,12 @@ Example registration:
 AddWirelessTerminalEvent.register(event -> event.builder(
         "example",
         MY_WIRELESS_TERMINAL,
-        (definition, player, locator, stack, returningFromSubmenu) -> {
-            // Open your GUI here. Return true when it was opened.
-            return true;
-        },
         (stackItem, terminalItem, player, locator, returnToMainContainer) -> {
             // Return your WirelessTerminalGuiHost implementation.
             return new MyWirelessTerminalGuiHost(stackItem, terminalItem, player, locator, returnToMainContainer);
         },
+        (definition, inventory, host) -> new MyWirelessTerminalContainer(definition, inventory, host),
+        (definition, container, inventory) -> new MyWirelessTerminalScreen(container, inventory),
         terminal -> new ItemStack(terminal))
     .hotkeyName("wireless_example_terminal")
     .upgradeSlots(2)
@@ -624,6 +722,80 @@ backing block implements the same interface.
 
 This allows addons to opt custom machines into the pattern access terminal's crafting-pattern quick-move behavior
 without hard-coding specific AE2 block ids.
+
+## Client Integration APIs
+
+The following extension points integrate addon features into AE2 terminal GUIs. They are client-only: register them
+from client setup, and never call them on a dedicated server.
+
+### Pattern Import Priorities
+
+When a recipe is imported from HEI/JEI into a pattern encoding terminal, every ingredient slot can contain several
+candidate variants. `ae2.api.client.PatternImportPriorities.register(priority)` registers `PatternImportPriority`
+implementations that decide which candidate is written into the terminal.
+
+Implementations provide a stable id, a display name, optional tooltip lines, and a `matches(context, candidate)`
+check. Priorities are evaluated in the player-configured order and the first matching implementation selects the
+candidate. The `PatternImportPriorityContext` exposes the active terminal container, the client repo view, the HEI
+bookmark snapshot, and convenience checks such as `isBookmarked(...)`, `isCraftable(...)`, and `isStored(...)`. AE2
+ships built-in priorities for HEI bookmarks, craftables, and stored items; players reorder all priorities in the
+pattern import priority settings screen.
+
+### Terminal Settings Pages
+
+`ae2.api.client.terminalsettings.TerminalSettingsPages.register(provider)` adds pages to the terminal settings GUI
+without touching the host toolbar. The provider supplies a stable id, a toolbar icon, a localized title, and a
+`isVisible(context)` check, and creates one `TerminalSettingsPage` per GUI instance. The page receives lifecycle
+callbacks (`init`, `update`, `drawBackground`, `drawForeground`, `keyTyped`, `onClosed`) and builds its controls
+through the context, which exposes checkbox, text field, button, and label factories. The host owns layout, toolbar
+buttons, and page selection.
+
+### Pattern Provider Toolbar Event
+
+`ae2.api.client.PatternProviderGuiInitEvent` is posted on the Forge event bus after a pattern provider GUI has
+created its built-in toolbar buttons. Addons append their own controls with `event.addToLeftToolbar(button)` and can
+read the `PatternProviderLogicHost` from `event.getHost()`.
+
+## Cell Terminal Integration
+
+The Cell Terminal discovers storage targets, storage buses, and subnets through pluggable scanners. Addons register
+their own scanners and target resolvers through `ae2.api.cellterminal.CellTerminalApi` during common setup:
+
+```java
+CellTerminalApi.registerStorageScanner(MY_STORAGE_SCANNER);
+CellTerminalApi.registerStorageTargetResolver(MY_STORAGE_TARGET_RESOLVER);
+```
+
+Scanners implement one of the `CellTerminalScanner.Storage`, `.Bus`, or `.Subnet` variants and return the matching
+`CellTerminalTarget` subtypes from `scan(grid)`. Targets carry a `CellTerminalTargetLocator` so server-side actions
+can re-resolve the live world object later. Any scanner that exposes writable targets must register the matching
+resolver kind, otherwise server-side GUI actions fail fast.
+
+`CellTerminalCapability` enumerates optional target abilities (content preview, cell slot writes, partition and text
+partition writes, auto partitioning, and more) so callers can decide which pages and actions to offer without
+depending on AE2 implementation classes. Terminal hosts implement `CellTerminalContainerHost` to provide the grid
+node, temporary cell storage, subnet metadata ledger, and link status consumed by the Cell Terminal container.
+
+## Optional Mod Integrations
+
+### In-World Part Tooltips
+
+`ae2.api.integrations.igtooltip.PartTooltips` adds body lines and server data to the in-world tooltips that AE2
+renders for its parts, shared by the built-in tooltip integrations:
+
+```java
+PartTooltips.addBody(MyPart.class, (part, context, tooltip) -> tooltip.addLine("..."));
+PartTooltips.addServerData(MyPart.class, (player, part, serverData) -> serverData.setString("state", "..."));
+```
+
+Both methods accept an optional priority that controls ordering. This API is experimental and may still change.
+
+### HEI Ingredient Converters
+
+When HEI is installed, `ae2.api.integrations.hei.IngredientConverters.register(converter)` teaches AE2's ghost-slot
+drag-and-drop how to convert a third-party HEI ingredient type into an AE2 `GenericStack` and back. A converter
+declares its `IIngredientType`, and one converter per ingredient type is accepted: AE2's built-in item and fluid
+converters are registered first, and later registrations for an already-covered ingredient type are ignored.
 
 ## Porting from Older AE2 APIs
 
@@ -689,6 +861,9 @@ Custom storage cells are based on the unified key-storage model. Addon cells mus
 `MEStorageMonitor`, through the appropriate cell APIs and must synchronously report signed content deltas. They should
 use key filters to restrict accepted key types when needed. Item and fluid storage math can still differ, so prefer the
 public cell APIs in `ae2.api.storage.cells` over depending on AE2 implementation classes.
+
+The grid statistics events in `ae2.api.networking.events.statistics` exist for statistics reporting but are explicitly
+subject to change and not a stable API surface yet.
 
 ## Crank
 

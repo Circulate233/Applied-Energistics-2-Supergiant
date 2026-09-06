@@ -230,20 +230,10 @@ processResources {
 }
 
 sourceSets {
-    stubApi {
-        java {
-            srcDir 'src/api/java'
-        }
-        compileClasspath += sourceSets.main.compileClasspath
-        runtimeClasspath += output + compileClasspath
-    }
-
     main {
         java {
             srcDir generatedTagsSourceDir
         }
-        compileClasspath += sourceSets.stubApi.output
-        runtimeClasspath += sourceSets.stubApi.output
 
         blossom {
             javaSources {
@@ -272,24 +262,12 @@ sourceSets {
     }
 
     test {
-        compileClasspath += sourceSets.main.output + sourceSets.stubApi.output + sourceSets.main.compileClasspath
-        runtimeClasspath += sourceSets.main.output + sourceSets.stubApi.output + sourceSets.main.runtimeClasspath
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.output + sourceSets.main.runtimeClasspath
     }
 
 }
 
-configurations.named('stubApiImplementation').configure {
-    extendsFrom(configurations.implementation)
-}
-configurations.named('stubApiCompileOnly').configure {
-    extendsFrom(configurations.compileOnly)
-}
-configurations.named('stubApiAnnotationProcessor').configure {
-    extendsFrom(configurations.annotationProcessor)
-}
-configurations.named('stubApiRuntimeOnly').configure {
-    extendsFrom(configurations.runtimeOnly)
-}
 configurations.named('testCompileOnly').configure {
     extendsFrom(configurations.compileOnly)
 }
@@ -315,27 +293,8 @@ def syncDevResourcesToClasses = tasks.register('syncDevResourcesToClasses', Copy
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
 
-def purgeStubApiFromMainOutput = tasks.register('purgeStubApiFromMainOutput') {
-    dependsOn(tasks.named('compileStubApiJava'))
-    doLast {
-        def mainClassesDir = layout.buildDirectory.dir('classes/java/main').get().asFile
-        def stubApiClassesDir = layout.buildDirectory.dir('classes/java/stubApi').get().asFile
-        if (!mainClassesDir.exists() || !stubApiClassesDir.exists()) {
-            return
-        }
-
-        fileTree(stubApiClassesDir).matching {
-            include('**/*.class')
-        }.visit { details ->
-            if (!details.directory) {
-                delete(new File(mainClassesDir, details.relativePath.pathString))
-            }
-        }
-    }
-}
-
 def stageDevClassFiles = tasks.register('stageDevClassFiles', Sync) {
-    dependsOn(tasks.named('compileJava'), syncDevResourcesToClasses, purgeStubApiFromMainOutput)
+    dependsOn(tasks.named('compileJava'), syncDevResourcesToClasses)
     from(layout.buildDirectory.dir('classes/java/main')) {
         include('**/*.class')
     }
@@ -374,7 +333,6 @@ tasks.matching { it.name.startsWith('preRun') }.configureEach {
 
 compileJava {
     dependsOn(generateTagsSource)
-    dependsOn(tasks.named('compileStubApiJava'))
     sourceCompatibility = targetCompatibility = JavaVersion.VERSION_25
 }
 
@@ -383,7 +341,6 @@ tasks.named('sourcesJar').configure {
 }
 
 jar {
-    dependsOn(purgeStubApiFromMainOutput)
     dependsOn(syncDevResourcesToClasses)
     dependsOn(syncDevClassesToResources)
     archiveClassifier = 'dev'
