@@ -274,3 +274,87 @@ spotless {
         removeUnusedImports()
     }
 }
+
+def curseforgeProjectId = findProperty('curseforge_project_id')
+if (curseforgeProjectId != null && !curseforgeProjectId.toString().isBlank()) {
+    curseforgeProjectId = curseforgeProjectId.toString().trim()
+    if (!curseforgeProjectId.matches('\\d+')) {
+        throw new GradleException(
+            "Property curseforge_project_id must be a numeric CurseForge project id: ${curseforgeProjectId}"
+        )
+    }
+    def curseforgeReleaseType = findProperty('curseforge_release_type')
+    if (curseforgeReleaseType == null || curseforgeReleaseType.toString().isBlank()) {
+        def detectedVersion = propertyString('mod_version').toLowerCase()
+        if (detectedVersion.contains('alpha')) {
+            curseforgeReleaseType = 'alpha'
+        } else if (detectedVersion.contains('beta') || detectedVersion.contains('pre') || detectedVersion.contains('rc')) {
+            curseforgeReleaseType = 'beta'
+        } else {
+            curseforgeReleaseType = 'release'
+        }
+    } else {
+        curseforgeReleaseType = curseforgeReleaseType.toString().toLowerCase().trim()
+    }
+    if (!['alpha', 'beta', 'release'].contains(curseforgeReleaseType)) {
+        throw new GradleException(
+            "Property curseforge_release_type must be one of alpha, beta, release: ${curseforgeReleaseType}"
+        )
+    }
+    setDefaultProperty('curseforge_game_versions', false, '1.12.2,Forge,Java 25,Client,Server')
+    def curseforgeGameVersions = []
+    propertyStringList('curseforge_game_versions', ',').each { curseforgeGameVersions.add(it.trim()) }
+    curseforgeGameVersions.removeAll { it.isBlank() }
+    if (curseforgeGameVersions.isEmpty()) {
+        throw new GradleException('Property curseforge_game_versions must define at least one CurseForge game version tag!')
+    }
+    def curseforgeRelationTypes = [
+        'curseforge_relations_required': 'requiredDependency',
+        'curseforge_relations_optional': 'optionalDependency',
+        'curseforge_relations_embedded': 'embeddedLibrary',
+        'curseforge_relations_incompatible': 'incompatible',
+        'curseforge_relations_tool': 'tool'
+    ]
+    def curseforgeRelations = [:]
+    curseforgeRelationTypes.each { propertyKey, relationType ->
+        setDefaultProperty(propertyKey, false, '')
+        def slugs = []
+        propertyStringList(propertyKey).each { slugs.add(it) }
+        if (!slugs.isEmpty()) {
+            curseforgeRelations.put(relationType, slugs)
+        }
+    }
+    def curseforgeChangelogFile = null
+    def curseforgeChangelogProperty = findProperty('curseforge_changelog_file')
+    if (curseforgeChangelogProperty != null && !curseforgeChangelogProperty.toString().isBlank()) {
+        curseforgeChangelogFile = file(curseforgeChangelogProperty.toString())
+    } else if (file('CHANGELOG.md').isFile()) {
+        curseforgeChangelogFile = file('CHANGELOG.md')
+    }
+    setDefaultProperty('curseforge_debug_mode', false, 'false')
+    def curseforgeDebugMode = propertyBool('curseforge_debug_mode')
+
+    tasks.register('publishCurseForge', net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+        dependsOn tasks.named('build')
+        group = 'publishing'
+        description = "Publishes the production mod jar to CurseForge project ${curseforgeProjectId}."
+        apiToken = providers.environmentVariable('CURSEFORGE_TOKEN')
+        debugMode = curseforgeDebugMode
+        def mainFile = upload(curseforgeProjectId, productionJarTask.get())
+        mainFile.releaseType = curseforgeReleaseType
+        mainFile.changelogType = 'markdown'
+        if (curseforgeChangelogFile != null) {
+            mainFile.changelog = curseforgeChangelogFile
+        }
+        curseforgeGameVersions.each { mainFile.addGameVersion(it) }
+        curseforgeRelations.each { relationType, slugs ->
+            mainFile.addRelations(relationType, slugs as String[])
+        }
+    }
+
+    def curseforgeAddon = file('addon.gradle')
+    if (curseforgeAddon.isFile()) {
+        apply from: curseforgeAddon
+        logger.lifecycle("Applied CurseForge addon script: ${curseforgeAddon}")
+    }
+}
