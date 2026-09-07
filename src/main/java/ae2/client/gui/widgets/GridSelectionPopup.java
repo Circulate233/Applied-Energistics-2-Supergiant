@@ -22,26 +22,41 @@ public class GridSelectionPopup<T> {
     private static final int BUTTON_GAP = 2;
     private static final int BACKGROUND_COLOR = 0xAA000000;
     private static final int HOVER_COLOR = 0xFF00FF00;
+    private static final int SELECTED_COLOR = 0xFF4E8F46;
     private static final int TEXT_COLOR = 0xFFFFFFFF;
 
     private final List<Entry<T>> entries;
     private final ISelectionHandler<T> selectionHandler;
+    @Nullable
+    private final T selectedValue;
     private final int x;
     private final int y;
     private int hoveredIndex = -1;
 
     public GridSelectionPopup(int x, int y, List<Entry<T>> entries, ISelectionHandler<T> selectionHandler) {
+        this(x, y, entries, null, selectionHandler);
+    }
+
+    public GridSelectionPopup(int x, int y, List<Entry<T>> entries, @Nullable T selectedValue,
+                              ISelectionHandler<T> selectionHandler) {
         if (entries.isEmpty()) {
             throw new IllegalArgumentException("entries must not be empty");
         }
         this.x = x;
         this.y = y;
         this.entries = List.copyOf(entries);
+        this.selectedValue = selectedValue;
         this.selectionHandler = Objects.requireNonNull(selectionHandler, "selectionHandler");
     }
 
     public static <T> GridSelectionPopup<T> forButton(GuiButton button, int guiLeft, int guiTop, int guiWidth,
                                                       int guiHeight, List<Entry<T>> entries,
+                                                      ISelectionHandler<T> selectionHandler) {
+        return forButton(button, guiLeft, guiTop, guiWidth, guiHeight, entries, null, selectionHandler);
+    }
+
+    public static <T> GridSelectionPopup<T> forButton(GuiButton button, int guiLeft, int guiTop, int guiWidth,
+                                                      int guiHeight, List<Entry<T>> entries, @Nullable T selectedValue,
                                                       ISelectionHandler<T> selectionHandler) {
         if (entries.isEmpty()) {
             throw new IllegalArgumentException("entries must not be empty");
@@ -58,7 +73,7 @@ public class GridSelectionPopup<T> {
             : buttonX - popupWidth - BUTTON_GAP;
         int popupY = Math.clamp(buttonY, 0, Math.max(0, guiHeight - popupHeight));
 
-        return new GridSelectionPopup<>(popupX, popupY, entries, selectionHandler);
+        return new GridSelectionPopup<>(popupX, popupY, entries, selectedValue, selectionHandler);
     }
 
     private static int getWidth(int entryCount) {
@@ -117,6 +132,9 @@ public class GridSelectionPopup<T> {
     private void drawCell(Minecraft minecraft, int index) {
         int iconX = iconX(index);
         int iconY = iconY(index);
+        if (Objects.equals(this.entries.get(index).Value(), this.selectedValue)) {
+            Gui.drawRect(iconX, iconY, iconX + CELL_SIZE, iconY + CELL_SIZE, SELECTED_COLOR);
+        }
         if (this.hoveredIndex == index) {
             Gui.drawRect(iconX, iconY, iconX + CELL_SIZE, iconY + CELL_SIZE, HOVER_COLOR);
         }

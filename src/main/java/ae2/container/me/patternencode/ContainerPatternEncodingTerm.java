@@ -15,6 +15,7 @@ import ae2.api.storage.ILinkStatus;
 import ae2.api.storage.StorageHelper;
 import ae2.container.GuiIds;
 import ae2.container.SlotSemantics;
+import ae2.container.crafting.RecipeSelection;
 import ae2.container.guisync.GuiSync;
 import ae2.container.implementations.PatternModifierPanel;
 import ae2.container.me.patternencode.PatternProviderUploadService.ProcessingPatternUploadPreparation;
@@ -52,10 +53,10 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.nbt.JsonToNBT;
 import net.minecraft.nbt.NBTException;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
@@ -88,6 +89,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
     private static final String ACTION_PROCESSING_DIVIDE_5 = "processingDivide5";
     private static final String ACTION_RENAME_PROCESSING_PATTERN_ITEM = "renameProcessingPatternItem";
     private static final String ACTION_SET_HEI_PROCESSING_RECIPE = "setHeiProcessingRecipe";
+    private static final String ACTION_SELECT_RECIPE = "selectRecipe";
     private static final String ACTION_UPLOAD_PATTERN = "uploadPattern";
     private static final String ACTION_SET_PATTERN_MODIFIER_PANEL_VISIBLE = "setPatternModifierPanelVisible";
     private static final String ACTION_UPLOAD_PROCESSING_PATTERN_TO_PROVIDER = "uploadProcessingPatternToProvider";
@@ -156,6 +158,10 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
     private String providerSelectionOverlayMappingText = "";
     @Nullable
     private IRecipe currentRecipe;
+    private List<RecipeSelection.Candidate> recipeCandidates = List.of();
+    @GuiSync(81)
+    @Nullable
+    private ResourceLocation selectedRecipeId;
     @Nullable
     private HeiProcessingRecipeSnapshot heiProcessingRecipeSnapshot;
     private boolean changingEncodedPatternSlotInternally;
@@ -254,7 +260,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
 
             @Override
             public ProcessingPatternUploadResult uploadProcessingPattern(ItemStack encodedPattern, IGrid grid,
-                                                                          ProviderKey target) {
+                                                                         ProviderKey target) {
                 return PatternProviderUploadService.tryUploadProcessingPatternToProvider(
                     ContainerPatternEncodingTerm.this.getPlayer(),
                     (IPatternTerminalGuiHost) ContainerPatternEncodingTerm.this.getHost(), grid, target, encodedPattern);
@@ -262,8 +268,8 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
 
             @Override
             public ProcessingPatternUploadPreparation prepareProcessingPatternUpload(ItemStack encodedPattern,
-                                                                                      IGrid grid,
-                                                                                      ProviderKey target) {
+                                                                                     IGrid grid,
+                                                                                     ProviderKey target) {
                 return PatternProviderUploadService.prepareProcessingPatternUpload(
                     ContainerPatternEncodingTerm.this.getPlayer(),
                     (IPatternTerminalGuiHost) ContainerPatternEncodingTerm.this.getHost(), grid, target, encodedPattern);
@@ -319,6 +325,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
         registerClientAction(ACTION_SET_HEI_PROCESSING_RECIPE, HeiProcessingRecipeRequest.class,
             MAX_SET_HEI_PROCESSING_RECIPE_PAYLOAD_LENGTH,
             this::setHeiProcessingRecipe);
+        registerClientAction(ACTION_SELECT_RECIPE, String.class, 256, this::selectRecipeFromClient);
         registerClientAction(ACTION_UPLOAD_PATTERN, Boolean.class, this::uploadPattern);
         registerClientAction(ACTION_SET_PATTERN_MODIFIER_PANEL_VISIBLE, Boolean.class,
             this::setPatternModifierPanelVisibleFromClient);
@@ -329,6 +336,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
         this.patternModifierPanelAvailable = this.patternModifierPanel.isAvailable();
 
         updateSlotVisibility();
+        restoreSelectedRecipeFromEncodedPattern();
         getAndUpdateOutput();
 
         tryAutoFillBlankPatterns();
@@ -443,11 +451,33 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
 
     @Override
     public void onSlotChange(Slot slot) {
-        if (slot == this.encodedPatternSlot && isServerSide()) {
-            this.broadcastChanges();
+        if (slot == this.encodedPatternSlot) {
+            restoreSelectedRecipeFromEncodedPattern();
+            if (isServerSide()) {
+                this.broadcastChanges();
+            }
+        } else if (slot == this.blankPatternSlot || isEncodingSlot(slot)) {
+            this.selectedRecipeId = null;
         }
         if (slot == this.blankPatternSlot || slot == this.encodedPatternSlot || isEncodingSlot(slot)) {
             getAndUpdateOutput();
+        }
+    }
+
+    private void restoreSelectedRecipeFromEncodedPattern() {
+        ItemStack encodedPattern = this.encodedPatternSlot.getStack();
+        if (!PatternDetailsHelper.isEncodedPattern(encodedPattern)) {
+            this.selectedRecipeId = null;
+            return;
+        }
+
+        try {
+            IPatternDetails details = PatternDetailsHelper.decodePattern(encodedPattern, this.getPlayer().world);
+            this.selectedRecipeId = details instanceof AECraftingPattern craftingPattern
+                ? craftingPattern.getRecipeId()
+                : null;
+        } catch (RuntimeException e) {
+            this.selectedRecipeId = null;
         }
     }
 
@@ -492,6 +522,8 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
     private ItemStack getAndUpdateOutput() {
         if (this.mode != EncodingMode.CRAFTING) {
             this.currentRecipe = null;
+            this.recipeCandidates = List.of();
+            this.selectedRecipeId = null;
             this.craftOutputSlot.setResultItem(ItemStack.EMPTY);
             this.slotsSupportingFluidSubstitution.clear();
             return ItemStack.EMPTY;
@@ -509,6 +541,8 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
 
         if (invalidIngredient) {
             this.currentRecipe = null;
+            this.recipeCandidates = List.of();
+            this.selectedRecipeId = null;
             this.craftOutputSlot.setResultItem(ItemStack.EMPTY);
             this.slotsSupportingFluidSubstitution.clear();
             return ItemStack.EMPTY;
@@ -520,8 +554,12 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
             craftingInventory.setInventorySlotContents(i, ingredients[i]);
         }
 
-        if (this.currentRecipe == null || !this.currentRecipe.matches(craftingInventory, this.getPlayer().world)) {
-            this.currentRecipe = CraftingManager.findMatchingRecipe(craftingInventory, this.getPlayer().world);
+        this.recipeCandidates = RecipeSelection.findCandidates(craftingInventory, this.getPlayer().world);
+        RecipeSelection.Candidate selected = RecipeSelection.select(this.recipeCandidates, this.selectedRecipeId);
+        IRecipe previousRecipe = this.currentRecipe;
+        this.currentRecipe = selected == null ? null : selected.recipe();
+        this.selectedRecipeId = selected == null ? null : selected.id();
+        if (this.currentRecipe != previousRecipe) {
             checkFluidSubstitutionSupport();
         }
 
@@ -766,7 +804,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
     }
 
     protected void openProcessingPatternProviderSelection(@Nullable String initialSearchText,
-                                                       @Nullable String initialMappingText) {
+                                                          @Nullable String initialMappingText) {
         openProviderSelection(initialSearchText, initialMappingText);
     }
 
@@ -844,7 +882,7 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
 
     @Override
     public void bindAndUploadProcessingPatternToProvider(long directoryRevision, long providerEntryId,
-                                                          String recipeTypeUid) {
+                                                         String recipeTypeUid) {
         ProviderSelectionSession.ProviderMappingAction action =
             new ProviderSelectionSession.ProviderMappingAction(directoryRevision, providerEntryId, recipeTypeUid);
         if (isClientSide()) {
@@ -1285,6 +1323,45 @@ public class ContainerPatternEncodingTerm extends ContainerMEStorage
 
     public EncodingMode getMode() {
         return this.mode;
+    }
+
+    public List<RecipeSelection.Candidate> getRecipeCandidates() {
+        return this.recipeCandidates;
+    }
+
+    @Nullable
+    public ResourceLocation getSelectedRecipeId() {
+        return this.selectedRecipeId;
+    }
+
+    public void selectRecipe(ResourceLocation recipeId) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SELECT_RECIPE, recipeId.toString());
+            return;
+        }
+        applyRecipeSelection(recipeId);
+    }
+
+    private void selectRecipeFromClient(String recipeId) {
+        try {
+            getAndUpdateOutput();
+            applyRecipeSelection(new ResourceLocation(recipeId));
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void applyRecipeSelection(ResourceLocation recipeId) {
+        RecipeSelection.Candidate selected = RecipeSelection.select(this.recipeCandidates, recipeId);
+        if (selected == null || !selected.id().equals(recipeId)) {
+            return;
+        }
+        IRecipe previousRecipe = this.currentRecipe;
+        this.selectedRecipeId = selected.id();
+        this.currentRecipe = selected.recipe();
+        this.craftOutputSlot.setResultItem(selected.output().copy());
+        if (this.currentRecipe != previousRecipe) {
+            checkFluidSubstitutionSupport();
+        }
     }
 
     public void setMode(EncodingMode mode) {

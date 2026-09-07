@@ -30,6 +30,7 @@ import ae2.core.registries.CraftingUnitTransformationRegistry;
 import ae2.helpers.WirelessTerminalActions;
 import ae2.hooks.CableBusLeftClickHook;
 import ae2.hooks.SkyStoneBreakSpeed;
+import ae2.container.crafting.LastCraftingRecipeTracker;
 import ae2.hooks.WirelessTerminalEventHandler;
 import ae2.hooks.WrenchHook;
 import ae2.hooks.ticking.TickHandler;
@@ -152,6 +153,7 @@ public final class AppEngBase implements AppEng {
         PlayerTracker.clear();
         NetworkAnalyserItem.clearCache();
         ServerCompassService.clearCache();
+        LastCraftingRecipeTracker.clear();
         WirelessTerminalActions.clear();
         TickHandler.instance().shutdown();
     }

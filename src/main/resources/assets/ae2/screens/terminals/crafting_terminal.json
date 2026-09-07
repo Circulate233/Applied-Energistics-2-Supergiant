@@ -62,6 +62,22 @@
     "clearToPlayerInv": {
       "left": 91,
       "bottom": 159
+    },
+    "recipeConflictSelection": {
+      "left": 136,
+      "bottom": 118
+    },
+    "rotateCraftingGrid": {
+      "left": 11,
+      "bottom": 158,
+      "width": 12,
+      "height": 12
+    },
+    "balanceCraftingGrid": {
+      "left": 11,
+      "bottom": 140,
+      "width": 12,
+      "height": 12
     }
   }
 }

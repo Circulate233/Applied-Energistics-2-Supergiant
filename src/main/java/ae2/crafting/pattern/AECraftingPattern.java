@@ -230,6 +230,10 @@ public class AECraftingPattern implements IAssemblerPattern {
         return outputsArray;
     }
 
+    public ResourceLocation getRecipeId() {
+        return Objects.requireNonNull(this.recipe.getRegistryName());
+    }
+
     public boolean canSubstitute() {
         return canSubstitute;
     }

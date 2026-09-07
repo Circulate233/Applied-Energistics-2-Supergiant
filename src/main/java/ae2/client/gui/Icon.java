@@ -200,7 +200,10 @@ public final class Icon {
     public static final Icon TAB_BUTTON_BACKGROUND_FOCUS = registerBuiltin("tab_button_background_focus");
 
     public static final Icon SCHEDULING_DEFAULT = registerBuiltin("scheduling_default");
+    public static final Icon CRAFTING_GRID_ROTATE = registerBuiltin("crafting_grid_rotate");
+    public static final Icon CRAFTING_GRID_BALANCE = registerBuiltin("crafting_grid_balance");
     public static final Icon SCHEDULING_ROUND_ROBIN = registerBuiltin("scheduling_round_robin");
+    public static final Icon RECIPE_CONFLICT_SELECTION = registerBuiltin("recipe_conflict_selection");
     public static final Icon SCHEDULING_RANDOM = registerBuiltin("scheduling_random");
     public static final Icon OVERLAY_OFF = registerBuiltin("overlay_off");
     public static final Icon OVERLAY_ON = registerBuiltin("overlay_on");

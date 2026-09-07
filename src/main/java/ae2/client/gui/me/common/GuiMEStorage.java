@@ -1332,6 +1332,10 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
         return AEConfig.instance().isAutoFocusSearch() && !AEConfig.instance().isUseExternalSearch();
     }
 
+    protected final boolean isSearchFieldFocused() {
+        return this.searchField.isFocused();
+    }
+
     private <T extends Enum<T>> void toggleServerSetting(SettingToggleButton<T> btn, boolean backwards) {
         T nextValue = btn.getNextValue(backwards);
         btn.set(nextValue);
@@ -1457,4 +1461,3 @@ public class GuiMEStorage<C extends ContainerMEStorage> extends AEBaseGui<C> imp
         }
     }
 }
-

@@ -5,11 +5,11 @@
   ],
   "key": {
     "#": {
-      "item": "ae2:sky_stone_small_brick"
+      "item": "ae2:chiseled_quartz_block"
     }
   },
   "result": {
-    "item": "ae2:sky_stone_small_brick_slab",
+    "item": "ae2:sky_stone_block",
     "count": 6,
     "data": 0
   }

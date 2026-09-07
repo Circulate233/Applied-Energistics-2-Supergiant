@@ -34,6 +34,7 @@ import ae2.api.storage.MEStorage;
 import ae2.api.storage.StorageHelper;
 import ae2.container.interfaces.ICraftingGridContainer;
 import ae2.container.me.items.ContainerCraftingTerm;
+import ae2.container.crafting.LastCraftingRecipeTracker;
 import ae2.helpers.InventoryAction;
 import ae2.items.storage.ViewCellItem;
 import ae2.util.Platform;
@@ -213,9 +214,8 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
             return null;
         }
         ctx.operations.add(operation);
-        if (!addRefills(ctx, false)) {
-            return null;
-        }
+        // Refills are best-effort: a missing network refill must not cancel the craft itself.
+        addRefills(ctx, false);
         return new CraftPlan(ctx.crafted, ctx.templateInputs, ctx.operations, ctx.refills, ctx.networkRequests,
             ctx.gridConsumes);
     }
@@ -312,16 +312,7 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
             return exactUse;
         }
 
-        int remainingGrid = ctx.gridRemaining[slot] - ctx.gridConsumes[slot];
-        if (remainingGrid > 1) {
-            return tryUseGrid(ctx, slot, template);
-        }
-
-        SlotUse lastGridUse = tryUseGrid(ctx, slot, template);
-        if (lastGridUse != null) {
-            ctx.slotsRequiringRefill[slot] = true;
-        }
-        return lastGridUse;
+        return tryUseGrid(ctx, slot, template);
     }
 
     private CraftOperation planBatchOperation(PlanContext ctx) {
@@ -461,8 +452,7 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
         }
     }
 
-    private boolean addRefills(PlanContext ctx, boolean validateFuzzy) {
-        boolean requiredRefillsSatisfied = true;
+    private void addRefills(PlanContext ctx, boolean validateFuzzy) {
         for (int slot = 0; slot < GRID_SIZE; slot++) {
             if (!shouldRefillSlot(ctx, slot)) {
                 continue;
@@ -479,11 +469,8 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
             SlotUse fuzzyRefill = tryUseFuzzyNetworkItem(ctx, slot, template, ctx.templateInputs, validateFuzzy);
             if (fuzzyRefill != null && fuzzyRefill.networkKey() instanceof AEItemKey refillKey) {
                 ctx.refills.add(new Refill(slot, refillKey));
-            } else if (ctx.slotsRequiringRefill[slot]) {
-                requiredRefillsSatisfied = false;
             }
         }
-        return requiredRefillsSatisfied;
     }
 
     private boolean shouldRefillSlot(PlanContext ctx, int slot) {
@@ -570,6 +557,8 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
                 this.craftInv.extractItem(slot, amount, false);
             }
         }
+
+        LastCraftingRecipeTracker.remember(player, plan.eventInputs());
 
         onCrafted(player, output, plan.eventInputs());
 
@@ -682,7 +671,6 @@ public class CraftingTermSlot extends AppEngCraftingSlot {
         final IPartitionList filter;
         final int[] gridRemaining = new int[GRID_SIZE];
         final int[] gridConsumes = new int[GRID_SIZE];
-        final boolean[] slotsRequiringRefill = new boolean[GRID_SIZE];
         final AEKey2LongMap networkRequests = new AEKey2LongMap.OpenHashMap();
         final List<CraftOperation> operations = new ObjectArrayList<>();
         final List<Refill> refills = new ObjectArrayList<>();

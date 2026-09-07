@@ -25,8 +25,13 @@ import ae2.api.networking.energy.IEnergySource;
 import ae2.api.stacks.AEItemKey;
 import ae2.api.stacks.GenericStack;
 import ae2.api.storage.ITerminalHost;
+import ae2.api.storage.StorageHelper;
 import ae2.container.GuiIds;
 import ae2.container.SlotSemantics;
+import ae2.container.crafting.RecipeSelection;
+import ae2.container.crafting.CraftingGridTweaks;
+import ae2.container.crafting.LastCraftingRecipeTracker;
+import ae2.container.guisync.GuiSync;
 import ae2.container.implementations.ContainerCraftConfirm;
 import ae2.container.interfaces.ICraftingGridContainer;
 import ae2.container.me.common.ContainerMEStorage;
@@ -47,6 +52,7 @@ import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
+import it.unimi.dsi.fastutil.shorts.ShortSet;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.entity.player.InventoryPlayer;
@@ -54,13 +60,14 @@ import net.minecraft.inventory.Container;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.crafting.CraftingManager;
 import net.minecraft.item.crafting.IRecipe;
 import net.minecraft.item.crafting.Ingredient;
 import net.minecraft.util.NonNullList;
+import net.minecraft.util.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * Can only be used with a host that implements {@link ISegmentedInventory} and exposes an inventory named "crafting" to
@@ -70,6 +77,10 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
 
     private static final String ACTION_CLEAR_TO_PLAYER = "clearToPlayer";
     private static final String ACTION_SET_CLEAR_ON_CLOSE = "setClearOnClose";
+    private static final String ACTION_SELECT_RECIPE = "selectRecipe";
+    private static final String ACTION_ROTATE_GRID = "rotateGrid";
+    private static final String ACTION_BALANCE_GRID = "balanceGrid";
+    private static final String ACTION_RESTORE_LAST_RECIPE = "restoreLastRecipe";
     private static final int GRID_WIDTH = 3;
     private static final int GRID_HEIGHT = 3;
     private static final int GRID_LEFT = 30;
@@ -90,6 +101,10 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
     private NonNullList<ItemStack> lastTestedInput;
     @Nullable
     private IRecipe currentRecipe;
+    private List<RecipeSelection.Candidate> recipeCandidates = List.of();
+    @GuiSync(90)
+    @Nullable
+    private ResourceLocation selectedRecipeId;
     private boolean clearGridOnClose;
 
     public ContainerCraftingTerm(InventoryPlayer ip, ITerminalHost host) {
@@ -120,6 +135,10 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
 
         registerClientAction(ACTION_CLEAR_TO_PLAYER, this::clearToPlayerInventory);
         registerClientAction(ACTION_SET_CLEAR_ON_CLOSE, Boolean.class, this::setClearGridOnClose);
+        registerClientAction(ACTION_SELECT_RECIPE, String.class, 256, this::selectRecipeFromClient);
+        registerClientAction(ACTION_ROTATE_GRID, Boolean.class, this::rotateGrid);
+        registerClientAction(ACTION_BALANCE_GRID, Boolean.class, this::balanceGrid);
+        registerClientAction(ACTION_RESTORE_LAST_RECIPE, Boolean.class, this::restoreLastRecipe);
     }
 
     @Override
@@ -148,7 +167,10 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
             craftingInventory.setInventorySlotContents(i, testInput.get(i));
         }
 
-        this.currentRecipe = CraftingManager.findMatchingRecipe(craftingInventory, this.getPlayer().world);
+        this.recipeCandidates = RecipeSelection.findCandidates(craftingInventory, this.getPlayer().world);
+        RecipeSelection.Candidate selected = RecipeSelection.select(this.recipeCandidates, this.selectedRecipeId);
+        this.currentRecipe = selected == null ? null : selected.recipe();
+        this.selectedRecipeId = selected == null ? null : selected.id();
         this.lastTestedInput = testInput;
         this.outputSlot.setRecipeUsed(this.currentRecipe);
 
@@ -209,6 +231,50 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
         Preconditions.checkState(isClientSide());
         CraftingMatrixSlot slot = this.craftingSlots[0];
         InitNetwork.sendToServer(new InventoryActionPacket(this.windowId, InventoryAction.MOVE_REGION, slot.slotNumber, 0));
+    }
+
+    @Override
+    public void onServerDataSync(ShortSet updatedFields) {
+        super.onServerDataSync(updatedFields);
+        if (this.selectedRecipeId != null) {
+            applyRecipeSelection(this.selectedRecipeId);
+        }
+    }
+
+    public List<RecipeSelection.Candidate> getRecipeCandidates() {
+        return this.recipeCandidates;
+    }
+
+    @Nullable
+    public ResourceLocation getSelectedRecipeId() {
+        return this.selectedRecipeId;
+    }
+
+    public void selectRecipe(ResourceLocation recipeId) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_SELECT_RECIPE, recipeId.toString());
+            return;
+        }
+        applyRecipeSelection(recipeId);
+    }
+
+    private void selectRecipeFromClient(String recipeId) {
+        try {
+            updateCurrentRecipeAndOutput(true);
+            applyRecipeSelection(new ResourceLocation(recipeId));
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void applyRecipeSelection(ResourceLocation recipeId) {
+        RecipeSelection.Candidate selected = RecipeSelection.select(this.recipeCandidates, recipeId);
+        if (selected == null || !selected.id().equals(recipeId)) {
+            return;
+        }
+        this.selectedRecipeId = selected.id();
+        this.currentRecipe = selected.recipe();
+        this.outputSlot.setRecipeUsed(this.currentRecipe);
+        this.outputSlot.setDisplayedCraftingOutput(selected.output().copy());
     }
 
     @Override
@@ -314,6 +380,103 @@ public class ContainerCraftingTerm extends ContainerMEStorage implements ICrafti
         }
 
         this.clearGridOnClose = clearGridOnClose;
+    }
+
+    public void rotateGrid(boolean counterClockwise) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_ROTATE_GRID, counterClockwise);
+            return;
+        }
+
+        CraftingGridTweaks.rotate(this.craftingGrid, counterClockwise);
+        onCraftMatrixChanged(this.craftingGrid.toContainer());
+    }
+
+    public void balanceGrid(boolean fill) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_BALANCE_GRID, fill);
+            return;
+        }
+
+        if (fill) {
+            CraftingGridTweaks.spread(this.craftingGrid);
+        } else {
+            CraftingGridTweaks.balance(this.craftingGrid);
+        }
+        onCraftMatrixChanged(this.craftingGrid.toContainer());
+        this.broadcastChanges();
+    }
+
+    public void restoreLastRecipe(boolean singleSet) {
+        if (isClientSide()) {
+            sendClientAction(ACTION_RESTORE_LAST_RECIPE, singleSet);
+            return;
+        }
+
+        List<ItemStack> recipe = LastCraftingRecipeTracker.get(getPlayer());
+        if (recipe == null || recipe.size() != this.craftingGrid.size()) {
+            return;
+        }
+
+        moveCraftingGridToNetwork();
+        for (int slot = 0; slot < this.craftingGrid.size(); slot++) {
+            if (!this.craftingGrid.getStackInSlot(slot).isEmpty()) {
+                return;
+            }
+        }
+        PlayerInternalInventory playerInv = new PlayerInternalInventory(getPlayerInventory());
+        boolean[] restored = new boolean[recipe.size()];
+        for (int firstSlot = 0; firstSlot < recipe.size(); firstSlot++) {
+            if (restored[firstSlot]) {
+                continue;
+            }
+            ItemStack wanted = recipe.get(firstSlot);
+            if (wanted.isEmpty()) {
+                restored[firstSlot] = true;
+                continue;
+            }
+
+            List<Integer> targetSlots = new ArrayList<>();
+            for (int targetSlot = firstSlot; targetSlot < recipe.size(); targetSlot++) {
+                ItemStack target = recipe.get(targetSlot);
+                if (ItemStack.areItemsEqual(wanted, target) && ItemStack.areItemStackTagsEqual(wanted, target)) {
+                    targetSlots.add(targetSlot);
+                    restored[targetSlot] = true;
+                }
+            }
+
+            int wantedAmount = singleSet ? targetSlots.size() : targetSlots.size() * wanted.getMaxStackSize();
+            int gathered = 0;
+            for (int playerSlot = 0; playerSlot < playerInv.size() && gathered < wantedAmount; playerSlot++) {
+                ItemStack available = playerInv.getStackInSlot(playerSlot);
+                if (available.isEmpty() || !ItemStack.areItemsEqual(wanted, available)
+                    || !ItemStack.areItemStackTagsEqual(wanted, available)) {
+                    continue;
+                }
+                int amount = Math.min(wantedAmount - gathered, available.getCount());
+                ItemStack taken = playerInv.extractItem(playerSlot, amount, false);
+                gathered += taken.getCount();
+            }
+
+            AEItemKey key = AEItemKey.of(wanted);
+            if (key != null && gathered < wantedAmount) {
+                long extracted = StorageHelper.poweredExtraction(this.energySource, this.storage, key,
+                    wantedAmount - gathered, getActionSource());
+                gathered += (int) extracted;
+            }
+
+            int[] counts = CraftingGridTweaks.distributeEvenly(gathered, targetSlots.size());
+            for (int i = 0; i < targetSlots.size(); i++) {
+                if (counts[i] <= 0) {
+                    continue;
+                }
+                ItemStack stack = wanted.copy();
+                stack.setCount(counts[i]);
+                this.craftingGrid.setItemDirect(targetSlots.get(i), stack);
+            }
+        }
+        onCraftMatrixChanged(this.craftingGrid.toContainer());
+        this.broadcastChanges();
     }
 
     private void moveCraftingGridToPlayerInventory() {

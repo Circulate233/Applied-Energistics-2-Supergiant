@@ -23,6 +23,10 @@
     "craftingClearPattern": {
       "left": 79,
       "bottom": 159
+    },
+    "craftingRecipeConflictSelection": {
+      "left": 117,
+      "bottom": 118
     }
   }
 }

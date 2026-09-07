@@ -7,6 +7,7 @@ import ae2.client.gui.Icon;
 import ae2.client.gui.WidgetContainer;
 import ae2.client.gui.style.Blitter;
 import ae2.client.gui.widgets.ActionButton;
+import ae2.client.gui.widgets.RecipeSelectionButton;
 import ae2.client.gui.widgets.ToggleButton;
 import ae2.container.SlotSemantics;
 import ae2.container.me.patternencode.ContainerPatternEncodingTerm;
@@ -25,6 +26,7 @@ public class CraftingEncodingPanel extends EncodingModePanel {
     private final ActionButton clearBtn;
     private final ToggleButton substitutionsBtn;
     private final ToggleButton fluidSubstitutionsBtn;
+    private final RecipeSelectionButton recipeSelectionButton;
 
     public CraftingEncodingPanel(AEBaseGui<? extends ContainerPatternEncodingTerm> screen, WidgetContainer widgets) {
         super(screen, widgets);
@@ -56,6 +58,10 @@ public class CraftingEncodingPanel extends EncodingModePanel {
             Tooltips.FluidSubstitutions.text(),
             Tooltips.FluidSubstitutionsDescDisabled.text()));
         widgets.add("craftingFluidSubstitutions", this.fluidSubstitutionsBtn);
+
+        this.recipeSelectionButton = new RecipeSelectionButton(screen, this.container::getRecipeCandidates,
+            this.container::getSelectedRecipeId, this.container::selectRecipe);
+        widgets.add("craftingRecipeConflictSelection", this.recipeSelectionButton.button());
     }
 
     @Override
@@ -89,6 +95,7 @@ public class CraftingEncodingPanel extends EncodingModePanel {
     public void updateBeforeRender() {
         this.substitutionsBtn.setState(this.container.substitute);
         this.fluidSubstitutionsBtn.setState(this.container.substituteFluids);
+        this.recipeSelectionButton.update(this.visible);
     }
 
     @Override
@@ -97,6 +104,7 @@ public class CraftingEncodingPanel extends EncodingModePanel {
         this.clearBtn.setVisibility(visible);
         this.substitutionsBtn.setVisibility(visible);
         this.fluidSubstitutionsBtn.setVisibility(visible);
+        this.recipeSelectionButton.update(visible);
         this.screen.setSlotsHidden(SlotSemantics.CRAFTING_GRID, !visible);
         this.screen.setSlotsHidden(SlotSemantics.CRAFTING_RESULT, !visible);
     }
